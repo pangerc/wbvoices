@@ -1,0 +1,20 @@
+app looks like a business dashboard. instead od multistep wizard, we go to a left sidebar with the following topics:
+
+1. language
+
+- provider picker, preset to elevenlabs
+- language picker, preset to italian
+
+2. brief
+
+- let's just create a static ui for the client description, creative brief and attaching documents. maybe we should also have a campaign format picker (ad read, dialog, group)
+
+3. scripter
+
+- box to create a prompt for ai (static, will be done later)
+- an array of selectbox (list of voices in chosen language) and textbox (what they'll say) combos. one is already there, a plus button below creates another
+- generate button that iterates through the array and gets the audio files
+
+4. mixer
+
+- the list of tracks that are now just ready to be played in a player, later we'll add some ui to allow overlapping and such, adding music and soundfx and have a service that then joins all tracks into one
