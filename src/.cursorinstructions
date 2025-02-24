@@ -18,3 +18,18 @@ app looks like a business dashboard. instead od multistep wizard, we go to a lef
 4. mixer
 
 - the list of tracks that are now just ready to be played in a player, later we'll add some ui to allow overlapping and such, adding music and soundfx and have a service that then joins all tracks into one
+
+### logic of ai copywriting
+
+1. create a monster prompt:
+
+- something about being a talented marketing copywriter
+- explaining that has to create copy for an audio ad in the chosen langugage (info from picker)
+- include the company info and brief from the second tab
+- provide a time limitation of 60 seconds
+- share the format as chosen in the radio select: let's start with ad read (one person) or dialog
+- provide a list of voices with names and genders, instruct to pick them for creative
+- ask to create the ad and return it in xml format that contains the voiceid of the chosen speaker and their statement
+- another part of the xml should be the audio prompt for music generation
+
+2. when the model's response arrives, we have to parse the xml and prefill the forms. make sure you generate several instances of speaker-copy arrays in the scripter tab as supplied by the model

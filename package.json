@@ -14,9 +14,9 @@
     "flag-icons": "^7.3.2",
     "next": "15.1.4",
     "playht": "^0.14.0",
-    "react": "link:@heroicons/react",
+    "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "v1.0#pldfr1rluapm1pl": "link:@genny-api/v1.0#pldfr1rluapm1pl"
+    "openai": "^4.28.4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
