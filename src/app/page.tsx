@@ -144,7 +144,7 @@ export default function DemoTTS() {
     <div key={voice.id} className="flex items-center gap-4 w-full">
       <button
         onClick={() => handleVoiceSelect(voice, index)}
-        className={`flex-grow bg-white text-black font-bold uppercase py-4 px-6 hover:bg-black hover:text-white focus:outline-none focus:ring-2 focus:ring-wb-blue focus:ring-offset-2 transition-colors text-left ${
+        className={`grow bg-white text-black font-bold uppercase py-4 px-6 hover:bg-black hover:text-white focus:outline-hidden focus:ring-2 focus:ring-wb-blue focus:ring-offset-2 transition-colors text-left ${
           isSelected ? "bg-black text-white" : ""
         }`}
       >
@@ -210,7 +210,7 @@ export default function DemoTTS() {
                 <button
                   key={lang.code}
                   onClick={() => handleLanguageSelect(lang.code as Language)}
-                  className="w-full bg-white text-black font-bold uppercase py-4 px-6 hover:bg-black hover:text-white focus:outline-none focus:ring-2 focus:ring-wb-blue focus:ring-offset-2 transition-colors text-left"
+                  className="w-full bg-white text-black font-bold uppercase py-4 px-6 hover:bg-black hover:text-white focus:outline-hidden focus:ring-2 focus:ring-wb-blue focus:ring-offset-2 transition-colors text-left"
                 >
                   {lang.name}
                 </button>
@@ -231,13 +231,13 @@ export default function DemoTTS() {
             <div className="grid grid-cols-1 gap-4">
               <button
                 onClick={() => handleStyleSelect("simple")}
-                className="w-full bg-white text-black font-bold uppercase py-4 px-6 hover:bg-black hover:text-white focus:outline-none focus:ring-2 focus:ring-wb-blue focus:ring-offset-2 transition-colors text-left"
+                className="w-full bg-white text-black font-bold uppercase py-4 px-6 hover:bg-black hover:text-white focus:outline-hidden focus:ring-2 focus:ring-wb-blue focus:ring-offset-2 transition-colors text-left"
               >
                 Simple ad read
               </button>
               <button
                 onClick={() => handleStyleSelect("dialogue")}
-                className="w-full bg-white text-black font-bold uppercase py-4 px-6 hover:bg-black hover:text-white focus:outline-none focus:ring-2 focus:ring-wb-blue focus:ring-offset-2 transition-colors text-left"
+                className="w-full bg-white text-black font-bold uppercase py-4 px-6 hover:bg-black hover:text-white focus:outline-hidden focus:ring-2 focus:ring-wb-blue focus:ring-offset-2 transition-colors text-left"
               >
                 Dialogue
               </button>
@@ -317,7 +317,7 @@ export default function DemoTTS() {
 
             <button
               onClick={handleStreamTTS}
-              className="w-full bg-white text-black font-bold uppercase py-2 px-4 hover:bg-black hover:text-white focus:outline-none focus:ring-2 focus:ring-wb-blue focus:ring-offset-2 transition-colors"
+              className="w-full bg-white text-black font-bold uppercase py-2 px-4 hover:bg-black hover:text-white focus:outline-hidden focus:ring-2 focus:ring-wb-blue focus:ring-offset-2 transition-colors"
             >
               Convert to Speech
             </button>
@@ -369,7 +369,7 @@ export default function DemoTTS() {
             </button>
           )}
 
-          <div className="bg-wb-blue/20 backdrop-blur-sm p-6 space-y-6 border-l-2 border-white">
+          <div className="bg-wb-blue/20 backdrop-blur-xs p-6 space-y-6 border-l-2 border-white">
             <div className="text-center">
               <Image
                 src="/logo.svg"
