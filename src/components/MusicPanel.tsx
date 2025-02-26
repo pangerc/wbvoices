@@ -87,12 +87,15 @@ export function MusicPanel({
   ];
 
   return (
-    <div className="p-8 h-full text-white">
+    <div className="p-8 h-full text-black">
+      <h1 className="text-6xl font-black mb-4 uppercase text-center">WBLV</h1>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Music Generation</h2>
+        <h2 className="text-3xl font-medium text-center w-full mb-6 uppercase ml-16">
+          Music Generation
+        </h2>
         <button
           onClick={handleReset}
-          className="rounded-md bg-white px-2.5 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+          className=" bg-white px-2.5 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
         >
           Reset
         </button>
@@ -105,7 +108,7 @@ export function MusicPanel({
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            className="bg-white block w-full rounded-md border-0 p-1.5 text-gray-900  ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm sm:leading-6"
+            className="bg-white block w-full border-0 p-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm sm:leading-6"
             rows={3}
             placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
           />
@@ -122,7 +125,7 @@ export function MusicPanel({
                   key={providerOption.id}
                   value={providerOption.id}
                   className={({ active, checked }) =>
-                    `relative flex cursor-pointer rounded-lg px-5 py-4 shadow-md focus:outline-none ${
+                    `relative flex cursor-pointer px-5 py-4 ring-1 ring-inset ring-gray-300 focus:outline-none ${
                       active
                         ? "ring-2 ring-sky-500 ring-opacity-60 ring-offset-2"
                         : ""
@@ -141,7 +144,7 @@ export function MusicPanel({
                             <RadioGroup.Label
                               as="p"
                               className={`font-medium ${
-                                checked ? "text-sky-900" : "text-gray-900"
+                                checked ? "text-black" : "text-gray-500"
                               }`}
                             >
                               {providerOption.name}
@@ -149,7 +152,7 @@ export function MusicPanel({
                             <RadioGroup.Description
                               as="span"
                               className={`inline ${
-                                checked ? "text-sky-700" : "text-gray-500"
+                                checked ? "text-black" : "text-gray-500"
                               }`}
                             >
                               {providerOption.description}
@@ -157,7 +160,7 @@ export function MusicPanel({
                           </div>
                         </div>
                         {checked && (
-                          <div className="shrink-0 text-sky-500">
+                          <div className="shrink-0 text-black">
                             <CheckCircleIcon className="h-6 w-6" />
                           </div>
                         )}
@@ -173,9 +176,9 @@ export function MusicPanel({
         <div>
           <label
             htmlFor="duration"
-            className="block text-sm font-medium leading-6 text-white"
+            className="block text-sm font-medium  leading-6"
           >
-            Duration: {duration} seconds{" "}
+            Duration: <span className="text-gray-500">{duration} seconds </span>
             {provider === "loudly" &&
               duration % 15 !== 0 &&
               "(will be rounded to nearest 15s)"}
@@ -191,7 +194,7 @@ export function MusicPanel({
             onChange={(e) => setDuration(parseInt(e.target.value))}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-2"
           />
-          <div className="flex justify-between text-xs text-gray-300 mt-1">
+          <div className="flex justify-between text-xs text-gray-800 mt-1 ">
             <span>30s</span>
             <span>60s</span>
             <span>90s</span>
@@ -204,7 +207,7 @@ export function MusicPanel({
         <button
           onClick={handleGenerate}
           disabled={isGenerating || !prompt.trim()}
-          className="w-full rounded-md bg-sky-500 px-3 py-2 text-sm font-semibold text-white  hover:bg-black focus-visible:outline  focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:opacity-50"
+          className="w-full  bg-black px-3 py-2 text-lg uppercase font-medium text-white  hover:bg-sky-500 focus-visible:outline  focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:opacity-50 my-12"
         >
           {isGenerating ? "Generating..." : "Generate Music"}
         </button>

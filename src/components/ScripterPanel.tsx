@@ -36,16 +36,18 @@ export function ScripterPanel({
   };
 
   return (
-    <div className="p-8 h-full text-white">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Voice Script</h2>
-        <button
-          onClick={handleReset}
-          className="rounded-md bg-white px-2.5 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-        >
-          Reset
-        </button>
-      </div>
+    <div className="p-8 h-full text-black flex flex-col">
+      <h1 className="text-6xl font-black mb-4 uppercase text-center">WBLV</h1>
+
+      <h2 className="text-3xl font-medium text-center w-full mb-6 uppercase mr-24">
+        Voice Script
+      </h2>
+      <button
+        onClick={handleReset}
+        className=" bg-white px-2.5 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 ml-auto"
+      >
+        Reset
+      </button>
 
       <div className="space-y-6">
         {voiceTracks.map((track, index) => (
@@ -62,7 +64,7 @@ export function ScripterPanel({
                 onChange={(voice) => updateVoiceTrack(index, { voice })}
               >
                 <div className="relative">
-                  <Listbox.Button className="relative w-full cursor-default rounded-md bg-white py-1.5 pl-3 pr-10 text-left text-gray-900 ring-1 ring-inset ring-gray-300 focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm sm:leading-6">
+                  <Listbox.Button className="relative w-full cursor-default  bg-white py-1.5 pl-3 pr-10 text-left text-gray-900 ring-1 ring-inset ring-gray-300 focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm sm:leading-6">
                     <span className="flex items-center gap-2">
                       {track.voice ? (
                         <>
@@ -85,7 +87,7 @@ export function ScripterPanel({
                     </span>
                   </Listbox.Button>
 
-                  <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                  <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto  bg-white py-1 text-base shadow-lg ring-1 ring-gray-300 ring-opacity-5 focus:outline-none sm:text-sm">
                     {voices.map((voice) => (
                       <Listbox.Option
                         key={voice.id}
@@ -173,36 +175,31 @@ export function ScripterPanel({
                 onChange={(e) =>
                   updateVoiceTrack(index, { text: e.target.value })
                 }
-                className="w-full bg-white rounded-md border-0 p-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm sm:leading-6"
+                className="w-full bg-white  border-0 p-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm sm:leading-6"
                 rows={3}
                 placeholder="Enter the script for this voice..."
               />
             </div>
           </div>
         ))}
-
-        <div className="md:grid md:grid-cols-3 md:gap-4">
-          <button
-            onClick={addVoiceTrack}
-            className="rounded-md bg-white px-2.5 py-1.5 text-sm  text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-          >
-            Add Voice Track
-          </button>
-          <button
-            onClick={generateAudio}
-            disabled={
-              isGenerating || !voiceTracks.some((t) => t.voice && t.text)
-            }
-            className="md:col-span-2 rounded-md bg-sky-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-sky-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:opacity-50"
-          >
-            {isGenerating ? "Generating..." : "Generate Audio"}
-          </button>
-        </div>
-
-        {statusMessage && (
-          <p className="text-center text-sm text-gray-300">{statusMessage}</p>
-        )}
+        <button
+          onClick={addVoiceTrack}
+          className=" bg-white px-2.5 py-1.5 text-sm  text-gray-900 border-dashed border border-gray-300 hover:bg-gray-50 w-full"
+        >
+          Add Voice Track
+        </button>
+        <button
+          onClick={generateAudio}
+          disabled={isGenerating || !voiceTracks.some((t) => t.voice && t.text)}
+          className="md:col-span-2  bg-black px-2.5 py-1.5 text-lg uppercase font-medium text-white hover:bg-sky-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:opacity-50 w-full"
+        >
+          {isGenerating ? "Generating..." : "Generate Audio"}
+        </button>
       </div>
+
+      {statusMessage && (
+        <p className="text-center text-sm text-gray-300">{statusMessage}</p>
+      )}
     </div>
   );
 }

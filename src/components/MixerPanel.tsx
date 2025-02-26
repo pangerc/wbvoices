@@ -95,12 +95,15 @@ export function MixerPanel({
   }, [previewUrl]);
 
   return (
-    <div className="p-8 h-full text-white">
+    <div className="p-8 h-full text-black">
+      <h1 className="text-6xl font-black mb-4 uppercase text-center">WBLV</h1>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Mixing Studio</h2>
+        <h2 className="text-3xl font-medium text-center w-full mb-6 uppercase ml-12 ">
+          Mixing Studio
+        </h2>
         <button
           onClick={handleReset}
-          className="rounded-md bg-white px-2.5 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+          className="-md bg-white px-2.5 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
         >
           Reset
         </button>
@@ -111,7 +114,7 @@ export function MixerPanel({
           <h3 className="text-lg font-semibold mb-4">Voice Tracks</h3>
           <div className="space-y-4">
             {voiceTracks.map((track, index) => (
-              <div key={index} className="p-4 bg-white rounded shadow">
+              <div key={index} className="p-4 bg-white ">
                 <div className="flex justify-between items-center mb-2">
                   <p className="text-sm text-gray-600">{track.label}</p>
                   {onRemoveTrack && (
@@ -137,7 +140,7 @@ export function MixerPanel({
           <h3 className="text-lg font-semibold mb-4">Music Track</h3>
           <div className="space-y-4">
             {musicTracks.map((track, index) => (
-              <div key={index} className="p-4 bg-white rounded shadow">
+              <div key={index} className="p-4 bg-white ">
                 <div className="flex justify-between items-center mb-2">
                   <p className="text-sm text-gray-600">{track.label}</p>
                   {onRemoveTrack && (
@@ -161,7 +164,7 @@ export function MixerPanel({
       {tracks.length > 0 && (
         <div className="mb-8">
           <h3 className="text-lg font-semibold mb-4">Final Mix</h3>
-          <div className="p-4 bg-white rounded shadow">
+          <div className="p-4 bg-white ">
             {previewUrl ? (
               <div className="space-y-4">
                 <div className="flex justify-between items-center mb-2">
@@ -179,7 +182,7 @@ export function MixerPanel({
                 <button
                   onClick={handleExport}
                   disabled={isExporting}
-                  className="w-full px-4 py-2 bg-black text-white rounded hover:bg-sky-800 disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-black text-white  hover:bg-sky-500 disabled:opacity-50"
                 >
                   {isExporting ? "Downloading..." : "Download Mix"}
                 </button>
@@ -188,7 +191,7 @@ export function MixerPanel({
               <button
                 onClick={handlePreview}
                 disabled={isExporting}
-                className="w-full px-4 py-2 bg-sky-500 text-white rounded hover:bg-sky-600 disabled:opacity-50"
+                className="w-full px-4 py-2 bg-black text-lg font-semibold text-white  hover:bg-sky-500 disabled:opacity-50"
               >
                 {isExporting ? "Processing..." : "Preview Mix"}
               </button>
@@ -198,7 +201,7 @@ export function MixerPanel({
       )}
 
       {tracks.length === 0 && (
-        <p className="text-center text-gray-300">
+        <p className="text-center text-gray-500 mt-24">
           No tracks available. Generate some voice or music tracks to get
           started.
         </p>

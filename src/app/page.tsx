@@ -466,7 +466,7 @@ export default function DemoTTS() {
                 }
               >
                 <ChatBubbleLeftRightIcon className="size-5 shrink-0" />
-                Scripter
+                Script
               </Tab>
               <Tab
                 className={({ selected }) =>
@@ -492,7 +492,7 @@ export default function DemoTTS() {
                 }
               >
                 <SpeakerWaveIcon className="size-5 shrink-0" />
-                Mixer
+                Mix
               </Tab>
             </Tab.List>
           </div>

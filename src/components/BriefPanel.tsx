@@ -177,8 +177,8 @@ export function BriefPanel({
 
   return (
     <div className="p-8 h-full text-black">
-      <h1 className="text-6xl font-black mb-12 uppercase text-center">WBLV</h1>
-      <h2 className="text-3xl font-medium mb-6 uppercase text-center">
+      <h1 className="text-6xl font-black mb-4 uppercase text-center">WBLV</h1>
+      <h2 className="text-3xl font-medium mb-12 uppercase text-center ">
         Campaign Brief
       </h2>
       <div className="space-y-6">
