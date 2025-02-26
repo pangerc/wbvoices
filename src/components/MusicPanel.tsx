@@ -115,8 +115,8 @@ export function MusicPanel({
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-4 text-white">
-            Music Provider
+          <label className="block text-sm font-medium mb-4 text-black">
+            AI Music Provider
           </label>
           <RadioGroup value={provider} onChange={setProvider}>
             <div className="space-y-2">
