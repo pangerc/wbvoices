@@ -17,4 +17,14 @@ export type VoiceTrack = {
   text: string;
 };
 
-export type CampaignFormat = "ad_read" | "dialog" | "group";
+export type CampaignFormat = "ad_read" | "dialog";
+
+export type MusicProvider = "beatoven" | "loudly";
+
+export type MusicTrack = {
+  id: string;
+  title: string;
+  url: string;
+  duration: number;
+  provider: MusicProvider;
+};

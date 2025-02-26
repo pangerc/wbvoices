@@ -1,27 +1,14 @@
+### UI DESCRIPTION
+
 app looks like a business dashboard. instead od multistep wizard, we go to a left sidebar with the following topics:
 
-1. language
+1. brief
 
 - provider picker, preset to elevenlabs
 - language picker, preset to italian
+  -ui for the client description, creative brief and attaching documents. maybe we should also have a campaign format picker (ad read, dialog, group)
 
-2. brief
-
-- let's just create a static ui for the client description, creative brief and attaching documents. maybe we should also have a campaign format picker (ad read, dialog, group)
-
-3. scripter
-
-- box to create a prompt for ai (static, will be done later)
-- an array of selectbox (list of voices in chosen language) and textbox (what they'll say) combos. one is already there, a plus button below creates another
-- generate button that iterates through the array and gets the audio files
-
-4. mixer
-
-- the list of tracks that are now just ready to be played in a player, later we'll add some ui to allow overlapping and such, adding music and soundfx and have a service that then joins all tracks into one
-
-### logic of ai copywriting
-
-1. create a monster prompt:
+clicking on generate
 
 - something about being a talented marketing copywriter
 - explaining that has to create copy for an audio ad in the chosen langugage (info from picker)
@@ -33,3 +20,18 @@ app looks like a business dashboard. instead od multistep wizard, we go to a lef
 - another part of the xml should be the audio prompt for music generation
 
 2. when the model's response arrives, we have to parse the xml and prefill the forms. make sure you generate several instances of speaker-copy arrays in the scripter tab as supplied by the model
+
+3. scripter
+
+- box to create a prompt for ai (static, will be done later)
+- an array of selectbox (list of voices in chosen language) and textbox (what they'll say) combos. one is already there, a plus button below creates another
+- generate button that iterates through the array and gets the audio files
+
+3. mixer
+
+- the list of tracks that are now just ready to be played in a player, later we'll add some ui to allow overlapping and such, adding music and soundfx and have a service that then joins all tracks into one
+
+### STACK
+
+- nextjs
+- tailwind 4.0: careful, this is completely different from what you're used to! no tailwind.config.js anymore!

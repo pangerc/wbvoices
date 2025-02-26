@@ -13,10 +13,10 @@
     "@heroicons/react": "^2.2.0",
     "flag-icons": "^7.3.2",
     "next": "15.1.4",
+    "openai": "^4.28.4",
     "playht": "^0.14.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "openai": "^4.28.4"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -24,6 +24,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.20",
     "eslint": "^9",
     "eslint-config-next": "15.1.4",
     "postcss": "^8",

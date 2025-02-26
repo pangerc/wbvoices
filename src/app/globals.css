@@ -1,8 +1,12 @@
-@import 'tailwindcss';
-
+/* Tailwind CSS v4 styles */
+@import "tailwindcss";
 @theme {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Font families */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  
+  /* Colors */
   --color-wb-blue: #008dff;
 }
 
@@ -27,6 +31,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -39,5 +45,5 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }

@@ -1,26 +1,30 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { Tab } from "@headlessui/react";
 import {
-  LanguageIcon,
-  BuildingStorefrontIcon,
+  ClipboardDocumentIcon,
   ChatBubbleLeftRightIcon,
   SpeakerWaveIcon,
   MusicalNoteIcon,
 } from "@heroicons/react/24/outline";
-import "flag-icons/css/flag-icons.min.css";
 import { Language, getLanguageName } from "@/utils/language";
-import { Provider, Voice, VoiceTrack, CampaignFormat } from "@/types";
 import {
-  LanguagePanel,
+  Provider,
+  Voice,
+  VoiceTrack,
+  CampaignFormat,
+  MusicProvider,
+} from "@/types";
+import {
   BriefPanel,
   ScripterPanel,
   MixerPanel,
   MusicPanel,
 } from "@/components";
 import { generateMusic } from "@/utils/beatoven-api";
+import { generateMusicWithLoudly } from "@/utils/loudly-api";
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -44,11 +48,19 @@ export default function DemoTTS() {
   // State for tab management
   const [selectedTab, setSelectedTab] = useState(0);
 
+  // Reset status message when switching tabs
+  const handleTabChange = (index: number) => {
+    // Clear status message when switching tabs
+    setStatusMessage("");
+    setSelectedTab(index);
+  };
+
   // State for Brief section
   const [clientDescription, setClientDescription] = useState("");
   const [creativeBrief, setCreativeBrief] = useState("");
   const [campaignFormat, setCampaignFormat] =
     useState<CampaignFormat>("ad_read");
+  const [adDuration, setAdDuration] = useState(60); // Default 60 seconds
 
   // State for Scripter section
   const [voiceTracks, setVoiceTracks] = useState<VoiceTrack[]>([
@@ -75,20 +87,41 @@ export default function DemoTTS() {
     setStatusMessage("");
   };
 
+  // Reset music form
+  const resetMusicForm = () => {
+    setMusicPrompt("");
+    setIsGeneratingMusic(false);
+    setStatusMessage("");
+  };
+
+  // Reset mixer form
+  const resetMixerForm = () => {
+    setTracks([]);
+    setStatusMessage("");
+  };
+
+  // Reset all forms
+  const resetAllForms = () => {
+    resetScripterForm();
+    resetMusicForm();
+    resetMixerForm();
+    setStatusMessage("");
+  };
+
   // Reset form when language changes
-  React.useEffect(() => {
+  useEffect(() => {
     resetScripterForm();
   }, [selectedLanguage, selectedProvider]);
 
   // Switch to mixer tab when generation is complete
-  React.useEffect(() => {
+  useEffect(() => {
     if (tracks.length > 0) {
-      setSelectedTab(4); // Index 4 is now the mixer tab
+      setSelectedTab(3); // Index 3 is now the mixer tab (was 4)
     }
   }, [tracks]);
 
   // Fetch available languages based on provider
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchLanguages = async () => {
       if (selectedProvider === "lovo") {
         // Fetch all voices from LOVO API
@@ -141,7 +174,7 @@ export default function DemoTTS() {
   }, [selectedProvider]);
 
   // Fetch and filter voices based on provider and language
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchVoices = async () => {
       const response = await fetch(
         `/api/getVoices?provider=${selectedProvider}&language=${selectedLanguage}`
@@ -263,28 +296,55 @@ export default function DemoTTS() {
     }
   };
 
-  const handleGenerateMusic = async (prompt: string) => {
-    setIsGeneratingMusic(true);
-    setStatusMessage("Generating music...");
+  const handleGenerateMusic = async (
+    prompt: string,
+    provider: MusicProvider,
+    duration: number
+  ) => {
     try {
-      const audioUrl = await generateMusic(prompt);
-      // Remove existing music track and add new one
+      setIsGeneratingMusic(true);
+      setStatusMessage("Generating music...");
+
+      // Remove any existing music tracks before generating new ones
+      setTracks((current) => current.filter((t) => t.type !== "music"));
+
+      let musicTrack;
+
+      if (provider === "beatoven") {
+        musicTrack = await generateMusic(prompt, duration);
+      } else {
+        // Loudly requires duration in 15-second increments
+        const Duration = Math.round(duration / 15) * 15;
+        musicTrack = await generateMusicWithLoudly(prompt, Duration);
+      }
+
+      if (!musicTrack || !musicTrack.url) {
+        throw new Error(`Failed to generate music with ${provider}`);
+      }
+
+      // Add to tracks
+      const newTrack: Track = {
+        url: musicTrack.url,
+        label: `Music: "${musicTrack.title.substring(0, 30)}${
+          musicTrack.title.length > 30 ? "..." : ""
+        }" (${duration}s)`,
+        type: "music",
+      };
+
+      // Remove any existing music tracks
       setTracks((current) => [
-        ...current.filter((t) => t.type === "voice"),
-        {
-          url: audioUrl,
-          label: `Music: "${prompt.slice(0, 30)}${
-            prompt.length > 30 ? "..." : ""
-          }"`,
-          type: "music",
-        },
+        ...current.filter((t) => t.type !== "music"),
+        newTrack,
       ]);
-      setSelectedTab(4); // Switch to mixer tab
+
       setStatusMessage("Music generation complete!");
+      setSelectedTab(3); // Switch to mixer tab (was 4)
     } catch (error) {
       console.error("Failed to generate music:", error);
       setStatusMessage(
-        error instanceof Error ? error.message : "Failed to generate music"
+        `Failed to generate music: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
       );
     } finally {
       setIsGeneratingMusic(false);
@@ -298,172 +358,204 @@ export default function DemoTTS() {
     // Reset existing voice tracks
     setTracks((current) => current.filter((t) => t.type === "music"));
 
+    // Get the filtered voices for the selected language
+    const filteredVoices = getFilteredVoices();
+    console.log(
+      "Filtered voices for voice selection:",
+      filteredVoices.map((v) => `${v.name} (${v.id})`)
+    );
+
     // Create new voice tracks from segments
-    const newVoiceTracks = segments
-      .map((segment) => {
-        const voice = allVoices.find((v) => v.id === segment.voiceId);
-        if (!voice) return null;
-        return {
-          voice,
-          text: segment.text,
-        } as VoiceTrack;
-      })
-      .filter((track): track is VoiceTrack => track !== null);
+    const newVoiceTracks = segments.map((segment) => {
+      // Try to find the voice by ID from filtered voices first
+      let voice = filteredVoices.find((v) => v.id === segment.voiceId);
+
+      // If not found in filtered voices, try to find by ID in all voices (fallback)
+      if (!voice) {
+        voice = allVoices.find((v) => v.id === segment.voiceId);
+      }
+
+      // If still not found, try to find a voice by name in filtered voices
+      if (!voice) {
+        voice = filteredVoices.find(
+          (v) => v.name.toLowerCase() === segment.voiceId.toLowerCase()
+        );
+      }
+
+      // If still not found, try to find by name in all voices (fallback)
+      if (!voice) {
+        voice = allVoices.find(
+          (v) => v.name.toLowerCase() === segment.voiceId.toLowerCase()
+        );
+      }
+
+      // If still not found, use the first available voice for the selected language
+      if (!voice) {
+        console.log(
+          `Voice ID "${segment.voiceId}" not found, using a fallback voice`
+        );
+        voice = filteredVoices.length > 0 ? filteredVoices[0] : allVoices[0];
+      }
+
+      return {
+        voice,
+        text: segment.text,
+      } as VoiceTrack;
+    });
+
+    // Reset forms before setting new data
+    resetAllForms();
 
     setVoiceTracks(newVoiceTracks);
     setMusicPrompt(prompt); // Store the music prompt
 
     // Switch to scripter tab
-    setSelectedTab(2);
+    setSelectedTab(1); // Scripter is now at index 1 (was 2)
   };
 
   return (
-    <>
-      <div className="flex h-screen bg-gray-100">
-        <Tab.Group
-          vertical
-          as="div"
-          className="flex w-full"
-          selectedIndex={selectedTab}
-          onChange={setSelectedTab}
-        >
-          {/* Sidebar */}
-          <div className="w-64 bg-sky-400 shadow-lg flex-shrink-0">
-            <div className="p-4">
-              <Image
-                src="/logo.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-                className="mb-8 mt-6"
+    <div
+      className="flex h-screen bg-white text-black relative z-10"
+      style={{
+        backgroundImage: "url('/bg-pixels.svg')",
+        backgroundSize: "contain",
+        backgroundPosition: "left",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <Tab.Group
+        vertical
+        as="div"
+        className="flex w-full"
+        selectedIndex={selectedTab}
+        onChange={handleTabChange}
+      >
+        {/* Sidebar */}
+        <div className="w-64 bg-black shadow-lg flex-shrink-0">
+          <div className="p-4">
+            <Image
+              src="/logo.svg"
+              alt="Logo"
+              width={150}
+              height={40}
+              className="mb-8 mt-6"
+            />
+
+            <Tab.List className="space-y-2">
+              <Tab
+                className={({ selected }) =>
+                  classNames(
+                    "w-full text-left p-2  transition-colors focus:outline-none flex items-center gap-3",
+                    selected
+                      ? "bg-white text-black "
+                      : "text-white hover:bg-red-700"
+                  )
+                }
+              >
+                <ClipboardDocumentIcon className="size-5 shrink-0" />
+                Brief
+              </Tab>
+              <Tab
+                className={({ selected }) =>
+                  classNames(
+                    "w-full text-left p-2  transition-colors focus:outline-none flex items-center gap-3",
+                    selected
+                      ? "bg-white text-black"
+                      : "text-white hover:bg-red-700"
+                  )
+                }
+              >
+                <ChatBubbleLeftRightIcon className="size-5 shrink-0" />
+                Scripter
+              </Tab>
+              <Tab
+                className={({ selected }) =>
+                  classNames(
+                    "w-full text-left p-2  transition-colors focus:outline-none flex items-center gap-3",
+                    selected
+                      ? "bg-white text-black"
+                      : "text-white hover:bg-red-700"
+                  )
+                }
+              >
+                <MusicalNoteIcon className="size-5 shrink-0" />
+                Music
+              </Tab>
+              <Tab
+                className={({ selected }) =>
+                  classNames(
+                    "w-full text-left p-2  transition-colors focus:outline-none flex items-center gap-3",
+                    selected
+                      ? "bg-white text-black"
+                      : "text-white hover:bg-red-700"
+                  )
+                }
+              >
+                <SpeakerWaveIcon className="size-5 shrink-0" />
+                Mixer
+              </Tab>
+            </Tab.List>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-hidden">
+          <Tab.Panels className="h-full overflow-auto">
+            <Tab.Panel className="w-full h-full">
+              <BriefPanel
+                clientDescription={clientDescription}
+                setClientDescription={setClientDescription}
+                creativeBrief={creativeBrief}
+                setCreativeBrief={setCreativeBrief}
+                campaignFormat={campaignFormat}
+                setCampaignFormat={setCampaignFormat}
+                selectedLanguage={selectedLanguage}
+                setSelectedLanguage={setSelectedLanguage}
+                selectedProvider={selectedProvider}
+                setSelectedProvider={setSelectedProvider}
+                availableLanguages={availableLanguages}
+                getFilteredVoices={getFilteredVoices}
+                adDuration={adDuration}
+                setAdDuration={setAdDuration}
+                onGenerateCreative={handleGenerateCreative}
               />
+            </Tab.Panel>
 
-              <Tab.List className="space-y-2">
-                <Tab
-                  className={({ selected }) =>
-                    classNames(
-                      "w-full text-left p-2 rounded transition-colors focus:outline-none flex items-center gap-3",
-                      selected
-                        ? "bg-white text-sky-600"
-                        : "text-white hover:bg-sky-500"
-                    )
-                  }
-                >
-                  <LanguageIcon className="size-5 shrink-0" />
-                  Language
-                </Tab>
-                <Tab
-                  className={({ selected }) =>
-                    classNames(
-                      "w-full text-left p-2 rounded transition-colors focus:outline-none flex items-center gap-3",
-                      selected
-                        ? "bg-white text-sky-600"
-                        : "text-white hover:bg-sky-500"
-                    )
-                  }
-                >
-                  <BuildingStorefrontIcon className="size-5 shrink-0" />
-                  Brief
-                </Tab>
-                <Tab
-                  className={({ selected }) =>
-                    classNames(
-                      "w-full text-left p-2 rounded transition-colors focus:outline-none flex items-center gap-3",
-                      selected
-                        ? "bg-white text-sky-600"
-                        : "text-white hover:bg-sky-500"
-                    )
-                  }
-                >
-                  <ChatBubbleLeftRightIcon className="size-5 shrink-0" />
-                  Scripter
-                </Tab>
-                <Tab
-                  className={({ selected }) =>
-                    classNames(
-                      "w-full text-left p-2 rounded transition-colors focus:outline-none flex items-center gap-3",
-                      selected
-                        ? "bg-white text-sky-600"
-                        : "text-white hover:bg-sky-500"
-                    )
-                  }
-                >
-                  <MusicalNoteIcon className="size-5 shrink-0" />
-                  Music
-                </Tab>
-                <Tab
-                  className={({ selected }) =>
-                    classNames(
-                      "w-full text-left p-2 rounded transition-colors focus:outline-none flex items-center gap-3",
-                      selected
-                        ? "bg-white text-sky-600"
-                        : "text-white hover:bg-sky-500"
-                    )
-                  }
-                >
-                  <SpeakerWaveIcon className="size-5 shrink-0" />
-                  Mixer
-                </Tab>
-              </Tab.List>
-            </div>
-          </div>
+            <Tab.Panel>
+              <ScripterPanel
+                voiceTracks={voiceTracks}
+                updateVoiceTrack={updateVoiceTrack}
+                addVoiceTrack={addVoiceTrack}
+                generateAudio={generateAudio}
+                isGenerating={isGenerating}
+                statusMessage={statusMessage}
+                selectedLanguage={selectedLanguage}
+                getFilteredVoices={getFilteredVoices}
+                resetForm={resetScripterForm}
+              />
+            </Tab.Panel>
 
-          {/* Main Content */}
-          <div className="flex-1 overflow-hidden">
-            <Tab.Panels className="h-full overflow-auto">
-              <Tab.Panel>
-                <LanguagePanel
-                  selectedProvider={selectedProvider}
-                  setSelectedProvider={setSelectedProvider}
-                  selectedLanguage={selectedLanguage}
-                  setSelectedLanguage={setSelectedLanguage}
-                  availableLanguages={availableLanguages}
-                />
-              </Tab.Panel>
+            <Tab.Panel>
+              <MusicPanel
+                onGenerate={handleGenerateMusic}
+                isGenerating={isGeneratingMusic}
+                statusMessage={statusMessage}
+                initialPrompt={musicPrompt}
+                adDuration={adDuration}
+                resetForm={resetMusicForm}
+              />
+            </Tab.Panel>
 
-              <Tab.Panel>
-                <BriefPanel
-                  clientDescription={clientDescription}
-                  setClientDescription={setClientDescription}
-                  creativeBrief={creativeBrief}
-                  setCreativeBrief={setCreativeBrief}
-                  campaignFormat={campaignFormat}
-                  setCampaignFormat={setCampaignFormat}
-                  selectedLanguage={selectedLanguage}
-                  availableVoices={allVoices}
-                  onGenerateCreative={handleGenerateCreative}
-                />
-              </Tab.Panel>
-
-              <Tab.Panel>
-                <ScripterPanel
-                  voiceTracks={voiceTracks}
-                  updateVoiceTrack={updateVoiceTrack}
-                  addVoiceTrack={addVoiceTrack}
-                  generateAudio={generateAudio}
-                  isGenerating={isGenerating}
-                  statusMessage={statusMessage}
-                  selectedLanguage={selectedLanguage}
-                  getFilteredVoices={getFilteredVoices}
-                />
-              </Tab.Panel>
-
-              <Tab.Panel>
-                <MusicPanel
-                  onGenerate={handleGenerateMusic}
-                  isGenerating={isGeneratingMusic}
-                  statusMessage={statusMessage}
-                  initialPrompt={musicPrompt}
-                />
-              </Tab.Panel>
-
-              <Tab.Panel>
-                <MixerPanel tracks={tracks} onRemoveTrack={handleRemoveTrack} />
-              </Tab.Panel>
-            </Tab.Panels>
-          </div>
-        </Tab.Group>
-      </div>
-    </>
+            <Tab.Panel>
+              <MixerPanel
+                tracks={tracks}
+                onRemoveTrack={handleRemoveTrack}
+                resetForm={resetMixerForm}
+              />
+            </Tab.Panel>
+          </Tab.Panels>
+        </div>
+      </Tab.Group>
+    </div>
   );
 }

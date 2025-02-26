@@ -10,13 +10,28 @@ type Track = {
 type MixerPanelProps = {
   tracks: Track[];
   onRemoveTrack?: (index: number) => void;
+  resetForm: () => void;
 };
 
-export function MixerPanel({ tracks, onRemoveTrack }: MixerPanelProps) {
+export function MixerPanel({
+  tracks,
+  onRemoveTrack,
+  resetForm,
+}: MixerPanelProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const voiceTracks = tracks.filter((track) => track.type === "voice");
   const musicTracks = tracks.filter((track) => track.type === "music");
+
+  // Handle local reset
+  const handleReset = () => {
+    // Clean up preview URL if it exists
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    resetForm();
+  };
 
   const handleExport = async () => {
     try {
@@ -80,9 +95,15 @@ export function MixerPanel({ tracks, onRemoveTrack }: MixerPanelProps) {
   }, [previewUrl]);
 
   return (
-    <div className="p-8 h-full">
-      <div className="mb-6">
+    <div className="p-8 h-full text-white">
+      <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Mixing Studio</h2>
+        <button
+          onClick={handleReset}
+          className="rounded-md bg-white px-2.5 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+        >
+          Reset
+        </button>
       </div>
 
       {voiceTracks.length > 0 && (
@@ -177,7 +198,7 @@ export function MixerPanel({ tracks, onRemoveTrack }: MixerPanelProps) {
       )}
 
       {tracks.length === 0 && (
-        <p className="text-center text-gray-500">
+        <p className="text-center text-gray-300">
           No tracks available. Generate some voice or music tracks to get
           started.
         </p>
