@@ -96,10 +96,10 @@ export function MixerPanel({
 
   return (
     <div className="p-8 h-full text-black">
-      <h1 className="text-6xl font-black mb-4 uppercase text-center">WBLV</h1>
+      <h1 className="text-6xl font-black mb-4 uppercase text-center">STUDIO</h1>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-medium text-center w-full mb-6 uppercase ml-12 ">
-          Mixing Studio
+          Mixing Session
         </h2>
         <button
           onClick={handleReset}
@@ -201,7 +201,7 @@ export function MixerPanel({
       )}
 
       {tracks.length === 0 && (
-        <p className="text-center text-gray-500 mt-24">
+        <p className="text-center text-gray-500 mt-12">
           No tracks available. Generate some voice or music tracks to get
           started.
         </p>

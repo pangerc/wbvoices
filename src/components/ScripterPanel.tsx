@@ -37,7 +37,7 @@ export function ScripterPanel({
 
   return (
     <div className="p-8 h-full text-black flex flex-col">
-      <h1 className="text-6xl font-black mb-4 uppercase text-center">WBLV</h1>
+      <h1 className="text-6xl font-black mb-4 uppercase text-center">STUDIO</h1>
 
       <h2 className="text-3xl font-medium text-center w-full mb-6 uppercase mr-24">
         Voice Script

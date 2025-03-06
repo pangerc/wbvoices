@@ -43,7 +43,7 @@ export async function generateCreativeCopy(
       duration
     );
   } else {
-    // Default to OpenAI GPT-4 for all other models (for now)
+    // Default to OpenAI GPT-4.5 Preview for all other models (for now)
     // In the future, we can add support for other models like Gemini
     return generateWithOpenAI(
       language,
@@ -119,7 +119,7 @@ DO NOT include any explanations, markdown formatting, or additional text outside
   try {
     console.log("Making API call to OpenAI...");
     const completion = await openaiClient.chat.completions.create({
-      model: "gpt-4o", // Using GPT-4o for best results
+      model: "gpt-4.5-preview", // Using gpt-4.5-preview for best creative results
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

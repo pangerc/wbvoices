@@ -57,8 +57,8 @@ const aiModels = [
   },
   {
     code: "gpt4",
-    name: "GPT-4o",
-    description: "OpenAI's fastest model with strong creative capabilities",
+    name: "GPT-4.5 Preview",
+    description: "Largest GPT model for creative tasks and agentic planning",
   },
 ];
 
@@ -192,7 +192,9 @@ export function BriefPanel({
 
   return (
     <div className="p-8 h-full text-black">
-      <h1 className="text-6xl font-black mb-4 uppercase text-center">WBLV</h1>
+      <h1 className="text-6xl font-black mb-4 uppercase text-center flex items-center justify-center gap-2">
+        STUDIO
+      </h1>
       <h2 className="text-3xl font-medium mb-12 uppercase text-center ">
         Campaign Brief
       </h2>
