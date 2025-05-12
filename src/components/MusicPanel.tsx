@@ -187,20 +187,45 @@ export function MusicPanel({
             type="range"
             id="duration"
             name="duration"
-            min="30"
-            max="180"
+            min="15"
+            max="120"
             step={provider === "loudly" ? "15" : "5"}
             value={duration}
             onChange={(e) => setDuration(parseInt(e.target.value))}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-2"
           />
-          <div className="flex justify-between text-xs text-gray-800 mt-1 ">
-            <span>30s</span>
-            <span>60s</span>
-            <span>90s</span>
-            <span>120s</span>
-            <span>150s</span>
-            <span>180s</span>
+          <div className="relative w-full mt-1 h-6">
+            {/* Position calculation: (value - min) / (max - min) * 100% */}
+            <div
+              className="absolute text-xs text-gray-800"
+              style={{ left: "0%" }}
+            >
+              15s
+            </div>
+            <div
+              className="absolute text-xs text-gray-800 transform -translate-x-1/2"
+              style={{ left: `${((30 - 15) / (120 - 15)) * 100}%` }}
+            >
+              30s
+            </div>
+            <div
+              className="absolute text-xs text-gray-800 transform -translate-x-1/2"
+              style={{ left: `${((60 - 15) / (120 - 15)) * 100}%` }}
+            >
+              60s
+            </div>
+            <div
+              className="absolute text-xs text-gray-800 transform -translate-x-1/2"
+              style={{ left: `${((90 - 15) / (120 - 15)) * 100}%` }}
+            >
+              90s
+            </div>
+            <div
+              className="absolute text-xs text-gray-800 text-right"
+              style={{ right: "0%" }}
+            >
+              120s
+            </div>
           </div>
         </div>
 

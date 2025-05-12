@@ -114,7 +114,8 @@ const getVoiceLanguage = (
 
   // If the voice has verified languages, use the first one
   if (voice.verified_languages && voice.verified_languages.length > 0) {
-    const lang = voice.verified_languages[0].toLowerCase();
+    const langRaw = voice.verified_languages[0];
+    const lang = typeof langRaw === "string" ? langRaw.toLowerCase() : "en-US";
     // Map common language codes to our format
     const langMap: Record<string, string> = {
       en: "en-US",
@@ -327,6 +328,11 @@ export async function GET(req: NextRequest) {
 
     // If language is specified, return only voices for that language
     if (language && language in voicesByLanguage) {
+      console.log(
+        "Returning voices for language:",
+        language,
+        voicesByLanguage[language]
+      );
       return NextResponse.json({
         voicesByLanguage: {
           [language]: voicesByLanguage[language],
@@ -334,6 +340,10 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    console.log(
+      "Returning all voices by language:",
+      Object.keys(voicesByLanguage)
+    );
     return NextResponse.json({ voicesByLanguage });
   } else if (provider === "elevenlabs") {
     const apiKey = process.env.ELEVENLABS_API_KEY;

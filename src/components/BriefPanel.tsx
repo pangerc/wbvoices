@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { CampaignFormat, Voice, Provider, AIModel } from "@/types";
 import { generateCreativeCopy } from "@/utils/ai-api";
 import { parseCreativeXML } from "@/utils/xml-parser";
+import TextareaAutosize from "react-textarea-autosize";
 import {
   Listbox,
   Combobox,
@@ -51,14 +52,14 @@ const campaignFormats = [
 
 const aiModels = [
   {
+    code: "gpt4",
+    name: "GPT-4.1",
+    description: "Largest GPT model for creative tasks and agentic planning",
+  },
+  {
     code: "deepseek",
     name: "DeepSeek R1",
     description: "Frontier thinking model from the east",
-  },
-  {
-    code: "gpt4",
-    name: "GPT-4.5 Preview",
-    description: "Largest GPT model for creative tasks and agentic planning",
   },
 ];
 
@@ -82,49 +83,7 @@ export function BriefPanel({
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [languageQuery, setLanguageQuery] = useState("");
-  const [selectedAiModel, setSelectedAiModel] = useState("deepseek");
-
-  // Auto-expanding textarea component
-  const AutoExpandingTextarea = ({
-    value,
-    onChange,
-    placeholder,
-    minRows = 3,
-    className,
-  }: {
-    value: string;
-    onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-    placeholder: string;
-    minRows?: number;
-    className?: string;
-  }) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-    useEffect(() => {
-      const textarea = textareaRef.current;
-      if (textarea) {
-        // Reset height to auto to get the correct scrollHeight
-        textarea.style.height = "auto";
-        // Set the height to scrollHeight to expand the textarea
-        textarea.style.height = `${Math.max(
-          textarea.scrollHeight,
-          minRows * 24
-        )}px`;
-      }
-    }, [value, minRows]);
-
-    return (
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={onChange}
-        className={className}
-        rows={minRows}
-        placeholder={placeholder}
-        style={{ overflow: "hidden", resize: "none" }}
-      />
-    );
-  };
+  const [selectedAiModel, setSelectedAiModel] = useState("gpt4");
 
   // Filter languages based on search query
   const filteredLanguages =
@@ -204,11 +163,13 @@ export function BriefPanel({
           <label className="block text-sm font-medium mb-2">
             Client Description
           </label>
-          <AutoExpandingTextarea
+          <TextareaAutosize
             value={clientDescription}
             onChange={(e) => setClientDescription(e.target.value)}
             placeholder="Describe the client, their business, and target audience..."
             className="bg-white block w-full border-0 p-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring focus:ring-sky-500 sm:text-sm sm:leading-6"
+            minRows={5}
+            style={{ resize: "none" }}
           />
         </div>
 
@@ -217,11 +178,13 @@ export function BriefPanel({
           <label className="block text-sm font-medium mb-2">
             Creative Brief
           </label>
-          <AutoExpandingTextarea
+          <TextareaAutosize
             value={creativeBrief}
             onChange={(e) => setCreativeBrief(e.target.value)}
             placeholder="What is the key message? What's the desired tone and style?"
             className="bg-white block w-full border-0 p-1.5 text-gray-900 placeholder:text-gray-400 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-sky-500 sm:text-sm sm:leading-6"
+            minRows={5}
+            style={{ resize: "none" }}
           />
         </div>
 
@@ -447,7 +410,7 @@ export function BriefPanel({
                           }`}
                         >
                           {model.name}
-                          {model.code === "deepseek" && (
+                          {model.code === "gpt4" && (
                             <span className="ml-2 inline-flex items-center rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700 ring-1 ring-inset ring-sky-700/10">
                               Recommended
                             </span>
@@ -483,18 +446,39 @@ export function BriefPanel({
           </label>
           <input
             type="range"
-            min="30"
-            max="120"
+            min="15"
+            max="90"
             step="5"
             value={adDuration}
             onChange={(e) => setAdDuration(parseInt(e.target.value))}
             className="w-full h-2 bg-gray-200 appearance-none cursor-pointer"
           />
-          <div className="flex justify-between text-xs text-gray-800 mt-1">
-            <span>30s</span>
-            <span>60s</span>
-            <span>90s</span>
-            <span>120s</span>
+          <div className="relative w-full mt-1 h-6">
+            {/* Position calculation: (value - min) / (max - min) * 100% */}
+            <div
+              className="absolute text-xs text-gray-800"
+              style={{ left: "0%" }}
+            >
+              15s
+            </div>
+            <div
+              className="absolute text-xs text-gray-800 transform -translate-x-1/2"
+              style={{ left: `${((30 - 15) / (90 - 15)) * 100}%` }}
+            >
+              30s
+            </div>
+            <div
+              className="absolute text-xs text-gray-800 transform -translate-x-1/2"
+              style={{ left: `${((60 - 15) / (90 - 15)) * 100}%` }}
+            >
+              60s
+            </div>
+            <div
+              className="absolute text-xs text-gray-800 text-right"
+              style={{ right: "0%" }}
+            >
+              90s
+            </div>
           </div>
         </div>
 

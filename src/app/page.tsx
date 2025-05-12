@@ -60,7 +60,7 @@ export default function DemoTTS() {
   const [creativeBrief, setCreativeBrief] = useState("");
   const [campaignFormat, setCampaignFormat] =
     useState<CampaignFormat>("ad_read");
-  const [adDuration, setAdDuration] = useState(60); // Default 60 seconds
+  const [adDuration, setAdDuration] = useState(15); // Default 15 seconds
 
   // State for Scripter section
   const [voiceTracks, setVoiceTracks] = useState<VoiceTrack[]>([
