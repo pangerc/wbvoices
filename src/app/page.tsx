@@ -9,7 +9,13 @@ import {
   SpeakerWaveIcon,
   MusicalNoteIcon,
 } from "@heroicons/react/24/outline";
-import { Language, getLanguageName } from "@/utils/language";
+import {
+  Language,
+  getLanguageName,
+  getLanguageAccents,
+  areSameLanguageFamily,
+  unifiedDisplayLanguages,
+} from "@/utils/language";
 import {
   Provider,
   Voice,
@@ -41,6 +47,7 @@ export default function DemoTTS() {
   const [selectedProvider, setSelectedProvider] =
     useState<Provider>("elevenlabs");
   const [selectedLanguage, setSelectedLanguage] = useState<Language>("en-US");
+  const [selectedAccent, setSelectedAccent] = useState<string | null>(null);
   const [availableLanguages, setAvailableLanguages] = useState<
     { code: Language; name: string }[]
   >([]);
@@ -111,6 +118,7 @@ export default function DemoTTS() {
   // Reset form when language changes
   useEffect(() => {
     resetScripterForm();
+    setSelectedAccent(null); // Reset accent when language changes
   }, [selectedLanguage, selectedProvider]);
 
   // Switch to mixer tab when generation is complete
@@ -138,9 +146,12 @@ export default function DemoTTS() {
           name: getLanguageName(lang),
         }));
 
-        setAvailableLanguages(languageOptions);
-        if (languageOptions.length > 0) {
-          setSelectedLanguage(languageOptions[0].code);
+        // Filter to keep only one Arabic option
+        const filteredOptions = filterDuplicateLanguages(languageOptions);
+
+        setAvailableLanguages(filteredOptions);
+        if (filteredOptions.length > 0) {
+          setSelectedLanguage(filteredOptions[0].code);
         }
       } else {
         // For Eleven Labs, fetch all voices and extract unique languages
@@ -153,8 +164,8 @@ export default function DemoTTS() {
           ...new Set(voices.map((v: Voice) => v.language)),
         ].sort();
 
-        // Convert to the format we need
-        const languageOptions = uniqueLanguages
+        // For Eleven Labs, let's also add accent-specific entries for English
+        let languageOptions = uniqueLanguages
           .filter(
             (lang): lang is string =>
               typeof lang === "string" && lang !== "UNKNOWN"
@@ -164,18 +175,104 @@ export default function DemoTTS() {
             name: getLanguageName(lang),
           }));
 
-        setAvailableLanguages(languageOptions);
-        if (languageOptions.length > 0) {
-          setSelectedLanguage(languageOptions[0].code);
+        // Remove "en-US-EN-US" if it exists
+        languageOptions = languageOptions.filter(
+          (lang) => lang.code.toString() !== "en-US-EN-US"
+        );
+
+        // Filter to keep only one Arabic option
+        const filteredOptions = filterDuplicateLanguages(languageOptions);
+
+        setAvailableLanguages(filteredOptions);
+        if (filteredOptions.length > 0) {
+          setSelectedLanguage(filteredOptions[0].code);
         }
       }
     };
     fetchLanguages();
   }, [selectedProvider]);
 
+  // Helper function to filter duplicate language entries
+  const filterDuplicateLanguages = (
+    options: { code: Language; name: string }[]
+  ) => {
+    const processedOptions: { code: Language; name: string }[] = [];
+    const seenLanguages = new Set<string>();
+
+    // First pass: organize by base language
+    const languageGroups: Record<string, { code: Language; name: string }[]> =
+      {};
+
+    for (const option of options) {
+      const baseLang = option.code.toString().split("-")[0];
+      if (!languageGroups[baseLang]) {
+        languageGroups[baseLang] = [];
+      }
+      languageGroups[baseLang].push(option);
+    }
+
+    // Second pass: handle each language group
+    for (const [baseLang, group] of Object.entries(languageGroups)) {
+      // Special handling for unified display languages
+      if (unifiedDisplayLanguages.includes(baseLang)) {
+        // For these languages, we'll choose a "primary" variant
+        // Use region code preference order based on language
+        const preferredVariants: Record<string, string[]> = {
+          ar: ["SA", "EG", "DZ", "AR"],
+          en: ["US", "GB", "AU", "CA", "IE", "IN"],
+          es: ["ES", "MX", "AR", "CO"],
+          fr: ["FR", "CA", "BE", "CH"],
+          de: ["DE", "AT", "CH"],
+          pt: ["PT", "BR"],
+          zh: ["CN", "TW", "HK"],
+        };
+
+        // Try to find the preferred variant for this language
+        let selectedOption = null;
+        const preferences = preferredVariants[baseLang] || [];
+
+        for (const regionCode of preferences) {
+          const preferredCode = `${baseLang}-${regionCode}`;
+          const found = group.find(
+            (opt) =>
+              opt.code.toString().toUpperCase() === preferredCode.toUpperCase()
+          );
+          if (found) {
+            selectedOption = found;
+            break;
+          }
+        }
+
+        // If no preferred variant found, use the first one
+        if (!selectedOption && group.length > 0) {
+          selectedOption = group[0];
+        }
+
+        if (selectedOption) {
+          processedOptions.push(selectedOption);
+        }
+        continue;
+      }
+
+      // For other languages, include all options with unique names
+      group.forEach((option) => {
+        if (!seenLanguages.has(option.name)) {
+          seenLanguages.add(option.name);
+          processedOptions.push(option);
+        }
+      });
+    }
+
+    return processedOptions.sort((a, b) => a.name.localeCompare(b.name));
+  };
+
   // Fetch and filter voices based on provider and language
   useEffect(() => {
     const fetchVoices = async () => {
+      console.log(
+        `Fetching voices for ${selectedProvider} with language ${selectedLanguage}`
+      );
+
       const response = await fetch(
         `/api/getVoices?provider=${selectedProvider}&language=${selectedLanguage}`
       );
@@ -184,50 +281,177 @@ export default function DemoTTS() {
       if (selectedProvider === "lovo") {
         // For Lovo, we get voices by language
         const voices = data.voicesByLanguage?.[selectedLanguage] || [];
-        setAllVoices(voices);
+
+        // Log voice details for debugging
+        console.log(
+          `LOVO voices loaded: ${voices.length} for language: ${selectedLanguage}`
+        );
+
+        if (voices.length > 0) {
+          console.log("Sample voice:", voices[0]);
+        }
+
+        // Special handling for unified languages - fetch all variants
+        const [baseLang] = selectedLanguage.split("-");
+        if (unifiedDisplayLanguages.includes(baseLang)) {
+          console.log(
+            `Fetching all ${baseLang} variants for ${selectedProvider}`
+          );
+
+          // Get all voice data
+          const allVoicesResponse = await fetch(`/api/getVoices?provider=lovo`);
+          const allVoicesData = await allVoicesResponse.json();
+          const voicesByLanguage = allVoicesData.voicesByLanguage || {};
+
+          // Collect all voices for this language family
+          const allFamilyVoices = Object.entries(voicesByLanguage)
+            .filter(([lang]) => lang.startsWith(`${baseLang}-`))
+            .flatMap(([lang, langVoices]) => {
+              console.log(
+                `Found ${(langVoices as Voice[]).length} voices for ${lang}`
+              );
+              return langVoices as Voice[];
+            });
+
+          console.log(
+            `Combined ${baseLang} family voices: ${allFamilyVoices.length}`
+          );
+
+          if (allFamilyVoices.length > 0) {
+            setAllVoices(allFamilyVoices);
+          } else {
+            // Fallback to just the exact language voices
+            console.log(
+              `No family voices found, using language-specific voices`
+            );
+            setAllVoices(voices);
+          }
+        } else {
+          setAllVoices(voices);
+        }
       } else {
         // For Eleven Labs, get all voices and filter later
-        setAllVoices(data.voices || []);
+        const voices = data.voices || [];
+        console.log(`Eleven Labs voices loaded: ${voices.length}`);
+        setAllVoices(voices);
       }
     };
     fetchVoices();
   }, [selectedProvider, selectedLanguage]);
 
-  // Filter voices based on selected language
-  const getFilteredVoices = () => {
+  // Filter voices based on selected language and accent
+  const getFilteredVoices = (ignoreAccentFilter = false) => {
+    // Extract the base language from the selected language code
+    const [baseLang] = selectedLanguage.split("-");
+    console.log(`Filtering voices for ${selectedLanguage} (base: ${baseLang})`);
+    console.log(`Total voices available: ${allVoices.length}`);
+
     if (selectedProvider === "lovo") {
-      return allVoices; // Lovo voices are already filtered by language
-    }
+      let filteredVoices = [];
 
-    // For Eleven Labs, show multilingual voices and voices matching the language
-    return allVoices.filter((voice) => {
-      // Always show voices that match the selected language exactly
-      if (voice.language === selectedLanguage) return true;
-
-      // For multilingual voices, check if they have the right accent
-      if (voice.isMultilingual) {
-        const voiceAccent = voice.accent?.toLowerCase() || "";
-
-        // For Italian
-        if (selectedLanguage === "it-IT" && voiceAccent === "italian")
-          return true;
-        // For Swedish
-        if (selectedLanguage === "sv-SE" && voiceAccent === "swedish")
-          return true;
-        // For English
-        if (
-          selectedLanguage === "en-US" &&
-          (voiceAccent.includes("american") ||
-            voiceAccent.includes("british") ||
-            voiceAccent.includes("irish") ||
-            voiceAccent.includes("australian") ||
-            voiceAccent.includes("transatlantic"))
-        )
-          return true;
+      if (unifiedDisplayLanguages.includes(baseLang)) {
+        // For unified languages, include all voices from the language family
+        filteredVoices = allVoices.filter((voice) => {
+          if (!voice.language) return false;
+          return voice.language.startsWith(`${baseLang}-`);
+        });
+        console.log(`Family match voices: ${filteredVoices.length}`);
+      } else {
+        // For other languages, only include exact matches
+        filteredVoices = allVoices.filter(
+          (voice) => voice.language === selectedLanguage
+        );
+        console.log(`Exact match voices: ${filteredVoices.length}`);
       }
 
-      return false;
-    });
+      // If we still have no voices, return all voices as a fallback
+      if (filteredVoices.length === 0) {
+        console.log(
+          "No matching voices found, using all available voices as fallback"
+        );
+        return allVoices;
+      }
+
+      // Filter by accent if one is selected and we're not ignoring accent filter
+      if (selectedAccent && !ignoreAccentFilter) {
+        const normalizedAccent = selectedAccent.toLowerCase();
+        const accentFiltered = filteredVoices.filter(
+          (voice) =>
+            voice.accent && voice.accent.toLowerCase() === normalizedAccent
+        );
+
+        // Only use accent filtering if we found matching voices
+        if (accentFiltered.length > 0) {
+          return accentFiltered;
+        }
+
+        // Otherwise return all filtered voices (ignoring accent)
+        console.log(
+          `No voices found for accent ${selectedAccent}, ignoring accent filter`
+        );
+      }
+
+      return filteredVoices;
+    } else {
+      // For Eleven Labs
+      // Include exact language matches
+      const exactMatches = allVoices.filter(
+        (voice) => voice.language === selectedLanguage
+      );
+
+      // Include voices within the same language family
+      const familyMatches = allVoices.filter(
+        (voice) =>
+          voice.language &&
+          areSameLanguageFamily(selectedLanguage, voice.language) &&
+          voice.language !== selectedLanguage // avoid duplicates
+      );
+
+      // Include multilingual voices with relevant accents
+      const multilingualMatches = allVoices.filter((voice) => {
+        if (!voice.isMultilingual || !voice.accent) return false;
+
+        const voiceAccent = voice.accent.toLowerCase();
+        const languageAccents = getLanguageAccents(selectedLanguage).map(
+          (accent) => accent.toLowerCase()
+        );
+
+        // Check if the voice accent matches any of the language's known accents
+        return languageAccents.some(
+          (accent) =>
+            voiceAccent.includes(accent) &&
+            accent !== "none" &&
+            accent !== "standard"
+        );
+      });
+
+      const allPossibleVoices = [
+        ...exactMatches,
+        ...familyMatches,
+        ...multilingualMatches,
+      ];
+
+      // Now filter by accent if one is selected and we're not ignoring accent filter
+      if (selectedAccent && !ignoreAccentFilter) {
+        const normalizedAccent = selectedAccent.toLowerCase();
+        const accentFiltered = allPossibleVoices.filter(
+          (voice) =>
+            voice.accent && voice.accent.toLowerCase() === normalizedAccent
+        );
+
+        // Only use accent filtering if we found matching voices
+        if (accentFiltered.length > 0) {
+          return accentFiltered;
+        }
+
+        // Otherwise return all filtered voices (ignoring accent)
+        console.log(
+          `No voices found for accent ${selectedAccent}, ignoring accent filter`
+        );
+      }
+
+      return allPossibleVoices;
+    }
   };
 
   const addVoiceTrack = () => {
@@ -517,6 +741,8 @@ export default function DemoTTS() {
                 getFilteredVoices={getFilteredVoices}
                 adDuration={adDuration}
                 setAdDuration={setAdDuration}
+                selectedAccent={selectedAccent}
+                setSelectedAccent={setSelectedAccent}
                 onGenerateCreative={handleGenerateCreative}
               />
             </Tab.Panel>

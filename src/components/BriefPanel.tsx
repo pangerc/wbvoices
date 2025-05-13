@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { CampaignFormat, Voice, Provider, AIModel } from "@/types";
 import { generateCreativeCopy } from "@/utils/ai-api";
 import { parseCreativeXML } from "@/utils/xml-parser";
@@ -13,7 +13,7 @@ import {
 } from "@headlessui/react";
 import { ChevronUpDownIcon } from "@heroicons/react/16/solid";
 import { CheckIcon, CheckCircleIcon } from "@heroicons/react/20/solid";
-import { Language, getFlagCode } from "@/utils/language";
+import { Language, getFlagCode, formatAccentName } from "@/utils/language";
 
 export type BriefPanelProps = {
   clientDescription: string;
@@ -27,13 +27,17 @@ export type BriefPanelProps = {
   selectedProvider: Provider;
   setSelectedProvider: (provider: Provider) => void;
   availableLanguages: { code: Language; name: string }[];
-  getFilteredVoices: () => Voice[];
+  getFilteredVoices: (ignoreAccentFilter?: boolean) => Voice[];
   adDuration: number;
   setAdDuration: (duration: number) => void;
+  selectedAccent: string | null;
+  setSelectedAccent: (accent: string | null) => void;
   onGenerateCreative: (
     segments: Array<{ voiceId: string; text: string }>,
     musicPrompt: string
   ) => void;
+  isLanguageLoading?: boolean;
+  isAccentLoading?: boolean;
 };
 
 const campaignFormats = [
@@ -78,12 +82,73 @@ export function BriefPanel({
   getFilteredVoices,
   adDuration,
   setAdDuration,
+  selectedAccent,
+  setSelectedAccent,
   onGenerateCreative,
+  isLanguageLoading = false,
+  isAccentLoading = false,
 }: BriefPanelProps) {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [languageQuery, setLanguageQuery] = useState("");
   const [selectedAiModel, setSelectedAiModel] = useState("gpt4");
+  const [internalLanguageLoading, setInternalLanguageLoading] = useState(false);
+  const [internalAccentLoading, setInternalAccentLoading] = useState(false);
+
+  // Since we might not have the props from parent yet, we'll use internal state
+  // to track loading that's triggered by provider changes
+  const handleProviderChange = (provider: Provider) => {
+    setInternalLanguageLoading(true);
+    setSelectedProvider(provider);
+    // Simulate loading completion after a delay (this can be removed when the parent passes actual loading states)
+    setTimeout(() => setInternalLanguageLoading(false), 800);
+  };
+
+  // When language changes, we need to update accent loading state
+  const handleLanguageChange = (
+    lang: { code: Language; name: string } | null
+  ) => {
+    if (lang) {
+      setInternalAccentLoading(true);
+      setSelectedLanguage(lang.code);
+      setLanguageQuery("");
+      // Simulate loading completion after a delay (can be removed when parent passes actual loading states)
+      setTimeout(() => setInternalAccentLoading(false), 800);
+    }
+  };
+
+  // Determine if we're loading based on props or internal state
+  const languageLoading = isLanguageLoading || internalLanguageLoading;
+  const accentLoading = isAccentLoading || internalAccentLoading;
+
+  // Get available accents for the current language
+  const availableAccents = useMemo(() => {
+    // Get voices that match the language but without filtering by accent
+    const voices = getFilteredVoices(true);
+    console.log(`[${selectedLanguage}] Available voices total:`, voices.length);
+
+    if (voices.length === 0) {
+      return ["None"];
+    }
+
+    // Extract only accents that actually exist in the provider's voices
+    const voiceAccents = new Set<string>();
+    voices.forEach((voice) => {
+      if (voice.accent) {
+        const formattedAccent = formatAccentName(voice.accent);
+        if (formattedAccent.toLowerCase() !== "none") {
+          voiceAccents.add(formattedAccent);
+        }
+      }
+    });
+
+    console.log(`Actually available accents for ${selectedLanguage}:`, [
+      ...voiceAccents,
+    ]);
+
+    // Return sorted accents with "None" first
+    return ["None", ...[...voiceAccents].sort()];
+  }, [selectedLanguage, getFilteredVoices]);
 
   // Filter languages based on search query
   const filteredLanguages =
@@ -190,13 +255,13 @@ export function BriefPanel({
 
         {/* 3-column grid */}
         <div className="grid grid-cols-3 gap-6 mt-8">
-          {/* Column 1: Provider and Language selection stacked vertically */}
+          {/* Column 1: Provider, Language, and now Accent selection stacked vertically */}
           <div className="space-y-4">
             <div>
               <label className="block text-sm/6 font-medium mb-2">
                 Provider
               </label>
-              <Listbox value={selectedProvider} onChange={setSelectedProvider}>
+              <Listbox value={selectedProvider} onChange={handleProviderChange}>
                 <div className="relative">
                   <Listbox.Button className="grid w-full cursor-default grid-cols-1 bg-white py-1.5 pr-2 pl-3 text-left text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-sky-500 sm:text-sm/6">
                     <span className="col-start-1 row-start-1 flex items-center gap-3 pr-6">
@@ -258,12 +323,7 @@ export function BriefPanel({
                     (lang) => lang.code === selectedLanguage
                   ) || null
                 }
-                onChange={(lang) => {
-                  if (lang) {
-                    setSelectedLanguage(lang.code);
-                    setLanguageQuery("");
-                  }
-                }}
+                onChange={handleLanguageChange}
               >
                 <div className="relative">
                   <ComboboxInput
@@ -279,15 +339,39 @@ export function BriefPanel({
                       if (!lang) return "";
                       return lang.name;
                     }}
+                    disabled={languageLoading}
                   />
                   <ComboboxButton className="absolute inset-y-0 right-0 flex items-center pr-2">
-                    <ChevronUpDownIcon
-                      className="size-5 text-gray-400"
-                      aria-hidden="true"
-                    />
+                    {languageLoading ? (
+                      <svg
+                        className="animate-spin h-5 w-5 text-gray-400"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                    ) : (
+                      <ChevronUpDownIcon
+                        className="size-5 text-gray-400"
+                        aria-hidden="true"
+                      />
+                    )}
                   </ComboboxButton>
 
-                  {filteredLanguages.length > 0 && (
+                  {!languageLoading && filteredLanguages.length > 0 && (
                     <ComboboxOptions className="absolute z-10 mt-1 max-h-56 w-full overflow-auto bg-white py-1 text-base ring-1 shadow-lg ring-black/5 focus:outline-hidden">
                       {filteredLanguages.map((lang) => (
                         <ComboboxOption
@@ -332,6 +416,91 @@ export function BriefPanel({
                   )}
                 </div>
               </Combobox>
+            </div>
+
+            {/* Accent option */}
+            <div className="accent-option">
+              <label className="block text-sm/6 font-medium mb-2">Accent</label>
+              <Listbox
+                value={selectedAccent || "None"}
+                onChange={(accent) => {
+                  // If "None" is selected, set accent to null, otherwise use the selected accent
+                  setSelectedAccent(accent === "None" ? null : accent);
+                }}
+                disabled={accentLoading}
+              >
+                <div className="relative">
+                  <Listbox.Button className="grid w-full cursor-default grid-cols-1 bg-white py-1.5 pr-10 pl-3 text-left text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-sky-500 sm:text-sm/6">
+                    <span className="block truncate">
+                      {accentLoading ? "Loading..." : selectedAccent || "None"}
+                    </span>
+                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                      {accentLoading ? (
+                        <svg
+                          className="animate-spin h-5 w-5 text-gray-400"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                      ) : (
+                        <ChevronUpDownIcon
+                          className="size-5 text-gray-400"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </span>
+                  </Listbox.Button>
+                  {!accentLoading && (
+                    <Listbox.Options className="absolute z-10 mt-1 max-h-56 w-full overflow-auto bg-white py-1 text-base ring-1 shadow-lg ring-black/5 focus:outline-hidden">
+                      {availableAccents.map((accent, accentIdx) => (
+                        <Listbox.Option
+                          key={accentIdx}
+                          value={accent}
+                          className="group relative cursor-default py-2 pr-9 pl-3 text-gray-900 select-none data-focus:bg-sky-500 data-focus:text-white data-focus:outline-hidden"
+                        >
+                          {({ selected, active }) => (
+                            <>
+                              <span
+                                className={`block truncate ${
+                                  selected ? "font-semibold" : "font-normal"
+                                }`}
+                              >
+                                {accent}
+                              </span>
+                              {selected && (
+                                <span
+                                  className={`absolute inset-y-0 right-0 flex items-center pr-4 ${
+                                    active ? "" : "text-sky-500"
+                                  }`}
+                                >
+                                  <CheckIcon
+                                    className="size-5"
+                                    aria-hidden="true"
+                                  />
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </Listbox.Option>
+                      ))}
+                    </Listbox.Options>
+                  )}
+                </div>
+              </Listbox>
             </div>
           </div>
 

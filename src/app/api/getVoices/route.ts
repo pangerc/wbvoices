@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeLanguageCode } from "@/utils/language";
 
 type ElevenLabsVoice = {
   voice_id: string;
@@ -31,6 +32,7 @@ type LovoVoice = {
   name: string;
   gender: string;
   sampleUrl: string;
+  accent?: string;
 };
 
 type LovoVoicesByLanguage = {
@@ -57,58 +59,72 @@ type LovoSpeaker = {
 const getVoiceLanguage = (
   voice: ElevenLabsVoice
 ): { language: string; isMultilingual: boolean; accent?: string } => {
-  // Check if voice supports multiple languages
-  const isMultilingual =
-    voice.high_quality_base_model_ids?.some((id) =>
-      id.includes("multilingual")
-    ) || false;
+  let isMultilingual = false;
+  let accent = undefined;
 
-  // Get accent if available
-  const accent = voice.labels?.accent;
-  const accentLower = accent?.toLowerCase() || "";
-
-  // For non-multilingual voices with American accent, default to en-US
-  if (!isMultilingual && accentLower.includes("american")) {
-    return {
-      language: "en-US",
-      isMultilingual: false,
-      accent,
-    };
+  // Check for multilingual models
+  if (
+    voice.high_quality_base_model_ids &&
+    voice.high_quality_base_model_ids.includes("eleven_multilingual_v2")
+  ) {
+    isMultilingual = true;
   }
+
+  // Extract accent information from labels
+  if (voice.labels && voice.labels.accent) {
+    accent = voice.labels.accent;
+  }
+
+  // Process accent information to determine most likely language
+  const accentLower = accent ? accent.toLowerCase() : "";
 
   // For multilingual voices, determine the primary language from accent
   if (isMultilingual && accent) {
-    // Special handling for Italian accent
-    if (accentLower === "italian") {
-      return {
-        language: "it-IT",
-        isMultilingual: true,
-        accent,
-      };
-    }
+    // Special handling for mapped accents
+    const accentToLanguageMap: Record<string, string> = {
+      italian: "it-IT",
+      swedish: "sv-SE",
+      american: "en-US",
+      british: "en-GB",
+      irish: "en-IE",
+      australian: "en-AU",
+      canadian: "en-CA",
+      "us southern": "en-US",
+      southern: "en-US",
+      transatlantic: "en-US",
+      spanish: "es-ES",
+      mexican: "es-MX",
+      colombian: "es-CO",
+      argentinian: "es-AR",
+      french: "fr-FR",
+      parisian: "fr-FR",
+      "canadian french": "fr-CA",
+      german: "de-DE",
+      austrian: "de-AT",
+      "swiss german": "de-CH",
+      portuguese: "pt-PT",
+      brazilian: "pt-BR",
+      russian: "ru-RU",
+      egyptian: "ar-EG",
+      gulf: "ar-SA",
+      saudi: "ar-SA",
+      jordanian: "ar-JO",
+      mandarin: "zh-CN",
+      cantonese: "zh-HK",
+      japanese: "ja-JP",
+    };
 
-    // Special handling for Swedish accent
-    if (accentLower === "swedish") {
-      return {
-        language: "sv-SE",
-        isMultilingual: true,
-        accent,
-      };
-    }
-
-    // For English accents, use en-US
-    if (
-      accentLower.includes("american") ||
-      accentLower.includes("british") ||
-      accentLower.includes("irish") ||
-      accentLower.includes("australian") ||
-      accentLower.includes("transatlantic")
-    ) {
-      return {
-        language: "en-US",
-        isMultilingual: true,
-        accent,
-      };
+    // Check for specific accent matches
+    for (const [accentKeyword, langCode] of Object.entries(
+      accentToLanguageMap
+    )) {
+      if (accentLower.includes(accentKeyword)) {
+        return {
+          language: langCode,
+          isMultilingual: true,
+          accent,
+        };
+      }
     }
   }
 
@@ -116,17 +132,19 @@ const getVoiceLanguage = (
   if (voice.verified_languages && voice.verified_languages.length > 0) {
     const langRaw = voice.verified_languages[0];
     const lang = typeof langRaw === "string" ? langRaw.toLowerCase() : "en-US";
-    // Map common language codes to our format
-    const langMap: Record<string, string> = {
-      en: "en-US",
-      it: "it-IT",
-      fr: "fr-FR",
-      de: "de-DE",
-      es: "es-ES",
-      sv: "sv-SE",
-    };
+
+    // If only language code is provided (like 'en'), normalize it to standard format
+    if (lang.length === 2) {
+      return {
+        language: normalizeLanguageCode(lang),
+        isMultilingual,
+        accent,
+      };
+    }
+
+    // Otherwise normalize the full language code
     return {
-      language: langMap[lang] || `${lang}-${lang.toUpperCase()}`,
+      language: normalizeLanguageCode(lang),
       isMultilingual,
       accent,
     };
@@ -135,124 +153,116 @@ const getVoiceLanguage = (
   // If the voice has a language in fine_tuning, use that
   if (voice.fine_tuning?.language) {
     const lang = voice.fine_tuning.language.toLowerCase();
-    const langMap: Record<string, string> = {
-      en: "en-US",
-      it: "it-IT",
-      fr: "fr-FR",
-      de: "de-DE",
-      es: "es-ES",
-      sv: "sv-SE",
-    };
     return {
-      language: langMap[lang] || `${lang}-${lang.toUpperCase()}`,
+      language: normalizeLanguageCode(lang),
       isMultilingual,
       accent,
     };
   }
 
-  // Default to en-US for any remaining voices
+  // Default to English if no language information available
   return {
     language: "en-US",
-    isMultilingual: isMultilingual,
+    isMultilingual,
     accent,
   };
 };
 
-// Helper function to normalize language codes
-const normalizeLanguageCode = (locale: string): string => {
-  // Split the locale into language and region
+// Helper to extract accent from Lovo speaker data
+const extractAccentFromSpeaker = (speaker: LovoSpeaker): string | undefined => {
+  // Get locale and normalize it
+  const locale = normalizeLanguageCode(speaker.locale);
   const [lang, region] = locale.split("-");
 
-  // Map of language codes to their standardized format
-  const langMap: Record<string, string> = {
-    // English variants
-    en: "en-US",
-    // German variants
-    de: "de-DE",
-    // French variants
-    fr: "fr-FR",
-    // Spanish variants
-    es: "es-ES",
-    // Other languages
-    it: "it-IT",
-    sv: "sv-SE",
-    sl: "sl-SI",
-    hr: "hr-HR",
-    lt: "lt-LT",
-    bs: "bs-BA",
-    cy: "cy-GB",
-    bn: "bn-IN",
-    // Arabic variants
-    ar: "ar-SA", // Default to Saudi Arabia for Arabic
-    // Asian languages
-    zh: "zh-CN", // Default to Simplified Chinese
-    ja: "ja-JP",
-    ko: "ko-KR",
-    // Indian languages
-    hi: "hi-IN",
-    ta: "ta-IN",
-    te: "te-IN",
-    ml: "ml-IN",
-    // Other standardized mappings
-    am: "am-ET", // Amharic
-    hy: "hy-AM", // Armenian
-    az: "az-AZ", // Azerbaijani
-    eu: "eu-ES", // Basque
-    be: "be-BY", // Belarusian
-    bg: "bg-BG", // Bulgarian
-    my: "my-MM", // Burmese
-    ca: "ca-ES", // Catalan
-    cs: "cs-CZ", // Czech
-    da: "da-DK", // Danish
-    et: "et-EE", // Estonian
-    fi: "fi-FI", // Finnish
-    ka: "ka-GE", // Georgian
-    el: "el-GR", // Greek
-    gu: "gu-IN", // Gujarati
-    he: "he-IL", // Hebrew
-    hu: "hu-HU", // Hungarian
-    is: "is-IS", // Icelandic
-    id: "id-ID", // Indonesian
-    kk: "kk-KZ", // Kazakh
-    km: "km-KH", // Khmer
-    lo: "lo-LA", // Lao
-    lv: "lv-LV", // Latvian
-    mk: "mk-MK", // Macedonian
-    ms: "ms-MY", // Malay
-    mn: "mn-MN", // Mongolian
-    ne: "ne-NP", // Nepali
-    no: "nb-NO", // Norwegian
-    fa: "fa-IR", // Persian
-    pl: "pl-PL", // Polish
-    pt: "pt-PT", // Portuguese
-    ro: "ro-RO", // Romanian
-    ru: "ru-RU", // Russian
-    sr: "sr-RS", // Serbian
-    si: "si-LK", // Sinhala
-    sk: "sk-SK", // Slovak
-    so: "so-SO", // Somali
-    sw: "sw-KE", // Swahili
-    tl: "tl-PH", // Tagalog
-    th: "th-TH", // Thai
-    tr: "tr-TR", // Turkish
-    uk: "uk-UA", // Ukrainian
-    ur: "ur-PK", // Urdu
-    uz: "uz-UZ", // Uzbek
-    vi: "vi-VN", // Vietnamese
-  };
+  // Extract accent based on language family
+  switch (lang) {
+    case "en":
+      // English accents
+      const englishAccentMap: Record<string, string> = {
+        US: "american",
+        GB: "british",
+        AU: "australian",
+        IE: "irish",
+        CA: "canadian",
+        IN: "indian",
+      };
+      return englishAccentMap[region] || "standard";
 
-  // If we have a direct mapping for the language code, use it
-  if (lang && langMap[lang.toLowerCase()]) {
-    return langMap[lang.toLowerCase()];
+    case "es":
+      // Spanish accents
+      const spanishAccentMap: Record<string, string> = {
+        ES: "castilian",
+        MX: "mexican",
+        AR: "argentinian",
+        CO: "colombian",
+        CL: "chilean",
+        PE: "peruvian",
+      };
+      return spanishAccentMap[region] || "standard";
+
+    case "fr":
+      // French accents
+      const frenchAccentMap: Record<string, string> = {
+        FR: "parisian",
+        CA: "canadian",
+        BE: "belgian",
+        CH: "swiss",
+      };
+      return frenchAccentMap[region] || "standard";
+
+    case "ar":
+      // Arabic accents
+      const arabicAccentMap: Record<string, string> = {
+        SA: "saudi",
+        EG: "egyptian",
+        DZ: "maghrebi",
+        MA: "maghrebi",
+        TN: "maghrebi",
+        JO: "jordanian",
+        IQ: "iraqi",
+        KW: "kuwaiti",
+        AE: "gulf",
+        BH: "bahraini",
+        LB: "lebanese",
+        // Fallback for any other Arabic variants
+        AR: "standard",
+      };
+      const accent = arabicAccentMap[region] || "standard";
+      console.log(
+        `Mapped Arabic voice with region ${region} to accent: ${accent}`
+      );
+      return accent;
+
+    case "it":
+      // Italian accents - most italian voices just use "italian" accent
+      return "italian";
+
+    case "de":
+      // German accents
+      const germanAccentMap: Record<string, string> = {
+        DE: "standard",
+        AT: "austrian",
+        CH: "swiss",
+      };
+      return germanAccentMap[region] || "standard";
+
+    case "pt":
+      // Portuguese accents
+      return region === "BR" ? "brazilian" : "european";
+
+    case "zh":
+      // Chinese accents
+      const chineseAccentMap: Record<string, string> = {
+        CN: "mandarin",
+        TW: "taiwanese",
+        HK: "cantonese",
+      };
+      return chineseAccentMap[region] || "standard";
+
+    default:
+      // For other languages, return a meaningful accent based on region if available
+      return region ? `${region.toLowerCase()}` : "standard";
   }
-
-  // If we have both language and region, format them properly
-  if (lang && region) {
-    return `${lang.toLowerCase()}-${region.toUpperCase()}`;
-  }
-
-  // If we only have language, use language code with itself as region
-  return `${lang.toLowerCase()}-${lang.toUpperCase()}`;
 };
 
 export async function GET(req: NextRequest) {
@@ -316,6 +326,15 @@ export async function GET(req: NextRequest) {
         sampleUrl:
           speaker.speakerStyles[0].sampleTtsUrl || "/samples/default.mp3",
       };
+
+      // Extract accent information
+      const accent = extractAccentFromSpeaker(speaker);
+      if (accent) {
+        voice.accent = accent;
+        console.log(
+          `Voice "${speaker.displayName}" (${speaker.locale}): accent = "${accent}"`
+        );
+      }
 
       // Normalize the language code
       const normalizedLocale = normalizeLanguageCode(speaker.locale);
@@ -384,10 +403,14 @@ export async function GET(req: NextRequest) {
 
     const voices = data.voices.map((voice: ElevenLabsVoice): Voice => {
       const { language, isMultilingual, accent } = getVoiceLanguage(voice);
+
+      // Normalize language codes for consistency
+      const normalizedLanguage = normalizeLanguageCode(language);
+
       console.log(
         `Voice "${
           voice.name
-        }" - Language: ${language}, Multilingual: ${isMultilingual}, Accent: ${
+        }" - Language: ${normalizedLanguage}, Multilingual: ${isMultilingual}, Accent: ${
           accent || "none"
         }`
       );
@@ -397,7 +420,7 @@ export async function GET(req: NextRequest) {
         name: voice.name,
         gender: voice.labels?.gender || null,
         sampleUrl: voice.preview_url || null,
-        language,
+        language: normalizedLanguage,
         isMultilingual,
         accent,
       };

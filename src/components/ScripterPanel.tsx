@@ -120,15 +120,30 @@ export function ScripterPanel({
                                   active ? "text-sky-600" : "text-gray-500"
                                 }`}
                               >
+                                {voice.accent ? (
+                                  <span
+                                    className={`font-medium ${
+                                      voice.language?.startsWith("ar-")
+                                        ? "text-green-700"
+                                        : "text-sky-700"
+                                    }`}
+                                  >
+                                    {voice.accent} accent
+                                  </span>
+                                ) : null}
                                 {[
                                   voice.gender &&
                                     voice.gender.charAt(0).toUpperCase() +
                                       voice.gender.slice(1),
-                                  voice.accent,
                                   voice.isMultilingual && "Multilingual",
                                 ]
                                   .filter(Boolean)
-                                  .join(" · ")}
+                                  .map((attr, i) => (
+                                    <React.Fragment key={i}>
+                                      {voice.accent || i > 0 ? " · " : ""}
+                                      {attr}
+                                    </React.Fragment>
+                                  ))}
                               </span>
                             </div>
 
@@ -153,15 +168,32 @@ export function ScripterPanel({
               </Listbox>
               {track.voice && (
                 <p className="mt-1 text-xs text-gray-500">
+                  {track.voice.accent ? (
+                    <span
+                      className={`font-medium ${
+                        track.voice.language?.startsWith("ar-")
+                          ? "text-green-700"
+                          : "text-sky-700"
+                      }`}
+                    >
+                      {track.voice.accent} accent
+                    </span>
+                  ) : null}
                   {[
                     track.voice.gender &&
                       track.voice.gender.charAt(0).toUpperCase() +
                         track.voice.gender.slice(1),
-                    track.voice.accent,
                     track.voice.isMultilingual && "Multilingual",
                   ]
                     .filter(Boolean)
-                    .join(" · ")}
+                    .map((attr, i) => (
+                      <React.Fragment key={i}>
+                        {track.voice && (track.voice.accent || i > 0)
+                          ? " · "
+                          : ""}
+                        {attr}
+                      </React.Fragment>
+                    ))}
                 </p>
               )}
             </div>
