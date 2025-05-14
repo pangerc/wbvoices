@@ -12,11 +12,16 @@ export type Voice = {
   language?: Language;
   isMultilingual?: boolean;
   accent?: string;
+  style?: string;
+  description?: string;
 };
 
 export type VoiceTrack = {
   voice: Voice | null;
   text: string;
+  playAfter?: string;
+  overlap?: number;
+  isConcurrent?: boolean;
 };
 
 export type CampaignFormat = "ad_read" | "dialog";
@@ -29,4 +34,23 @@ export type MusicTrack = {
   url: string;
   duration: number;
   provider: MusicProvider;
+  playAt?: "start" | "end" | string;
+  fadeIn?: number;
+  fadeOut?: number;
+};
+
+export type SoundFxTrack = {
+  id: string;
+  title: string;
+  url: string;
+  duration: number;
+  playAfter?: string;
+  overlap?: number;
+};
+
+export type SoundFxPrompt = {
+  description: string;
+  playAfter?: string;
+  overlap?: number;
+  duration?: number;
 };

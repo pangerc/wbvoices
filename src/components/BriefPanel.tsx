@@ -1,7 +1,14 @@
 import React, { useState, useMemo } from "react";
-import { CampaignFormat, Voice, Provider, AIModel } from "@/types";
+import {
+  CampaignFormat,
+  Voice,
+  Provider,
+  AIModel,
+  SoundFxPrompt,
+} from "@/types";
 import { generateCreativeCopy } from "@/utils/ai-api";
 import { parseCreativeXML } from "@/utils/xml-parser";
+import { parseCreativeJSON } from "@/utils/json-parser";
 import TextareaAutosize from "react-textarea-autosize";
 import {
   Listbox,
@@ -34,7 +41,8 @@ export type BriefPanelProps = {
   setSelectedAccent: (accent: string | null) => void;
   onGenerateCreative: (
     segments: Array<{ voiceId: string; text: string }>,
-    musicPrompt: string
+    musicPrompt: string,
+    soundFxPrompt?: string | string[] | SoundFxPrompt[]
   ) => void;
   isLanguageLoading?: boolean;
   isAccentLoading?: boolean;
@@ -175,7 +183,7 @@ export function BriefPanel({
         filteredVoices.map((v) => `${v.name} (${v.id})`)
       );
 
-      const xmlResponse = await generateCreativeCopy(
+      const jsonResponse = await generateCreativeCopy(
         selectedAiModel as AIModel,
         selectedLanguage,
         clientDescription,
@@ -185,24 +193,64 @@ export function BriefPanel({
         adDuration
       );
 
-      console.log("XML response received:", xmlResponse);
+      console.log("JSON response received:", jsonResponse);
 
-      const { segments, musicPrompt } = parseCreativeXML(xmlResponse);
+      // Try parsing as JSON first
+      try {
+        const { voiceSegments, musicPrompt, soundFxPrompts } =
+          parseCreativeJSON(jsonResponse);
 
-      console.log("Parsed segments:", segments);
-      console.log("Parsed music prompt:", musicPrompt);
+        console.log("Parsed voice segments:", voiceSegments);
+        console.log("Parsed music prompt:", musicPrompt);
+        console.log("Parsed sound fx prompts:", soundFxPrompts);
 
-      if (segments.length === 0) {
-        console.error("No voice segments were parsed from the response");
-        setError(
-          "Failed to generate creative: No voice segments found in the response"
-        );
-        setIsGenerating(false);
-        return;
+        if (voiceSegments.length === 0) {
+          console.error("No voice segments were parsed from the response");
+          setError(
+            "Failed to generate creative: No voice segments found in the response"
+          );
+          setIsGenerating(false);
+          return;
+        }
+
+        // Map voice segments to the expected format
+        const segments = voiceSegments.map((segment) => ({
+          voiceId: segment.voice?.id || "",
+          text: segment.text,
+        }));
+
+        // Pass complete sound FX prompts with timing info
+        // Call onGenerateCreative with the segments, music prompt, and all sound fx prompts
+        onGenerateCreative(segments, musicPrompt || "", soundFxPrompts);
+      } catch (jsonError) {
+        console.error("Error parsing JSON creative:", jsonError);
+
+        // Fallback to XML parsing
+        console.log("Attempting to parse as XML instead");
+        try {
+          const parsedXml = parseCreativeXML(jsonResponse);
+          const xmlSegments = parsedXml.segments;
+          const xmlMusicPrompt = parsedXml.musicPrompt;
+
+          if (xmlSegments.length === 0) {
+            console.error(
+              "No voice segments were parsed from the XML response"
+            );
+            setError(
+              "Failed to generate creative: No voice segments found in the response"
+            );
+            setIsGenerating(false);
+            return;
+          }
+
+          // Call onGenerateCreative with the segments and music prompt
+          // XML format doesn't support sound effects, so pass empty array
+          onGenerateCreative(xmlSegments, xmlMusicPrompt, []);
+        } catch (xmlError) {
+          console.error("Error parsing XML fallback:", xmlError);
+          throw new Error("Failed to parse creative response in any format");
+        }
       }
-
-      // Call onGenerateCreative with the segments and music prompt
-      onGenerateCreative(segments, musicPrompt);
     } catch (err) {
       setError(
         err instanceof Error

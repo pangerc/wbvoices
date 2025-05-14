@@ -112,6 +112,20 @@ export function MusicPanel({
             rows={3}
             placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
           />
+
+          {/* Timing instructions for music */}
+          <div className="mt-1 text-xs text-gray-500 bg-gray-50 p-2 rounded-sm border border-gray-200">
+            <span className="font-medium text-gray-700">Timing: </span>
+            <span>
+              Background music typically plays from the beginning of the ad
+            </span>
+            <div className="mt-1">
+              <span className="text-sky-600 font-medium">Pro tip: </span>
+              Music will be automatically mixed with voice tracks at reduced
+              volume. For best results, choose music that complements the
+              emotion of your script.
+            </div>
+          </div>
         </div>
 
         <div>

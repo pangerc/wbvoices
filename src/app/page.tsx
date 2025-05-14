@@ -8,6 +8,7 @@ import {
   ChatBubbleLeftRightIcon,
   SpeakerWaveIcon,
   MusicalNoteIcon,
+  BoltIcon,
 } from "@heroicons/react/24/outline";
 import {
   Language,
@@ -22,12 +23,14 @@ import {
   VoiceTrack,
   CampaignFormat,
   MusicProvider,
+  SoundFxPrompt,
 } from "@/types";
 import {
   BriefPanel,
   ScripterPanel,
   MixerPanel,
   MusicPanel,
+  SoundFxPanel,
 } from "@/components";
 import { generateMusic } from "@/utils/beatoven-api";
 import { generateMusicWithLoudly } from "@/utils/loudly-api";
@@ -39,7 +42,14 @@ function classNames(...classes: string[]) {
 type Track = {
   url: string;
   label: string;
-  type: "voice" | "music";
+  type: "voice" | "music" | "soundfx";
+  // Timing properties
+  startTime?: number;
+  duration?: number;
+  playAfter?: string;
+  overlap?: number;
+  // Volume control
+  volume?: number;
 };
 
 export default function DemoTTS() {
@@ -57,6 +67,15 @@ export default function DemoTTS() {
 
   // Reset status message when switching tabs
   const handleTabChange = (index: number) => {
+    console.log(`Switching to tab ${index} from tab ${selectedTab}`);
+
+    // If moving from Brief to Sound FX tab directly (0 to 3), add additional protection
+    if (selectedTab === 0 && index === 3) {
+      console.log("Moving from Brief to Sound FX tab - ensuring clean state");
+      // Ensure we're not in a generating state
+      setIsGeneratingSoundFx(false);
+    }
+
     // Clear status message when switching tabs
     setStatusMessage("");
     setSelectedTab(index);
@@ -83,6 +102,12 @@ export default function DemoTTS() {
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
   const [musicPrompt, setMusicPrompt] = useState("");
 
+  // State for Sound FX section
+  const [isGeneratingSoundFx, setIsGeneratingSoundFx] = useState(false);
+  const [soundFxPrompt, setSoundFxPrompt] = useState<SoundFxPrompt | null>(
+    null
+  );
+
   // Update track state to include metadata
   const [tracks, setTracks] = useState<Track[]>([]);
 
@@ -107,11 +132,10 @@ export default function DemoTTS() {
     setStatusMessage("");
   };
 
-  // Reset all forms
-  const resetAllForms = () => {
-    resetScripterForm();
-    resetMusicForm();
-    resetMixerForm();
+  // Reset sound fx form
+  const resetSoundFxForm = () => {
+    setSoundFxPrompt(null);
+    setIsGeneratingSoundFx(false);
     setStatusMessage("");
   };
 
@@ -124,7 +148,7 @@ export default function DemoTTS() {
   // Switch to mixer tab when generation is complete
   useEffect(() => {
     if (tracks.length > 0) {
-      setSelectedTab(3); // Index 3 is now the mixer tab (was 4)
+      setSelectedTab(4); // Index 4 is the mixer tab
     }
   }, [tracks]);
 
@@ -472,7 +496,9 @@ export default function DemoTTS() {
     setIsGenerating(true);
     setStatusMessage("Generating audio...");
     // Remove existing voice tracks
-    setTracks((current) => current.filter((t) => t.type === "music"));
+    setTracks((current) =>
+      current.filter((t) => t.type === "music" || t.type === "soundfx")
+    );
 
     try {
       const newTracks: Track[] = [];
@@ -506,10 +532,11 @@ export default function DemoTTS() {
       }
 
       setTracks((current) => [
-        ...current.filter((t) => t.type === "music"),
+        ...current.filter((t) => t.type === "music" || t.type === "soundfx"),
         ...newTracks,
       ]);
       setStatusMessage("Audio generation complete!");
+      setSelectedTab(4); // Switch to mixer tab (index 4)
     } catch (error) {
       console.error(error);
       setStatusMessage(
@@ -562,7 +589,7 @@ export default function DemoTTS() {
       ]);
 
       setStatusMessage("Music generation complete!");
-      setSelectedTab(3); // Switch to mixer tab (was 4)
+      setSelectedTab(4); // Switch to mixer tab (index 4)
     } catch (error) {
       console.error("Failed to generate music:", error);
       setStatusMessage(
@@ -577,9 +604,11 @@ export default function DemoTTS() {
 
   const handleGenerateCreative = (
     segments: Array<{ voiceId: string; text: string }>,
-    prompt: string
+    prompt: string,
+    soundFxPrompts?: string | string[] | SoundFxPrompt[]
   ) => {
-    // Reset existing voice tracks
+    // Reset voice tracks from the mixer while preserving music tracks only
+    // (explicitly exclude soundfx tracks that might not have audio yet)
     setTracks((current) => current.filter((t) => t.type === "music"));
 
     // Get the filtered voices for the selected language
@@ -627,14 +656,127 @@ export default function DemoTTS() {
       } as VoiceTrack;
     });
 
-    // Reset forms before setting new data
-    resetAllForms();
+    // Reset forms individually to preserve proper state
+    resetScripterForm();
+    resetMusicForm();
+    resetSoundFxForm();
 
     setVoiceTracks(newVoiceTracks);
     setMusicPrompt(prompt); // Store the music prompt
 
+    // Store the sound fx prompt if provided
+    if (soundFxPrompts) {
+      if (Array.isArray(soundFxPrompts) && soundFxPrompts.length > 0) {
+        // Check if the soundFxPrompts array contains objects or strings
+        const firstPrompt = soundFxPrompts[0];
+        if (typeof firstPrompt === "object" && "description" in firstPrompt) {
+          // Already in SoundFxPrompt format with timing info
+          setSoundFxPrompt(firstPrompt as SoundFxPrompt);
+
+          console.log(`Using sound FX prompt with timing:`, firstPrompt);
+        } else if (typeof firstPrompt === "string") {
+          // Simple string format, convert to SoundFxPrompt
+          setSoundFxPrompt({
+            description: firstPrompt,
+            duration: 5, // Default duration
+          });
+
+          console.log(`Converted sound FX string to prompt:`, firstPrompt);
+        }
+
+        // If there are multiple sound effects, store them for later use
+        if (soundFxPrompts.length > 1) {
+          console.log(
+            `Received ${soundFxPrompts.length} sound effect prompts, using first one`
+          );
+        }
+      } else if (typeof soundFxPrompts === "string" && soundFxPrompts) {
+        // Simple string format, convert to SoundFxPrompt
+        setSoundFxPrompt({
+          description: soundFxPrompts,
+          duration: 5, // Default duration
+        });
+      }
+    }
+
     // Switch to scripter tab
-    setSelectedTab(1); // Scripter is now at index 1 (was 2)
+    setSelectedTab(1); // Scripter is now at index 1
+  };
+
+  const handleGenerateSoundFx = async (prompt: string, duration: number) => {
+    console.log(
+      `Explicitly generating sound effect: "${prompt}" (${duration}s)`
+    );
+    try {
+      setIsGeneratingSoundFx(true);
+      setStatusMessage("Generating sound effect...");
+
+      // Save timing information from the stored soundFxPrompt
+      let playAfter: string | undefined;
+      let overlap: number | undefined;
+
+      if (soundFxPrompt) {
+        // Transfer timing data from the prompt
+        playAfter = soundFxPrompt.playAfter;
+        overlap = soundFxPrompt.overlap;
+        console.log(
+          `Using timing info: playAfter=${playAfter}, overlap=${overlap}`
+        );
+      }
+
+      // Remove any existing sound fx tracks
+      setTracks((current) => current.filter((t) => t.type !== "soundfx"));
+
+      const response = await fetch("/api/generateSoundFx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: prompt,
+          duration: duration,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          `Failed to generate sound effect: ${
+            errorData.error || response.statusText
+          }`
+        );
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      // Add to tracks with timing information
+      const newTrack: Track = {
+        url,
+        label: `Sound FX: "${prompt.substring(0, 30)}${
+          prompt.length > 30 ? "..." : ""
+        }" (${duration}s)`,
+        type: "soundfx",
+        duration,
+        playAfter,
+        overlap,
+      };
+
+      setTracks((current) => [
+        ...current.filter((t) => t.type !== "soundfx"),
+        newTrack,
+      ]);
+
+      setStatusMessage("Sound effect generation complete!");
+      setSelectedTab(4); // Switch to mixer tab (index 4)
+    } catch (error) {
+      console.error("Failed to generate sound effect:", error);
+      setStatusMessage(
+        `Failed to generate sound effect: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setIsGeneratingSoundFx(false);
+    }
   };
 
   return (
@@ -715,6 +857,19 @@ export default function DemoTTS() {
                   )
                 }
               >
+                <BoltIcon className="size-5 shrink-0" />
+                FX
+              </Tab>
+              <Tab
+                className={({ selected }) =>
+                  classNames(
+                    "w-full text-left p-2  transition-colors focus:outline-none flex items-center gap-3",
+                    selected
+                      ? "bg-white text-black"
+                      : "text-white hover:bg-red-700"
+                  )
+                }
+              >
                 <SpeakerWaveIcon className="size-5 shrink-0" />
                 Mix
               </Tab>
@@ -773,10 +928,24 @@ export default function DemoTTS() {
             </Tab.Panel>
 
             <Tab.Panel>
+              <SoundFxPanel
+                onGenerate={handleGenerateSoundFx}
+                isGenerating={isGeneratingSoundFx}
+                statusMessage={statusMessage}
+                initialPrompt={soundFxPrompt}
+                adDuration={adDuration}
+                resetForm={resetSoundFxForm}
+              />
+            </Tab.Panel>
+
+            <Tab.Panel>
               <MixerPanel
                 tracks={tracks}
                 onRemoveTrack={handleRemoveTrack}
                 resetForm={resetMixerForm}
+                isGeneratingVoice={isGenerating}
+                isGeneratingMusic={isGeneratingMusic}
+                isGeneratingSoundFx={isGeneratingSoundFx}
               />
             </Tab.Panel>
           </Tab.Panels>

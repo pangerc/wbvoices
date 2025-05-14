@@ -90,7 +90,7 @@ export function ScripterPanel({
                   <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto  bg-white py-1 text-base shadow-lg ring-1 ring-gray-300 ring-opacity-5 focus:outline-none sm:text-sm">
                     {voices.map((voice) => (
                       <Listbox.Option
-                        key={voice.id}
+                        key={`${voice.id}`}
                         value={voice}
                         className={({ active }) =>
                           `relative cursor-default select-none py-2 pl-3 pr-9 ${
@@ -139,7 +139,9 @@ export function ScripterPanel({
                                 ]
                                   .filter(Boolean)
                                   .map((attr, i) => (
-                                    <React.Fragment key={i}>
+                                    <React.Fragment
+                                      key={`${voice.id}-attr-${i}`}
+                                    >
                                       {voice.accent || i > 0 ? " · " : ""}
                                       {attr}
                                     </React.Fragment>
@@ -187,7 +189,9 @@ export function ScripterPanel({
                   ]
                     .filter(Boolean)
                     .map((attr, i) => (
-                      <React.Fragment key={i}>
+                      <React.Fragment
+                        key={`${track.voice?.id || index}-attr-${i}`}
+                      >
                         {track.voice && (track.voice.accent || i > 0)
                           ? " · "
                           : ""}
@@ -211,6 +215,35 @@ export function ScripterPanel({
                 rows={3}
                 placeholder="Enter the script for this voice..."
               />
+
+              {/* Timing instructions for this voice track */}
+              {track.playAfter && (
+                <div className="mt-1 text-xs text-gray-500 bg-gray-50 p-2 rounded-sm border border-gray-200">
+                  <span className="font-medium text-gray-700">Timing: </span>
+                  {track.playAfter === "previous" ? (
+                    <span>Plays after previous element</span>
+                  ) : (
+                    <span>Plays after {track.playAfter}</span>
+                  )}
+                  {track.overlap && track.overlap > 0 && (
+                    <span className="ml-1 text-sky-600">
+                      (overlaps by {track.overlap}s)
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {!track.playAfter && index > 0 && (
+                <div className="mt-1 text-xs text-gray-500 italic">
+                  This voice will play sequentially after the previous element.
+                </div>
+              )}
+
+              {index === 0 && !track.playAfter && (
+                <div className="mt-1 text-xs text-gray-500 italic">
+                  This voice will play at the beginning of the sequence.
+                </div>
+              )}
             </div>
           </div>
         ))}
