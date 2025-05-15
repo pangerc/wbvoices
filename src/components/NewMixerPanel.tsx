@@ -1,21 +1,11 @@
 import React, { useEffect, useRef } from "react";
 import { createMix, TrackTiming } from "@/utils/audio-mixer";
 import { useMixerStore, MixerTrack } from "@/store/mixerStore";
-
-// Helper function to clean track labels
-function cleanTrackLabel(label: string): string {
-  // Remove duration indicators like (30s), (15s), etc.
-  return label.replace(/\s*\(\d+s\)\s*$/i, "");
-}
-
-// Helper function to extract just the character name from the label
-function extractCharacterName(label: string): string {
-  const parts = label.split(":");
-  if (parts.length > 0) {
-    return parts[0].trim();
-  }
-  return label;
-}
+import {
+  TimelineTrack,
+  TimelineTrackData,
+  getDefaultVolumeForType,
+} from "@/components/TimelineTrack";
 
 type NewMixerPanelProps = {
   isGeneratingVoice?: boolean;
@@ -64,12 +54,20 @@ export function NewMixerPanel({
     if (track.type !== "soundfx") return false;
 
     // Basic URL validation - this helps filter out placeholder tracks
-    return (
+    const hasValidUrl =
       track.url &&
       (track.url.startsWith("blob:") ||
         track.url.startsWith("http:") ||
-        track.url.startsWith("https:"))
-    );
+        track.url.startsWith("https:"));
+
+    // Debug soundFx URL validation
+    console.log(`SoundFx track "${track.label}" URL validation:`, {
+      id: track.id,
+      url: track.url,
+      isValid: hasValidUrl,
+    });
+
+    return hasValidUrl;
   });
 
   // Handle audio error
@@ -172,6 +170,19 @@ export function NewMixerPanel({
             }
             // Save actual duration
             setAudioDuration(track.id, audio.duration);
+
+            // Debug sound FX track durations
+            if (track.type === "soundfx") {
+              console.log(
+                `Setting duration for soundFx track "${track.label}":`,
+                {
+                  id: track.id,
+                  actualDuration: audio.duration,
+                  url: track.url,
+                }
+              );
+            }
+
             // Mark as loaded
             handleAudioLoaded(track.id);
           }
@@ -275,15 +286,30 @@ export function NewMixerPanel({
       const musicUrl = musicTracks.length > 0 ? musicTracks[0].url : null;
       const soundFxUrls = soundFxTracks.map((t) => t.url);
 
+      // Debug calculated tracks
+      console.log("All calculated tracks:", calculatedTracks);
+
+      // Debug totalDuration
+      console.log("Total duration:", totalDuration);
+
       // Prepare timing information for the mixer
-      const timingInfo: TrackTiming[] = calculatedTracks.map((track) => ({
-        id: track.id,
-        url: track.url,
-        type: track.type,
-        startTime: track.actualStartTime,
-        duration: track.actualDuration,
-        gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
-      }));
+      const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
+        const timing = {
+          id: track.id,
+          url: track.url,
+          type: track.type,
+          startTime: track.actualStartTime,
+          duration: track.actualDuration,
+          gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
+        };
+
+        // Debug soundFx timing info
+        if (track.type === "soundfx") {
+          console.log("SoundFx timing info:", timing);
+        }
+
+        return timing;
+      });
 
       const { blob } = await createMix(
         voiceUrls,
@@ -307,49 +333,11 @@ export function NewMixerPanel({
     }
   };
 
-  // Helper function to get colors based on track type
-  const getTrackColor = (type: "voice" | "music" | "soundfx") => {
-    switch (type) {
-      case "voice":
-        return "bg-white border-gray-800";
-      case "music":
-        return "bg-sky-950 border-sky-900";
-      case "soundfx":
-        return "bg-red-950 border-red-800";
-      default:
-        return "bg-gray-800 border-gray-500";
-    }
-  };
-
-  // Get default volume based on track type
-  const getDefaultVolumeForType = (
-    type: "voice" | "music" | "soundfx"
-  ): number => {
-    switch (type) {
-      case "voice":
-        return 1.0;
-      case "music":
-        return 0.25;
-      case "soundfx":
-        return 0.7;
-      default:
-        return 1.0;
-    }
-  };
-
   // Format seconds as MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  // Get width percentage for timeline elements
-  const getWidthPercent = (start: number, duration: number) => {
-    if (totalDuration === 0) return { left: 0, width: 0 };
-    const leftPercent = (start / totalDuration) * 100;
-    const widthPercent = (duration / totalDuration) * 100;
-    return { left: leftPercent, width: widthPercent };
   };
 
   // Clean up preview URL when component unmounts
@@ -445,6 +433,51 @@ export function NewMixerPanel({
       };
     });
   }, [tracks, calculatedTracks]);
+
+  // Debug calculated tracks for each type
+  useEffect(() => {
+    if (calculatedTracks.length > 0) {
+      const voiceCalcTracks = calculatedTracks.filter(
+        (t) => t.type === "voice"
+      );
+      const musicCalcTracks = calculatedTracks.filter(
+        (t) => t.type === "music"
+      );
+      const soundFxCalcTracks = calculatedTracks.filter(
+        (t) => t.type === "soundfx"
+      );
+
+      console.log("Calculated tracks analysis:", {
+        totalDuration,
+        voiceTracks: voiceCalcTracks.map((t) => ({
+          id: t.id,
+          label: t.label,
+          start: t.actualStartTime,
+          duration: t.actualDuration,
+          percentOfTotal: (t.actualDuration / totalDuration) * 100,
+        })),
+        musicTracks: musicCalcTracks.map((t) => ({
+          id: t.id,
+          label: t.label,
+          start: t.actualStartTime,
+          duration: t.actualDuration,
+          percentOfTotal: (t.actualDuration / totalDuration) * 100,
+        })),
+        soundFxTracks: soundFxCalcTracks.map((t) => ({
+          id: t.id,
+          label: t.label,
+          start: t.actualStartTime,
+          duration: t.actualDuration,
+          percentOfTotal: (t.actualDuration / totalDuration) * 100,
+        })),
+      });
+    }
+  }, [calculatedTracks, totalDuration]);
+
+  // Function to handle setting audio reference
+  const handleAudioRef = (id: string) => (element: HTMLAudioElement | null) => {
+    audioRefs.current[id] = element;
+  };
 
   return (
     <div className="py-8 text-white">
@@ -578,476 +611,96 @@ export function NewMixerPanel({
               {/* Voice tracks */}
               {calculatedTracks
                 .filter((track) => track.type === "voice")
-                .map((track) => {
-                  const { left, width } = getWidthPercent(
-                    track.actualStartTime,
-                    track.actualDuration
-                  );
-
-                  return (
-                    <div
-                      key={track.id}
-                      className="relative h-6 mb-2 flex items-center"
-                    >
-                      {!isTrackLoading(track) && !audioErrors[track.id] && (
-                        <audio
-                          src={track.url}
-                          ref={(el) => {
-                            if (el) {
-                              audioRefs.current[track.id] = el;
-                            }
-                            return undefined;
-                          }}
-                          onLoadedMetadata={() => {
-                            const audio = audioRefs.current[track.id];
-                            if (
-                              audio &&
-                              audio.duration &&
-                              !isNaN(audio.duration)
-                            ) {
-                              setAudioDuration(track.id, audio.duration);
-                            }
-                            handleAudioLoaded(track.id);
-                          }}
-                          onError={() =>
-                            handleAudioError(track.id, track.label)
-                          }
-                          className="hidden"
-                        >
-                          Your browser does not support the audio element.
-                        </audio>
-                      )}
-
-                      {/* Track ribbon container */}
-                      <div
-                        className={`relative ${
-                          isVolumeDrawerOpen ? "w-[calc(100%-100px)]" : "w-full"
-                        } h-full`}
-                      >
-                        {/* The actual colored ribbon - positioned within the track container */}
-                        <div
-                          className={`absolute h-full rounded-full ${getTrackColor(
-                            "voice"
-                          )}`}
-                          style={{
-                            left: `${left}%`,
-                            width: `${Math.max(width, 5)}%`, // Ensure minimum width for visibility
-                          }}
-                        >
-                          {/* Progress overlay */}
-                          {playingTracks[track.id] && (
-                            <div
-                              className="absolute top-0 left-0 h-full bg-sky-500 bg-opacity-30 rounded-full transition-all"
-                              style={{
-                                width: `${playbackProgress[track.id] || 0}%`,
-                              }}
-                            ></div>
-                          )}
-
-                          {/* Track title that triggers playback */}
-                          <div
-                            className="px-3 py-1 h-full flex items-center cursor-pointer"
-                            onClick={() => {
-                              const audio = audioRefs.current[track.id];
-                              if (audio) {
-                                if (audio.paused) {
-                                  audio.play();
-                                } else {
-                                  audio.pause();
-                                }
-                              }
-                            }}
-                          >
-                            <div className="font-medium text-xs truncate text-black">
-                              {extractCharacterName(
-                                cleanTrackLabel(track.label)
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Static handle on the right */}
-                          <div className="absolute right-1 top-1.5 h-full w-4 cursor-pointer ">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 10 10"
-                              height="10"
-                              width="10"
-                              className="h-3 w-auto "
-                            >
-                              <path
-                                fill="#000000"
-                                d="M1.7854166666666669 1.42875a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M1.7854166666666669 5a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M1.7854166666666669 8.571666666666667a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M5.357083333333334 1.42875a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M5.357083333333334 5a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M5.357083333333334 8.571666666666667a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Integrated volume slider - visible only when volume mode is active */}
-                      {isVolumeDrawerOpen && (
-                        <div className="ml-4 w-[80px] flex-shrink-0">
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.01"
-                            value={trackVolumes[track.id] || 1.0}
-                            onChange={(e) =>
-                              setTrackVolume(
-                                track.id,
-                                parseFloat(e.target.value)
-                              )
-                            }
-                            className="w-full h-1"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                .map((track) => (
+                  <TimelineTrack
+                    key={track.id}
+                    track={track as TimelineTrackData}
+                    totalDuration={totalDuration}
+                    isVolumeDrawerOpen={isVolumeDrawerOpen}
+                    trackVolume={
+                      trackVolumes[track.id] || getDefaultVolumeForType("voice")
+                    }
+                    audioError={audioErrors[track.id] || false}
+                    playingState={playingTracks[track.id] || false}
+                    playbackProgress={playbackProgress[track.id] || 0}
+                    audioRef={handleAudioRef(track.id)}
+                    onVolumeChange={(value) => setTrackVolume(track.id, value)}
+                    onAudioLoaded={() => {
+                      const audio = audioRefs.current[track.id];
+                      if (audio && audio.duration && !isNaN(audio.duration)) {
+                        setAudioDuration(track.id, audio.duration);
+                      }
+                      handleAudioLoaded(track.id);
+                    }}
+                    onAudioError={() => handleAudioError(track.id, track.label)}
+                    isTrackLoading={isTrackLoading(track)}
+                  />
+                ))}
 
               {/* Music tracks */}
               {calculatedTracks
                 .filter((track) => track.type === "music")
-                .map((track) => {
-                  const { left, width } = getWidthPercent(
-                    track.actualStartTime,
-                    track.actualDuration
-                  );
-                  return (
-                    <div
-                      key={track.id}
-                      className="relative h-6 mb-2 flex items-center"
-                    >
-                      {!isTrackLoading(track) && !audioErrors[track.id] && (
-                        <audio
-                          src={track.url}
-                          ref={(el) => {
-                            if (el) {
-                              audioRefs.current[track.id] = el;
-                            }
-                            return undefined;
-                          }}
-                          onLoadedMetadata={() => {
-                            const audio = audioRefs.current[track.id];
-                            if (
-                              audio &&
-                              audio.duration &&
-                              !isNaN(audio.duration)
-                            ) {
-                              setAudioDuration(track.id, audio.duration);
-                            }
-                            handleAudioLoaded(track.id);
-                          }}
-                          onError={() =>
-                            handleAudioError(track.id, track.label)
-                          }
-                          className="hidden"
-                        >
-                          Your browser does not support the audio element.
-                        </audio>
-                      )}
-
-                      {/* Track ribbon container */}
-                      <div
-                        className={`relative ${
-                          isVolumeDrawerOpen ? "w-[calc(100%-100px)]" : "w-full"
-                        } h-full`}
-                      >
-                        {/* The actual colored ribbon - positioned within the track container */}
-                        <div
-                          className={`absolute h-full rounded-full ${getTrackColor(
-                            "music"
-                          )}`}
-                          style={{
-                            left: `${left}%`,
-                            width: `${Math.max(width, 5)}%`, // Ensure minimum width for visibility
-                          }}
-                        >
-                          {/* Progress overlay */}
-                          {playingTracks[track.id] && (
-                            <div
-                              className="absolute top-0 left-0 h-full bg-sky-700 bg-opacity-30 rounded-full transition-all"
-                              style={{
-                                width: `${playbackProgress[track.id] || 0}%`,
-                              }}
-                            ></div>
-                          )}
-
-                          {/* Track title that triggers playback */}
-                          <div
-                            className="px-3 py-1 h-full flex items-center cursor-pointer"
-                            onClick={() => {
-                              const audio = audioRefs.current[track.id];
-                              if (audio) {
-                                if (audio.paused) {
-                                  audio.play();
-                                } else {
-                                  audio.pause();
-                                }
-                              }
-                            }}
-                          >
-                            <div className="font-medium text-xs truncate">
-                              {cleanTrackLabel(track.label)}
-                            </div>
-                          </div>
-
-                          {/* Static handle on the right */}
-                          <div className="absolute right-1 top-1.5 h-full w-4 cursor-pointer ">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 10 10"
-                              height="10"
-                              width="10"
-                              className="h-3 w-auto "
-                            >
-                              <path
-                                fill="#000000"
-                                d="M1.7854166666666669 1.42875a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M1.7854166666666669 5a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M1.7854166666666669 8.571666666666667a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M5.357083333333334 1.42875a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M5.357083333333334 5a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M5.357083333333334 8.571666666666667a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Integrated volume slider - visible only when volume mode is active */}
-                      {isVolumeDrawerOpen && (
-                        <div className="ml-4 w-[80px] flex-shrink-0">
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.01"
-                            value={trackVolumes[track.id] || 0.25}
-                            onChange={(e) =>
-                              setTrackVolume(
-                                track.id,
-                                parseFloat(e.target.value)
-                              )
-                            }
-                            className="w-full h-1"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                .map((track) => (
+                  <TimelineTrack
+                    key={track.id}
+                    track={track as TimelineTrackData}
+                    totalDuration={totalDuration}
+                    isVolumeDrawerOpen={isVolumeDrawerOpen}
+                    trackVolume={
+                      trackVolumes[track.id] || getDefaultVolumeForType("music")
+                    }
+                    audioError={audioErrors[track.id] || false}
+                    playingState={playingTracks[track.id] || false}
+                    playbackProgress={playbackProgress[track.id] || 0}
+                    audioRef={handleAudioRef(track.id)}
+                    onVolumeChange={(value) => setTrackVolume(track.id, value)}
+                    onAudioLoaded={() => {
+                      const audio = audioRefs.current[track.id];
+                      if (audio && audio.duration && !isNaN(audio.duration)) {
+                        setAudioDuration(track.id, audio.duration);
+                      }
+                      handleAudioLoaded(track.id);
+                    }}
+                    onAudioError={() => handleAudioError(track.id, track.label)}
+                    isTrackLoading={isTrackLoading(track)}
+                  />
+                ))}
 
               {/* Sound FX tracks */}
               {calculatedTracks
                 .filter((track) => track.type === "soundfx")
-                .map((track) => {
-                  const { left, width } = getWidthPercent(
-                    track.actualStartTime,
-                    track.actualDuration
-                  );
-                  return (
-                    <div
-                      key={track.id}
-                      className="relative h-6 mb-2 flex items-center"
-                    >
-                      {!isTrackLoading(track) && !audioErrors[track.id] && (
-                        <audio
-                          src={track.url}
-                          ref={(el) => {
-                            if (el) {
-                              audioRefs.current[track.id] = el;
-                            }
-                            return undefined;
-                          }}
-                          onLoadedMetadata={() => {
-                            const audio = audioRefs.current[track.id];
-                            if (
-                              audio &&
-                              audio.duration &&
-                              !isNaN(audio.duration)
-                            ) {
-                              setAudioDuration(track.id, audio.duration);
-                            }
-                            handleAudioLoaded(track.id);
-                          }}
-                          onError={() =>
-                            handleAudioError(track.id, track.label)
-                          }
-                          className="hidden"
-                        >
-                          Your browser does not support the audio element.
-                        </audio>
-                      )}
-
-                      {/* Track ribbon container */}
-                      <div
-                        className={`relative ${
-                          isVolumeDrawerOpen ? "w-[calc(100%-100px)]" : "w-full"
-                        } h-full`}
-                      >
-                        {/* The actual colored ribbon - positioned within the track container */}
-                        <div
-                          className={`absolute h-full rounded-full ${getTrackColor(
-                            "soundfx"
-                          )}`}
-                          style={{
-                            left: `${left}%`,
-                            width: `${Math.max(width, 5)}%`, // Ensure minimum width for visibility
-                          }}
-                        >
-                          {/* Progress overlay */}
-                          {playingTracks[track.id] && (
-                            <div
-                              className="absolute top-0 left-0 h-full bg-red-700 bg-opacity-30 rounded-full transition-all"
-                              style={{
-                                width: `${playbackProgress[track.id] || 0}%`,
-                              }}
-                            ></div>
-                          )}
-
-                          {/* Track title that triggers playback */}
-                          <div
-                            className="px-3 py-1 h-full flex items-center cursor-pointer"
-                            onClick={() => {
-                              const audio = audioRefs.current[track.id];
-                              if (audio) {
-                                if (audio.paused) {
-                                  audio.play();
-                                } else {
-                                  audio.pause();
-                                }
-                              }
-                            }}
-                          >
-                            <div className="font-medium text-xs truncate">
-                              {cleanTrackLabel(track.label)}
-                            </div>
-                          </div>
-
-                          {/* Static handle on the right */}
-                          <div className="absolute right-1 top-1.5 h-full w-4 cursor-pointer ">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 10 10"
-                              height="10"
-                              width="10"
-                              className="h-3 w-auto "
-                            >
-                              <path
-                                fill="#000000"
-                                d="M1.7854166666666669 1.42875a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M1.7854166666666669 5a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M1.7854166666666669 8.571666666666667a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M5.357083333333334 1.42875a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M5.357083333333334 5a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                              <path
-                                fill="#000000"
-                                d="M5.357083333333334 8.571666666666667a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                                strokeWidth="1"
-                              ></path>
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Integrated volume slider - visible only when volume mode is active */}
-                      {isVolumeDrawerOpen && (
-                        <div className="ml-4 w-[80px] flex-shrink-0 ">
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.01"
-                            value={trackVolumes[track.id] || 0.7}
-                            onChange={(e) =>
-                              setTrackVolume(
-                                track.id,
-                                parseFloat(e.target.value)
-                              )
-                            }
-                            className="w-full h-1"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                .map((track) => (
+                  <TimelineTrack
+                    key={track.id}
+                    track={track as TimelineTrackData}
+                    totalDuration={totalDuration}
+                    isVolumeDrawerOpen={isVolumeDrawerOpen}
+                    trackVolume={
+                      trackVolumes[track.id] ||
+                      getDefaultVolumeForType("soundfx")
+                    }
+                    audioError={audioErrors[track.id] || false}
+                    playingState={playingTracks[track.id] || false}
+                    playbackProgress={playbackProgress[track.id] || 0}
+                    audioRef={handleAudioRef(track.id)}
+                    onVolumeChange={(value) => setTrackVolume(track.id, value)}
+                    onAudioLoaded={() => {
+                      const audio = audioRefs.current[track.id];
+                      if (audio && audio.duration && !isNaN(audio.duration)) {
+                        setAudioDuration(track.id, audio.duration);
+                      }
+                      handleAudioLoaded(track.id);
+                    }}
+                    onAudioError={() => handleAudioError(track.id, track.label)}
+                    isTrackLoading={isTrackLoading(track)}
+                  />
+                ))}
             </div>
 
             {/* Volume Controls Toggle */}
-            <div className="absolute top-4 right-4">
+            <div className="absolute top-0 right-0">
               <button
-                className={`px-3 py-1 rounded text-sm ${
+                className={`px-3 py-1 rounded-t-full rounded-bl-full text-xs border-b border-gray-700 ${
                   isVolumeDrawerOpen
                     ? "bg-gray-600 text-white"
                     : "bg-gray-800 hover:bg-gray-700 text-gray-300"
@@ -1097,21 +750,15 @@ export function NewMixerPanel({
       {/* Loading states for asset generation */}
       <div className="mt-8">
         {isGeneratingVoice && voiceTracks.length === 0 && (
-          <div className="p-4 bg-gray-800">
-            {renderLoadingAnimation("voice")}
-          </div>
+          <div className="text-2xl">{renderLoadingAnimation("voice")}</div>
         )}
 
         {isGeneratingMusic && musicTracks.length === 0 && (
-          <div className="p-4 bg-gray-800">
-            {renderLoadingAnimation("music")}
-          </div>
+          <div className="text-2xl">{renderLoadingAnimation("music")}</div>
         )}
 
         {isGeneratingSoundFx && soundFxTracks.length === 0 && (
-          <div className="p-4 bg-gray-800">
-            {renderLoadingAnimation("soundfx")}
-          </div>
+          <div className="text-2xl">{renderLoadingAnimation("soundfx")}</div>
         )}
       </div>
     </div>

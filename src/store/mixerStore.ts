@@ -580,12 +580,16 @@ export const useMixerStore = create<MixerState>((set, get) => ({
           // For sound effects with no explicit timing, distribute them evenly across the timeline
           // or place at the beginning by default
           const actualDuration = getTrackDuration(track);
+
+          // FIX: Place sound effects after voice tracks by default instead of at 0:00
+          const startTime = lastVoiceEndTime > 0 ? lastVoiceEndTime : 0;
+
           result.push({
             ...track,
-            actualStartTime: 0,
+            actualStartTime: startTime,
             actualDuration,
           });
-          trackStartTimes.set(track.id, 0);
+          trackStartTimes.set(track.id, startTime);
         }
       });
 

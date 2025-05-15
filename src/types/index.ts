@@ -14,6 +14,8 @@ export type Voice = {
   accent?: string;
   style?: string;
   description?: string;
+  age?: string;
+  use_case?: string;
 };
 
 export type VoiceTrack = {

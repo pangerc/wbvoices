@@ -28,13 +28,15 @@ export async function generateCreativeCopy(
   // Enhanced voice descriptions with more detailed attributes
   const voiceOptions = filteredVoices
     .map(
-      (voice) => `${voice.name} (${voice.gender || "unknown"}, ${
-        voice.accent || voice.language || "standard accent"
-      }, ID: ${voice.id})
-      - Style: ${voice.style || "versatile"} 
-      - Personality: ${voice.description || "natural and conversational"}`
+      (voice) => `${voice.name} (id: ${voice.id})
+  • Gender: ${voice.gender ?? "unknown"}
+  • Age: ${voice.age ?? "n/a"}
+  • Accent: ${voice.accent ?? voice.language}
+  • Tone: ${voice.description ?? voice.style ?? "neutral"}
+  • Use case: ${voice.use_case ?? "general"}
+`
     )
-    .join("\n\n");
+    .join("\n");
 
   // Determine which client to use based on the selected AI model
   if (aiModel === "deepseek") {
@@ -151,31 +153,38 @@ IMPORTANT: You MUST return your response in the following JSON format:
 
 CRITICAL INSTRUCTIONS:
 1. The "speaker" MUST be an exact voice ID from the AVAILABLE VOICES list above
-2. Select voices based on their personality descriptions to fit the content. No more Drew and Rachel from Elevenlabs! Make sure to use a different voice for each speaker.
-3. ALWAYS include sound effects for themed content (e.g., car sounds for automotive ads, nature sounds for outdoor products)
-4. For voice elements, focus on realistic dialog and natural speech patterns
-5. "playAfter" indicates what element this should play after (usually "previous")
-6. "overlap" is the number of seconds an element should overlap with what it plays after
-7. For dialog format, VARY your voice choices based on message content and voice personalities
-8. For single voice format, use one speaker throughout
-9. Ensure the script fits within ${duration} seconds (approximately ${Math.round(
+
+2. Prefer contrast: at least one of {gender, age, accent, tone} should differ across speakers.
+3. If no ideal personality match is obvious, pick randomly from the remaining unused voices rather than picking the obvious choice.
+4. If available, use the "Tone" and "Use case" tags to justify your picks (e.g., an "authoritative" middle-aged male for a narrator vs. a "youthful upbeat" female as a customer).
+5. For "Dialog between two voices", you MUST output exactly two different "speaker" IDs that obey rules 2–4 in the system prompt.
+
+6 . For voice elements, focus on realistic dialog and natural speech patterns
+7. Include sound effects for themed content (e.g., car sounds for automotive ads, nature sounds for outdoor products)
+
+8. "playAfter" indicates what element this should play after (usually "previous")
+9. "overlap" is the number of seconds an element should overlap with what it plays after
+10. For dialog format, VARY your voice choices based on message content and voice personalities
+11. For single voice format, use one speaker throughout
+12. Ensure the script fits within ${duration} seconds (approximately ${Math.round(
     duration * 2.5
   )}-${Math.round(duration * 2.7)} words)
-10. ALWAYS include the "soundFxPrompts" array with at least one detailed sound effect description for car/tech/product ads
-11. CRUCIAL: ALL music and sound effect descriptions must be in ENGLISH ONLY, regardless of the ad language
+13. Whenever appropriate, include the "soundFxPrompts" array with at least one detailed sound effect description for car/tech/product ads
+14. CRUCIAL: ALL music and sound effect descriptions must be in ENGLISH ONLY, regardless of the ad language
 
 DYNAMIC SOUND DESIGN:
-12. CREATIVE PLACEMENT: Position sound effects throughout the ad - not just at the end! Use them at the beginning, middle, and end
-13. DRAMATIC INTROS: Consider starting with attention-grabbing sounds BEFORE voices by setting "playAfter": "start"
-14. PUNCTUATE DIALOG: Place impactful sound effects between voice segments to emphasize key points
-15. LAYERED EXPERIENCE: Overlap voices with relevant sound effects for immersion (e.g., car acceleration while spokesperson talks)
-16. CONCLUDING EFFECTS: For ending effects, play them during music fadeout for a professional finish
+15. CREATIVE PLACEMENT: Position sound effects throughout the ad - not just at the end! Use them at the beginning, middle, and end
+16. DRAMATIC INTROS: Consider starting with attention-grabbing sounds BEFORE voices by setting "playAfter": "start"
+17. PUNCTUATE DIALOG: Place impactful sound effects between voice segments to emphasize key points
+18. LAYERED EXPERIENCE: Overlap voices with relevant sound effects for immersion (e.g., car acceleration while spokesperson talks)
+19. CONCLUDING EFFECTS: For ending effects, play them during music fadeout for a professional finish
 
 SOUND EFFECT DESCRIPTION GUIDELINES:
-17. SIMPLE EFFECTS: Use clear, concise descriptions (e.g., "Glass shattering on concrete", "Door creaking open")
-18. COMPLEX SEQUENCES: For multi-part effects, describe the sequence (e.g., "Footsteps on gravel, then a metallic door opens")
-19. BE SPECIFIC: Include surface materials, distance, intensity, and environment when relevant
-20. AVOID VAGUE TERMS: Instead of "nice" or "cool" sound, describe the actual sound itself
+20. SIMPLE EFFECTS: Use clear, concise descriptions (e.g., "Glass shattering on concrete", "Door creaking open")
+21. COMPLEX SEQUENCES: For multi-part effects, describe the sequence (e.g., "Footsteps on gravel, then a metallic door opens")
+22. BE SPECIFIC: Include surface materials, distance, intensity, and environment when relevant
+23. AVOID VAGUE TERMS: Instead of "nice" or "cool" sound, describe the actual sound itself
+24. DURATION: Short is better, API allows duration from 0.1 to 15 seconds
 
 Sound Effect Prompt Examples (BE CREATIVE WITH PLACEMENT):
 - Car ads: "Car engine starting with mechanical ignition sound, then revving powerfully" (playAfter: "start")

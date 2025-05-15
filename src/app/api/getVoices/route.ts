@@ -1,5 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeLanguageCode } from "@/utils/language";
+import path from "path";
+import { promises as fsPromises } from "fs";
+
+// Create directory if it doesn't exist
+const ensureDirectoryExists = async (dirPath: string) => {
+  try {
+    await fsPromises.mkdir(dirPath, { recursive: true });
+  } catch (error) {
+    console.error(`Error creating directory ${dirPath}:`, error);
+  }
+};
+
+// Save JSON data to file
+const saveJsonToFile = async (
+  data: Record<string, unknown> | unknown[],
+  fileName: string
+) => {
+  try {
+    const dataDir = path.join(process.cwd(), "data");
+    await ensureDirectoryExists(dataDir);
+    const filePath = path.join(dataDir, fileName);
+    await fsPromises.writeFile(filePath, JSON.stringify(data, null, 2));
+    console.log(`Data saved to ${filePath}`);
+  } catch (error) {
+    console.error(`Error saving data to ${fileName}:`, error);
+  }
+};
 
 type ElevenLabsVoice = {
   voice_id: string;
@@ -8,6 +35,8 @@ type ElevenLabsVoice = {
     gender?: string;
     accent?: string;
     description?: string;
+    age?: string;
+    use_case?: string;
   };
   preview_url?: string;
   high_quality_base_model_ids?: string[];
@@ -25,6 +54,10 @@ type Voice = {
   language: string;
   isMultilingual: boolean;
   accent?: string;
+  age?: string;
+  description?: string;
+  use_case?: string;
+  style?: string;
 };
 
 type LovoVoice = {
@@ -33,6 +66,10 @@ type LovoVoice = {
   gender: string;
   sampleUrl: string;
   accent?: string;
+  age?: string;
+  description?: string;
+  use_case?: string;
+  style?: string;
 };
 
 type LovoVoicesByLanguage = {
@@ -265,9 +302,56 @@ const extractAccentFromSpeaker = (speaker: LovoSpeaker): string | undefined => {
   }
 };
 
+// Map Lovo age ranges to standardized categories that match ElevenLabs
+const mapLovoAgeRange = (ageRange: string): string => {
+  if (ageRange.includes("young") || ageRange.includes("18-25")) return "young";
+  if (ageRange.includes("old") || parseInt(ageRange.split("-")[0]) > 50)
+    return "old";
+  return "middle_aged"; // default for most adult voices
+};
+
+// Map Lovo speaker characteristics to a descriptive tone/personality
+const mapLovoStyleToDescription = (
+  speaker: LovoSpeaker
+): string | undefined => {
+  // Extract style information from first speaking style if available
+  if (speaker.speakerStyles[0]?.displayName) {
+    const styleName = speaker.speakerStyles[0].displayName.toLowerCase();
+
+    // Map common style keywords to descriptive terms
+    if (styleName.includes("casual")) return "conversational";
+    if (styleName.includes("formal")) return "professional";
+    if (styleName.includes("cheerful") || styleName.includes("happy"))
+      return "upbeat";
+    if (styleName.includes("serious")) return "authoritative";
+    if (styleName.includes("soft")) return "calm";
+
+    // If no specific mapping, return first part of style name as description
+    return styleName.split(" ")[0];
+  }
+
+  // Default descriptions based on gender if no style info available
+  return speaker.gender.toLowerCase() === "female" ? "pleasant" : "neutral";
+};
+
+// Infer use case based on speaker type
+const inferUseCase = (speakerType: string): string | undefined => {
+  const type = speakerType.toLowerCase();
+
+  if (type.includes("narration") || type.includes("audio_book"))
+    return "narration";
+  if (type.includes("advertisement")) return "advertisement";
+  if (type.includes("announcement")) return "announcement";
+  if (type.includes("social")) return "social_media";
+  if (type.includes("character")) return "characters";
+
+  return "general"; // Default use case
+};
+
 export async function GET(req: NextRequest) {
   const provider = req.nextUrl.searchParams.get("provider");
   const language = req.nextUrl.searchParams.get("language");
+  const saveData = req.nextUrl.searchParams.get("saveData") === "true";
 
   if (!provider) {
     return NextResponse.json(
@@ -305,6 +389,13 @@ export async function GET(req: NextRequest) {
     }
 
     const data = await response.json();
+
+    // Save raw Lovo data if requested
+    if (saveData) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      await saveJsonToFile(data, `lovo-raw-${timestamp}.json`);
+    }
+
     const speakers: LovoSpeaker[] = data.data;
 
     // Group speakers by language
@@ -325,6 +416,11 @@ export async function GET(req: NextRequest) {
         gender: speaker.gender.toLowerCase(),
         sampleUrl:
           speaker.speakerStyles[0].sampleTtsUrl || "/samples/default.mp3",
+        // Derive additional attributes based on available Lovo data
+        age: speaker.ageRange ? mapLovoAgeRange(speaker.ageRange) : undefined,
+        description: mapLovoStyleToDescription(speaker),
+        use_case: inferUseCase(speaker.speakerType),
+        style: speaker.speakerStyles[0].displayName || undefined,
       };
 
       // Extract accent information
@@ -343,6 +439,15 @@ export async function GET(req: NextRequest) {
         voicesByLanguage[normalizedLocale] = [];
       }
       voicesByLanguage[normalizedLocale].push(voice);
+    }
+
+    // Save processed Lovo data if requested
+    if (saveData) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      await saveJsonToFile(
+        voicesByLanguage,
+        `lovo-processed-${timestamp}.json`
+      );
     }
 
     // If language is specified, return only voices for that language
@@ -392,6 +497,13 @@ export async function GET(req: NextRequest) {
     }
 
     const data = await response.json();
+
+    // Save raw ElevenLabs data if requested
+    if (saveData) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      await saveJsonToFile(data, `elevenlabs-raw-${timestamp}.json`);
+    }
+
     console.log(
       "First voice example:",
       JSON.stringify(data.voices[0], null, 2)
@@ -423,8 +535,17 @@ export async function GET(req: NextRequest) {
         language: normalizedLanguage,
         isMultilingual,
         accent,
+        age: voice.labels?.age || undefined,
+        description: voice.labels?.description || undefined,
+        use_case: voice.labels?.use_case || undefined,
       };
     });
+
+    // Save processed ElevenLabs data if requested
+    if (saveData) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      await saveJsonToFile(voices, `elevenlabs-processed-${timestamp}.json`);
+    }
 
     // Log unique languages for debugging
     const uniqueLanguages = [
