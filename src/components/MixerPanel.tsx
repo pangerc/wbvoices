@@ -1528,10 +1528,12 @@ export function MixerPanel({
         !isGeneratingVoice &&
         !isGeneratingMusic &&
         !isGeneratingSoundFx && (
-          <p className="text-center text-gray-400 mt-12">
-            No tracks available. Generate some voice, music, or sound FX tracks
-            to get started.
-          </p>
+          <div className="flex flex-col justify-center items-start h-128">
+            <p className=" text-gray-600 text-2xl ">
+              No tracks available. Generate some voice, music, or sound FX
+              tracks to get started.
+            </p>
+          </div>
         )}
     </div>
   );
