@@ -52,7 +52,7 @@ const campaignFormatOptions = [
   },
   {
     value: "dialog" as CampaignFormat,
-    label: "Dialog",
+    label: "Dialogue",
     description:
       "Two voices having a conversation about the product or service",
   },
