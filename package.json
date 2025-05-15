@@ -17,7 +17,8 @@
     "playht": "^0.14.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-textarea-autosize": "^8.5.9"
+    "react-textarea-autosize": "^8.5.9",
+    "zustand": "^5.0.4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

@@ -19,13 +19,14 @@ import {
 import {
   BriefPanel,
   ScripterPanel,
-  MixerPanel,
+  NewMixerPanel,
   MusicPanel,
   SoundFxPanel,
 } from "@/components";
 import { Header } from "@/components/Header";
 import { generateMusic } from "@/utils/beatoven-api";
 import { generateMusicWithLoudly } from "@/utils/loudly-api";
+import { useMixerStore } from "@/store/mixerStore";
 
 type Track = {
   url: string;
@@ -38,6 +39,11 @@ type Track = {
   overlap?: number;
   // Volume control
   volume?: number;
+  // Concurrent speech grouping
+  concurrentGroup?: string;
+  isConcurrent?: boolean;
+  // Loading state
+  isLoading?: boolean;
 };
 
 export default function DemoTTS() {
@@ -52,22 +58,6 @@ export default function DemoTTS() {
 
   // State for tab management
   const [selectedTab, setSelectedTab] = useState(0);
-
-  // Reset status message when switching tabs
-  const handleTabChange = (index: number) => {
-    console.log(`Switching to tab ${index} from tab ${selectedTab}`);
-
-    // If moving from Brief to Sound FX tab directly (0 to 3), add additional protection
-    if (selectedTab === 0 && index === 3) {
-      console.log("Moving from Brief to Sound FX tab - ensuring clean state");
-      // Ensure we're not in a generating state
-      setIsGeneratingSoundFx(false);
-    }
-
-    // Clear status message when switching tabs
-    setStatusMessage("");
-    setSelectedTab(index);
-  };
 
   // State for Brief section
   const [clientDescription, setClientDescription] = useState("");
@@ -98,6 +88,9 @@ export default function DemoTTS() {
 
   // Update track state to include metadata
   const [tracks, setTracks] = useState<Track[]>([]);
+
+  // Get the Zustand mixer store actions
+  const { addTrack, clearTracks } = useMixerStore();
 
   // Reset scripter form
   const resetScripterForm = () => {
@@ -485,10 +478,6 @@ export default function DemoTTS() {
     setVoiceTracks(newTracks);
   };
 
-  const handleRemoveTrack = (index: number) => {
-    setTracks((current) => current.filter((_, i) => i !== index));
-  };
-
   const generateAudio = async () => {
     setIsGenerating(true);
     setStatusMessage("Generating audio...");
@@ -776,6 +765,57 @@ export default function DemoTTS() {
     }
   };
 
+  // Reset status message when switching tabs
+  const handleTabChange = (index: number) => {
+    console.log(`Switching to tab ${index} from tab ${selectedTab}`);
+
+    // If moving from Brief to Sound FX tab directly (0 to 3), add additional protection
+    if (selectedTab === 0 && index === 3) {
+      console.log("Moving from Brief to Sound FX tab - ensuring clean state");
+      // Ensure we're not in a generating state
+      setIsGeneratingSoundFx(false);
+    }
+
+    // Clear status message when switching tabs
+    setStatusMessage("");
+    setSelectedTab(index);
+  };
+
+  // Sync tracks with Zustand store whenever they change
+  useEffect(() => {
+    // Clear the store and add all current tracks
+    clearTracks();
+
+    // Only process tracks with valid URLs
+    const validTracks = tracks.filter(
+      (track) =>
+        track.url &&
+        (track.url.startsWith("blob:") ||
+          track.url.startsWith("http:") ||
+          track.url.startsWith("https:"))
+    );
+
+    validTracks.forEach((track) => {
+      // Convert to the new MixerTrack format
+      const newTrack = {
+        id: `track-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        url: track.url,
+        label: track.label,
+        type: track.type,
+        startTime: track.startTime,
+        duration: track.duration,
+        playAfter: track.playAfter,
+        overlap: track.overlap,
+        volume: track.volume,
+        concurrentGroup: track.concurrentGroup,
+        isConcurrent: track.isConcurrent,
+        isLoading: track.isLoading,
+      };
+
+      addTrack(newTrack);
+    });
+  }, [tracks, clearTracks, addTrack]);
+
   return (
     <div className="flex flex-col h-screen bg-white text-black">
       {/* Use the new Header component */}
@@ -862,9 +902,7 @@ export default function DemoTTS() {
           )}
 
           {selectedTab === 4 && (
-            <MixerPanel
-              tracks={tracks}
-              onRemoveTrack={handleRemoveTrack}
+            <NewMixerPanel
               resetForm={resetMixerForm}
               isGeneratingVoice={isGenerating}
               isGeneratingMusic={isGeneratingMusic}

@@ -151,7 +151,7 @@ IMPORTANT: You MUST return your response in the following JSON format:
 
 CRITICAL INSTRUCTIONS:
 1. The "speaker" MUST be an exact voice ID from the AVAILABLE VOICES list above
-2. Select voices based on their personality descriptions to fit the content. No more Drew from Elevenlabs!
+2. Select voices based on their personality descriptions to fit the content. No more Drew and Rachel from Elevenlabs! Make sure to use a different voice for each speaker.
 3. ALWAYS include sound effects for themed content (e.g., car sounds for automotive ads, nature sounds for outdoor products)
 4. For voice elements, focus on realistic dialog and natural speech patterns
 5. "playAfter" indicates what element this should play after (usually "previous")
