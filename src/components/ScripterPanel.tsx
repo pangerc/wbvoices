@@ -175,7 +175,7 @@ export function ScripterPanel({
         </div>
       </div>
 
-      <div className="space-y-6 ">
+      <div className="space-y-4 ">
         {voiceTracks.map((track, index) => {
           // Generate unique options for this track
           const uniqueOptions = createUniqueOptions(index);
