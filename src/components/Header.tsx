@@ -301,8 +301,8 @@ export function Header({ selectedTab, onTabChange, onStartOver }: HeaderProps) {
                 fill="none"
                 stroke="#ff6467"
                 strokeLinecap="round"
-                stroke-linejoin="round"
-                stroke-width="1"
+                strokeLinejoin="round"
+                strokeWidth="1"
               ></path>
               <path
                 d="m3.4962500000000003 5.53 -2.375 4.21875a1.875 1.875 0 0 0 1.625 2.8125h1.9075"
@@ -310,7 +310,7 @@ export function Header({ selectedTab, onTabChange, onStartOver }: HeaderProps) {
                 stroke="#ff6467"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                stroke-width="1"
+                strokeWidth="1"
               ></path>
               <path
                 d="m9.338750000000001 10.68625 -1.875 1.875 1.875 1.875"
@@ -326,7 +326,7 @@ export function Header({ selectedTab, onTabChange, onStartOver }: HeaderProps) {
                 stroke="#ff6467"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                stroke-width="1"
+                strokeWidth="1"
               ></path>
               <path
                 d="m0.935 6.21625 2.56125 -0.68625 0.68625 2.56125"
