@@ -786,79 +786,91 @@ export default function DemoTTS() {
       />
 
       {/* Main Content */}
-      <div className="flex flex-col flex-1 bg-black">
+      <div className="flex flex-col flex-1 bg-black relative">
+        {/* Background image */}
+        <div
+          className="absolute inset-y-0 left-0 pointer-events-none"
+          style={{
+            backgroundImage: "url(/bg-pixels.svg)",
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "left top",
+            backgroundSize: "auto 100%",
+            width: "100%",
+            height: "100%",
+            zIndex: 0,
+          }}
+        ></div>
+
         {/* Tab panels */}
-        <div className="flex-1 overflow-hidden container mx-auto">
-          <div className="h-full overflow-auto">
-            {selectedTab === 0 && (
-              <BriefPanel
-                clientDescription={clientDescription}
-                setClientDescription={setClientDescription}
-                creativeBrief={creativeBrief}
-                setCreativeBrief={setCreativeBrief}
-                campaignFormat={campaignFormat}
-                setCampaignFormat={setCampaignFormat}
-                selectedLanguage={selectedLanguage}
-                setSelectedLanguage={setSelectedLanguage}
-                selectedProvider={selectedProvider}
-                setSelectedProvider={setSelectedProvider}
-                availableLanguages={availableLanguages}
-                getFilteredVoices={getFilteredVoices}
-                adDuration={adDuration}
-                setAdDuration={setAdDuration}
-                selectedAccent={selectedAccent}
-                setSelectedAccent={setSelectedAccent}
-                onGenerateCreative={handleGenerateCreative}
-              />
-            )}
+        <div className="flex-1 overflow-hidden container mx-auto relative z-10">
+          {selectedTab === 0 && (
+            <BriefPanel
+              clientDescription={clientDescription}
+              setClientDescription={setClientDescription}
+              creativeBrief={creativeBrief}
+              setCreativeBrief={setCreativeBrief}
+              campaignFormat={campaignFormat}
+              setCampaignFormat={setCampaignFormat}
+              selectedLanguage={selectedLanguage}
+              setSelectedLanguage={setSelectedLanguage}
+              selectedProvider={selectedProvider}
+              setSelectedProvider={setSelectedProvider}
+              availableLanguages={availableLanguages}
+              getFilteredVoices={getFilteredVoices}
+              adDuration={adDuration}
+              setAdDuration={setAdDuration}
+              selectedAccent={selectedAccent}
+              setSelectedAccent={setSelectedAccent}
+              onGenerateCreative={handleGenerateCreative}
+            />
+          )}
 
-            {selectedTab === 1 && (
-              <ScripterPanel
-                voiceTracks={voiceTracks}
-                updateVoiceTrack={updateVoiceTrack}
-                addVoiceTrack={addVoiceTrack}
-                generateAudio={generateAudio}
-                isGenerating={isGenerating}
-                statusMessage={statusMessage}
-                selectedLanguage={selectedLanguage}
-                getFilteredVoices={getFilteredVoices}
-                resetForm={resetScripterForm}
-              />
-            )}
+          {selectedTab === 1 && (
+            <ScripterPanel
+              voiceTracks={voiceTracks}
+              updateVoiceTrack={updateVoiceTrack}
+              addVoiceTrack={addVoiceTrack}
+              generateAudio={generateAudio}
+              isGenerating={isGenerating}
+              statusMessage={statusMessage}
+              selectedLanguage={selectedLanguage}
+              getFilteredVoices={getFilteredVoices}
+              resetForm={resetScripterForm}
+            />
+          )}
 
-            {selectedTab === 2 && (
-              <MusicPanel
-                onGenerate={handleGenerateMusic}
-                isGenerating={isGeneratingMusic}
-                statusMessage={statusMessage}
-                initialPrompt={musicPrompt}
-                adDuration={adDuration}
-                resetForm={resetMusicForm}
-              />
-            )}
+          {selectedTab === 2 && (
+            <MusicPanel
+              onGenerate={handleGenerateMusic}
+              isGenerating={isGeneratingMusic}
+              statusMessage={statusMessage}
+              initialPrompt={musicPrompt}
+              adDuration={adDuration}
+              resetForm={resetMusicForm}
+            />
+          )}
 
-            {selectedTab === 3 && (
-              <SoundFxPanel
-                onGenerate={handleGenerateSoundFx}
-                isGenerating={isGeneratingSoundFx}
-                statusMessage={statusMessage}
-                initialPrompt={soundFxPrompt}
-                adDuration={adDuration}
-                resetForm={resetSoundFxForm}
-              />
-            )}
+          {selectedTab === 3 && (
+            <SoundFxPanel
+              onGenerate={handleGenerateSoundFx}
+              isGenerating={isGeneratingSoundFx}
+              statusMessage={statusMessage}
+              initialPrompt={soundFxPrompt}
+              adDuration={adDuration}
+              resetForm={resetSoundFxForm}
+            />
+          )}
 
-            {selectedTab === 4 && (
-              <MixerPanel
-                tracks={tracks}
-                onRemoveTrack={handleRemoveTrack}
-                resetForm={resetMixerForm}
-                isGeneratingVoice={isGenerating}
-                isGeneratingMusic={isGeneratingMusic}
-                isGeneratingSoundFx={isGeneratingSoundFx}
-              />
-            )}
-          </div>
+          {selectedTab === 4 && (
+            <MixerPanel
+              tracks={tracks}
+              onRemoveTrack={handleRemoveTrack}
+              resetForm={resetMixerForm}
+              isGeneratingVoice={isGenerating}
+              isGeneratingMusic={isGeneratingMusic}
+              isGeneratingSoundFx={isGeneratingSoundFx}
+            />
+          )}
         </div>
       </div>
     </div>
