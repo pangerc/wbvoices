@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { MusicProvider } from "@/types";
-import { RadioGroup } from "@headlessui/react";
-import { CheckCircleIcon } from "@heroicons/react/20/solid";
+import { GlassyTextarea, GlassyOptionPicker, GlassySlider } from "./ui";
 
 type MusicPanelProps = {
   onGenerate: (
@@ -72,180 +71,191 @@ export function MusicPanel({
     }
   };
 
-  const providers = [
+  const providerOptions = [
     {
-      id: "loudly",
-      name: "Loudly",
+      value: "loudly" as MusicProvider,
+      label: "Loudly",
       description:
         "High-quality, customizable music (duration in 15s increments)",
     },
     {
-      id: "beatoven",
-      name: "Beatoven",
+      value: "beatoven" as MusicProvider,
+      label: "Beatoven",
       description: "Simple, quick music generation (exact duration)",
     },
   ];
 
   return (
-    <div className="p-8 h-full bg-black text-white">
-      <h1 className="text-6xl font-black mb-4 uppercase text-center">STUDIO</h1>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-medium text-center w-full mb-6 uppercase ml-16">
-          Music Generation
-        </h2>
-        <button
-          onClick={handleReset}
-          className="bg-gray-800 px-2.5 py-1.5 text-sm text-white ring-1 ring-inset ring-gray-700 hover:bg-gray-700"
-        >
-          Reset
-        </button>
-      </div>
-      <div className="space-y-6">
+    <div className="py-8 text-white">
+      <div className="flex items-start justify-between gap-2 my-8">
         <div>
-          <label className="block text-sm font-medium mb-2">
-            Music Description
-          </label>
-          <textarea
+          <h1 className="text-4xl font-black mb-2">Soundtrack Your Story</h1>
+          <h2 className="font-medium mb-12">
+            Choose the mood. We&apos;ll generate the perfect track for your
+            audio ad.
+          </h2>
+        </div>
+        {/* Generate button */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleReset}
+            className="text-sm text-white hover:underline hover:cursor-pointer"
+          >
+            <svg
+              viewBox="-0.5 -0.5 16 16"
+              xmlns="http://www.w3.org/2000/svg"
+              height="16"
+              width="16"
+              className="ml-2 h-4 w-auto"
+            >
+              <path
+                d="m11.465 5.75 -2.375 -4.1762500000000005a1.875 1.875 0 0 0 -3.25 0l-0.66125 1.14375"
+                fill="none"
+                stroke="#ff6467"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1"
+              ></path>
+              <path
+                d="M7.46375 12.5625H12.1875a1.875 1.875 0 0 0 1.625 -2.8125l-0.8125 -1.40625"
+                fill="none"
+                stroke="#ff6467"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1"
+              ></path>
+              <path
+                d="m3.4962500000000003 5.53 -2.375 4.21875a1.875 1.875 0 0 0 1.625 2.8125h1.9075"
+                fill="none"
+                stroke="#ff6467"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1"
+              ></path>
+              <path
+                d="m9.338750000000001 10.68625 -1.875 1.875 1.875 1.875"
+                fill="none"
+                stroke="#ff6467"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1"
+              ></path>
+              <path
+                d="m12.151250000000001 3.18625 -0.68625 2.56125 -2.56125 -0.68625"
+                fill="none"
+                stroke="#ff6467"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1"
+              ></path>
+              <path
+                d="m0.935 6.21625 2.56125 -0.68625 0.68625 2.56125"
+                fill="none"
+                stroke="#ff6467"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1"
+              ></path>
+            </svg>
+          </button>
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating || !prompt.trim()}
+            className="bg-wb-blue font-medium rounded-full px-5 py-3 text text-white hover:bg-sky-500 hover:text-white focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-gray-700 flex items-center gap-2"
+          >
+            {isGenerating ? "Generating..." : "Generate Music"}
+            <svg
+              width="17"
+              height="21"
+              viewBox="0 0 17 21"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <g clipPath="url(#clip0_1_8990)">
+                <path
+                  d="M7.49558 4.14887C7.60619 4.14887 7.66581 4.08072 7.68281 3.97849C7.93815 2.59836 7.91259 2.53021 9.39347 2.26611C9.49558 2.24055 9.56363 2.18092 9.56363 2.07017C9.56363 1.96794 9.49558 1.89978 9.39347 1.88274C7.91259 1.61865 7.93815 1.55049 7.68281 0.17037C7.66581 0.0681389 7.60619 -1.52588e-05 7.49558 -1.52588e-05C7.3849 -1.52588e-05 7.32537 0.0681389 7.30834 0.17037C7.05303 1.55049 7.07856 1.61865 5.5977 1.88274C5.48706 1.89978 5.42749 1.96794 5.42749 2.07017C5.42749 2.18092 5.48706 2.24055 5.5977 2.26611C7.07856 2.53021 7.05303 2.59836 7.30834 3.97849C7.32537 4.08072 7.3849 4.14887 7.49558 4.14887Z"
+                  fill="white"
+                />
+                <path
+                  d="M3.37646 10.0101C3.53816 10.0101 3.6488 9.8994 3.66582 9.74601C3.9722 7.47136 4.0488 7.47136 6.39774 7.01988C6.54242 6.99431 6.65306 6.89209 6.65306 6.73022C6.65306 6.57688 6.54242 6.46612 6.39774 6.44908C4.0488 6.11683 3.96369 6.04016 3.66582 3.73143C3.6488 3.56957 3.53816 3.45882 3.37646 3.45882C3.22326 3.45882 3.11263 3.56957 3.08709 3.73995C2.81475 6.0146 2.68709 6.00608 0.355173 6.44908C0.210492 6.47464 0.0998535 6.57688 0.0998535 6.73022C0.0998535 6.90061 0.210492 6.99431 0.389216 7.01988C2.70412 7.39474 2.81475 7.45435 3.08709 9.729C3.11263 9.8994 3.22326 10.0101 3.37646 10.0101Z"
+                  fill="white"
+                />
+                <path
+                  d="M9.14659 19.4325C9.36788 19.4325 9.52961 19.2706 9.57217 19.0406C10.1764 14.3805 10.8317 13.6649 15.4445 13.1538C15.6828 13.1282 15.8445 12.9578 15.8445 12.7278C15.8445 12.5063 15.6828 12.3359 15.4445 12.3103C10.8317 11.7992 10.1764 11.0836 9.57217 6.415C9.52961 6.18497 9.36788 6.03163 9.14659 6.03163C8.92531 6.03163 8.76364 6.18497 8.72958 6.415C8.12535 11.0836 7.46149 11.7992 2.85724 12.3103C2.61043 12.3359 2.44873 12.5063 2.44873 12.7278C2.44873 12.9578 2.61043 13.1282 2.85724 13.1538C7.45299 13.7586 8.09129 14.3805 8.72958 19.0406C8.76364 19.2706 8.92531 19.4325 9.14659 19.4325Z"
+                  fill="white"
+                />
+              </g>
+              <defs>
+                <clipPath id="clip0_1_8990">
+                  <rect
+                    width="16"
+                    height="21"
+                    fill="white"
+                    transform="translate(0.0998535)"
+                  />
+                </clipPath>
+              </defs>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-12 md:grid md:grid-cols-2 md:gap-6">
+        <div>
+          <GlassyTextarea
+            label="Music Description"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            className="bg-gray-800 block w-full border-0 p-1.5 text-white ring-1 ring-inset ring-gray-700 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm sm:leading-6"
-            rows={3}
             placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
+            className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+            minRows={3}
           />
 
           {/* Timing instructions for music */}
-          <div className="mt-1 text-xs text-gray-300 bg-gray-800 p-2 rounded-sm border border-gray-700">
-            <span className="font-medium text-gray-200">Timing: </span>
+          <div className="mt-3 pl-4 text-xs text-gray-500 p-2 ">
+            <span className="font-medium ">Timing: </span>
             <span>
               Background music typically plays from the beginning of the ad
             </span>
             <div className="mt-1">
-              <span className="text-sky-300 font-medium">Pro tip: </span>
+              <span className="text-sky-300 ">Pro tip: </span>
               Music will be automatically mixed with voice tracks at reduced
               volume. For best results, choose music that complements the
               emotion of your script.
             </div>
           </div>
         </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-4">
-            AI Music Provider
-          </label>
-          <RadioGroup value={provider} onChange={setProvider}>
-            <div className="space-y-2">
-              {providers.map((providerOption) => (
-                <RadioGroup.Option
-                  key={providerOption.id}
-                  value={providerOption.id}
-                  className={({ active, checked }) =>
-                    `relative flex cursor-pointer px-5 py-4 ring-1 ring-inset ring-gray-700 focus:outline-none ${
-                      active
-                        ? "ring-2 ring-sky-500 ring-opacity-60 ring-offset-2"
-                        : ""
-                    } ${checked ? "bg-gray-700 text-white" : "bg-gray-800"}`
-                  }
-                >
-                  {({ checked }) => (
-                    <>
-                      <div className="flex w-full items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="text-sm">
-                            <RadioGroup.Label
-                              as="p"
-                              className={`font-medium ${
-                                checked ? "text-white" : "text-gray-300"
-                              }`}
-                            >
-                              {providerOption.name}
-                            </RadioGroup.Label>
-                            <RadioGroup.Description
-                              as="span"
-                              className={`inline ${
-                                checked ? "text-gray-200" : "text-gray-400"
-                              }`}
-                            >
-                              {providerOption.description}
-                            </RadioGroup.Description>
-                          </div>
-                        </div>
-                        {checked && (
-                          <div className="shrink-0 text-white">
-                            <CheckCircleIcon className="h-6 w-6" />
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </RadioGroup.Option>
-              ))}
-            </div>
-          </RadioGroup>
-        </div>
-
-        <div>
-          <label
-            htmlFor="duration"
-            className="block text-sm font-medium leading-6"
-          >
-            Duration: <span className="text-gray-400">{duration} seconds </span>
-            {provider === "loudly" &&
-              duration % 15 !== 0 &&
-              "(will be rounded to nearest 15s)"}
-          </label>
-          <input
-            type="range"
-            id="duration"
-            name="duration"
-            min="15"
-            max="120"
-            step={provider === "loudly" ? "15" : "5"}
-            value={duration}
-            onChange={(e) => setDuration(parseInt(e.target.value))}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer mt-2"
+        <div className="space-y-12">
+          <GlassyOptionPicker
+            label="AI Music Provider"
+            value={provider}
+            onChange={setProvider}
+            options={providerOptions}
           />
-          <div className="relative w-full mt-1 h-6">
-            {/* Position calculation: (value - min) / (max - min) * 100% */}
-            <div
-              className="absolute text-xs text-gray-300"
-              style={{ left: "0%" }}
-            >
-              15s
-            </div>
-            <div
-              className="absolute text-xs text-gray-300 transform -translate-x-1/2"
-              style={{ left: `${((30 - 15) / (120 - 15)) * 100}%` }}
-            >
-              30s
-            </div>
-            <div
-              className="absolute text-xs text-gray-300 transform -translate-x-1/2"
-              style={{ left: `${((60 - 15) / (120 - 15)) * 100}%` }}
-            >
-              60s
-            </div>
-            <div
-              className="absolute text-xs text-gray-300 transform -translate-x-1/2"
-              style={{ left: `${((90 - 15) / (120 - 15)) * 100}%` }}
-            >
-              90s
-            </div>
-            <div
-              className="absolute text-xs text-gray-300 text-right"
-              style={{ right: "0%" }}
-            >
-              120s
-            </div>
-          </div>
-        </div>
 
-        <button
-          onClick={handleGenerate}
-          disabled={isGenerating || !prompt.trim()}
-          className="w-full bg-white px-3 py-2 text-lg uppercase font-medium text-black hover:bg-sky-500 hover:text-white focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:opacity-50 my-12"
-        >
-          {isGenerating ? "Generating..." : "Generate Music"}
-        </button>
+          <GlassySlider
+            label="Duration"
+            value={duration}
+            onChange={setDuration}
+            min={15}
+            max={120}
+            step={provider === "loudly" ? 15 : 5}
+            formatLabel={(val) =>
+              `${val} seconds${
+                provider === "loudly" && val % 15 !== 0
+                  ? " (will be rounded to nearest 15s)"
+                  : ""
+              }`
+            }
+            tickMarks={[
+              { value: 15, label: "15s" },
+              { value: 30, label: "30s" },
+              { value: 60, label: "60s" },
+              { value: 90, label: "90s" },
+              { value: 120, label: "120s" },
+            ]}
+          />
+        </div>
 
         {localStatusMessage && (
           <p className="text-center text-sm text-gray-300">

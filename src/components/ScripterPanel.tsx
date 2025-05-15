@@ -61,7 +61,7 @@ export function ScripterPanel({
       <div className="flex items-start justify-between gap-2 my-8">
         <div>
           <h1 className="text-4xl font-black mb-2">
-            Your Message, in the Right Voice.
+            Your Message, in the Right Voice
           </h1>
           <h2 className=" font-medium mb-12  ">
             Pick a voice and review or edit your script. Make it sound exactly
@@ -297,7 +297,7 @@ export function ScripterPanel({
         })}
         <button
           onClick={addVoiceTrack}
-          className="mt-8 px-2.5 py-1.5 text-sm border-b border-sky-800 bg-gradient-to-t from-sky-900/50 to-transparent  w-full text-sky-700"
+          className="mt-8 px-2.5 py-1.5 text-sm border-b border-sky-800 bg-gradient-to-t from-sky-900/50 to-transparent  w-full text-sky-700 hover:bg-gradient-to-t hover:from-red-700/70 hover:to-sky-transparent hover:text-white hover:border-red-700"
         >
           + Add Voice Track
         </button>
