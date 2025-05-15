@@ -47,3 +47,19 @@ body {
   background: var(--background);
   font-family: var(--font-sans);
 }
+
+/* Glassmorphism shine animation */
+@keyframes shine {
+  from {
+    background-position: -100% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shine {
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: shine 3s ease-in-out infinite;
+}

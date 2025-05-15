@@ -221,7 +221,7 @@ const tabItems = [
 
 export function Header({ selectedTab, onTabChange, onStartOver }: HeaderProps) {
   return (
-    <header className="bg-black py-4">
+    <header className="bg-black py-4 border-b border-white/70">
       <div className="container mx-auto px-4 flex justify-between items-center">
         <div className="flex-shrink-0">
           <Image src="/logo.svg" alt="Wise.blue" width={112} height={35} />

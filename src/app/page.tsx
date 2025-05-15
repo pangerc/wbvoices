@@ -786,9 +786,9 @@ export default function DemoTTS() {
       />
 
       {/* Main Content */}
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 bg-black">
         {/* Tab panels */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden container mx-auto">
           <div className="h-full overflow-auto">
             {selectedTab === 0 && (
               <BriefPanel
