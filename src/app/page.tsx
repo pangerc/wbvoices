@@ -1,22 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
-import { Tab } from "@headlessui/react";
-import {
-  ClipboardDocumentIcon,
-  ChatBubbleLeftRightIcon,
-  SpeakerWaveIcon,
-  MusicalNoteIcon,
-  BoltIcon,
-} from "@heroicons/react/24/outline";
-import {
-  Language,
-  getLanguageName,
-  getLanguageAccents,
-  areSameLanguageFamily,
-  unifiedDisplayLanguages,
-} from "@/utils/language";
 import {
   Provider,
   Voice,
@@ -26,18 +10,22 @@ import {
   SoundFxPrompt,
 } from "@/types";
 import {
+  Language,
+  getLanguageName,
+  getLanguageAccents,
+  areSameLanguageFamily,
+  unifiedDisplayLanguages,
+} from "@/utils/language";
+import {
   BriefPanel,
   ScripterPanel,
   MixerPanel,
   MusicPanel,
   SoundFxPanel,
 } from "@/components";
+import { Header } from "@/components/Header";
 import { generateMusic } from "@/utils/beatoven-api";
 import { generateMusicWithLoudly } from "@/utils/loudly-api";
-
-function classNames(...classes: string[]) {
-  return classes.filter(Boolean).join(" ");
-}
 
 type Track = {
   url: string;
@@ -137,6 +125,15 @@ export default function DemoTTS() {
     setSoundFxPrompt(null);
     setIsGeneratingSoundFx(false);
     setStatusMessage("");
+  };
+
+  // Reset all forms
+  const handleStartOver = () => {
+    resetScripterForm();
+    resetMusicForm();
+    resetMixerForm();
+    resetSoundFxForm();
+    setSelectedTab(0); // Go back to Brief tab
   };
 
   // Reset form when language changes
@@ -780,107 +777,20 @@ export default function DemoTTS() {
   };
 
   return (
-    <div
-      className="flex h-screen bg-white text-black relative z-10"
-      style={{
-        backgroundImage: "url('/bg-pixels.svg')",
-        backgroundSize: "contain",
-        backgroundPosition: "left",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      <Tab.Group
-        vertical
-        as="div"
-        className="flex w-full"
-        selectedIndex={selectedTab}
-        onChange={handleTabChange}
-      >
-        {/* Sidebar */}
-        <div className="w-64 bg-black shadow-lg flex-shrink-0">
-          <div className="p-4">
-            <Image
-              src="/logo.svg"
-              alt="Logo"
-              width={150}
-              height={40}
-              className="mb-8 mt-6"
-            />
+    <div className="flex flex-col h-screen bg-white text-black">
+      {/* Use the new Header component */}
+      <Header
+        selectedTab={selectedTab}
+        onTabChange={handleTabChange}
+        onStartOver={handleStartOver}
+      />
 
-            <Tab.List className="space-y-2">
-              <Tab
-                className={({ selected }) =>
-                  classNames(
-                    "w-full text-left p-2  transition-colors focus:outline-none flex items-center gap-3",
-                    selected
-                      ? "bg-white text-black "
-                      : "text-white hover:bg-red-700"
-                  )
-                }
-              >
-                <ClipboardDocumentIcon className="size-5 shrink-0" />
-                Brief
-              </Tab>
-              <Tab
-                className={({ selected }) =>
-                  classNames(
-                    "w-full text-left p-2  transition-colors focus:outline-none flex items-center gap-3",
-                    selected
-                      ? "bg-white text-black"
-                      : "text-white hover:bg-red-700"
-                  )
-                }
-              >
-                <ChatBubbleLeftRightIcon className="size-5 shrink-0" />
-                Script
-              </Tab>
-              <Tab
-                className={({ selected }) =>
-                  classNames(
-                    "w-full text-left p-2  transition-colors focus:outline-none flex items-center gap-3",
-                    selected
-                      ? "bg-white text-black"
-                      : "text-white hover:bg-red-700"
-                  )
-                }
-              >
-                <MusicalNoteIcon className="size-5 shrink-0" />
-                Music
-              </Tab>
-              <Tab
-                className={({ selected }) =>
-                  classNames(
-                    "w-full text-left p-2  transition-colors focus:outline-none flex items-center gap-3",
-                    selected
-                      ? "bg-white text-black"
-                      : "text-white hover:bg-red-700"
-                  )
-                }
-              >
-                <BoltIcon className="size-5 shrink-0" />
-                FX
-              </Tab>
-              <Tab
-                className={({ selected }) =>
-                  classNames(
-                    "w-full text-left p-2  transition-colors focus:outline-none flex items-center gap-3",
-                    selected
-                      ? "bg-white text-black"
-                      : "text-white hover:bg-red-700"
-                  )
-                }
-              >
-                <SpeakerWaveIcon className="size-5 shrink-0" />
-                Mix
-              </Tab>
-            </Tab.List>
-          </div>
-        </div>
-
-        {/* Main Content */}
+      {/* Main Content */}
+      <div className="flex flex-col flex-1">
+        {/* Tab panels */}
         <div className="flex-1 overflow-hidden">
-          <Tab.Panels className="h-full overflow-auto">
-            <Tab.Panel className="w-full h-full">
+          <div className="h-full overflow-auto">
+            {selectedTab === 0 && (
               <BriefPanel
                 clientDescription={clientDescription}
                 setClientDescription={setClientDescription}
@@ -900,9 +810,9 @@ export default function DemoTTS() {
                 setSelectedAccent={setSelectedAccent}
                 onGenerateCreative={handleGenerateCreative}
               />
-            </Tab.Panel>
+            )}
 
-            <Tab.Panel>
+            {selectedTab === 1 && (
               <ScripterPanel
                 voiceTracks={voiceTracks}
                 updateVoiceTrack={updateVoiceTrack}
@@ -914,9 +824,9 @@ export default function DemoTTS() {
                 getFilteredVoices={getFilteredVoices}
                 resetForm={resetScripterForm}
               />
-            </Tab.Panel>
+            )}
 
-            <Tab.Panel>
+            {selectedTab === 2 && (
               <MusicPanel
                 onGenerate={handleGenerateMusic}
                 isGenerating={isGeneratingMusic}
@@ -925,9 +835,9 @@ export default function DemoTTS() {
                 adDuration={adDuration}
                 resetForm={resetMusicForm}
               />
-            </Tab.Panel>
+            )}
 
-            <Tab.Panel>
+            {selectedTab === 3 && (
               <SoundFxPanel
                 onGenerate={handleGenerateSoundFx}
                 isGenerating={isGeneratingSoundFx}
@@ -936,9 +846,9 @@ export default function DemoTTS() {
                 adDuration={adDuration}
                 resetForm={resetSoundFxForm}
               />
-            </Tab.Panel>
+            )}
 
-            <Tab.Panel>
+            {selectedTab === 4 && (
               <MixerPanel
                 tracks={tracks}
                 onRemoveTrack={handleRemoveTrack}
@@ -947,10 +857,10 @@ export default function DemoTTS() {
                 isGeneratingMusic={isGeneratingMusic}
                 isGeneratingSoundFx={isGeneratingSoundFx}
               />
-            </Tab.Panel>
-          </Tab.Panels>
+            )}
+          </div>
         </div>
-      </Tab.Group>
+      </div>
     </div>
   );
 }

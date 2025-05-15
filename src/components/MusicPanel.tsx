@@ -87,7 +87,7 @@ export function MusicPanel({
   ];
 
   return (
-    <div className="p-8 h-full text-black">
+    <div className="p-8 h-full bg-black text-white">
       <h1 className="text-6xl font-black mb-4 uppercase text-center">STUDIO</h1>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-medium text-center w-full mb-6 uppercase ml-16">
@@ -95,32 +95,32 @@ export function MusicPanel({
         </h2>
         <button
           onClick={handleReset}
-          className=" bg-white px-2.5 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+          className="bg-gray-800 px-2.5 py-1.5 text-sm text-white ring-1 ring-inset ring-gray-700 hover:bg-gray-700"
         >
           Reset
         </button>
       </div>
       <div className="space-y-6">
         <div>
-          <label className="block text-sm font-medium mb-2 text-white">
+          <label className="block text-sm font-medium mb-2">
             Music Description
           </label>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            className="bg-white block w-full border-0 p-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm sm:leading-6"
+            className="bg-gray-800 block w-full border-0 p-1.5 text-white ring-1 ring-inset ring-gray-700 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm sm:leading-6"
             rows={3}
             placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
           />
 
           {/* Timing instructions for music */}
-          <div className="mt-1 text-xs text-gray-500 bg-gray-50 p-2 rounded-sm border border-gray-200">
-            <span className="font-medium text-gray-700">Timing: </span>
+          <div className="mt-1 text-xs text-gray-300 bg-gray-800 p-2 rounded-sm border border-gray-700">
+            <span className="font-medium text-gray-200">Timing: </span>
             <span>
               Background music typically plays from the beginning of the ad
             </span>
             <div className="mt-1">
-              <span className="text-sky-600 font-medium">Pro tip: </span>
+              <span className="text-sky-300 font-medium">Pro tip: </span>
               Music will be automatically mixed with voice tracks at reduced
               volume. For best results, choose music that complements the
               emotion of your script.
@@ -129,7 +129,7 @@ export function MusicPanel({
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-4 text-black">
+          <label className="block text-sm font-medium mb-4">
             AI Music Provider
           </label>
           <RadioGroup value={provider} onChange={setProvider}>
@@ -139,15 +139,11 @@ export function MusicPanel({
                   key={providerOption.id}
                   value={providerOption.id}
                   className={({ active, checked }) =>
-                    `relative flex cursor-pointer px-5 py-4 ring-1 ring-inset ring-gray-300 focus:outline-none ${
+                    `relative flex cursor-pointer px-5 py-4 ring-1 ring-inset ring-gray-700 focus:outline-none ${
                       active
                         ? "ring-2 ring-sky-500 ring-opacity-60 ring-offset-2"
                         : ""
-                    } ${
-                      checked
-                        ? "bg-sky-50 bg-opacity-75 text-sky-900"
-                        : "bg-white"
-                    }`
+                    } ${checked ? "bg-gray-700 text-white" : "bg-gray-800"}`
                   }
                 >
                   {({ checked }) => (
@@ -158,7 +154,7 @@ export function MusicPanel({
                             <RadioGroup.Label
                               as="p"
                               className={`font-medium ${
-                                checked ? "text-black" : "text-gray-500"
+                                checked ? "text-white" : "text-gray-300"
                               }`}
                             >
                               {providerOption.name}
@@ -166,7 +162,7 @@ export function MusicPanel({
                             <RadioGroup.Description
                               as="span"
                               className={`inline ${
-                                checked ? "text-black" : "text-gray-500"
+                                checked ? "text-gray-200" : "text-gray-400"
                               }`}
                             >
                               {providerOption.description}
@@ -174,7 +170,7 @@ export function MusicPanel({
                           </div>
                         </div>
                         {checked && (
-                          <div className="shrink-0 text-black">
+                          <div className="shrink-0 text-white">
                             <CheckCircleIcon className="h-6 w-6" />
                           </div>
                         )}
@@ -190,9 +186,9 @@ export function MusicPanel({
         <div>
           <label
             htmlFor="duration"
-            className="block text-sm font-medium  leading-6"
+            className="block text-sm font-medium leading-6"
           >
-            Duration: <span className="text-gray-500">{duration} seconds </span>
+            Duration: <span className="text-gray-400">{duration} seconds </span>
             {provider === "loudly" &&
               duration % 15 !== 0 &&
               "(will be rounded to nearest 15s)"}
@@ -206,36 +202,36 @@ export function MusicPanel({
             step={provider === "loudly" ? "15" : "5"}
             value={duration}
             onChange={(e) => setDuration(parseInt(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-2"
+            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer mt-2"
           />
           <div className="relative w-full mt-1 h-6">
             {/* Position calculation: (value - min) / (max - min) * 100% */}
             <div
-              className="absolute text-xs text-gray-800"
+              className="absolute text-xs text-gray-300"
               style={{ left: "0%" }}
             >
               15s
             </div>
             <div
-              className="absolute text-xs text-gray-800 transform -translate-x-1/2"
+              className="absolute text-xs text-gray-300 transform -translate-x-1/2"
               style={{ left: `${((30 - 15) / (120 - 15)) * 100}%` }}
             >
               30s
             </div>
             <div
-              className="absolute text-xs text-gray-800 transform -translate-x-1/2"
+              className="absolute text-xs text-gray-300 transform -translate-x-1/2"
               style={{ left: `${((60 - 15) / (120 - 15)) * 100}%` }}
             >
               60s
             </div>
             <div
-              className="absolute text-xs text-gray-800 transform -translate-x-1/2"
+              className="absolute text-xs text-gray-300 transform -translate-x-1/2"
               style={{ left: `${((90 - 15) / (120 - 15)) * 100}%` }}
             >
               90s
             </div>
             <div
-              className="absolute text-xs text-gray-800 text-right"
+              className="absolute text-xs text-gray-300 text-right"
               style={{ right: "0%" }}
             >
               120s
@@ -246,7 +242,7 @@ export function MusicPanel({
         <button
           onClick={handleGenerate}
           disabled={isGenerating || !prompt.trim()}
-          className="w-full  bg-black px-3 py-2 text-lg uppercase font-medium text-white  hover:bg-sky-500 focus-visible:outline  focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:opacity-50 my-12"
+          className="w-full bg-white px-3 py-2 text-lg uppercase font-medium text-black hover:bg-sky-500 hover:text-white focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:opacity-50 my-12"
         >
           {isGenerating ? "Generating..." : "Generate Music"}
         </button>

@@ -951,13 +951,13 @@ export function MixerPanel({
   const getTrackColor = (type: "voice" | "music" | "soundfx") => {
     switch (type) {
       case "voice":
-        return "bg-sky-200 border-sky-600";
+        return "bg-sky-800 border-sky-500";
       case "music":
-        return "bg-green-200 border-green-600";
+        return "bg-green-800 border-green-500";
       case "soundfx":
-        return "bg-orange-200 border-orange-600";
+        return "bg-orange-800 border-orange-500";
       default:
-        return "bg-gray-200 border-gray-600";
+        return "bg-gray-800 border-gray-500";
     }
   };
 
@@ -1078,7 +1078,7 @@ export function MixerPanel({
   };
 
   return (
-    <div className="p-8 h-full text-black">
+    <div className="p-8 h-full bg-black text-white">
       <h1 className="text-6xl font-black mb-4 uppercase text-center">STUDIO</h1>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-medium text-center w-full mb-6 uppercase ml-12 ">
@@ -1086,9 +1086,9 @@ export function MixerPanel({
         </h2>
         <button
           onClick={handleReset}
-          className="-md bg-white px-2.5 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+          className="bg-gray-800 px-2.5 py-1.5 text-sm text-white ring-1 ring-inset ring-gray-700 hover:bg-gray-700"
         >
-          Reset
+          Start Over
         </button>
       </div>
 
@@ -1098,20 +1098,20 @@ export function MixerPanel({
           <h3 className="text-lg font-semibold mb-2">Timeline</h3>
           <div
             ref={timelineRef}
-            className="relative h-auto bg-gray-100 border border-gray-300 rounded p-2 overflow-x-auto"
+            className="relative h-auto bg-gray-900 border border-gray-700 rounded p-2 overflow-x-auto"
           >
             {/* Time markers */}
-            <div className="h-6 border-b border-gray-300 mb-2 relative">
+            <div className="h-6 border-b border-gray-700 mb-2 relative">
               {[...Array(Math.min(11, totalDuration + 1))].map((_, i) => {
                 const timePosition = i * (totalDuration / 10);
                 const percent = (timePosition / totalDuration) * 100;
                 return (
                   <div
                     key={i}
-                    className="absolute top-0 h-3 border-l border-gray-400"
+                    className="absolute top-0 h-3 border-l border-gray-600"
                     style={{ left: `${percent}%` }}
                   >
-                    <div className="absolute top-3 text-xs text-gray-500 transform -translate-x-1/2">
+                    <div className="absolute top-3 text-xs text-gray-400 transform -translate-x-1/2">
                       {formatTime(timePosition)}
                     </div>
                   </div>
@@ -1209,7 +1209,7 @@ export function MixerPanel({
                 })}
             </div>
 
-            <div className="text-xs text-gray-500 mt-2 italic">
+            <div className="text-xs text-gray-400 mt-2 italic">
               Total duration: {formatTime(totalDuration)}
             </div>
           </div>
@@ -1222,7 +1222,7 @@ export function MixerPanel({
           <h3 className="text-lg font-semibold mb-4">Voice Tracks</h3>
           <div className="space-y-4">
             {isGeneratingVoice && voiceTracks.length === 0 && (
-              <div className="p-4 bg-white ">
+              <div className="p-4 bg-gray-800">
                 {renderLoadingAnimation("voice")}
               </div>
             )}
@@ -1232,14 +1232,14 @@ export function MixerPanel({
                 (t) => t.url === track.url
               );
               return (
-                <div key={index} className="p-4 bg-white ">
+                <div key={index} className="p-4 bg-gray-800">
                   <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-300">
                       {cleanTrackLabel(track.label)}
                     </p>
                     <div className="flex items-center gap-2">
                       {calculatedTrack && (
-                        <span className="text-xs bg-sky-50 px-2 py-1 rounded border border-sky-100">
+                        <span className="text-xs bg-sky-900 px-2 py-1 rounded border border-sky-800">
                           Starts at:{" "}
                           {formatTime(calculatedTrack.actualStartTime)}
                           {calculatedTrack.actualDuration && (
@@ -1253,7 +1253,7 @@ export function MixerPanel({
                       {onRemoveTrack && (
                         <button
                           onClick={() => onRemoveTrack(tracks.indexOf(track))}
-                          className="text-red-500 hover:text-red-700"
+                          className="text-red-400 hover:text-red-300"
                         >
                           Remove
                         </button>
@@ -1293,7 +1293,7 @@ export function MixerPanel({
           <h3 className="text-lg font-semibold mb-4">Music Track</h3>
           <div className="space-y-4">
             {isGeneratingMusic && musicTracks.length === 0 && (
-              <div className="p-4 bg-white ">
+              <div className="p-4 bg-gray-800">
                 {renderLoadingAnimation("music")}
               </div>
             )}
@@ -1303,21 +1303,21 @@ export function MixerPanel({
                 (t) => t.url === track.url
               );
               return (
-                <div key={index} className="p-4 bg-white ">
+                <div key={index} className="p-4 bg-gray-800">
                   <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-300">
                       {cleanTrackLabel(track.label)}
                     </p>
                     <div className="flex items-center gap-2">
                       {calculatedTrack && (
-                        <span className="text-xs bg-green-50 px-2 py-1 rounded border border-green-100">
+                        <span className="text-xs bg-green-900 px-2 py-1 rounded border border-green-800">
                           Duration: {calculatedTrack.actualDuration.toFixed(1)}s
                         </span>
                       )}
                       {onRemoveTrack && (
                         <button
                           onClick={() => onRemoveTrack(tracks.indexOf(track))}
-                          className="text-red-500 hover:text-red-700"
+                          className="text-red-400 hover:text-red-300"
                         >
                           Remove
                         </button>
@@ -1357,7 +1357,7 @@ export function MixerPanel({
           <h3 className="text-lg font-semibold mb-4">Sound FX Tracks</h3>
           <div className="space-y-4">
             {isGeneratingSoundFx && soundFxTracks.length === 0 && (
-              <div className="p-4 bg-white ">
+              <div className="p-4 bg-gray-800">
                 {renderLoadingAnimation("soundfx")}
               </div>
             )}
@@ -1367,14 +1367,14 @@ export function MixerPanel({
                 (t) => t.url === track.url
               );
               return (
-                <div key={index} className="p-4 bg-white ">
+                <div key={index} className="p-4 bg-gray-800">
                   <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-300">
                       {cleanTrackLabel(track.label)}
                     </p>
                     <div className="flex items-center gap-2">
                       {calculatedTrack && (
-                        <span className="text-xs bg-orange-50 px-2 py-1 rounded border border-orange-100">
+                        <span className="text-xs bg-orange-900 px-2 py-1 rounded border border-orange-800">
                           Starts at:{" "}
                           {formatTime(calculatedTrack.actualStartTime)}
                           {calculatedTrack.actualDuration && (
@@ -1388,7 +1388,7 @@ export function MixerPanel({
                       {onRemoveTrack && (
                         <button
                           onClick={() => onRemoveTrack(tracks.indexOf(track))}
-                          className="text-red-500 hover:text-red-700"
+                          className="text-red-400 hover:text-red-300"
                         >
                           Remove
                         </button>
@@ -1426,14 +1426,14 @@ export function MixerPanel({
       {tracks.length > 0 && (
         <div className="mb-8">
           <h3 className="text-lg font-semibold mb-4">Final Mix</h3>
-          <div className="p-4 bg-white ">
+          <div className="p-4 bg-gray-800">
             {previewUrl ? (
               <div className="space-y-4">
                 <div className="flex justify-between items-center mb-2">
-                  <p className="text-sm text-gray-600">Mixed Audio Preview</p>
+                  <p className="text-sm text-gray-300">Mixed Audio Preview</p>
                   <button
                     onClick={handleRemovePreview}
-                    className="text-red-500 hover:text-red-700"
+                    className="text-red-400 hover:text-red-300"
                   >
                     Remove
                   </button>
@@ -1444,7 +1444,7 @@ export function MixerPanel({
                 <button
                   onClick={handleExport}
                   disabled={isExporting}
-                  className="w-full px-4 py-2 bg-black text-white  hover:bg-sky-500 disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-white text-black hover:bg-sky-500 hover:text-white disabled:opacity-50"
                 >
                   {isExporting ? "Downloading..." : "Download Mix"}
                 </button>
@@ -1453,7 +1453,7 @@ export function MixerPanel({
               <button
                 onClick={handlePreview}
                 disabled={isExporting}
-                className="w-full px-4 py-2 bg-black text-lg font-semibold text-white  hover:bg-sky-500 disabled:opacity-50"
+                className="w-full px-4 py-2 bg-white text-black text-lg font-semibold hover:bg-sky-500 hover:text-white disabled:opacity-50"
               >
                 {isExporting ? "Processing..." : "Preview Mix"}
               </button>
@@ -1466,7 +1466,7 @@ export function MixerPanel({
         !isGeneratingVoice &&
         !isGeneratingMusic &&
         !isGeneratingSoundFx && (
-          <p className="text-center text-gray-500 mt-12">
+          <p className="text-center text-gray-400 mt-12">
             No tracks available. Generate some voice, music, or sound FX tracks
             to get started.
           </p>

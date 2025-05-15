@@ -102,7 +102,7 @@ export function SoundFxPanel({
   };
 
   return (
-    <div className="p-8 h-full text-black">
+    <div className="p-8 h-full bg-black text-white">
       <h1 className="text-6xl font-black mb-4 uppercase text-center">STUDIO</h1>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-medium text-center w-full mb-6 uppercase ml-16">
@@ -110,7 +110,7 @@ export function SoundFxPanel({
         </h2>
         <button
           onClick={handleReset}
-          className=" bg-white px-2.5 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+          className="bg-gray-800 px-2.5 py-1.5 text-sm text-white ring-1 ring-inset ring-gray-700 hover:bg-gray-700"
         >
           Reset
         </button>
@@ -123,21 +123,21 @@ export function SoundFxPanel({
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            className="bg-white block w-full border-0 p-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm sm:leading-6"
+            className="bg-gray-800 block w-full border-0 p-1.5 text-white ring-1 ring-inset ring-gray-700 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm sm:leading-6"
             rows={3}
             placeholder="Describe the sound effect you want to generate... (e.g. 'A door creaking open slowly with a spooky ambiance')"
           />
 
           {/* Timing instructions for sound effects */}
-          <div className="mt-1 text-xs text-gray-500 bg-gray-50 p-2 rounded-sm border border-gray-200">
-            <span className="font-medium text-gray-700">Timing: </span>
+          <div className="mt-1 text-xs text-gray-300 bg-gray-800 p-2 rounded-sm border border-gray-700">
+            <span className="font-medium text-gray-200">Timing: </span>
             <span>
               {timingInfo
                 ? formatTimingInfo()
                 : "Sound effects typically play at specific moments in the ad"}
             </span>
             <div className="mt-1">
-              <span className="text-sky-600 font-medium">Pro tip: </span>
+              <span className="text-sky-300 font-medium">Pro tip: </span>
               When generating from a script, sound effects will be positioned
               based on the AI&apos;s timing suggestions. In the mixer,
               you&apos;ll be able to adjust when each sound effect plays.
@@ -150,7 +150,7 @@ export function SoundFxPanel({
             htmlFor="duration"
             className="block text-sm font-medium leading-6"
           >
-            Duration: <span className="text-gray-500">{duration} seconds</span>
+            Duration: <span className="text-gray-400">{duration} seconds</span>
           </label>
           <input
             type="range"
@@ -161,35 +161,35 @@ export function SoundFxPanel({
             step="1"
             value={duration}
             onChange={(e) => setDuration(parseInt(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-2"
+            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer mt-2"
           />
           <div className="relative w-full mt-1 h-6">
             <div
-              className="absolute text-xs text-gray-800"
+              className="absolute text-xs text-gray-300"
               style={{ left: "0%" }}
             >
               1s
             </div>
             <div
-              className="absolute text-xs text-gray-800 transform -translate-x-1/2"
+              className="absolute text-xs text-gray-300 transform -translate-x-1/2"
               style={{ left: `${((5 - 1) / (30 - 1)) * 100}%` }}
             >
               5s
             </div>
             <div
-              className="absolute text-xs text-gray-800 transform -translate-x-1/2"
+              className="absolute text-xs text-gray-300 transform -translate-x-1/2"
               style={{ left: `${((10 - 1) / (30 - 1)) * 100}%` }}
             >
               10s
             </div>
             <div
-              className="absolute text-xs text-gray-800 transform -translate-x-1/2"
+              className="absolute text-xs text-gray-300 transform -translate-x-1/2"
               style={{ left: `${((20 - 1) / (30 - 1)) * 100}%` }}
             >
               20s
             </div>
             <div
-              className="absolute text-xs text-gray-800 text-right"
+              className="absolute text-xs text-gray-300 text-right"
               style={{ right: "0%" }}
             >
               30s
@@ -200,7 +200,7 @@ export function SoundFxPanel({
         <button
           onClick={handleGenerate}
           disabled={isGenerating || !prompt.trim()}
-          className="w-full bg-black px-3 py-2 text-lg uppercase font-medium text-white hover:bg-sky-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:opacity-50 my-12"
+          className="w-full bg-white px-3 py-2 text-lg uppercase font-medium text-black hover:bg-sky-500 hover:text-white focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:opacity-50 my-12"
         >
           {isGenerating ? "Generating..." : "Generate Sound Effect"}
         </button>
