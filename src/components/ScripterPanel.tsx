@@ -208,7 +208,7 @@ export function ScripterPanel({
         })}
         <button
           onClick={addVoiceTrack}
-          className="mt-8 px-2.5 py-1.5 text-sm border-b border-sky-800 bg-gradient-to-t from-sky-900/50 to-transparent  w-full text-sky-700 hover:bg-gradient-to-t hover:from-red-700/70 hover:to-sky-transparent hover:text-white hover:border-red-700"
+          className="mt-8 px-2.5 py-1.5 text-sm border-b border-sky-800 bg-gradient-to-t from-sky-900/50 to-transparent  w-full text-sky-700 hover:bg-gradient-to-t  hover:text-white "
         >
           + Add Voice Track
         </button>

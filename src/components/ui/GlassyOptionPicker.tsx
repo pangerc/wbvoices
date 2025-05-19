@@ -39,8 +39,8 @@ export function GlassyOptionPicker<T extends string | number>({
               onClick={() => onChange(option.value)}
             >
               <div className="flex w-full items-center justify-between">
-                <div className="flex items-center">
-                  <div className="text-sm">
+                <div className="flex items-center w-full">
+                  <div className="text-sm w-full">
                     <p
                       className={`font-medium w-full flex justify-between ${
                         value === option.value ? "text-black" : ""
@@ -60,15 +60,15 @@ export function GlassyOptionPicker<T extends string | number>({
                       )}
                     </p>
                     {option.description && (
-                      <span
-                        className={`inline ${
+                      <div
+                        className={` inline ${
                           value === option.value
                             ? "text-gray-700"
                             : "text-gray-400"
                         }`}
                       >
                         {option.description}
-                      </span>
+                      </div>
                     )}
                   </div>
                 </div>

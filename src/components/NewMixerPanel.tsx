@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createMix, TrackTiming } from "@/utils/audio-mixer";
 import { useMixerStore, MixerTrack } from "@/store/mixerStore";
 import {
@@ -6,6 +6,9 @@ import {
   TimelineTrackData,
   getDefaultVolumeForType,
 } from "@/components/TimelineTrack";
+import { ResetButton } from "@/components/ui/ResetButton";
+import { VolumeToggleButton } from "@/components/ui/VolumeToggleButton";
+import { PlayButton } from "@/components/ui/PlayButton";
 
 type NewMixerPanelProps = {
   isGeneratingVoice?: boolean;
@@ -242,14 +245,27 @@ export function NewMixerPanel({
       const soundFxUrls = soundFxTracks.map((t) => t.url);
 
       // Prepare timing information for the mixer
-      const timingInfo: TrackTiming[] = calculatedTracks.map((track) => ({
-        id: track.id,
-        url: track.url,
-        type: track.type,
-        startTime: track.actualStartTime,
-        duration: track.actualDuration,
-        gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
-      }));
+      const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
+        const timing = {
+          id: track.id,
+          url: track.url,
+          type: track.type,
+          startTime: track.actualStartTime,
+          duration: track.actualDuration,
+          gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
+        };
+
+        // For music tracks, use the original full duration for mixing
+        // even though the timeline may show a shorter visualization
+        if (track.type === "music" && track.metadata?.originalDuration) {
+          timing.duration = track.metadata.originalDuration;
+          console.log(
+            `Using original music duration for mixing: ${timing.duration}s instead of ${track.actualDuration}s`
+          );
+        }
+
+        return timing;
+      });
 
       const { blob } = await createMix(
         voiceUrls,
@@ -274,9 +290,67 @@ export function NewMixerPanel({
     }
   };
 
+  // Add state for playback
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackPosition, setPlaybackPosition] = useState(0);
+  const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+
+  // For tracking if volume has changed
+  const hasVolumeChangedRef = useRef(false);
+
+  // Effect to invalidate preview when volume changes
+  useEffect(() => {
+    // Skip this effect during initial render
+    if (!hasVolumeChangedRef.current) {
+      hasVolumeChangedRef.current = true;
+      return;
+    }
+
+    // Avoid regenerating preview when not playing
+    if (!previewUrl || !isPlaying) {
+      return;
+    }
+
+    // Use a debounce to prevent rapid regeneration
+    const debounceTime = 500; // ms
+    const debounceTimerId = setTimeout(() => {
+      console.log(
+        "Volume settings changed, regenerating preview on next play..."
+      );
+
+      // Instead of regenerating immediately, just invalidate the current preview
+      // so it will be regenerated on next play
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
+
+      if (playbackAudioRef.current) {
+        playbackAudioRef.current.pause();
+        setIsPlaying(false);
+      }
+    }, debounceTime);
+
+    return () => clearTimeout(debounceTimerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackVolumes]);
+
   const handlePreview = async () => {
     try {
+      // If we already have a valid preview, don't regenerate
+      if (
+        previewUrl &&
+        playbackAudioRef.current &&
+        !playbackAudioRef.current.error
+      ) {
+        console.log("Using existing preview URL");
+        return previewUrl;
+      }
+
       setIsExporting(true);
+      console.log("Generating preview mix...");
+
       // Clean up previous preview URL
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
@@ -288,9 +362,8 @@ export function NewMixerPanel({
 
       // Debug calculated tracks
       console.log("All calculated tracks:", calculatedTracks);
-
-      // Debug totalDuration
       console.log("Total duration:", totalDuration);
+      console.log("Track sources:", { voiceUrls, musicUrl, soundFxUrls });
 
       // Prepare timing information for the mixer
       const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
@@ -303,6 +376,15 @@ export function NewMixerPanel({
           gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
         };
 
+        // For music tracks, use the original full duration for mixing
+        // even though the timeline may show a shorter visualization
+        if (track.type === "music" && track.metadata?.originalDuration) {
+          timing.duration = track.metadata.originalDuration;
+          console.log(
+            `Using original music duration for mixing: ${timing.duration}s instead of ${track.actualDuration}s`
+          );
+        }
+
         // Debug soundFx timing info
         if (track.type === "soundfx") {
           console.log("SoundFx timing info:", timing);
@@ -311,26 +393,277 @@ export function NewMixerPanel({
         return timing;
       });
 
+      // Create the mixed audio
+      console.log("Creating mix with timing:", timingInfo);
       const { blob } = await createMix(
         voiceUrls,
         musicUrl,
         soundFxUrls,
         timingInfo
       );
+
       const url = URL.createObjectURL(blob);
+      console.log("Mixed audio blob created:", url);
       setPreviewUrl(url);
+
+      // Set up the playback audio element if it doesn't exist yet
+      if (!playbackAudioRef.current) {
+        console.log("Creating new Audio element");
+        const audio = new Audio();
+
+        // Set up event listeners before setting the source
+        audio.addEventListener("canplaythrough", () => {
+          console.log("Audio can play through");
+        });
+
+        audio.addEventListener("error", (e) => {
+          console.error("Audio playback error:", e);
+        });
+
+        audio.addEventListener("ended", () => {
+          console.log("Audio playback ended");
+          setIsPlaying(false);
+          setPlaybackPosition(0);
+          if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+          }
+        });
+
+        // Set the source AFTER adding all event listeners
+        audio.src = url;
+        playbackAudioRef.current = audio;
+      } else {
+        // If audio element exists, update its source
+        console.log("Updating existing Audio element source");
+        const audio = playbackAudioRef.current;
+
+        // Pause first to avoid abort errors
+        if (!audio.paused) {
+          audio.pause();
+        }
+
+        // Reset audio to avoid carrying over state
+        audio.currentTime = 0;
+
+        // Update source
+        audio.src = url;
+      }
+
+      // Try to preload
+      if (playbackAudioRef.current) {
+        playbackAudioRef.current.load();
+      }
+
+      console.log("Preview generation completed");
+      return url; // Return the URL for chaining
     } catch (error) {
       console.error("Failed to create preview:", error);
+      return null;
     } finally {
       setIsExporting(false);
     }
   };
 
-  const handleRemovePreview = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
+  const handlePlayPause = async () => {
+    console.log("Play/Pause button clicked, current state:", {
+      isPlaying,
+      hasPreviewUrl: !!previewUrl,
+      hasAudioRef: !!playbackAudioRef.current,
+    });
+
+    // If currently playing, pause
+    if (isPlaying) {
+      console.log("Pausing playback");
+      const audio = playbackAudioRef.current;
+      if (audio) {
+        audio.pause();
+        setIsPlaying(false);
+        // Stop the animation
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
+      } else {
+        console.error("Audio element not found when trying to pause");
+      }
+      return;
     }
+
+    // Handle play
+    try {
+      // If no preview URL or the audio is missing, generate preview
+      if (!previewUrl || !playbackAudioRef.current) {
+        console.log("No preview URL yet, generating...");
+        const url = await handlePreview();
+        if (!url) {
+          console.error("Failed to generate preview");
+          return;
+        }
+      }
+
+      // At this point we should have a valid playback audio reference
+      const audio = playbackAudioRef.current;
+      if (!audio) {
+        console.error(
+          "Audio element still not available after preview generation"
+        );
+        return;
+      }
+
+      // Start playback
+      console.log("Starting playback with audio element:", audio);
+      try {
+        await audio.play();
+        console.log("Playback started successfully");
+        setIsPlaying(true);
+        startPlaybackAnimation();
+      } catch (error) {
+        console.error("Playback failed:", error);
+        setIsPlaying(false);
+      }
+    } catch (error) {
+      console.error("Error in play/pause handler:", error);
+      setIsPlaying(false);
+    }
+  };
+
+  const startPlaybackAnimation = () => {
+    console.log("Starting playback animation");
+
+    // Cancel any existing animation before starting a new one
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    const updatePosition = () => {
+      const audio = playbackAudioRef.current;
+      if (!audio) {
+        console.warn("No audio element available for animation");
+        return;
+      }
+
+      if (audio.paused || audio.ended) {
+        console.log("Audio paused or ended, stopping animation");
+        setIsPlaying(false);
+        setPlaybackPosition(0);
+        return;
+      }
+
+      // Only update position if we have valid duration and current time
+      if (
+        audio.duration &&
+        !isNaN(audio.duration) &&
+        !isNaN(audio.currentTime)
+      ) {
+        const position = (audio.currentTime / audio.duration) * 100;
+        setPlaybackPosition(position);
+
+        // Debug every second or so
+        if (Math.floor(audio.currentTime) % 2 === 0) {
+          console.log(
+            `Playback progress: ${position.toFixed(
+              1
+            )}% (${audio.currentTime.toFixed(1)}s / ${audio.duration.toFixed(
+              1
+            )}s)`
+          );
+        }
+      }
+
+      // Continue the animation
+      animationFrameRef.current = requestAnimationFrame(updatePosition);
+    };
+
+    // Start the animation
+    animationFrameRef.current = requestAnimationFrame(updatePosition);
+  };
+
+  // Hidden audio element for playback
+  const HiddenAudio = () => (
+    <audio
+      ref={(el) => {
+        // Only use this ref if we don't already have a playback ref
+        if (el && !playbackAudioRef.current) {
+          console.log("Audio element reference created from JSX");
+          playbackAudioRef.current = el;
+
+          el.addEventListener("canplaythrough", () => {
+            console.log("Audio can play through (mounted element)");
+          });
+
+          el.addEventListener("error", (e) => {
+            console.error("Audio playback error (mounted element):", e);
+          });
+
+          el.addEventListener("play", () => {
+            console.log("Audio play event from mounted element");
+            setIsPlaying(true);
+            startPlaybackAnimation();
+          });
+
+          el.addEventListener("pause", () => {
+            console.log("Audio pause event from mounted element");
+            setIsPlaying(false);
+          });
+        }
+      }}
+      style={{ display: "none" }}
+      controls={false}
+      onEnded={() => {
+        console.log("Audio playback ended (onEnded event)");
+        setIsPlaying(false);
+        setPlaybackPosition(0);
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
+      }}
+      preload="auto"
+      src={previewUrl || undefined}
+    />
+  );
+
+  // Create a function to sync play state and UI state
+  const ensureCorrectPlayState = () => {
+    if (!playbackAudioRef.current) return;
+
+    const audio = playbackAudioRef.current;
+    const isAudioPlaying =
+      !audio.paused && !audio.ended && audio.currentTime > 0;
+
+    // If our UI state doesn't match the actual audio state, fix it
+    if (isPlaying !== isAudioPlaying) {
+      console.log("Fixing play state mismatch:", {
+        uiState: isPlaying,
+        audioState: isAudioPlaying,
+      });
+      setIsPlaying(isAudioPlaying);
+
+      if (isAudioPlaying && !animationFrameRef.current) {
+        startPlaybackAnimation();
+      }
+    }
+  };
+
+  // Effect to monitor playback state
+  useEffect(() => {
+    let syncInterval: NodeJS.Timeout | null = null;
+
+    if (previewUrl && playbackAudioRef.current) {
+      syncInterval = setInterval(ensureCorrectPlayState, 500);
+    }
+
+    return () => {
+      if (syncInterval) clearInterval(syncInterval);
+    };
+  }, [previewUrl, isPlaying]);
+
+  // Custom volume change handler to add a delay
+  const handleVolumeChange = (trackId: string, value: number) => {
+    console.log(`Setting volume for track ${trackId} to ${value}`);
+    setTrackVolume(trackId, value);
   };
 
   // Format seconds as MM:SS
@@ -339,15 +672,6 @@ export function NewMixerPanel({
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-
-  // Clean up preview URL when component unmounts
-  useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [previewUrl]);
 
   // Render loading animation for a track
   const renderLoadingAnimation = (trackType: "voice" | "music" | "soundfx") => {
@@ -492,81 +816,14 @@ export function NewMixerPanel({
         </div>
         {/* Reset button */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleReset}
-            className="text-sm text-white hover:underline hover:cursor-pointer"
-          >
-            <svg
-              viewBox="-0.5 -0.5 16 16"
-              xmlns="http://www.w3.org/2000/svg"
-              height="16"
-              width="16"
-              className="ml-2 h-4 w-auto"
-            >
-              <path
-                d="m11.465 5.75 -2.375 -4.1762500000000005a1.875 1.875 0 0 0 -3.25 0l-0.66125 1.14375"
-                fill="none"
-                stroke="#ff6467"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1"
-              ></path>
-              <path
-                d="M7.46375 12.5625H12.1875a1.875 1.875 0 0 0 1.625 -2.8125l-0.8125 -1.40625"
-                fill="none"
-                stroke="#ff6467"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1"
-              ></path>
-              <path
-                d="m3.4962500000000003 5.53 -2.375 4.21875a1.875 1.875 0 0 0 1.625 2.8125h1.9075"
-                fill="none"
-                stroke="#ff6467"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1"
-              ></path>
-              <path
-                d="m9.338750000000001 10.68625 -1.875 1.875 1.875 1.875"
-                fill="none"
-                stroke="#ff6467"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1"
-              ></path>
-              <path
-                d="m12.151250000000001 3.18625 -0.68625 2.56125 -2.56125 -0.68625"
-                fill="none"
-                stroke="#ff6467"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1"
-              ></path>
-              <path
-                d="m0.935 6.21625 2.56125 -0.68625 0.68625 2.56125"
-                fill="none"
-                stroke="#ff6467"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1"
-              ></path>
-            </svg>
-          </button>
+          <ResetButton onClick={handleReset} />
 
           {tracks.length > 0 && (
             <>
               <button
-                onClick={handlePreview}
-                disabled={isExporting}
-                className="px-6 py-3 bg-sky-600 hover:bg-green-700 rounded-full text-white  disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isExporting ? "Generating..." : "Preview"}
-              </button>
-              <button
                 onClick={handleExport}
                 disabled={isExporting}
-                className="px-6 py-3 bg-sky-600 hover:bg-green-700 rounded-full text-white  disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-3 bg-wb-blue hover:bg-wb-blue-dark rounded-full text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isExporting ? "Exporting..." : "Export"}
               </button>
@@ -578,20 +835,36 @@ export function NewMixerPanel({
       {/* Timeline visualization with embedded audio controls */}
       {calculatedTracks.length > 0 && (
         <div className="mb-8">
-          <h3 className="text-lg font-semibold mb-2">Timeline</h3>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-lg mb-2">Timeline</h3>
+            <PlayButton
+              isPlaying={isPlaying}
+              onClick={handlePlayPause}
+              disabled={isExporting || tracks.length === 0}
+            />
+          </div>
           <div
             ref={timelineRef}
             className="relative bg-black/60 border border-gray-700 rounded-2xl overflow-hidden"
           >
+            {/* Playback indicator line - positioned absolutely and doesn't interfere with mouse events */}
+            {isPlaying && (
+              <div
+                className="absolute top-0 bottom-0 w-[2px] bg-green-500 z-10 pointer-events-none"
+                style={{ left: `${playbackPosition}%` }}
+              />
+            )}
+
             {/* Time markers */}
             <div
               className={`h-7 border-b border-gray-700 mb-4 relative px-2 ${
                 isVolumeDrawerOpen ? "opacity-0" : ""
               }`}
             >
-              {[...Array(Math.min(11, totalDuration + 1))].map((_, i) => {
-                const timePosition = i * (totalDuration / 10);
-                const percent = (timePosition / totalDuration) * 100;
+              {/* Create markers that properly span the entire duration */}
+              {Array.from({ length: 11 }).map((_, i) => {
+                const percent = i * 10; // 0%, 10%, 20%, ..., 100%
+                const timePosition = (totalDuration * percent) / 100;
                 return (
                   <div
                     key={i}
@@ -607,7 +880,13 @@ export function NewMixerPanel({
             </div>
 
             {/* timeline with audio tracks */}
-            <div className="px-4 pb-4">
+            <div
+              className={`px-4 pb-4 ${
+                isVolumeDrawerOpen
+                  ? "bg-gradient-to-r from-transparent to-gray-900/80"
+                  : ""
+              }`}
+            >
               {/* Voice tracks */}
               {calculatedTracks
                 .filter((track) => track.type === "voice")
@@ -624,7 +903,9 @@ export function NewMixerPanel({
                     playingState={playingTracks[track.id] || false}
                     playbackProgress={playbackProgress[track.id] || 0}
                     audioRef={handleAudioRef(track.id)}
-                    onVolumeChange={(value) => setTrackVolume(track.id, value)}
+                    onVolumeChange={(value) =>
+                      handleVolumeChange(track.id, value)
+                    }
                     onAudioLoaded={() => {
                       const audio = audioRefs.current[track.id];
                       if (audio && audio.duration && !isNaN(audio.duration)) {
@@ -653,7 +934,9 @@ export function NewMixerPanel({
                     playingState={playingTracks[track.id] || false}
                     playbackProgress={playbackProgress[track.id] || 0}
                     audioRef={handleAudioRef(track.id)}
-                    onVolumeChange={(value) => setTrackVolume(track.id, value)}
+                    onVolumeChange={(value) =>
+                      handleVolumeChange(track.id, value)
+                    }
                     onAudioLoaded={() => {
                       const audio = audioRefs.current[track.id];
                       if (audio && audio.duration && !isNaN(audio.duration)) {
@@ -683,7 +966,9 @@ export function NewMixerPanel({
                     playingState={playingTracks[track.id] || false}
                     playbackProgress={playbackProgress[track.id] || 0}
                     audioRef={handleAudioRef(track.id)}
-                    onVolumeChange={(value) => setTrackVolume(track.id, value)}
+                    onVolumeChange={(value) =>
+                      handleVolumeChange(track.id, value)
+                    }
                     onAudioLoaded={() => {
                       const audio = audioRefs.current[track.id];
                       if (audio && audio.duration && !isNaN(audio.duration)) {
@@ -699,51 +984,16 @@ export function NewMixerPanel({
 
             {/* Volume Controls Toggle */}
             <div className="absolute top-0 right-0">
-              <button
-                className={`px-3 py-1 rounded-t-full rounded-bl-full text-xs border-b border-gray-700 ${
-                  isVolumeDrawerOpen
-                    ? "bg-gray-600 text-white"
-                    : "bg-gray-800 hover:bg-gray-700 text-gray-300"
-                }`}
+              <VolumeToggleButton
+                isOpen={isVolumeDrawerOpen}
                 onClick={() => setIsVolumeDrawerOpen(!isVolumeDrawerOpen)}
-              >
-                {isVolumeDrawerOpen ? "Hide Volume" : "Volume"}
-              </button>
+              />
             </div>
 
             <div className="px-4 text-xs text-gray-400 mt-2 mb-2 italic">
               Total duration: {formatTime(totalDuration)}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Preview and Export buttons */}
-
-      {/* Preview player */}
-      {previewUrl && (
-        <div className="mt-8 ">
-          <div className="flex justify-between items-center mb-2">
-            <p className="text-lg text-white">Mixed Audio Preview</p>
-            <div className="flex items-center  gap-4 pb-2">
-              <button
-                onClick={handleRemovePreview}
-                className="text-red-700 text-sm hover:text-red-300 pt-2"
-              >
-                Remove
-              </button>
-              <button
-                onClick={handleExport}
-                disabled={isExporting}
-                className="mt-2 px-4 py-1 bg-sky-600 hover:bg-sky-300 rounded-full text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isExporting ? "Exporting..." : "Save as File"}
-              </button>
-            </div>
-          </div>
-          <audio controls src={previewUrl} className="w-full" autoPlay>
-            Your browser does not support the audio element.
-          </audio>
         </div>
       )}
 
@@ -760,6 +1010,18 @@ export function NewMixerPanel({
         {isGeneratingSoundFx && soundFxTracks.length === 0 && (
           <div className="text-2xl">{renderLoadingAnimation("soundfx")}</div>
         )}
+      </div>
+
+      {/* Hidden audio element for playback */}
+      <HiddenAudio />
+
+      {/* Add visible indicator for debugging */}
+      <div className="text-xs text-gray-500 mt-4">
+        {isPlaying
+          ? "Playing: " + Math.round(playbackPosition) + "%"
+          : previewUrl
+          ? "Ready to play"
+          : "No preview generated"}
       </div>
     </div>
   );

@@ -12,20 +12,23 @@ type SoundFxPanelProps = {
   isGenerating: boolean;
   statusMessage?: string;
   initialPrompt?: SoundFxPrompt | null;
-  adDuration: number;
+  adDuration: number; // Kept for API compatibility with other panels, but not used for duration defaults
   resetForm: () => void;
 };
+
+// Default duration for sound effects
+const DEFAULT_SOUND_FX_DURATION = 3; // 3 seconds is a reasonable default for most sound effects
 
 export function SoundFxPanel({
   onGenerate,
   isGenerating,
   statusMessage: parentStatusMessage,
   initialPrompt = null,
-  adDuration,
+  adDuration, // We keep this for API compatibility, but use a fixed default duration for sound effects
   resetForm,
 }: SoundFxPanelProps) {
   const [prompt, setPrompt] = useState("");
-  const [duration, setDuration] = useState(adDuration);
+  const [duration, setDuration] = useState(DEFAULT_SOUND_FX_DURATION);
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
   const [timingInfo, setTimingInfo] = useState<{
     playAfter?: string;
@@ -38,9 +41,21 @@ export function SoundFxPanel({
     if (initialPrompt) {
       console.log("Setting sound FX prompt to:", initialPrompt);
       setPrompt(initialPrompt.description);
-      if (initialPrompt.duration) {
+
+      // Use the provided duration, or fall back to default (not the ad duration)
+      if (initialPrompt.duration && initialPrompt.duration > 0) {
+        console.log(
+          `Using provided sound FX duration: ${initialPrompt.duration}s`
+        );
         setDuration(initialPrompt.duration);
+      } else {
+        // For sound effects, use a short default duration rather than the full ad length
+        console.log(
+          `Using default sound FX duration: ${DEFAULT_SOUND_FX_DURATION}s`
+        );
+        setDuration(DEFAULT_SOUND_FX_DURATION);
       }
+
       // Extract timing information
       if (initialPrompt.playAfter || initialPrompt.overlap !== undefined) {
         setTimingInfo({
@@ -51,13 +66,8 @@ export function SoundFxPanel({
     }
   }, [initialPrompt]);
 
-  // Update duration when adDuration changes
-  useEffect(() => {
-    // Only update if there's no specific duration from initialPrompt
-    if (!initialPrompt?.duration) {
-      setDuration(adDuration);
-    }
-  }, [adDuration, initialPrompt]);
+  // Do NOT update duration when adDuration changes - sound effects should be short
+  // We don't need the useEffect that previously updated to adDuration
 
   // Update local status message when parent status message changes
   // but only if we're actually generating sound fx
@@ -75,7 +85,7 @@ export function SoundFxPanel({
   // Handle local reset
   const handleReset = () => {
     setPrompt("");
-    setDuration(adDuration);
+    setDuration(DEFAULT_SOUND_FX_DURATION); // Reset to default sound FX duration, not ad duration
     setTimingInfo(null);
     setLocalStatusMessage("");
     resetForm();
@@ -106,6 +116,13 @@ export function SoundFxPanel({
         }`
       : "No specific timing information";
   };
+
+  // Make typescript happy by referencing adDuration in a harmless way
+  React.useEffect(() => {
+    console.log(
+      `Sound effect component initialized with ad duration ${adDuration}s, but using fixed defaults instead`
+    );
+  }, []);
 
   return (
     <div className="py-8 text-white">
@@ -150,7 +167,7 @@ export function SoundFxPanel({
                   : "Sound effects typically play at specific moments in the ad"}
               </span>
               <div className="mt-1">
-                <span className="text-sky-300">Pro tip: </span>
+                <span className="text-wb-blue">Pro tip: </span>
                 When generating from a script, sound effects will be positioned
                 based on the AI&apos;s timing suggestions. In the mixer,
                 you&apos;ll be able to adjust when each sound effect plays.

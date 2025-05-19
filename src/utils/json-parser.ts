@@ -15,6 +15,7 @@ interface ScriptSoundFxItem {
   description: string;
   playAfter?: string;
   overlap?: number;
+  duration?: number;
 }
 
 interface ScriptConcurrentItem {
@@ -179,6 +180,7 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
                 ? "start"
                 : item.playAfter || "previous",
             overlap: item.overlap || 0,
+            duration: item.duration ? Math.min(item.duration, 15) : 3, // Cap at 15 seconds, default to 3 if not provided
           });
         }
         // Handle concurrent elements
@@ -256,8 +258,7 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
                 ? "start"
                 : item.playAfter || "previous",
             overlap: item.overlap || 0,
-            duration:
-              item.duration && item.duration < 10 ? item.duration : undefined,
+            duration: item.duration ? Math.min(item.duration, 15) : 3, // Cap at 15 seconds, default to 3 if not provided
           });
         }
       });

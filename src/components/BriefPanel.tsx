@@ -285,8 +285,8 @@ export function BriefPanel({
             onClick={handleGenerateCreative}
             disabled={!clientDescription.trim() || !creativeBrief.trim()}
             isGenerating={isGenerating}
-            text="Generate Script"
-            generatingText="Generating Script..."
+            text="Generate"
+            generatingText="Generating..."
           />
         </div>
       </div>

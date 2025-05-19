@@ -84,9 +84,21 @@ export function TimelineTrack({
   // Get width percentage for timeline elements
   const getWidthPercent = (start: number, duration: number) => {
     if (totalDuration === 0) return { left: 0, width: 0 };
+
+    // Calculate position as percentage of total duration
     const leftPercent = (start / totalDuration) * 100;
     const widthPercent = (duration / totalDuration) * 100;
-    return { left: leftPercent, width: widthPercent };
+
+    // Ensure the track doesn't extend beyond the timeline
+    const adjustedWidth =
+      start + duration > totalDuration
+        ? ((totalDuration - start) / totalDuration) * 100
+        : widthPercent;
+
+    return {
+      left: Math.max(0, leftPercent),
+      width: Math.max(0, adjustedWidth),
+    };
   };
 
   const { left, width } = getWidthPercent(
@@ -94,15 +106,16 @@ export function TimelineTrack({
     track.actualDuration
   );
 
-  // Debug information for soundFx tracks
-  if (track.type === "soundfx") {
-    console.log(`SoundFx track "${track.label}":`, {
+  // Debug information only for voice tracks to reduce console spam
+  if (track.type === "voice") {
+    console.log(`Voice track "${track.label}":`, {
       id: track.id,
       actualStartTime: track.actualStartTime,
       actualDuration: track.actualDuration,
       totalDuration,
       calculatedWidth: width,
       calculatedLeft: left,
+      endsAt: track.actualStartTime + track.actualDuration,
     });
   }
 

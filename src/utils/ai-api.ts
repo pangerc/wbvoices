@@ -184,7 +184,7 @@ SOUND EFFECT DESCRIPTION GUIDELINES:
 21. COMPLEX SEQUENCES: For multi-part effects, describe the sequence (e.g., "Footsteps on gravel, then a metallic door opens")
 22. BE SPECIFIC: Include surface materials, distance, intensity, and environment when relevant
 23. AVOID VAGUE TERMS: Instead of "nice" or "cool" sound, describe the actual sound itself
-24. DURATION: Short is better, API allows duration from 0.1 to 15 seconds
+24. DURATION: Short is better, limit to 3 seconds when possible. API allows duration from 0.1 to 15 seconds
 
 Sound Effect Prompt Examples (BE CREATIVE WITH PLACEMENT):
 - Car ads: "Car engine starting with mechanical ignition sound, then revving powerfully" (playAfter: "start")
@@ -193,6 +193,7 @@ Sound Effect Prompt Examples (BE CREATIVE WITH PLACEMENT):
 - Tech products: "Crisp notification chime, followed by app startup sound" (between feature points)
 - Food/beverage: "Bottle cap twisting open with fizz release, then liquid pouring over ice cubes"
 - Retail/Sales: "Cash register drawer opening with bell chime, followed by coins dropping"
+- Delivery: "Doorbell ringing"
 
 DO NOT include any explanations, markdown formatting, or additional text outside the JSON structure.`;
 }
