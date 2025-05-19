@@ -74,6 +74,42 @@ function cleanDescription(description: string): string {
   return description.replace(/\s*\(\d+s\)\s*$/i, "");
 }
 
+// Add this function to enforce different voices in dialogues
+function ensureDifferentVoicesForDialogue(
+  scriptItems: ScriptItem[]
+): ScriptItem[] {
+  // Count voice items and check for unique speakers
+  const voiceItems = scriptItems.filter(
+    (item) => item.type === "voice"
+  ) as ScriptVoiceItem[];
+
+  if (voiceItems.length >= 2) {
+    const uniqueSpeakers = new Set(voiceItems.map((item) => item.speaker));
+
+    // If all speakers are the same, we need to fix it
+    if (uniqueSpeakers.size === 1) {
+      console.warn(
+        "Dialog has same voice for all speakers! Applying differentiation..."
+      );
+
+      // Modify alternate voice items with a different voice ID
+      for (let i = 1; i < voiceItems.length; i += 2) {
+        const originalId = voiceItems[i].speaker;
+
+        // Create a different ID by adding "-alt" suffix and a unique number
+        // This ensures uniqueness and indicates it was auto-differentiated
+        voiceItems[i].speaker = `${originalId}-alt-${i}`;
+
+        console.log(
+          `Auto-differentiated voice: ${originalId} → ${voiceItems[i].speaker}`
+        );
+      }
+    }
+  }
+
+  return scriptItems;
+}
+
 export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
   console.log("Parsing creative JSON:", jsonString);
 
@@ -101,6 +137,11 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
         soundFxPrompts: [],
         timing: { concurrent: [], voiceTimings: [] },
       };
+    }
+
+    // Ensure dialogues use different voices
+    if (jsonData.script && Array.isArray(jsonData.script)) {
+      jsonData.script = ensureDifferentVoicesForDialogue(jsonData.script);
     }
 
     const voiceSegments: VoiceTrack[] = [];

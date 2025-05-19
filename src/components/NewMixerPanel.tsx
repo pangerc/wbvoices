@@ -357,16 +357,7 @@ export function NewMixerPanel({
 
   const handlePreview = async () => {
     try {
-      // If we already have a valid preview, don't regenerate
-      if (
-        previewUrl &&
-        playbackAudioRef.current &&
-        !playbackAudioRef.current.error
-      ) {
-        console.log("Using existing preview URL");
-        return previewUrl;
-      }
-
+      // Always regenerate the preview regardless of existing URL
       setIsExporting(true);
       console.log("Generating preview mix...");
 
@@ -528,34 +519,41 @@ export function NewMixerPanel({
       hasAudioRef: !!playbackAudioRef.current,
     });
 
-    // If currently playing, pause
+    // If currently playing, stop (not pause) and reset
     if (isPlaying) {
-      console.log("Pausing playback");
+      console.log("Stopping playback and resetting");
       const audio = playbackAudioRef.current;
       if (audio) {
         audio.pause();
+        audio.currentTime = 0;
         setIsPlaying(false);
+        setPlaybackPosition(0);
+
+        // Revoke old preview URL to force regeneration next time
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+          setPreviewUrl(null);
+        }
+
         // Stop the animation
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current);
           animationFrameRef.current = null;
         }
       } else {
-        console.error("Audio element not found when trying to pause");
+        console.error("Audio element not found when trying to stop");
       }
       return;
     }
 
     // Handle play
     try {
-      // If no preview URL or the audio is missing, generate preview
-      if (!previewUrl || !playbackAudioRef.current) {
-        console.log("No preview URL yet, generating...");
-        const url = await handlePreview();
-        if (!url) {
-          console.error("Failed to generate preview");
-          return;
-        }
+      // Always regenerate the preview to ensure we have the latest mix with all tracks
+      console.log("Generating new preview mix...");
+      const url = await handlePreview();
+      if (!url) {
+        console.error("Failed to generate preview");
+        return;
       }
 
       // At this point we should have a valid playback audio reference

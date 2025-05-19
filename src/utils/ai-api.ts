@@ -71,7 +71,8 @@ You excel at creating engaging, conversational copy that resonates with audience
 Your task is to create a compelling audio advertisement that fits within a ${duration}-second time constraint.
 When selecting voices, analyze the voice descriptions to match personalities with the right roles. Don't pick Drew as the English voice every time. 
 When appropriate, include sound effects to enhance the listener experience, especially for scenarios like cars, technology, or nature.
-IMPORTANT: All music and sound effect descriptions MUST be written in English, regardless of the target language for the ad voices.`;
+IMPORTANT: All music and sound effect descriptions MUST be written in English, regardless of the target language for the ad voices.
+CRITICAL INSTRUCTION: When creating dialogue between two speakers, you MUST assign different voice IDs to each speaker. Do not assign the same voice ID to multiple speakers, as this would make the dialogue confusing and unrealistic.`;
 }
 
 // Function to create the user prompt
@@ -153,35 +154,31 @@ IMPORTANT: You MUST return your response in the following JSON format:
 
 CRITICAL INSTRUCTIONS:
 1. The "speaker" MUST be an exact voice ID from the AVAILABLE VOICES list above
-
-2. Prefer contrast: at least one of {gender, age, accent, tone} should differ across speakers.
-3. If no ideal personality match is obvious, pick randomly from the remaining unused voices rather than picking the obvious choice.
-4. If available, use the "Tone" and "Use case" tags to justify your picks (e.g., an "authoritative" middle-aged male for a narrator vs. a "youthful upbeat" female as a customer).
-5. For "Dialog between two voices", you MUST output exactly two different "speaker" IDs that obey rules 2–4 in the system prompt.
-
+2. For "Dialog between two voices", you MUST output exactly two different "speaker" IDs! THIS IS A MANDATORY REQUIREMENT! NEVER USE THE SAME VOICE ID FOR MULTIPLE SPEAKERS!
+3. Prefer contrast: at least one of {gender, age, accent, tone} should differ across speakers.
+4. If no ideal personality match is obvious, pick randomly from the remaining unused voices rather than picking the obvious choice.
+5. If available, use the "Tone" and "Use case" tags to justify your picks (e.g., an "authoritative" middle-aged male for a narrator vs. a "youthful upbeat" female as a customer).
 6 . For voice elements, focus on realistic dialog and natural speech patterns
 7. Include sound effects for themed content (e.g., car sounds for automotive ads, nature sounds for outdoor products)
-
 8. "playAfter" indicates what element this should play after (usually "previous")
 9. "overlap" is the number of seconds an element should overlap with what it plays after
 10. For dialog format, VARY your voice choices based on message content and voice personalities
-11. For single voice format, use one speaker throughout
-12. Ensure the script fits within ${duration} seconds (approximately ${Math.round(
+11. Ensure the script fits within ${duration} seconds (approximately ${Math.round(
     duration * 2.5
   )}-${Math.round(duration * 2.7)} words)
-13. Whenever appropriate, include the "soundFxPrompts" array with at least one detailed sound effect description for car/tech/product ads
-14. CRUCIAL: ALL music and sound effect descriptions must be in ENGLISH ONLY, regardless of the ad language
+12. Whenever appropriate, include the "soundFxPrompts" array with at least one detailed sound effect description for car/tech/product ads
+13. CRUCIAL: ALL music and sound effect descriptions must be in ENGLISH ONLY, regardless of the ad language
 
 SOUND EFFECT PROMPTING:
-15. SIMPLE EFFECTS: Use clear, concise descriptions (e.g., "Glass shattering on concrete", "Door creaking open", go for strong recognizable sounds, don't be creative here)
-16. COMPLEX SEQUENCES: For multi-part effects, describe the sequence (e.g., "Footsteps on gravel, then a metallic door opens")
-17. BE SPECIFIC: Include surface materials, distance, intensity, and environment when relevant
-18. AVOID VAGUE TERMS: Instead of "nice" or "cool" sound, describe the actual sound itself
-19. DURATION: Short is better, limit to 3 seconds when possible!! API allows duration from 0.1 to 15 seconds
+14. SIMPLE EFFECTS: Use clear, concise descriptions (e.g., "Glass shattering on concrete", "Door creaking open", go for strong recognizable sounds, don't be creative here)
+15. COMPLEX SEQUENCES: For multi-part effects, describe the sequence (e.g., "Footsteps on gravel, then a metallic door opens")
+16. BE SPECIFIC: Include surface materials, distance, intensity, and environment when relevant
+17. AVOID VAGUE TERMS: Instead of "nice" or "cool" sound, describe the actual sound itself
+18. DURATION: Short is better, limit to 3 seconds when possible!! API allows duration from 0.1 to 15 seconds
 
 SOUND EFFECT PLACEMENT:
-20. CREATIVE PLACEMENT: Position sound effects throughout the ad - not just at the end! Use them at the beginning, middle, and end
-21. DRAMATIC INTROS: Consider starting with attention-grabbing sounds BEFORE voices by setting "playAfter": "start"
+19. CREATIVE PLACEMENT: Position sound effects throughout the ad - not just at the end! Use them at the beginning, middle, and end
+20. DRAMATIC INTROS: Consider starting with attention-grabbing sounds BEFORE voices by setting "playAfter": "start"
 21. PUNCTUATE DIALOG: Place impactful sound effects between voice segments to emphasize key points
 22. LAYERED EXPERIENCE: Overlap voices with relevant sound effects for immersion (e.g., car acceleration while spokesperson talks)
 23. CONCLUDING EFFECTS: For ending effects, play them during music fadeout for a professional finish
@@ -267,6 +264,7 @@ async function generateWithDeepSeek(
   const systemPrompt = `${basePrompt}
 You MUST return your response in valid JSON format as specified in the user's instructions.
 CRITICAL: You must ONLY use voice IDs from the provided list of available voices. Do not make up or invent voice IDs.
+CRITICALLY IMPORTANT: For dialogues between two voices, you MUST use TWO DIFFERENT voice IDs. Never use the same voice ID for both speakers in a dialogue.
 VERY IMPORTANT: All music descriptions and sound effect descriptions MUST be written in English, regardless of the ad's target language (${language}).`;
 
   const userPrompt = createUserPrompt(

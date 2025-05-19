@@ -8,7 +8,7 @@ export function ResetButton({ onClick }: ResetButtonProps) {
   return (
     <button
       onClick={onClick}
-      className=" text-wb-red hover:bg-red-950 hover:cursor-pointer flex items-center gap-2 rounded-full border border-wb-red px-4 py-3 mr-2"
+      className=" text-wb-red hover:bg-red-950 hover:cursor-pointer flex items-center gap-2 rounded-full border border-wb-red px-4 py-3 mr-2 hidden"
     >
       Reset
       <svg

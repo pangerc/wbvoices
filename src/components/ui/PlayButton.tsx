@@ -17,7 +17,7 @@ export function PlayButton({
       disabled={disabled}
       className={`px-4 py-1 rounded-full flex items-center gap-2 text-white hover:cursor-pointer text-sm ${
         isPlaying
-          ? "bg-wb-green hover:bg-gray-700"
+          ? "bg-wb-red hover:bg-gray-700"
           : "bg-wb-blue hover:bg-wb-blue-dark"
       } disabled:opacity-50 disabled:cursor-not-allowed`}
     >
@@ -37,7 +37,7 @@ export function PlayButton({
             <rect x="6" y="4" width="4" height="16"></rect>
             <rect x="14" y="4" width="4" height="16"></rect>
           </svg>
-          <span>Pause</span>
+          <span>Stop</span>
         </>
       ) : (
         <>
