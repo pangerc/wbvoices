@@ -14,6 +14,16 @@ const deepseekClient = new OpenAI({
   dangerouslyAllowBrowser: true, // Since we're calling from the client
 });
 
+// Utility function to shuffle an array (Fisher-Yates algorithm)
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array]; // Create a copy to avoid mutating the original
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; // Swap elements
+  }
+  return shuffled;
+}
+
 export async function generateCreativeCopy(
   aiModel: AIModel,
   language: string,
@@ -25,8 +35,28 @@ export async function generateCreativeCopy(
 ): Promise<string> {
   console.log(`Generating creative copy with ${aiModel}...`);
 
+  // Ensure we only use voices that match the target language
+  const languageVoices = filteredVoices.filter(
+    (voice) => voice.language?.toLowerCase() === language.toLowerCase()
+  );
+
+  console.log(
+    `Filtered to ${languageVoices.length} voices for language: ${language}`
+  );
+
+  if (languageVoices.length === 0) {
+    console.warn(
+      `No voices found for language: ${language}, using all provided voices as fallback`
+    );
+    // Fall back to all voices if none match the target language
+    languageVoices.push(...filteredVoices);
+  }
+
+  // Randomize the order of voices to encourage different selections
+  const randomizedVoices = shuffleArray(languageVoices);
+
   // Enhanced voice descriptions with more detailed attributes
-  const voiceOptions = filteredVoices
+  const voiceOptions = randomizedVoices
     .map(
       (voice) => `${voice.name} (id: ${voice.id})
   • Gender: ${voice.gender ?? "unknown"}
@@ -45,7 +75,7 @@ export async function generateCreativeCopy(
       clientDescription,
       creativeBrief,
       campaignFormat,
-      filteredVoices,
+      randomizedVoices, // Pass the randomized voices
       voiceOptions,
       duration
     );
@@ -57,7 +87,7 @@ export async function generateCreativeCopy(
       clientDescription,
       creativeBrief,
       campaignFormat,
-      filteredVoices,
+      randomizedVoices, // Pass the randomized voices
       voiceOptions,
       duration
     );

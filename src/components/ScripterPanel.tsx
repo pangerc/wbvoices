@@ -215,7 +215,7 @@ export function ScripterPanel({
       </div>
 
       {statusMessage && (
-        <p className="text-center text-sm text-gray-300">{statusMessage}</p>
+        <p className="text-center  text-gray-500 pt-8">{statusMessage}</p>
       )}
     </div>
   );

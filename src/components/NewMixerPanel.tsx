@@ -255,12 +255,15 @@ export function NewMixerPanel({
           gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
         };
 
-        // For music tracks, use the original full duration for mixing
-        // even though the timeline may show a shorter visualization
+        // IMPORTANT: Use the visualized duration for music to match the timeline
+        // We used to use originalDuration here, but that creates an inconsistency
+        // between what's shown and what's heard
         if (track.type === "music" && track.metadata?.originalDuration) {
-          timing.duration = track.metadata.originalDuration;
+          // Only add a small fade-out buffer if needed
+          const playbackDuration = track.actualDuration;
+          timing.duration = playbackDuration;
           console.log(
-            `Using original music duration for mixing: ${timing.duration}s instead of ${track.actualDuration}s`
+            `Using visualized music duration for mixing: ${timing.duration}s (original was ${track.metadata.originalDuration}s)`
           );
         }
 
@@ -409,12 +412,15 @@ export function NewMixerPanel({
           gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
         };
 
-        // For music tracks, use the original full duration for mixing
-        // even though the timeline may show a shorter visualization
+        // IMPORTANT: Use the visualized duration for music to match the timeline
+        // We used to use originalDuration here, but that creates an inconsistency
+        // between what's shown and what's heard
         if (track.type === "music" && track.metadata?.originalDuration) {
-          timing.duration = track.metadata.originalDuration;
+          // Only add a small fade-out buffer if needed
+          const playbackDuration = track.actualDuration;
+          timing.duration = playbackDuration;
           console.log(
-            `Using original music duration for mixing: ${timing.duration}s instead of ${track.actualDuration}s`
+            `Using visualized music duration for mixing: ${timing.duration}s (original was ${track.metadata.originalDuration}s)`
           );
         }
 
@@ -727,6 +733,13 @@ export function NewMixerPanel({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Adjust markers to make sure they go to exactly the total duration
+  const getTotalMarkers = () => {
+    // For durations that are exact seconds (like 19.0), include that second
+    // For durations with partial seconds (like 19.2), round up to the next second (20)
+    return Math.ceil(totalDuration) + (Number.isInteger(totalDuration) ? 1 : 0);
+  };
+
   // Render loading animation for a track
   const renderLoadingAnimation = (trackType: "voice" | "music" | "soundfx") => {
     let color = "bg-sky-300";
@@ -899,7 +912,7 @@ export function NewMixerPanel({
           </div>
           <div
             ref={timelineRef}
-            className="relative bg-black/60 border border-gray-700 rounded-2xl overflow-hidden"
+            className="relative bg-black/60 border border-gray-700 rounded-2xl overflow-hidden timeline"
           >
             {/* Playback indicator line - positioned absolutely and doesn't interfere with mouse events */}
             {isPlaying && (
@@ -916,9 +929,11 @@ export function NewMixerPanel({
               }`}
             >
               {/* Create markers that properly span the entire duration */}
-              {Array.from({ length: 11 }).map((_, i) => {
-                const percent = i * 10; // 0%, 10%, 20%, ..., 100%
-                const timePosition = (totalDuration * percent) / 100;
+              {Array.from({ length: getTotalMarkers() }).map((_, i) => {
+                // Calculate position based on actual seconds, not just percentage
+                const seconds = i;
+                const percent = (seconds / totalDuration) * 100;
+
                 return (
                   <div
                     key={i}
@@ -926,7 +941,7 @@ export function NewMixerPanel({
                     style={{ left: `${percent}%` }}
                   >
                     <div className="absolute top-3 text-xs text-gray-400 transform -translate-x-1/2">
-                      {formatTime(timePosition)}
+                      {formatTime(seconds)}
                     </div>
                   </div>
                 );

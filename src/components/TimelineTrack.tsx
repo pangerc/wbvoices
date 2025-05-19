@@ -85,19 +85,28 @@ export function TimelineTrack({
   const getWidthPercent = (start: number, duration: number) => {
     if (totalDuration === 0) return { left: 0, width: 0 };
 
-    // Calculate position as percentage of total duration
+    // The key insight: we need to use the REAL duration values directly
+    // This means calculating percentages based on the actual timeline range
+    // without any artificial scaling
+
+    // Simple direct calculation - position and width are simply percentages
+    // of where they fall within the total timeline duration
     const leftPercent = (start / totalDuration) * 100;
     const widthPercent = (duration / totalDuration) * 100;
 
-    // Ensure the track doesn't extend beyond the timeline
-    const adjustedWidth =
-      start + duration > totalDuration
-        ? ((totalDuration - start) / totalDuration) * 100
-        : widthPercent;
+    console.log(`Percentage calculation for "${track.label}":`, {
+      start,
+      duration,
+      totalDuration,
+      calculatedLeftPercent: leftPercent,
+      calculatedWidthPercent: widthPercent,
+    });
 
+    // Make sure width is at least the expected percentage (don't artificially limit)
+    // This is important for accurate visualization of track durations
     return {
       left: Math.max(0, leftPercent),
-      width: Math.max(0, adjustedWidth),
+      width: Math.max(0, widthPercent),
     };
   };
 
@@ -106,18 +115,30 @@ export function TimelineTrack({
     track.actualDuration
   );
 
-  // Debug information only for voice tracks to reduce console spam
-  if (track.type === "voice") {
-    console.log(`Voice track "${track.label}":`, {
-      id: track.id,
-      actualStartTime: track.actualStartTime,
-      actualDuration: track.actualDuration,
-      totalDuration,
-      calculatedWidth: width,
-      calculatedLeft: left,
-      endsAt: track.actualStartTime + track.actualDuration,
-    });
-  }
+  // Enhanced debug information for all track types
+  console.log(`Track visualization for "${track.label}" (${track.type}):`, {
+    id: track.id,
+    actualStartTime: track.actualStartTime,
+    actualDuration: track.actualDuration,
+    totalDuration,
+    calculatedWidth: width,
+    calculatedLeft: left,
+    endsAt: track.actualStartTime + track.actualDuration,
+    // Debug percentage calculation (using actual track timing data)
+    startPercent: (track.actualStartTime / totalDuration) * 100,
+    durationPercent: (track.actualDuration / totalDuration) * 100,
+    // Additional debug data to see timing relationships
+    rawTrackEndTime: track.actualStartTime + track.actualDuration,
+    contentRatio:
+      (track.actualStartTime + track.actualDuration) / totalDuration,
+    // Show pixel values for easier debugging
+    containerWidth: document.querySelector(".timeline")?.clientWidth || 0,
+    estimatedPixelLeft:
+      (left / 100) * (document.querySelector(".timeline")?.clientWidth || 1000),
+    estimatedPixelWidth:
+      (width / 100) *
+      (document.querySelector(".timeline")?.clientWidth || 1000),
+  });
 
   // Handle play/pause toggle
   const handlePlayPause = () => {
@@ -180,7 +201,8 @@ export function TimelineTrack({
           )}`}
           style={{
             left: `${left}%`,
-            width: `${Math.max(width, 5)}%`, // Ensure minimum width for visibility
+            width: `${width}%`, // Use exact width based on actual duration
+            minWidth: "8px", // Use minWidth instead of percentage to ensure visibility
           }}
         >
           {/* Progress overlay */}

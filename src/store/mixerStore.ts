@@ -23,6 +23,9 @@ export type MixerTrack = {
     scriptText?: string;
     promptText?: string;
     originalDuration?: number;
+    // Add support for explicit timing in metadata
+    startTime?: number;
+    endTime?: number;
   };
   // UI state
   isLoading?: boolean;
@@ -178,13 +181,33 @@ export const useMixerStore = create<MixerState>((set, get) => ({
   setAudioDuration: (id, duration) => {
     // Only update if the duration is valid
     if (duration && !isNaN(duration) && duration > 0) {
-      console.log(`Setting accurate duration for track ${id}: ${duration}s`);
+      const { tracks } = get();
+      const track = tracks.find((t) => t.id === id);
+
+      console.log(
+        `Setting accurate duration for track ${id} (${
+          track?.label || "unknown"
+        }): ${duration}s`
+      );
+
+      // Store accurate duration
       set((state) => ({
         audioDurations: {
           ...state.audioDurations,
           [id]: duration,
         },
       }));
+
+      // Also update the duration property on the track itself if it's different
+      if (
+        track &&
+        (!track.duration || Math.abs(track.duration - duration) > 0.1)
+      ) {
+        console.log(
+          `Updating explicit track duration from ${track.duration}s to ${duration}s`
+        );
+        get().updateTrack(id, { duration });
+      }
 
       // Recalculate timings with the new duration info
       get().calculateTimings();
@@ -232,12 +255,11 @@ export const useMixerStore = create<MixerState>((set, get) => ({
     const getTrackDuration = (track: MixerTrack): number => {
       // First priority: use cached audio duration from actual audio element measurement
       if (audioDurations[track.id] && !isNaN(audioDurations[track.id])) {
+        const measuredDuration = audioDurations[track.id];
         console.log(
-          `Using measured duration for ${track.label}: ${
-            audioDurations[track.id]
-          }s`
+          `Using measured duration for ${track.label}: ${measuredDuration}s`
         );
-        return audioDurations[track.id];
+        return measuredDuration;
       }
 
       // Second priority: use track's explicit duration if set
@@ -248,7 +270,13 @@ export const useMixerStore = create<MixerState>((set, get) => ({
         return track.duration;
       }
 
-      // Fall back to default duration
+      // For voice tracks, be a bit more generous with the default
+      if (track.type === "voice") {
+        console.log(`Using default voice duration for ${track.label}: 4s`);
+        return 4; // Default for voice is 4 seconds
+      }
+
+      // Fall back to default duration for other track types
       console.log(`Using default duration for ${track.label}: 3s`);
       return 3; // Default to 3 seconds
     };
@@ -317,50 +345,94 @@ export const useMixerStore = create<MixerState>((set, get) => ({
 
     let lastVoiceEndTime = startingOffset;
 
+    // Process voice tracks based on explicit timing data if available
     if (voiceTracks.length > 0) {
-      // Position the first voice track after any sound effects
-      const firstVoice = voiceTracks[0];
-      if (firstVoice && !trackStartTimes.has(firstVoice.id)) {
+      console.log(`Processing ${voiceTracks.length} voice tracks...`);
+
+      // Step 1: First scan all voice tracks for metadata with their actual start times/durations
+      for (const track of voiceTracks) {
+        // Use the most accurate duration available
+        const actualDuration = getTrackDuration(track);
+
+        // Add support for explicit start times in metadata - need to check if this exists
+        // since it's not in the original type definition
+        if (
+          track.metadata &&
+          "startTime" in track.metadata &&
+          track.metadata.startTime !== undefined
+        ) {
+          // Use explicit timing from metadata if available
+          const explicitStartTime = track.metadata.startTime as number;
+          console.log(
+            `Using explicit start time for "${track.label}": ${explicitStartTime}s`
+          );
+
+          result.push({
+            ...track,
+            actualStartTime: explicitStartTime,
+            actualDuration,
+          });
+          trackStartTimes.set(track.id, explicitStartTime);
+
+          // Update lastVoiceEndTime if this track extends beyond current value
+          const trackEndTime = explicitStartTime + actualDuration;
+          if (trackEndTime > lastVoiceEndTime) {
+            lastVoiceEndTime = trackEndTime;
+          }
+        }
+      }
+
+      // Step 2: Position remaining tracks sequentially
+      // Position first voice track - check for explicit startTime on the track
+      if (voiceTracks.length > 0 && !trackStartTimes.has(voiceTracks[0].id)) {
+        const firstVoice = voiceTracks[0];
         const actualDuration = getTrackDuration(firstVoice);
+
+        // Check if this track has an explicit startTime property
+        const explicitStartTime =
+          firstVoice.startTime !== undefined && !isNaN(firstVoice.startTime)
+            ? firstVoice.startTime
+            : startingOffset;
+
         result.push({
           ...firstVoice,
-          actualStartTime: startingOffset,
+          actualStartTime: explicitStartTime,
           actualDuration,
         });
-        trackStartTimes.set(firstVoice.id, startingOffset);
-        lastVoiceEndTime = startingOffset + actualDuration;
+        trackStartTimes.set(firstVoice.id, explicitStartTime);
+        lastVoiceEndTime = explicitStartTime + actualDuration;
         console.log(
-          `Positioned first voice track "${firstVoice.label}" at ${startingOffset}s`
+          `Positioned first voice track "${firstVoice.label}" at ${explicitStartTime}s with duration ${actualDuration}s (ends at ${lastVoiceEndTime}s)`
         );
+      }
 
-        // Process the rest of the voice tracks sequentially
-        for (let i = 1; i < voiceTracks.length; i++) {
-          const voiceTrack = voiceTracks[i];
+      // Process remaining voice tracks in sequence
+      for (let i = 1; i < voiceTracks.length; i++) {
+        const voiceTrack = voiceTracks[i];
 
-          // Skip if already positioned
-          if (trackStartTimes.has(voiceTrack.id)) continue;
+        // Skip if already positioned in step 1
+        if (trackStartTimes.has(voiceTrack.id)) {
+          console.log(
+            `Skipping "${voiceTrack.label}" as it's already positioned`
+          );
+          continue;
+        }
 
-          // By default, each voice track plays after the previous voice track
-          const prevTrack = result.find((t) => t.id === voiceTracks[i - 1].id);
-          if (prevTrack) {
-            const prevStartTime = prevTrack.actualStartTime;
-            const prevDuration = prevTrack.actualDuration;
-            const prevEndTime = prevStartTime + prevDuration;
+        // Use the most accurate duration available
+        const actualDuration = getTrackDuration(voiceTrack);
 
-            // Calculate where this track should start
-            const actualDuration = getTrackDuration(voiceTrack);
-            let startTime = prevEndTime;
-
-            // Apply overlap if specified
-            if (voiceTrack.overlap && voiceTrack.overlap > 0) {
-              startTime = Math.max(
-                prevStartTime,
-                prevEndTime - voiceTrack.overlap
-              );
-            }
+        // If playAfter is specified, find that track and position after it
+        if (voiceTrack.playAfter) {
+          const referenceTrack = result.find(
+            (t) => t.id === voiceTrack.playAfter
+          );
+          if (referenceTrack) {
+            const refEndTime =
+              referenceTrack.actualStartTime + referenceTrack.actualDuration;
+            const startTime = Math.round(refEndTime * 100) / 100; // Round to 2 decimal places
 
             console.log(
-              `Positioning voice track ${voiceTrack.label} at ${startTime}s (after ${prevTrack.label})`
+              `Positioning "${voiceTrack.label}" at ${startTime}s after "${referenceTrack.label}" (which ends at ${refEndTime}s)`
             );
 
             result.push({
@@ -368,10 +440,46 @@ export const useMixerStore = create<MixerState>((set, get) => ({
               actualStartTime: startTime,
               actualDuration,
             });
-
             trackStartTimes.set(voiceTrack.id, startTime);
-            lastVoiceEndTime = startTime + actualDuration;
+            lastVoiceEndTime = Math.max(
+              lastVoiceEndTime,
+              startTime + actualDuration
+            );
+            continue;
           }
+        }
+
+        // Default sequential positioning if no specific instructions
+        // Get the previous track in the result array
+        const prevTrack = result.find((t) => t.id === voiceTracks[i - 1].id);
+        if (prevTrack) {
+          const prevEndTime =
+            prevTrack.actualStartTime + prevTrack.actualDuration;
+          let startTime = Math.round(prevEndTime * 100) / 100; // Round to 2 decimal places
+
+          // Apply overlap if specified
+          if (voiceTrack.overlap && voiceTrack.overlap > 0) {
+            startTime = Math.max(
+              prevTrack.actualStartTime,
+              prevEndTime - voiceTrack.overlap
+            );
+            startTime = Math.round(startTime * 100) / 100; // Round again after calculation
+          }
+
+          console.log(
+            `Positioning "${voiceTrack.label}" at ${startTime}s after "${prevTrack.label}" (which ends at ${prevEndTime}s)`
+          );
+
+          result.push({
+            ...voiceTrack,
+            actualStartTime: startTime,
+            actualDuration,
+          });
+          trackStartTimes.set(voiceTrack.id, startTime);
+          lastVoiceEndTime = Math.max(
+            lastVoiceEndTime,
+            startTime + actualDuration
+          );
         }
       }
     }
@@ -387,21 +495,22 @@ export const useMixerStore = create<MixerState>((set, get) => ({
         // Use the actual music duration from the audio element if available
         const actualDuration = getTrackDuration(musicTrack);
 
-        // For visualization in the timeline, we'll limit music to just slightly past the voice content
+        // For visualization in the timeline, limit music to match voice content
         // This prevents the timeline from being stretched too far by very long music tracks
-        const finalDuration = Math.min(
-          actualDuration,
-          voiceEndTime + 2.0 // Limit to voice end + 2 seconds for timeline display
-        );
+        // We'll make music stop about 0.5s before the last voice track ends
+        const visualDuration =
+          voiceEndTime > 0
+            ? Math.min(actualDuration, voiceEndTime)
+            : Math.min(actualDuration, 30); // Reasonable default if no voice tracks
 
         console.log(
-          `Positioning music track ${musicTrack.label} with display duration ${finalDuration}s (actual: ${actualDuration}s, voice end: ${voiceEndTime}s)`
+          `Positioning music track ${musicTrack.label} with display duration ${visualDuration}s (actual: ${actualDuration}s, voice end: ${voiceEndTime}s)`
         );
 
         result.push({
           ...musicTrack,
           actualStartTime: 0,
-          actualDuration: finalDuration,
+          actualDuration: visualDuration,
           // Store the original duration for mixing/export
           metadata: {
             ...musicTrack.metadata,
@@ -531,14 +640,27 @@ export const useMixerStore = create<MixerState>((set, get) => ({
       trackStartTimes.set(track.id, latestEndTime);
     });
 
-    // Calculate total duration - make sure it's at least 3 seconds with a small buffer
+    // Calculate total duration directly from track timings
+    // Find the maximum end time of all tracks (excluding music tracks with originalDuration)
+    const excludeMusicForLength = result.some(
+      (t) => t.type === "voice" || t.type === "soundfx"
+    );
+
     const calculatedMaxDuration =
       result.length > 0
-        ? Math.max(...result.map((t) => t.actualStartTime + t.actualDuration))
+        ? Math.max(
+            ...result.map((t) => {
+              // For music tracks when we have voice/soundfx, use their visualDuration, not originalDuration
+              if (excludeMusicForLength && t.type === "music") {
+                return t.actualStartTime + t.actualDuration;
+              }
+              return t.actualStartTime + t.actualDuration;
+            })
+          )
         : 0;
 
-    // Ensure minimum timeline duration of 3 seconds
-    const totalDuration = Math.max(Math.ceil(calculatedMaxDuration) + 0.5, 3.0);
+    // Round up to the nearest half-second for clean display
+    const totalDuration = Math.ceil(calculatedMaxDuration * 2) / 2;
 
     console.log(
       "Track timing calculation complete:",
@@ -551,7 +673,12 @@ export const useMixerStore = create<MixerState>((set, get) => ({
         end: track.actualStartTime + track.actualDuration,
       }))
     );
-    console.log("Total timeline duration:", totalDuration);
+    console.log(
+      "Total timeline duration:",
+      totalDuration,
+      "(exact end time:",
+      calculatedMaxDuration + ")"
+    );
 
     // DO NOT stretch music tracks to fill the timeline -
     // this causes timeline distortion and inconsistent playback
