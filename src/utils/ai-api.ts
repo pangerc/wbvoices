@@ -172,28 +172,30 @@ CRITICAL INSTRUCTIONS:
 13. Whenever appropriate, include the "soundFxPrompts" array with at least one detailed sound effect description for car/tech/product ads
 14. CRUCIAL: ALL music and sound effect descriptions must be in ENGLISH ONLY, regardless of the ad language
 
-DYNAMIC SOUND DESIGN:
-15. CREATIVE PLACEMENT: Position sound effects throughout the ad - not just at the end! Use them at the beginning, middle, and end
-16. DRAMATIC INTROS: Consider starting with attention-grabbing sounds BEFORE voices by setting "playAfter": "start"
-17. PUNCTUATE DIALOG: Place impactful sound effects between voice segments to emphasize key points
-18. LAYERED EXPERIENCE: Overlap voices with relevant sound effects for immersion (e.g., car acceleration while spokesperson talks)
-19. CONCLUDING EFFECTS: For ending effects, play them during music fadeout for a professional finish
+SOUND EFFECT PROMPTING:
+15. SIMPLE EFFECTS: Use clear, concise descriptions (e.g., "Glass shattering on concrete", "Door creaking open", go for strong recognizable sounds, don't be creative here)
+16. COMPLEX SEQUENCES: For multi-part effects, describe the sequence (e.g., "Footsteps on gravel, then a metallic door opens")
+17. BE SPECIFIC: Include surface materials, distance, intensity, and environment when relevant
+18. AVOID VAGUE TERMS: Instead of "nice" or "cool" sound, describe the actual sound itself
+19. DURATION: Short is better, limit to 3 seconds when possible!! API allows duration from 0.1 to 15 seconds
 
-SOUND EFFECT DESCRIPTION GUIDELINES:
-20. SIMPLE EFFECTS: Use clear, concise descriptions (e.g., "Glass shattering on concrete", "Door creaking open")
-21. COMPLEX SEQUENCES: For multi-part effects, describe the sequence (e.g., "Footsteps on gravel, then a metallic door opens")
-22. BE SPECIFIC: Include surface materials, distance, intensity, and environment when relevant
-23. AVOID VAGUE TERMS: Instead of "nice" or "cool" sound, describe the actual sound itself
-24. DURATION: Short is better, limit to 3 seconds when possible. API allows duration from 0.1 to 15 seconds
+SOUND EFFECT PLACEMENT:
+20. CREATIVE PLACEMENT: Position sound effects throughout the ad - not just at the end! Use them at the beginning, middle, and end
+21. DRAMATIC INTROS: Consider starting with attention-grabbing sounds BEFORE voices by setting "playAfter": "start"
+21. PUNCTUATE DIALOG: Place impactful sound effects between voice segments to emphasize key points
+22. LAYERED EXPERIENCE: Overlap voices with relevant sound effects for immersion (e.g., car acceleration while spokesperson talks)
+23. CONCLUDING EFFECTS: For ending effects, play them during music fadeout for a professional finish
 
-Sound Effect Prompt Examples (BE CREATIVE WITH PLACEMENT):
+
+SOUND EFFECT SAMPLE PROMPTS:
+- Delivery: "Doorbell ringing" (no freezer doors and similar abstract sounds)
 - Car ads: "Car engine starting with mechanical ignition sound, then revving powerfully" (playAfter: "start")
 - Race ad: "Tires screeching on asphalt, followed by powerful acceleration" (during key feature mentions)
 - Action: "Dramatic explosion with debris falling, followed by ringing silence" (playAfter: "start")
 - Tech products: "Crisp notification chime, followed by app startup sound" (between feature points)
 - Food/beverage: "Bottle cap twisting open with fizz release, then liquid pouring over ice cubes"
 - Retail/Sales: "Cash register drawer opening with bell chime, followed by coins dropping"
-- Delivery: "Doorbell ringing"
+
 
 DO NOT include any explanations, markdown formatting, or additional text outside the JSON structure.`;
 }

@@ -20,6 +20,8 @@ export async function createMix(
   soundFxUrls: string[] = [],
   timingInfo: TrackTiming[] = []
 ): Promise<{ blob: Blob }> {
+  console.log("Creating mix with timingInfo:", timingInfo);
+
   const offlineCtx = new OfflineAudioContext({
     numberOfChannels: 2,
     length: 44100 * 60, // 60 seconds buffer
@@ -27,49 +29,44 @@ export async function createMix(
   });
 
   // Load all audio files
-  const voiceBuffers = await Promise.all(
-    voiceUrls.map((url) => loadAudioBuffer(url, offlineCtx))
-  );
+  const audioBuffersMap = new Map<string, AudioBuffer>();
 
-  let musicBuffer = null;
-  if (musicUrl) {
-    musicBuffer = await loadAudioBuffer(musicUrl, offlineCtx);
+  // Create promises for all audio loads
+  const loadPromises = [];
+
+  // Load voice buffers
+  for (const url of voiceUrls) {
+    loadPromises.push(
+      loadAudioBuffer(url, offlineCtx).then((buffer) => {
+        audioBuffersMap.set(url, buffer);
+        console.log(`Loaded voice audio: ${url}`);
+      })
+    );
   }
 
-  const soundFxBuffers = await Promise.all(
-    soundFxUrls.map((url) => loadAudioBuffer(url, offlineCtx))
-  );
+  // Load music buffer
+  if (musicUrl) {
+    loadPromises.push(
+      loadAudioBuffer(musicUrl, offlineCtx).then((buffer) => {
+        audioBuffersMap.set(musicUrl, buffer);
+        console.log(`Loaded music audio: ${musicUrl}`);
+      })
+    );
+  }
 
-  // Get all tracks and calculate expected durations
-  const allTracks: Array<{
-    buffer: AudioBuffer;
-    type: "voice" | "music" | "soundfx";
-    url: string;
-    index: number;
-  }> = [
-    ...voiceBuffers.map((buffer, i) => ({
-      buffer,
-      type: "voice" as const,
-      url: voiceUrls[i],
-      index: i,
-    })),
-    ...(musicBuffer
-      ? [
-          {
-            buffer: musicBuffer,
-            type: "music" as const,
-            url: musicUrl as string,
-            index: 0,
-          },
-        ]
-      : []),
-    ...soundFxBuffers.map((buffer, i) => ({
-      buffer,
-      type: "soundfx" as const,
-      url: soundFxUrls[i],
-      index: i,
-    })),
-  ];
+  // Load sound effect buffers
+  for (const url of soundFxUrls) {
+    loadPromises.push(
+      loadAudioBuffer(url, offlineCtx).then((buffer) => {
+        audioBuffersMap.set(url, buffer);
+        console.log(`Loaded sound effect audio: ${url}`);
+      })
+    );
+  }
+
+  // Wait for all audio to load
+  await Promise.all(loadPromises);
+  console.log("All audio loaded successfully");
 
   // Calculate the longest duration needed and final track timing
   let maxEndTime = 0;
@@ -77,26 +74,40 @@ export async function createMix(
   // Create a map of actual track timings based on provided timing info or default sequential
   const trackTimings = new Map<
     string,
-    { start: number; end: number; gain: number }
+    { start: number; end: number; gain: number; type: string }
   >();
 
   // If timing info is provided, use it
   if (timingInfo.length > 0) {
-    timingInfo.forEach((info) => {
-      const track = allTracks.find((t) => t.url === info.url);
-      if (track) {
-        const duration = Math.min(
-          track.buffer.duration,
-          info.duration || track.buffer.duration
-        );
-        const endTime = info.startTime + duration;
-        trackTimings.set(info.url, {
-          start: info.startTime,
-          end: endTime,
-          gain: info.gain || getDefaultGainForType(info.type),
-        });
-        maxEndTime = Math.max(maxEndTime, endTime);
+    // Sort timing info by start time to ensure correct playback order
+    const sortedTimingInfo = [...timingInfo].sort(
+      (a, b) => a.startTime - b.startTime
+    );
+
+    sortedTimingInfo.forEach((info) => {
+      if (!audioBuffersMap.has(info.url)) {
+        console.warn(`Audio buffer not found for URL: ${info.url}`);
+        return;
       }
+
+      const audioBuffer = audioBuffersMap.get(info.url)!;
+      const duration = Math.min(
+        audioBuffer.duration,
+        info.duration || audioBuffer.duration
+      );
+      const endTime = info.startTime + duration;
+
+      trackTimings.set(info.url, {
+        start: info.startTime,
+        end: endTime,
+        gain: info.gain || getDefaultGainForType(info.type),
+        type: info.type,
+      });
+
+      maxEndTime = Math.max(maxEndTime, endTime);
+      console.log(
+        `Scheduled ${info.type} at ${info.startTime}s, duration: ${duration}s, end: ${endTime}s`
+      );
     });
   } else {
     // Default sequential timing if no timing info provided
@@ -104,47 +115,70 @@ export async function createMix(
     let currentTime = 0;
 
     // Handle music first (starts at 0)
-    const musicTrack = allTracks.find((t) => t.type === "music");
-    if (musicTrack) {
-      trackTimings.set(musicTrack.url, {
+    if (musicUrl && audioBuffersMap.has(musicUrl)) {
+      const audioBuffer = audioBuffersMap.get(musicUrl)!;
+      trackTimings.set(musicUrl, {
         start: 0,
-        end: musicTrack.buffer.duration,
+        end: audioBuffer.duration,
         gain: getDefaultGainForType("music"),
+        type: "music",
       });
-      maxEndTime = Math.max(maxEndTime, musicTrack.buffer.duration);
+      maxEndTime = Math.max(maxEndTime, audioBuffer.duration);
     }
 
-    // Handle voice tracks sequentially
-    const voiceTracks = allTracks.filter((t) => t.type === "voice");
-    voiceTracks.forEach((track) => {
-      trackTimings.set(track.url, {
-        start: currentTime,
-        end: currentTime + track.buffer.duration,
-        gain: getDefaultGainForType("voice"),
-      });
-      maxEndTime = Math.max(maxEndTime, currentTime + track.buffer.duration);
-      currentTime += track.buffer.duration;
-    });
+    // Handle sound effects at start first
+    for (const url of soundFxUrls) {
+      if (!audioBuffersMap.has(url)) continue;
+      const audioBuffer = audioBuffersMap.get(url)!;
 
-    // Handle sound effects (default to start at beginning)
-    const soundFxTracks = allTracks.filter((t) => t.type === "soundfx");
-    soundFxTracks.forEach((track) => {
-      trackTimings.set(track.url, {
+      trackTimings.set(url, {
         start: 0,
-        end: track.buffer.duration,
+        end: audioBuffer.duration,
         gain: getDefaultGainForType("soundfx"),
+        type: "soundfx",
       });
-      maxEndTime = Math.max(maxEndTime, track.buffer.duration);
-    });
+
+      // Sound effects at start shift voice tracks forward
+      currentTime = Math.max(currentTime, audioBuffer.duration);
+      maxEndTime = Math.max(maxEndTime, audioBuffer.duration);
+    }
+
+    // Handle voice tracks sequentially after sound effects
+    for (const url of voiceUrls) {
+      if (!audioBuffersMap.has(url)) continue;
+      const audioBuffer = audioBuffersMap.get(url)!;
+
+      trackTimings.set(url, {
+        start: currentTime,
+        end: currentTime + audioBuffer.duration,
+        gain: getDefaultGainForType("voice"),
+        type: "voice",
+      });
+
+      maxEndTime = Math.max(maxEndTime, currentTime + audioBuffer.duration);
+      currentTime += audioBuffer.duration;
+    }
   }
 
-  // Create and schedule the audio sources with correct timing
-  for (const track of allTracks) {
-    const timing = trackTimings.get(track.url);
-    if (!timing) continue;
+  // Log the final timings for debug
+  console.log(
+    "Final track timings:",
+    Array.from(trackTimings.entries()).map(([url, timing]) => ({
+      url,
+      start: timing.start,
+      end: timing.end,
+      gain: timing.gain,
+      type: timing.type,
+    }))
+  );
 
+  // Create and schedule the audio sources with correct timing
+  for (const [url, timing] of trackTimings.entries()) {
+    if (!audioBuffersMap.has(url)) continue;
+
+    const audioBuffer = audioBuffersMap.get(url)!;
     const source = offlineCtx.createBufferSource();
-    source.buffer = track.buffer;
+    source.buffer = audioBuffer;
 
     // Apply gain
     const gainNode = offlineCtx.createGain();
@@ -155,9 +189,13 @@ export async function createMix(
 
     // Start the track at the calculated start time
     source.start(timing.start);
+    console.log(
+      `Started ${timing.type} at ${timing.start}s with gain ${timing.gain}`
+    );
   }
 
   // Render audio
+  console.log(`Rendering final mix with duration up to ${maxEndTime}s`);
   const renderedBuffer = await offlineCtx.startRendering();
 
   // Convert AudioBuffer to WAV

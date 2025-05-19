@@ -264,8 +264,27 @@ export function NewMixerPanel({
           );
         }
 
+        // Debug timing info
+        console.log(`Track timing for ${track.label} (${track.type}):`, {
+          startTime: timing.startTime,
+          duration: timing.duration,
+          gain: timing.gain,
+        });
+
         return timing;
       });
+
+      // Sort timing info to ensure correct playback order (important for sound effects before voices)
+      timingInfo.sort((a, b) => a.startTime - b.startTime);
+      console.log(
+        "Sorted timing info for mixer:",
+        timingInfo.map((t) => ({
+          id: t.id,
+          type: t.type,
+          startTime: t.startTime,
+          duration: t.duration,
+        }))
+      );
 
       const { blob } = await createMix(
         voiceUrls,
@@ -356,9 +375,32 @@ export function NewMixerPanel({
         URL.revokeObjectURL(previewUrl);
       }
 
-      const voiceUrls = voiceTracks.map((t) => t.url);
-      const musicUrl = musicTracks.length > 0 ? musicTracks[0].url : null;
-      const soundFxUrls = soundFxTracks.map((t) => t.url);
+      // Make sure we have all valid URLs for tracks
+      const voiceUrls = voiceTracks
+        .filter(
+          (t) =>
+            t.url && (t.url.startsWith("blob:") || t.url.startsWith("http"))
+        )
+        .map((t) => t.url);
+
+      const musicUrl =
+        musicTracks.length > 0 && musicTracks[0].url
+          ? musicTracks[0].url
+          : null;
+
+      const soundFxUrls = soundFxTracks
+        .filter(
+          (t) =>
+            t.url && (t.url.startsWith("blob:") || t.url.startsWith("http"))
+        )
+        .map((t) => t.url);
+
+      // Log what we're mixing to debug
+      console.log("Audio sources for mixing:", {
+        voiceCount: voiceUrls.length,
+        hasMusic: !!musicUrl,
+        soundFxCount: soundFxUrls.length,
+      });
 
       // Debug calculated tracks
       console.log("All calculated tracks:", calculatedTracks);
@@ -385,13 +427,27 @@ export function NewMixerPanel({
           );
         }
 
-        // Debug soundFx timing info
-        if (track.type === "soundfx") {
-          console.log("SoundFx timing info:", timing);
-        }
+        // Debug timing info
+        console.log(`Track timing for ${track.label} (${track.type}):`, {
+          startTime: timing.startTime,
+          duration: timing.duration,
+          gain: timing.gain,
+        });
 
         return timing;
       });
+
+      // Sort timing info to ensure correct playback order (important for sound effects before voices)
+      timingInfo.sort((a, b) => a.startTime - b.startTime);
+      console.log(
+        "Sorted timing info for mixer:",
+        timingInfo.map((t) => ({
+          id: t.id,
+          type: t.type,
+          startTime: t.startTime,
+          duration: t.duration,
+        }))
+      );
 
       // Create the mixed audio
       console.log("Creating mix with timing:", timingInfo);

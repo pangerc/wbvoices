@@ -115,6 +115,24 @@ const getVoiceLanguage = (
   // Process accent information to determine most likely language
   const accentLower = accent ? accent.toLowerCase() : "";
 
+  // Special case for Spanish accents - if a voice has "peninsular" or "latin american" accent
+  // and is multilingual, assume it's a Spanish voice regardless of what the API reports
+  if (isMultilingual && accent) {
+    if (
+      accentLower.includes("peninsular") ||
+      accentLower.includes("latin american")
+    ) {
+      console.log(
+        `Mapping multilingual voice with accent "${accent}" to Spanish (es-ES)`
+      );
+      return {
+        language: "es-ES",
+        isMultilingual: true,
+        accent,
+      };
+    }
+  }
+
   // For multilingual voices, determine the primary language from accent
   if (isMultilingual && accent) {
     // Special handling for mapped accents
@@ -559,9 +577,27 @@ export async function GET(req: NextRequest) {
 
     // If language is specified, filter voices
     if (language) {
-      const filteredVoices = voices.filter(
-        (v: Voice) => v.language === language || v.isMultilingual
-      );
+      const filteredVoices = voices.filter((v: Voice) => {
+        // Show voice if it matches the requested language directly
+        if (v.language === language) return true;
+
+        // Show multilingual voices for all language filters
+        if (v.isMultilingual) return true;
+
+        // Special case: For Spanish-accented voices, show them in English filters too
+        // And for English voices, show them in Spanish filters if they have Spanish accent
+        if (
+          language === "en-US" &&
+          v.language === "es-ES" &&
+          v.accent &&
+          (v.accent.includes("peninsular") ||
+            v.accent.includes("latin american"))
+        ) {
+          return true;
+        }
+
+        return false;
+      });
       return NextResponse.json({ voices: filteredVoices });
     }
 
