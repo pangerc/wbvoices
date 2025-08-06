@@ -19,7 +19,7 @@ export function GenerateButton({
     <button
       onClick={onClick}
       disabled={disabled || isGenerating}
-      className="bg-wb-blue font-medium rounded-full px-5 py-3 text text-white hover:bg-wb-blue-dark hover:text-white focus-visible:outline focus-visible:outline-offset-2 focus-visible:bg-wb-blue-dark disabled:bg-gray-700 flex items-center gap-2"
+      className="bg-white/10 backdrop-blur-sm font-medium rounded-full px-5 py-3 text-white border border-white/20 hover:bg-wb-blue/30 hover:border-wb-blue/50 focus:outline-none focus:ring-1 focus:ring-wb-blue/50 disabled:bg-gray-700/50 disabled:border-gray-600/30 disabled:text-gray-400 flex items-center gap-2 transition-all duration-200"
     >
       {isGenerating ? generatingText : text}
       <svg

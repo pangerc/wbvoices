@@ -33,7 +33,7 @@ export async function generateMusic(
     // Add duration to the prompt for Beatoven
     const enhancedPrompt = `${prompt} (Duration: ${duration} seconds)`;
 
-    const response = await fetch("/api/v1/tracks", {
+    const response = await fetch("/api/music/beatoven", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

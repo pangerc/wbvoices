@@ -28,7 +28,7 @@ export async function generateMusicWithLoudly(
     // Step 1: Create a new song request using our simplified API
     let createResponse;
     try {
-      createResponse = await fetch("/api/loudly", {
+      createResponse = await fetch("/api/music/loudly", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -112,7 +112,7 @@ export async function generateMusicWithLoudly(
       let statusResponse;
       try {
         // Use our dedicated status API route for status checks
-        statusResponse = await fetch(`/api/loudly/status?id=${id}`);
+        statusResponse = await fetch(`/api/music/loudly/status?id=${id}`);
         console.log(`Status response status: ${statusResponse.status}`);
 
         if (!statusResponse.ok) {

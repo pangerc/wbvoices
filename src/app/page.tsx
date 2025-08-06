@@ -147,7 +147,7 @@ export default function DemoTTS() {
     const fetchLanguages = async () => {
       if (selectedProvider === "lovo") {
         // Fetch all voices from LOVO API
-        const response = await fetch(`/api/getVoices?provider=lovo`);
+        const response = await fetch(`/api/voice/list?provider=lovo`);
         const data = await response.json();
         const voicesByLanguage = data.voicesByLanguage || {};
 
@@ -169,7 +169,7 @@ export default function DemoTTS() {
         }
       } else {
         // For Eleven Labs, fetch all voices and extract unique languages
-        const response = await fetch(`/api/getVoices?provider=elevenlabs`);
+        const response = await fetch(`/api/voice/list?provider=elevenlabs`);
         const data = await response.json();
         const voices = data.voices || [];
 
@@ -288,7 +288,7 @@ export default function DemoTTS() {
       );
 
       const response = await fetch(
-        `/api/getVoices?provider=${selectedProvider}&language=${selectedLanguage}`
+        `/api/voice/list?provider=${selectedProvider}&language=${selectedLanguage}`
       );
       const data = await response.json();
 
@@ -313,7 +313,7 @@ export default function DemoTTS() {
           );
 
           // Get all voice data
-          const allVoicesResponse = await fetch(`/api/getVoices?provider=lovo`);
+          const allVoicesResponse = await fetch(`/api/voice/list?provider=lovo`);
           const allVoicesData = await allVoicesResponse.json();
           const voicesByLanguage = allVoicesData.voicesByLanguage || {};
 
@@ -491,12 +491,11 @@ export default function DemoTTS() {
       for (const track of voiceTracks) {
         if (!track.voice || !track.text) continue;
 
-        const res = await fetch("/api/streamAudio", {
+        const res = await fetch(`/api/voice/${selectedProvider}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             text: track.text,
-            provider: selectedProvider,
             voiceId: track.voice.id,
           }),
         });
@@ -713,7 +712,7 @@ export default function DemoTTS() {
       // Remove any existing sound fx tracks
       setTracks((current) => current.filter((t) => t.type !== "soundfx"));
 
-      const response = await fetch("/api/generateSoundFx", {
+      const response = await fetch("/api/sfx/elevenlabs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -42,9 +42,15 @@ export function GlassySlider({
         )}
       </label>
 
-      <div className="relative h-6 flex items-center">
-        {/* Simple track with subtle border */}
-        <div className="absolute inset-x-0 h-1.5 bg-gray-600/80 rounded-full border border-white/10"></div>
+      <div className="relative h-6 flex items-center px-2 bg-white/10 backdrop-blur-sm rounded-full">
+        {/* Simple track */}
+        <div className="absolute inset-x-2 h-1.5 bg-gray-600/60 rounded-full"></div>
+
+        {/* Progress track */}
+        <div
+          className="absolute left-2 h-1.5 bg-wb-blue/60 rounded-full"
+          style={{ width: `${percentage}%` }}
+        ></div>
 
         {/* Actual range input (invisible but handles interaction) */}
         <input
@@ -57,9 +63,9 @@ export function GlassySlider({
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
         />
 
-        {/* Simple white thumb */}
+        {/* Slider thumb */}
         <div
-          className="absolute w-4 h-4 bg-white rounded-full z-0 shadow-sm pointer-events-none"
+          className="absolute w-4 h-4 bg-white rounded-full z-20 shadow-lg border border-white/20 pointer-events-none"
           style={{ left: `${percentage}%`, transform: "translateX(-50%)" }}
         ></div>
       </div>
