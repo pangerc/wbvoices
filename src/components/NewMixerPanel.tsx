@@ -890,7 +890,7 @@ export function NewMixerPanel({
               <button
                 onClick={handleExport}
                 disabled={isExporting}
-                className="px-6 py-3 bg-wb-blue hover:bg-wb-blue-dark rounded-full text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-wb-blue/30 hover:border-wb-blue/50 focus:outline-none focus:ring-1 focus:ring-wb-blue/50 disabled:bg-gray-700/50 disabled:border-gray-600/30 disabled:text-gray-400 rounded-full text-white transition-all duration-200"
               >
                 {isExporting ? "Exporting..." : "Export"}
               </button>
@@ -902,8 +902,8 @@ export function NewMixerPanel({
       {/* Timeline visualization with embedded audio controls */}
       {calculatedTracks.length > 0 && (
         <div className="mb-8">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-lg mb-2">Timeline</h3>
+          <div className="flex justify-between items-start mb-2">
+            <h3 className="text-lg">Timeline</h3>
             <PlayButton
               isPlaying={isPlaying}
               onClick={handlePlayPause}
@@ -912,7 +912,7 @@ export function NewMixerPanel({
           </div>
           <div
             ref={timelineRef}
-            className="relative bg-black/60 border border-gray-700 rounded-2xl overflow-hidden timeline"
+            className="relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden timeline"
           >
             {/* Playback indicator line - positioned absolutely and doesn't interfere with mouse events */}
             {isPlaying && (
@@ -924,7 +924,7 @@ export function NewMixerPanel({
 
             {/* Time markers */}
             <div
-              className={`h-7 border-b border-gray-700 mb-4 relative px-2 ${
+              className={`h-7 border-b border-white/20 mb-4 relative px-2 ${
                 isVolumeDrawerOpen ? "opacity-0" : ""
               }`}
             >
@@ -937,7 +937,7 @@ export function NewMixerPanel({
                 return (
                   <div
                     key={i}
-                    className="absolute top-0 h-3 border-l border-gray-600"
+                    className="absolute top-0 h-3 border-l border-white/30"
                     style={{ left: `${percent}%` }}
                   >
                     <div className="absolute top-3 text-xs text-gray-400 transform -translate-x-1/2">

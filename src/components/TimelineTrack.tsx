@@ -20,13 +20,13 @@ export function extractCharacterName(label: string): string {
 export function getTrackColor(type: "voice" | "music" | "soundfx") {
   switch (type) {
     case "voice":
-      return "bg-white border-gray-800";
+      return "bg-white/30 backdrop-blur-sm border border-white/40";
     case "music":
-      return "bg-sky-950 border-sky-900";
+      return "bg-wb-blue/30 backdrop-blur-sm border border-wb-blue/40";
     case "soundfx":
-      return "bg-red-950 border-red-800";
+      return "bg-red-500/30 backdrop-blur-sm border border-red-500/40";
     default:
-      return "bg-gray-800 border-gray-500";
+      return "bg-white/20 backdrop-blur-sm border border-white/20";
   }
 }
 
@@ -158,13 +158,13 @@ export function TimelineTrack({
   const getProgressColor = (type: "voice" | "music" | "soundfx") => {
     switch (type) {
       case "voice":
-        return "bg-sky-500 bg-opacity-30";
+        return "bg-white/30";
       case "music":
-        return "bg-sky-700 bg-opacity-30";
+        return "bg-wb-blue/30";
       case "soundfx":
-        return "bg-red-700 bg-opacity-30";
+        return "bg-red-500/30";
       default:
-        return "bg-sky-500 bg-opacity-30";
+        return "bg-white/30";
     }
   };
 

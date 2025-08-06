@@ -14,10 +14,29 @@ export async function generateCreativeCopy(
   availableVoices: Voice[]
 ): Promise<string> {
   const voiceOptions = availableVoices
-    .map(
-      (voice) => `${voice.name} (${voice.gender || "unknown"}, ID: ${voice.id})`
-    )
-    .join("\n");
+    .map((voice) => {
+      let voiceDescription = `${voice.name} (${voice.gender || "unknown"}, ID: ${voice.id})`;
+      
+      // Add rich personality data for LLM decision-making
+      if (voice.description) {
+        voiceDescription += `\n  Personality: ${voice.description}`;
+      }
+      if (voice.use_case) {
+        voiceDescription += `\n  Best for: ${voice.use_case}`;
+      }
+      if (voice.age) {
+        voiceDescription += `\n  Age: ${voice.age}`;
+      }
+      if (voice.accent && voice.accent !== "general") {
+        voiceDescription += `\n  Accent: ${voice.accent}`;
+      }
+      if (voice.style && voice.style !== "Default") {
+        voiceDescription += `\n  Available styles: ${voice.style}`;
+      }
+      
+      return voiceDescription;
+    })
+    .join("\n\n");
 
   const systemPrompt = `You are an expert marketing copywriter with years of experience in audio advertising. 
 You excel at creating engaging, conversational copy that resonates with audiences while maintaining brand voice and message clarity.
@@ -48,7 +67,7 @@ Please create the ad and return it in the following XML format:
 <creative>
   <script>
     <segment>
-      <voice id="[voice_id]">[spoken text in ${language}]</voice>
+      <voice id="[voice_id]" style="[emotional_style]" use_case="[use_case]">[spoken text in ${language}]</voice>
     </segment>
     <!-- Add more segments for dialog format -->
   </script>
@@ -57,9 +76,16 @@ Please create the ad and return it in the following XML format:
   </music>
 </creative>
 
+IMPORTANT VOICE SELECTION GUIDELINES:
+- Choose voice(s) that best match the brand's tone, message, and target audience
+- Use the personality descriptions to match voice character to content needs
+- For Lovo voices with available styles, specify the most appropriate emotional style (e.g., "confident", "casual", "serious")  
+- For ElevenLabs voices, specify the best use_case (e.g., "advertisement", "narration", "conversational")
+- For dialog format, select voices with contrasting personalities to create engaging conversation
+- Consider age and accent appropriateness for the target audience
+
 For dialog format, create multiple segments with different voices. For single voice ad read, use one voice throughout.
 Ensure the copy fits within 60 seconds (approximately 150-160 words).
-Choose voice(s) from the provided list that best match the brand's tone and message.
 The music prompt must be in English regardless of the ad language.`;
 
   try {

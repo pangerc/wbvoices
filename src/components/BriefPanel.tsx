@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   CampaignFormat,
   Voice,
@@ -68,9 +68,9 @@ const aiModelOptions = [
     badge: "Recommended",
   },
   {
-    value: "deepseek",
-    label: "DeepSeek R1",
-    description: "Frontier thinking model from the east",
+    value: "o3",
+    label: "o3",
+    description: "Advanced reasoning model for complex creative tasks",
   },
 ];
 
@@ -101,6 +101,18 @@ export function BriefPanel({
   const [selectedAiModel, setSelectedAiModel] = useState("gpt4");
   const [internalLanguageLoading, setInternalLanguageLoading] = useState(false);
   const [internalAccentLoading, setInternalAccentLoading] = useState(false);
+
+  // Check available voices count
+  const availableVoicesCount = useMemo(() => {
+    return getFilteredVoices().length;
+  }, [getFilteredVoices, selectedLanguage, selectedAccent, selectedProvider]);
+
+  // Auto-switch to ad_read if only one voice is available
+  useEffect(() => {
+    if (availableVoicesCount === 1 && campaignFormat === "dialog") {
+      setCampaignFormat("ad_read");
+    }
+  }, [availableVoicesCount, campaignFormat, setCampaignFormat]);
 
   // Since we might not have the props from parent yet, we'll use internal state
   // to track loading that's triggered by provider changes
@@ -394,8 +406,27 @@ export function BriefPanel({
                 label="Campaign Format"
                 value={campaignFormat}
                 onChange={setCampaignFormat}
-                options={campaignFormatOptions}
+                options={campaignFormatOptions.map((option) => ({
+                  ...option,
+                  ...(option.value === "dialog" && availableVoicesCount === 1
+                    ? {
+                        description: "Requires at least 2 voices",
+                        disabled: true,
+                      }
+                    : {}),
+                }))}
               />
+              {availableVoicesCount === 1 && (
+                <p className="text-red-800 text-sm mt-2 px-6">
+                  Only one voice available for the selected language and accent
+                  combination.
+                </p>
+              )}
+              {availableVoicesCount > 1 && (
+                <p className="text-gray-600 text-sm mt-2 px-6">
+                  {availableVoicesCount} voices available
+                </p>
+              )}
             </div>
 
             {/* Column 3:  */}

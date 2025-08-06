@@ -270,7 +270,7 @@ export function Header({ selectedTab, onTabChange, onStartOver }: HeaderProps) {
 
           <button
             onClick={onStartOver}
-            className="border border-wb-blue text-wb-blue rounded-full px-3 py-1.5 text-sm font-medium flex items-center hover:cursor-pointer hover:bg-wb-blue-dark hover:text-white"
+            className="text-white/70 text-sm hover:text-white transition-colors duration-200"
           >
             Start Over
           </button>

@@ -2,7 +2,7 @@ import { Language } from "@/utils/language";
 
 export type Provider = "lovo" | "elevenlabs";
 
-export type AIModel = "gpt4" | "deepseek" | "gemini";
+export type AIModel = "gpt4" | "o3" | "gemini";
 
 export type Voice = {
   id: string;
@@ -24,6 +24,8 @@ export type VoiceTrack = {
   playAfter?: string;
   overlap?: number;
   isConcurrent?: boolean;
+  style?: string;
+  useCase?: string;
 };
 
 export type CampaignFormat = "ad_read" | "dialog";

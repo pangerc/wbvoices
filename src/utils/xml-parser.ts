@@ -2,6 +2,8 @@ export type ParsedCreative = {
   segments: Array<{
     voiceId: string;
     text: string;
+    style?: string;
+    useCase?: string;
   }>;
   musicPrompt: string;
 };
@@ -49,14 +51,16 @@ export function parseCreativeXML(xmlString: string): ParsedCreative {
 
     const segments = Array.from(voiceElements).map((voiceElement) => {
       const voiceId = voiceElement.getAttribute("id") || "";
+      const style = voiceElement.getAttribute("style") || undefined;
+      const useCase = voiceElement.getAttribute("use_case") || undefined;
       const text = voiceElement.textContent || "";
       console.log(
-        `Extracted voice segment - ID: ${voiceId}, Text: ${text.substring(
+        `Extracted voice segment - ID: ${voiceId}, Style: ${style || 'none'}, UseCase: ${useCase || 'none'}, Text: ${text.substring(
           0,
           50
         )}...`
       );
-      return { voiceId, text };
+      return { voiceId, text, style, useCase };
     });
 
     // Extract music prompt
@@ -77,23 +81,33 @@ export function parseCreativeXML(xmlString: string): ParsedCreative {
 // Fallback method using regex to extract content
 function extractWithRegex(content: string): ParsedCreative {
   console.log("Attempting to extract content with regex");
-  const segments: Array<{ voiceId: string; text: string }> = [];
+  const segments: Array<{ voiceId: string; text: string; style?: string; useCase?: string }> = [];
 
-  // Try to extract voice segments with regex - handle both quoted and escaped quoted attributes
+  // Try to extract voice segments with regex - handle attributes
   const voiceRegex =
-    /<voice\s+id=(?:["']|\\")([^"']*)(?:["']|\\")\s*>([\s\S]*?)<\/voice>/g;
+    /<voice\s+([^>]*?)>([\s\S]*?)<\/voice>/g;
   let match;
 
   while ((match = voiceRegex.exec(content)) !== null) {
-    const voiceId = match[1];
+    const attributes = match[1];
     const text = match[2].trim();
+    
+    // Extract individual attributes
+    const idMatch = attributes.match(/id=(?:["']|\\")([^"']*)(?:["']|\\")/);
+    const styleMatch = attributes.match(/style=(?:["']|\\")([^"']*)(?:["']|\\")/);
+    const useCaseMatch = attributes.match(/use_case=(?:["']|\\")([^"']*)(?:["']|\\")/);
+    
+    const voiceId = idMatch ? idMatch[1] : "";
+    const style = styleMatch ? styleMatch[1] : undefined;
+    const useCase = useCaseMatch ? useCaseMatch[1] : undefined;
+    
     console.log(
-      `Regex extracted voice - ID: ${voiceId}, Text: ${text.substring(
+      `Regex extracted voice - ID: ${voiceId}, Style: ${style || 'none'}, UseCase: ${useCase || 'none'}, Text: ${text.substring(
         0,
         50
       )}...`
     );
-    segments.push({ voiceId, text });
+    segments.push({ voiceId, text, style, useCase });
   }
 
   // If no segments were found, try a more lenient regex
@@ -107,20 +121,24 @@ function extractWithRegex(content: string): ParsedCreative {
     let lenientMatch;
 
     while ((lenientMatch = lenientVoiceRegex.exec(content)) !== null) {
-      // Try to extract the ID if possible
-      const idMatch = lenientMatch[0].match(
-        /id=(?:["']|\\")([^"']*)(?:["']|\\")/
-      );
+      // Try to extract the attributes if possible
+      const attributes = lenientMatch[0];
+      const idMatch = attributes.match(/id=(?:["']|\\")([^"']*)(?:["']|\\")/);
+      const styleMatch = attributes.match(/style=(?:["']|\\")([^"']*)(?:["']|\\")/);
+      const useCaseMatch = attributes.match(/use_case=(?:["']|\\")([^"']*)(?:["']|\\")/);
+      
       const voiceId = idMatch ? idMatch[1] : "unknown_voice";
+      const style = styleMatch ? styleMatch[1] : undefined;
+      const useCase = useCaseMatch ? useCaseMatch[1] : undefined;
       const text = lenientMatch[1].trim();
 
       console.log(
-        `Lenient regex extracted voice - ID: ${voiceId}, Text: ${text.substring(
+        `Lenient regex extracted voice - ID: ${voiceId}, Style: ${style || 'none'}, UseCase: ${useCase || 'none'}, Text: ${text.substring(
           0,
           50
         )}...`
       );
-      segments.push({ voiceId, text });
+      segments.push({ voiceId, text, style, useCase });
     }
   }
 

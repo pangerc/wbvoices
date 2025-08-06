@@ -5,6 +5,7 @@ export interface Option<T> {
   label: string;
   description?: string;
   badge?: string;
+  disabled?: boolean;
 }
 
 export interface GlassyOptionPickerProps<T> {
@@ -28,12 +29,18 @@ export function GlassyOptionPicker<T extends string | number>({
         {options.map((option) => (
           <div
             key={option.value as string}
-            className={`relative flex cursor-pointer px-4 py-3 rounded-lg transition-colors duration-200 ${
+            className={`relative flex px-4 py-3 rounded-lg transition-colors duration-200 ${
+              option.disabled
+                ? "cursor-not-allowed opacity-50"
+                : "cursor-pointer"
+            } ${
               value === option.value
                 ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                : option.disabled
+                ? "bg-transparent text-gray-500"
                 : "bg-transparent hover:bg-white/10 text-gray-300"
             }`}
-            onClick={() => onChange(option.value)}
+            onClick={() => !option.disabled && onChange(option.value)}
           >
             <div className="flex w-full items-center justify-between">
               <div className="flex items-center w-full">

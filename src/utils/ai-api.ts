@@ -7,12 +7,6 @@ const openaiClient = new OpenAI({
   dangerouslyAllowBrowser: true, // Since we're calling from the client
 });
 
-// Initialize the DeepSeek client using the OpenAI SDK
-const deepseekClient = new OpenAI({
-  apiKey: process.env.NEXT_PUBLIC_DEEPSEEK_API || "",
-  baseURL: "https://api.deepseek.com",
-  dangerouslyAllowBrowser: true, // Since we're calling from the client
-});
 
 // Utility function to shuffle an array (Fisher-Yates algorithm)
 function shuffleArray<T>(array: T[]): T[] {
@@ -68,30 +62,17 @@ export async function generateCreativeCopy(
     )
     .join("\n");
 
-  // Determine which client to use based on the selected AI model
-  if (aiModel === "deepseek") {
-    return generateWithDeepSeek(
-      language,
-      clientDescription,
-      creativeBrief,
-      campaignFormat,
-      randomizedVoices, // Pass the randomized voices
-      voiceOptions,
-      duration
-    );
-  } else {
-    // Default to OpenAI GPT-4.1 for all other models (for now)
-    // In the future, we can add support for other models like Gemini
-    return generateWithOpenAI(
-      language,
-      clientDescription,
-      creativeBrief,
-      campaignFormat,
-      randomizedVoices, // Pass the randomized voices
-      voiceOptions,
-      duration
-    );
-  }
+  // Use OpenAI for both GPT-4.1 and o3 models
+  return generateWithOpenAI(
+    aiModel,
+    language,
+    clientDescription,
+    creativeBrief,
+    campaignFormat,
+    randomizedVoices, // Pass the randomized voices
+    voiceOptions,
+    duration
+  );
 }
 
 // Function to create the base system prompt
@@ -229,6 +210,7 @@ DO NOT include any explanations, markdown formatting, or additional text outside
 
 // OpenAI implementation
 async function generateWithOpenAI(
+  aiModel: AIModel,
   language: string,
   clientDescription: string,
   creativeBrief: string,
@@ -248,15 +230,26 @@ async function generateWithOpenAI(
   );
 
   try {
-    console.log("Making API call to OpenAI...");
-    const completion = await openaiClient.chat.completions.create({
-      model: "gpt-4.1", // Using gpt-4.1 for best creative results
+    console.log(`Making API call to OpenAI with model: ${aiModel}...`);
+    
+    // Map our internal model names to actual OpenAI model names
+    const modelName = aiModel === "o3" ? "o3-2025-04-16" : "gpt-4.1";
+    
+    // o3 model only supports default temperature of 1
+    const requestParams: any = {
+      model: modelName,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      temperature: 0.8, // Slightly increased temperature to encourage more varied choices
-    });
+    };
+    
+    // Only add temperature for non-o3 models
+    if (aiModel !== "o3") {
+      requestParams.temperature = 0.8;
+    }
+    
+    const completion = await openaiClient.chat.completions.create(requestParams);
 
     console.log("OpenAI API call successful!");
     const responseContent = completion.choices[0].message.content || "";
@@ -279,79 +272,3 @@ async function generateWithOpenAI(
   }
 }
 
-// DeepSeek implementation
-async function generateWithDeepSeek(
-  language: string,
-  clientDescription: string,
-  creativeBrief: string,
-  campaignFormat: string,
-  filteredVoices: Voice[],
-  voiceOptions: string,
-  duration: number
-): Promise<string> {
-  // Start with the base system prompt and add DeepSeek-specific instructions
-  const basePrompt = createBaseSystemPrompt(duration);
-  const systemPrompt = `${basePrompt}
-You MUST return your response in valid JSON format as specified in the user's instructions.
-CRITICAL: You must ONLY use voice IDs from the provided list of available voices. Do not make up or invent voice IDs.
-CRITICALLY IMPORTANT: For dialogues between two voices, you MUST use TWO DIFFERENT voice IDs. Never use the same voice ID for both speakers in a dialogue.
-VERY IMPORTANT: All music descriptions and sound effect descriptions MUST be written in English, regardless of the ad's target language (${language}).`;
-
-  const userPrompt = createUserPrompt(
-    language,
-    clientDescription,
-    creativeBrief,
-    campaignFormat,
-    voiceOptions,
-    duration
-  );
-
-  try {
-    console.log("Making API call to DeepSeek...");
-    const completion = await deepseekClient.chat.completions.create({
-      model: "deepseek-reasoner", // Using deepseek-chat as shown in the sample
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.8, // Slightly increased temperature to encourage more varied choices
-    });
-
-    console.log("DeepSeek API call successful!");
-    let responseContent = completion.choices[0].message.content || "";
-    console.log("DeepSeek API response content:", responseContent);
-
-    // Handle the specific case we're seeing with markdown code blocks
-    if (responseContent.includes("```json")) {
-      console.log("Found JSON code block, extracting content");
-      const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/);
-      if (jsonMatch && jsonMatch[1]) {
-        responseContent = jsonMatch[1].trim();
-        console.log("Extracted JSON content:", responseContent);
-      }
-    } else if (responseContent.includes("```")) {
-      const codeMatch = responseContent.match(/```\s*([\s\S]*?)\s*```/);
-      if (codeMatch && codeMatch[1]) {
-        console.log("Extracted content from generic code block");
-        responseContent = codeMatch[1].trim();
-      }
-    }
-
-    return responseContent;
-  } catch (error) {
-    console.error("Error generating creative copy with DeepSeek:", error);
-
-    // Provide more specific error messages
-    if (error instanceof Error) {
-      if (error.message.includes("API key")) {
-        throw new Error("DeepSeek API key is invalid or missing");
-      } else if (error.message.includes("model")) {
-        throw new Error("DeepSeek model not found or unavailable");
-      } else {
-        throw new Error(`DeepSeek API error: ${error.message}`);
-      }
-    }
-
-    throw new Error("Failed to generate creative copy with DeepSeek");
-  }
-}
