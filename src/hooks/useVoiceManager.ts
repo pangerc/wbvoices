@@ -58,7 +58,7 @@ export function useVoiceManager(): VoiceManagerState {
         if (filteredOptions.length > 0) {
           setSelectedLanguage(filteredOptions[0].code);
         }
-      } else {
+      } else if (selectedProvider === "elevenlabs") {
         // ElevenLabs
         const response = await fetch(`/api/voice/list?provider=elevenlabs`);
         const data = await response.json();
@@ -77,6 +77,24 @@ export function useVoiceManager(): VoiceManagerState {
         const languageOptions = uniqueLanguages.map((lang) => ({
           code: lang as Language,
           name: getLanguageName(lang),
+        }));
+
+        const filteredOptions = filterDuplicateLanguages(languageOptions);
+        setAvailableLanguages(filteredOptions);
+        
+        if (filteredOptions.length > 0) {
+          setSelectedLanguage(filteredOptions[0].code);
+        }
+      } else if (selectedProvider === "openai") {
+        // OpenAI
+        const response = await fetch(`/api/voice/list?provider=openai`);
+        const data = await response.json();
+        const voicesByLanguage = data.voicesByLanguage || {};
+
+        const uniqueLanguages = Object.keys(voicesByLanguage).sort();
+        const languageOptions = uniqueLanguages.map((lang) => ({
+          code: lang as Language,
+          name: getLanguageName(lang as Language),
         }));
 
         const filteredOptions = filterDuplicateLanguages(languageOptions);
@@ -125,8 +143,12 @@ export function useVoiceManager(): VoiceManagerState {
         } else {
           setAllVoices(voices);
         }
-      } else {
+      } else if (selectedProvider === "elevenlabs") {
         // ElevenLabs
+        const voices = data.voices || [];
+        setAllVoices(voices);
+      } else if (selectedProvider === "openai") {
+        // OpenAI
         const voices = data.voices || [];
         setAllVoices(voices);
       }

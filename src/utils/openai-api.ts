@@ -82,9 +82,10 @@ IMPORTANT VOICE SELECTION GUIDELINES:
 - For Lovo voices with available styles, specify the most appropriate emotional style (e.g., "confident", "casual", "serious")  
 - For ElevenLabs voices, specify the best use_case (e.g., "advertisement", "narration", "conversational")
 - For dialog format, select voices with contrasting personalities to create engaging conversation
+- CRITICAL: For dialogue, you MUST use different voice IDs for each speaker - never reuse the same voice
 - Consider age and accent appropriateness for the target audience
 
-For dialog format, create multiple segments with different voices. For single voice ad read, use one voice throughout.
+For dialog format, create multiple segments with different voices (must use different voice IDs). For single voice ad read, use one voice throughout.
 Ensure the copy fits within 60 seconds (approximately 150-160 words).
 The music prompt must be in English regardless of the ad language.`;
 

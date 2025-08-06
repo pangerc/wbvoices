@@ -23,11 +23,13 @@ export type BeatovenTaskResponse = {
  * Generates music using the Beatoven API
  * @param prompt The text prompt describing the music to generate
  * @param duration The duration of the music in seconds
+ * @param projectId Optional project ID for organizing blob storage
  * @returns A Promise that resolves to a MusicTrack object or null if generation fails
  */
 export async function generateMusic(
   prompt: string,
-  duration: number = 60
+  duration: number = 60,
+  projectId?: string
 ): Promise<MusicTrack | null> {
   try {
     // Add duration to the prompt for Beatoven
@@ -40,6 +42,8 @@ export async function generateMusic(
       },
       body: JSON.stringify({
         prompt: enhancedPrompt,
+        duration,
+        projectId,
       }),
     });
 
@@ -55,10 +59,10 @@ export async function generateMusic(
     }
 
     return {
-      id: data.meta?.track_id || `beatoven-${Date.now()}`,
+      id: data.track_id || `beatoven-${Date.now()}`,
       title: prompt.substring(0, 30) + (prompt.length > 30 ? "..." : ""),
       url: data.track_url,
-      duration: duration, // Use the specified duration
+      duration: data.duration || duration, // Use API-provided duration if available
       provider: "beatoven",
     };
   } catch (error) {

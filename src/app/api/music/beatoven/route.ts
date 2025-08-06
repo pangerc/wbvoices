@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { uploadMusicToBlob } from "@/utils/blob-storage";
 
 const BEATOVEN_API_KEY = process.env.BEATOVEN_API_KEY;
 const BEATOVEN_API_URL = "https://public-api.beatoven.ai";
@@ -15,9 +16,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { prompt } = body;
+    const { prompt, duration, projectId } = body;
 
-    console.log("Creating Beatoven track with prompt:", prompt);
+    console.log(`Creating Beatoven track with prompt: ${prompt} (Duration: ${duration} seconds)`);
 
     // Create track
     const createResponse = await fetch(`${BEATOVEN_API_URL}/api/v1/tracks`, {
@@ -99,7 +100,37 @@ export async function POST(request: Request) {
       console.log("Task status:", status);
 
       if (status.status === "composed" && status.meta?.track_url) {
-        return NextResponse.json({ track_url: status.meta.track_url });
+        console.log("Track composition complete, uploading to Vercel Blob...");
+        
+        try {
+          // Upload the temporary S3 URL to permanent Vercel Blob storage
+          const blobResult = await uploadMusicToBlob(
+            status.meta.track_url,
+            prompt,
+            'beatoven',
+            projectId
+          );
+          
+          console.log(`Successfully uploaded to Vercel Blob: ${blobResult.url}`);
+          
+          return NextResponse.json({ 
+            track_url: blobResult.url,
+            original_url: status.meta.track_url, // Keep for debugging
+            track_id: status.meta.track_id,
+            duration: status.meta.duration 
+          });
+        } catch (blobError) {
+          console.error("Failed to upload to Vercel Blob:", blobError);
+          
+          // Fallback to original URL if blob upload fails
+          console.log("Falling back to original S3 URL");
+          return NextResponse.json({ 
+            track_url: status.meta.track_url,
+            error: "Blob upload failed, using temporary URL",
+            track_id: status.meta.track_id,
+            duration: status.meta.duration 
+          });
+        }
       }
 
       if (status.status === "failed") {

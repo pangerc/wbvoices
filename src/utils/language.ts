@@ -204,6 +204,10 @@ export const getLanguageName = (code: string): string => {
     mt: "Maltese",
     yue: "Cantonese",
     wuu: "Wu Chinese",
+    be: "Belarusian",
+    mi: "Maori",
+    nb: "Norwegian Bokmål",
+    tl: "Tagalog",
     multi: "Multilingual",
   };
 

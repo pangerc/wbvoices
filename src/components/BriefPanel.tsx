@@ -338,6 +338,7 @@ export function BriefPanel({
                 options={[
                   { value: "elevenlabs", label: "Elevenlabs" },
                   { value: "lovo", label: "Lovo" },
+                  { value: "openai", label: "OpenAI" },
                 ]}
                 loading={internalLanguageLoading}
               />

@@ -602,6 +602,140 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ voices });
+  } else if (provider === "openai") {
+    // OpenAI TTS has 6 voices with emotional variants for better variety
+    const openAIVoiceVariants = [
+      // Alloy variants
+      { id: "alloy", name: "Alloy", gender: "neutral", description: "Neutral and balanced", style: "Default" },
+      { id: "alloy-confident", name: "Alloy (Confident)", gender: "neutral", description: "Neutral and balanced", style: "confident" },
+      { id: "alloy-casual", name: "Alloy (Casual)", gender: "neutral", description: "Neutral and balanced", style: "casual" },
+      
+      // Echo variants
+      { id: "echo", name: "Echo", gender: "male", description: "Warm and conversational", style: "Default" },
+      { id: "echo-excited", name: "Echo (Excited)", gender: "male", description: "Warm and conversational", style: "excited" },
+      { id: "echo-serious", name: "Echo (Serious)", gender: "male", description: "Warm and conversational", style: "serious" },
+      
+      // Fable variants
+      { id: "fable", name: "Fable", gender: "neutral", description: "Expressive and dynamic", style: "Default" },
+      { id: "fable-dramatic", name: "Fable (Dramatic)", gender: "neutral", description: "Expressive and dynamic", style: "dramatic" },
+      { id: "fable-playful", name: "Fable (Playful)", gender: "neutral", description: "Expressive and dynamic", style: "playful" },
+      
+      // Onyx variants
+      { id: "onyx", name: "Onyx", gender: "male", description: "Deep and authoritative", style: "Default" },
+      { id: "onyx-authoritative", name: "Onyx (Authoritative)", gender: "male", description: "Deep and authoritative", style: "authoritative" },
+      { id: "onyx-calm", name: "Onyx (Calm)", gender: "male", description: "Deep and authoritative", style: "calm" },
+      
+      // Nova variants
+      { id: "nova", name: "Nova", gender: "female", description: "Friendly and warm", style: "Default" },
+      { id: "nova-cheerful", name: "Nova (Cheerful)", gender: "female", description: "Friendly and warm", style: "cheerful" },
+      { id: "nova-professional", name: "Nova (Professional)", gender: "female", description: "Friendly and warm", style: "formal" },
+      
+      // Shimmer variants
+      { id: "shimmer", name: "Shimmer", gender: "female", description: "Soft and gentle", style: "Default" },
+      { id: "shimmer-whispering", name: "Shimmer (Whispering)", gender: "female", description: "Soft and gentle", style: "whispering" },
+      { id: "shimmer-warm", name: "Shimmer (Warm)", gender: "female", description: "Soft and gentle", style: "warm" }
+    ];
+
+    // OpenAI supports these languages
+    const openAILanguages = [
+      "af", "ar", "hy", "az", "be", "bs", "bg", "ca", "zh", "hr", "cs", "da", "nl", "en",
+      "et", "fi", "fr", "gl", "de", "el", "he", "hi", "hu", "is", "id", "it", "ja", "kn",
+      "kk", "ko", "lv", "lt", "mk", "ms", "mr", "mi", "ne", "no", "fa", "pl", "pt", "ro",
+      "ru", "sr", "sk", "sl", "es", "sw", "sv", "tl", "ta", "th", "tr", "uk", "ur", "vi", "cy"
+    ];
+
+    // Create voice entries for each language
+    const voicesByLanguage: { [key: string]: Voice[] } = {};
+    
+    openAILanguages.forEach(langCode => {
+      // Map short codes to our Language format
+      const languageMap: { [key: string]: string } = {
+        "en": "en-US",
+        "es": "es-ES",
+        "fr": "fr-FR",
+        "de": "de-DE",
+        "it": "it-IT",
+        "pt": "pt-BR",
+        "nl": "nl-NL",
+        "pl": "pl-PL",
+        "ru": "ru-RU",
+        "ja": "ja-JP",
+        "ko": "ko-KR",
+        "zh": "zh-CN",
+        "ar": "ar-SA",
+        "hi": "hi-IN",
+        "sv": "sv-SE",
+        "da": "da-DK",
+        "fi": "fi-FI",
+        "no": "nb-NO",
+        "tr": "tr-TR",
+        "cs": "cs-CZ",
+        "el": "el-GR",
+        "he": "he-IL",
+        "hu": "hu-HU",
+        "id": "id-ID",
+        "th": "th-TH",
+        "vi": "vi-VN",
+        "uk": "uk-UA",
+        "ro": "ro-RO",
+        "bg": "bg-BG",
+        "hr": "hr-HR",
+        "sk": "sk-SK",
+        "sl": "sl-SI",
+        "lt": "lt-LT",
+        "lv": "lv-LV",
+        "et": "et-EE",
+        "fa": "fa-IR",
+        "ur": "ur-PK",
+        "ta": "ta-IN",
+        "bn": "bn-BD",
+        "mr": "mr-IN",
+        "kn": "kn-IN",
+        "sw": "sw-KE",
+        "ca": "ca-ES",
+        "gl": "gl-ES",
+        "eu": "eu-ES",
+        "mk": "mk-MK",
+        "bs": "bs-BA",
+        "sr": "sr-RS",
+        "sq": "sq-AL",
+        "az": "az-AZ",
+        "kk": "kk-KZ",
+        "be": "be-BY", // Belarusian
+        "hy": "hy-AM", // Armenian
+        "ne": "ne-NP", // Nepali
+        "mi": "mi-NZ", // Maori
+        "cy": "cy-GB", // Welsh
+        "is": "is-IS", // Icelandic
+        "ms": "ms-MY", // Malay
+        "tl": "tl-PH", // Tagalog
+        "nb": "nb-NO", // Norwegian Bokmål
+        "af": "af-ZA"
+      };
+      
+      const normalizedLang = languageMap[langCode] || `${langCode}-${langCode.toUpperCase()}`;
+      
+      voicesByLanguage[normalizedLang] = openAIVoiceVariants.map(voice => ({
+        id: `${voice.id}-${langCode}`,
+        name: voice.name,
+        gender: voice.gender === "neutral" ? null : voice.gender as "male" | "female",
+        language: normalizedLang,
+        description: voice.description,
+        use_case: "general",
+        age: "middle_aged",
+        isMultilingual: true,
+        accent: "neutral",
+        style: voice.style
+      } as Voice));
+    });
+
+    // For language filter
+    if (language) {
+      const filteredVoices = voicesByLanguage[language] || [];
+      return NextResponse.json({ voices: filteredVoices });
+    }
+
+    return NextResponse.json({ voicesByLanguage });
   } else {
     return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
   }

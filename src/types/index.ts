@@ -1,6 +1,6 @@
 import { Language } from "@/utils/language";
 
-export type Provider = "lovo" | "elevenlabs";
+export type Provider = "lovo" | "elevenlabs" | "openai";
 
 export type AIModel = "gpt4" | "o3" | "gemini";
 
