@@ -1,6 +1,5 @@
 import React from "react";
 import { MixerTrack } from "@/store/mixerStore";
-import LiquidGlass from "liquid-glass-react";
 
 // Helper function to clean track labels
 export function cleanTrackLabel(label: string): string {
