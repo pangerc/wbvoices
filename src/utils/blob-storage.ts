@@ -86,7 +86,7 @@ export function generateBlobFilename(
 export async function uploadMusicToBlob(
   sourceUrl: string,
   prompt: string,
-  provider: 'beatoven' | 'loudly',
+  provider: 'beatoven' | 'loudly' | 'mubert',
   projectId?: string
 ): Promise<{ url: string; downloadUrl: string }> {
   const filename = generateBlobFilename(
