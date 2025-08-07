@@ -1,5 +1,6 @@
 import React from "react";
 import { MixerTrack } from "@/store/mixerStore";
+import LiquidGlass from "liquid-glass-react";
 
 // Helper function to clean track labels
 export function cleanTrackLabel(label: string): string {
@@ -16,17 +17,57 @@ export function extractCharacterName(label: string): string {
   return label;
 }
 
-// Helper function to get colors based on track type
-export function getTrackColor(type: "voice" | "music" | "soundfx") {
+// Helper function to get glass props based on track type
+export function getTrackGlassProps(type: "voice" | "music" | "soundfx") {
   switch (type) {
     case "voice":
-      return "bg-white/30 backdrop-blur-sm border border-white/40";
+      return {
+        className: "rounded-full",
+        style: {
+          backgroundColor: "rgba(255, 255, 255, 0.08)",
+          border: "1px solid rgba(255, 255, 255, 0.15)",
+        },
+        displacementScale: 24,
+        blurAmount: 0.03,
+        elasticity: 0.15,
+        cornerRadius: 100,
+      };
     case "music":
-      return "bg-wb-blue/30 backdrop-blur-sm border border-wb-blue/40";
+      return {
+        className: "rounded-full",
+        style: {
+          backgroundColor: "rgba(47, 125, 250, 0.12)",
+          border: "1px solid rgba(47, 125, 250, 0.2)",
+        },
+        displacementScale: 28,
+        blurAmount: 0.04,
+        elasticity: 0.2,
+        cornerRadius: 100,
+      };
     case "soundfx":
-      return "bg-red-500/30 backdrop-blur-sm border border-red-500/40";
+      return {
+        className: "rounded-full",
+        style: {
+          backgroundColor: "rgba(239, 68, 68, 0.12)",
+          border: "1px solid rgba(239, 68, 68, 0.2)",
+        },
+        displacementScale: 28,
+        blurAmount: 0.04,
+        elasticity: 0.2,
+        cornerRadius: 100,
+      };
     default:
-      return "bg-white/20 backdrop-blur-sm border border-white/20";
+      return {
+        className: "rounded-full",
+        style: {
+          backgroundColor: "rgba(255, 255, 255, 0.05)",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
+        },
+        displacementScale: 20,
+        blurAmount: 0.02,
+        elasticity: 0.1,
+        cornerRadius: 100,
+      };
   }
 }
 
@@ -196,9 +237,13 @@ export function TimelineTrack({
       >
         {/* The actual colored ribbon - positioned within the track container */}
         <div
-          className={`absolute h-full rounded-full ${getTrackColor(
-            track.type
-          )}`}
+          className={`absolute h-full rounded-full backdrop-blur-sm ${
+            track.type === "voice"
+              ? "bg-white/15 border border-white/20"
+              : track.type === "music"
+              ? "bg-wb-blue/20 border border-wb-blue/25"
+              : "bg-red-500/20 border border-red-500/25"
+          }`}
           style={{
             left: `${left}%`,
             width: `${width}%`, // Use exact width based on actual duration

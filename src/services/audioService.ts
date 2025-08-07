@@ -1,6 +1,7 @@
 import { Provider, Voice, VoiceTrack, MusicProvider, SoundFxPrompt } from "@/types";
-import { generateMusic } from "@/utils/beatoven-api";
+// Beatoven removed - trial expired and poor quality
 import { generateMusicWithLoudly } from "@/utils/loudly-api";
+import { generateMusicWithMubert } from "@/utils/mubert-api";
 import { useMixerStore, MixerTrack } from "@/store/mixerStore";
 
 export class AudioService {
@@ -96,12 +97,14 @@ export class AudioService {
     try {
       let musicTrack;
 
-      if (provider === "beatoven") {
-        musicTrack = await generateMusic(prompt, duration);
-      } else {
+      if (provider === "loudly") {
         // Loudly requires duration in 15-second increments
         const adjustedDuration = Math.round(duration / 15) * 15;
         musicTrack = await generateMusicWithLoudly(prompt, adjustedDuration);
+      } else if (provider === "mubert") {
+        musicTrack = await generateMusicWithMubert(prompt, duration);
+      } else {
+        throw new Error(`Unsupported music provider: ${provider}`);
       }
 
       if (!musicTrack || !musicTrack.url) {

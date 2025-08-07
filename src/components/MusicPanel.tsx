@@ -72,7 +72,7 @@ export function MusicPanel({
       const roundedDuration = Math.round(duration / 15) * 15;
       onGenerate(prompt, provider, roundedDuration);
     } else {
-      // For Beatoven, we pass the exact duration
+      // For Mubert, we pass the exact duration
       onGenerate(prompt, provider, duration);
     }
   };
@@ -85,9 +85,9 @@ export function MusicPanel({
         "High-quality, customizable music (duration in 15s increments)",
     },
     {
-      value: "beatoven" as MusicProvider,
-      label: "Beatoven",
-      description: "Simple, quick music generation (exact duration)",
+      value: "mubert" as MusicProvider,
+      label: "Mubert",
+      description: "Real-time AI music for ads (fast generation)",
     },
   ];
 

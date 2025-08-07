@@ -120,7 +120,7 @@ export default function DemoTTS() {
 
   const handleGenerateMusic = async (
     prompt: string,
-    provider: "loudly" | "beatoven",
+    provider: "loudly" | "mubert",
     duration: number
   ) => {
     try {

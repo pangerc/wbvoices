@@ -28,17 +28,41 @@ export async function POST(req: NextRequest) {
       campaignFormat,
       filteredVoices,
       duration = 60,
+      provider,
     } = body;
 
     // Validate required fields
-    if (!language || !clientDescription || !creativeBrief || !campaignFormat || !filteredVoices) {
+    if (
+      !language ||
+      !clientDescription ||
+      !creativeBrief ||
+      !campaignFormat ||
+      !filteredVoices
+    ) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    console.log(`Generating creative copy with ${aiModel}...`);
+    console.log(`Generating creative copy with ${aiModel} for ${provider}...`);
+
+    // Build provider-specific style instructions
+    let styleInstructions = "";
+
+    switch (provider) {
+      case "lovo":
+        styleInstructions = `Each voice may have style variants listed (e.g., "Narrative", "Cheerful"). Include the appropriate style in your response.`;
+        break;
+      case "openai":
+        styleInstructions = `Voices support emotional styles like "cheerful", "excited", "whispering". Choose appropriate styles for the content.`;
+        break;
+      case "elevenlabs":
+        styleInstructions = `Voices can have emotional settings. Use descriptive styles like "enthusiastic", "professional", "warm" when appropriate.`;
+        break;
+      default:
+        styleInstructions = "";
+    }
 
     // Sample 8 voices from the filtered list for format presentation
     const sampleSize = Math.min(8, filteredVoices.length);
@@ -78,9 +102,11 @@ Ensure each voice gets roughly equal speaking time.`
         : `Create a single-voice narration that directly addresses the listener.
 The voice should maintain consistent tone throughout.`;
 
-    const systemPrompt = `You are an expert audio advertising copywriter specializing in creating culturally authentic, engaging advertisements for global markets.
-Your expertise includes understanding regional dialects, cultural nuances, and local market preferences.
-You excel at matching voice characteristics to brand personality and target audience demographics.`;
+    const systemPrompt = `You're a senior creative director about to script another successful radio ad. Your audience loves your natural, fluent style with occasional touches of relatable humor or drama. You have a gift for making brands feel personal and memorable.
+
+As an expert in audio advertising, you specialize in creating culturally authentic, engaging advertisements for global markets. Your scripts never feel corporate or pushy - instead, they sound like conversations between real people who genuinely care about what they're sharing.
+
+You excel at matching voice characteristics to brand personality and target audience demographics, always considering regional dialects, cultural nuances, and local market preferences.`;
 
     const userPrompt = `Create a ${duration}-second audio advertisement in ${language}.
 
@@ -96,7 +122,9 @@ ${formatGuide}
 AVAILABLE VOICES (showing ${sampleSize} of ${filteredVoices.length} voices):
 ${voiceOptions}
 
-Note: Total available voices: ${filteredVoices.length}. The voices shown above are a representative sample.
+Note: Total available voices: ${
+      filteredVoices.length
+    }. The voices shown above are a representative sample.
 
 Create a script that:
 1. Captures attention in the first 3 seconds
@@ -107,6 +135,15 @@ Create a script that:
 6. If dialogue format, creates natural conversation flow between two voices
 7. Leverages the personality traits of selected voices
 
+IMPORTANT: Music and sound effects descriptions must be written in ENGLISH only, regardless of the target language of the ad script.
+
+${
+  styleInstructions
+    ? `EMOTIONAL DIMENSIONS:
+${styleInstructions}
+`
+    : ""
+}
 IMPORTANT OUTPUT FORMAT INSTRUCTIONS:
 You MUST respond with a valid JSON object following this EXACT structure. 
 Do not include any markdown formatting, code blocks, or explanation text.
@@ -116,22 +153,39 @@ For dialogue format, use this structure:
 {
   "script": [
     {
+      "type": "soundfx",
+      "description": "Sound effect description (in English)",
+      "playAfter": "start",
+      "overlap": 0
+    },
+    {
       "type": "voice",
       "speaker": "Voice Name (id: exact_voice_id)",
-      "text": "What the voice says"
+      "text": "What the voice says"${
+        styleInstructions ? ',\n      "style": "appropriate_style"' : ""
+      }
     },
     {
       "type": "voice", 
       "speaker": "Another Voice Name (id: exact_voice_id)",
-      "text": "What this voice says"
+      "text": "What this voice says"${
+        styleInstructions ? ',\n      "style": "appropriate_style"' : ""
+      }
     }
   ],
   "music": {
-    "description": "Description of background music mood and style",
+    "description": "Description of background music mood and style (in English)",
     "playAt": "start",
     "fadeIn": 1,
     "fadeOut": 2
-  }
+  },
+  "soundFxPrompts": [
+    {
+      "description": "Sound effect description (in English)",
+      "playAfter": "start",
+      "overlap": 0
+    }
+  ]
 }
 
 For single voice (ad_read) format:
@@ -140,23 +194,35 @@ For single voice (ad_read) format:
     {
       "type": "voice",
       "speaker": "Voice Name (id: exact_voice_id)",
-      "text": "The complete ad script"
+      "text": "The complete ad script"${
+        styleInstructions ? ',\n      "style": "appropriate_style"' : ""
+      }
     }
   ],
   "music": {
-    "description": "Description of background music mood and style",
+    "description": "Description of background music mood and style (in English)",
     "playAt": "start",
     "fadeIn": 1,
     "fadeOut": 2
-  }
+  },
+  "soundFxPrompts": [
+    {
+      "description": "Sound effect description if needed (in English)",
+      "playAfter": "start",
+      "overlap": 0
+    }
+  ]
 }
 
 Remember: 
 - The response must be valid JSON only
 - Use exact voice IDs from the available voices list
+- Sound effects are optional but can add impact (e.g., bottle opening for beverages, car doors for automotive)
+- Keep sound effects short and relevant - they should enhance, not overwhelm the voice
+- soundFxPrompts array can be empty [] if no sound effects are needed
 - Do not add any text before or after the JSON`;
 
-    const model = aiModel === "o3" ? "o3-mini" : "gpt-4o";
+    const model = aiModel === "o3" ? "o3" : "gpt-4.1";
     const temperature = aiModel === "o3" ? 1 : 0.7;
 
     const response = await openai.chat.completions.create({
@@ -192,9 +258,12 @@ Remember:
   } catch (error) {
     console.error("Error in AI generation:", error);
     return NextResponse.json(
-      { 
-        error: error instanceof Error ? error.message : "Failed to generate creative copy",
-        details: error instanceof Error ? error.stack : undefined
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate creative copy",
+        details: error instanceof Error ? error.stack : undefined,
       },
       { status: 500 }
     );

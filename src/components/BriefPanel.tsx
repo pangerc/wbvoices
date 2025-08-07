@@ -201,7 +201,8 @@ export function BriefPanel({
         creativeBrief,
         campaignFormat,
         filteredVoices,
-        adDuration
+        adDuration,
+        selectedProvider
       );
 
       console.log("JSON response received:", jsonResponse);

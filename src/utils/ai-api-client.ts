@@ -7,7 +7,8 @@ export async function generateCreativeCopy(
   creativeBrief: string,
   campaignFormat: string,
   filteredVoices: Voice[],
-  duration: number = 60
+  duration: number = 60,
+  provider?: string
 ): Promise<string> {
   try {
     const response = await fetch("/api/ai/generate", {
@@ -23,6 +24,7 @@ export async function generateCreativeCopy(
         campaignFormat,
         filteredVoices,
         duration,
+        provider,
       }),
     });
 

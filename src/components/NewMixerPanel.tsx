@@ -902,8 +902,8 @@ export function NewMixerPanel({
       {/* Timeline visualization with embedded audio controls */}
       {calculatedTracks.length > 0 && (
         <div className="mb-8">
-          <div className="flex justify-between items-start mb-2">
-            <h3 className="text-lg">Timeline</h3>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-lg ">Timeline</h3>
             <PlayButton
               isPlaying={isPlaying}
               onClick={handlePlayPause}
@@ -912,7 +912,7 @@ export function NewMixerPanel({
           </div>
           <div
             ref={timelineRef}
-            className="relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden timeline"
+            className="relative bg-white/3 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden timeline"
           >
             {/* Playback indicator line - positioned absolutely and doesn't interfere with mouse events */}
             {isPlaying && (

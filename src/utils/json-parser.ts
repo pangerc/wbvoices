@@ -8,6 +8,8 @@ interface ScriptVoiceItem {
   text: string;
   playAfter?: string;
   overlap?: number;
+  style?: string;
+  useCase?: string;
 }
 
 interface ScriptSoundFxItem {
@@ -188,6 +190,8 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
               gender: null,
             },
             text: item.text,
+            style: item.style,
+            useCase: item.useCase,
           };
 
           // Add timing information if provided
