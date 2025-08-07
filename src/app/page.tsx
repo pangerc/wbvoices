@@ -22,8 +22,8 @@ export default function DemoTTS() {
   // Brief Panel State
   const [clientDescription, setClientDescription] = useState("");
   const [creativeBrief, setCreativeBrief] = useState("");
-  const [campaignFormat, setCampaignFormat] = useState<CampaignFormat>("ad_read");
-  const [adDuration, setAdDuration] = useState(15);
+  const [campaignFormat, setCampaignFormat] = useState<CampaignFormat>("dialog");
+  const [adDuration, setAdDuration] = useState(20);
 
   // Custom hooks for complex logic
   const voiceManager = useVoiceManager();

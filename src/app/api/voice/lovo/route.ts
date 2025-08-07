@@ -1,10 +1,11 @@
 export const runtime = "edge";
 
 import { NextRequest, NextResponse } from "next/server";
+import { uploadVoiceToBlob } from "@/utils/blob-storage";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { text, voiceId, style } = body;
+  const { text, voiceId, style, useCase, projectId } = body;
 
   if (!text || !voiceId) {
     return NextResponse.json(
@@ -71,11 +72,44 @@ export async function POST(req: NextRequest) {
 
     const audioArrayBuffer = await audioResponse.arrayBuffer();
 
-    return new NextResponse(audioArrayBuffer, {
-      headers: {
-        "Content-Type": "audio/mpeg",
-      },
-    });
+    // Upload to Vercel Blob for permanent storage
+    try {
+      console.log("Lovo voice generated, uploading to Vercel Blob...");
+      const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/mpeg' });
+      const blobResult = await uploadVoiceToBlob(
+        audioBlob,
+        text.substring(0, 50), // Use first 50 chars as prompt
+        'lovo',
+        projectId
+      );
+      
+      console.log(`Lovo voice uploaded to blob: ${blobResult.url}`);
+      
+      // Return JSON response with permanent URL instead of raw audio
+      return NextResponse.json({
+        audio_url: blobResult.url,
+        original_text: text,
+        voice_id: voiceId,
+        provider: 'lovo',
+        style: style,
+        use_case: useCase,
+        original_lovo_url: audioUrl, // Keep track of original Lovo URL
+        blob_info: {
+          downloadUrl: blobResult.downloadUrl,
+          size: audioArrayBuffer.byteLength
+        }
+      });
+    } catch (blobError) {
+      console.error('Failed to upload Lovo voice to blob:', blobError);
+      
+      // Fallback: return raw audio buffer as before
+      console.log('Falling back to raw audio buffer response');
+      return new NextResponse(audioArrayBuffer, {
+        headers: {
+          "Content-Type": "audio/mpeg",
+        },
+      });
+    }
   } catch (error) {
     console.error("Error generating Lovo audio:", error);
     return NextResponse.json(

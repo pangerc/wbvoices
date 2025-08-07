@@ -224,11 +224,14 @@ export function useVoiceManager(): VoiceManagerState {
         );
       });
 
-      const allPossibleVoices = [
-        ...exactMatches,
-        ...familyMatches,
-        ...multilingualMatches,
-      ];
+      // Combine and deduplicate voices by ID to prevent the same voice appearing multiple times
+      const voiceMap = new Map<string, Voice>();
+      
+      [...exactMatches, ...familyMatches, ...multilingualMatches].forEach(voice => {
+        voiceMap.set(voice.id, voice);
+      });
+      
+      const allPossibleVoices = Array.from(voiceMap.values());
 
       // Filter by accent if selected
       if (selectedAccent && !ignoreAccentFilter) {

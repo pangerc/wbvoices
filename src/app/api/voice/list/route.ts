@@ -603,37 +603,38 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ voices });
   } else if (provider === "openai") {
-    // OpenAI TTS has 6 voices with emotional variants for better variety
+    // OpenAI TTS voices with quality-based filtering for emerging markets
+    // Research shows: Fable and Nova are best for non-English, Echo is worst
     const openAIVoiceVariants = [
-      // Alloy variants
-      { id: "alloy", name: "Alloy", gender: "neutral", description: "Neutral and balanced", style: "Default" },
-      { id: "alloy-confident", name: "Alloy (Confident)", gender: "neutral", description: "Neutral and balanced", style: "confident" },
-      { id: "alloy-casual", name: "Alloy (Casual)", gender: "neutral", description: "Neutral and balanced", style: "casual" },
+      // Alloy variants - moderate quality for non-English
+      { id: "alloy", name: "Alloy", gender: "neutral", description: "Neutral and balanced", style: "Default", qualityTier: "good" },
+      { id: "alloy-confident", name: "Alloy (Confident)", gender: "neutral", description: "Neutral and balanced", style: "confident", qualityTier: "good" },
+      { id: "alloy-casual", name: "Alloy (Casual)", gender: "neutral", description: "Neutral and balanced", style: "casual", qualityTier: "good" },
       
-      // Echo variants
-      { id: "echo", name: "Echo", gender: "male", description: "Warm and conversational", style: "Default" },
-      { id: "echo-excited", name: "Echo (Excited)", gender: "male", description: "Warm and conversational", style: "excited" },
-      { id: "echo-serious", name: "Echo (Serious)", gender: "male", description: "Warm and conversational", style: "serious" },
+      // Echo variants - poor quality for non-English, restrict for emerging markets
+      { id: "echo", name: "Echo", gender: "male", description: "Warm and conversational (English-optimized)", style: "Default", qualityTier: "poor" },
+      { id: "echo-excited", name: "Echo (Excited)", gender: "male", description: "Warm and conversational (English-optimized)", style: "excited", qualityTier: "poor" },
+      { id: "echo-serious", name: "Echo (Serious)", gender: "male", description: "Warm and conversational (English-optimized)", style: "serious", qualityTier: "poor" },
       
-      // Fable variants
-      { id: "fable", name: "Fable", gender: "neutral", description: "Expressive and dynamic", style: "Default" },
-      { id: "fable-dramatic", name: "Fable (Dramatic)", gender: "neutral", description: "Expressive and dynamic", style: "dramatic" },
-      { id: "fable-playful", name: "Fable (Playful)", gender: "neutral", description: "Expressive and dynamic", style: "playful" },
+      // Fable variants - BEST for non-English
+      { id: "fable", name: "Fable", gender: "neutral", description: "Expressive and dynamic", style: "Default", qualityTier: "excellent" },
+      { id: "fable-dramatic", name: "Fable (Dramatic)", gender: "neutral", description: "Expressive and dynamic", style: "dramatic", qualityTier: "excellent" },
+      { id: "fable-playful", name: "Fable (Playful)", gender: "neutral", description: "Expressive and dynamic", style: "playful", qualityTier: "excellent" },
       
-      // Onyx variants
-      { id: "onyx", name: "Onyx", gender: "male", description: "Deep and authoritative", style: "Default" },
-      { id: "onyx-authoritative", name: "Onyx (Authoritative)", gender: "male", description: "Deep and authoritative", style: "authoritative" },
-      { id: "onyx-calm", name: "Onyx (Calm)", gender: "male", description: "Deep and authoritative", style: "calm" },
+      // Onyx variants - moderate quality for non-English  
+      { id: "onyx", name: "Onyx", gender: "male", description: "Deep and authoritative", style: "Default", qualityTier: "good" },
+      { id: "onyx-authoritative", name: "Onyx (Authoritative)", gender: "male", description: "Deep and authoritative", style: "authoritative", qualityTier: "good" },
+      { id: "onyx-calm", name: "Onyx (Calm)", gender: "male", description: "Deep and authoritative", style: "calm", qualityTier: "good" },
       
-      // Nova variants
-      { id: "nova", name: "Nova", gender: "female", description: "Friendly and warm", style: "Default" },
-      { id: "nova-cheerful", name: "Nova (Cheerful)", gender: "female", description: "Friendly and warm", style: "cheerful" },
-      { id: "nova-professional", name: "Nova (Professional)", gender: "female", description: "Friendly and warm", style: "formal" },
+      // Nova variants - BEST for non-English
+      { id: "nova", name: "Nova", gender: "female", description: "Friendly and warm", style: "Default", qualityTier: "excellent" },
+      { id: "nova-cheerful", name: "Nova (Cheerful)", gender: "female", description: "Friendly and warm", style: "cheerful", qualityTier: "excellent" },
+      { id: "nova-professional", name: "Nova (Professional)", gender: "female", description: "Friendly and warm", style: "formal", qualityTier: "excellent" },
       
-      // Shimmer variants
-      { id: "shimmer", name: "Shimmer", gender: "female", description: "Soft and gentle", style: "Default" },
-      { id: "shimmer-whispering", name: "Shimmer (Whispering)", gender: "female", description: "Soft and gentle", style: "whispering" },
-      { id: "shimmer-warm", name: "Shimmer (Warm)", gender: "female", description: "Soft and gentle", style: "warm" }
+      // Shimmer variants - good quality for non-English
+      { id: "shimmer", name: "Shimmer", gender: "female", description: "Soft and gentle", style: "Default", qualityTier: "good" },
+      { id: "shimmer-whispering", name: "Shimmer (Whispering)", gender: "female", description: "Soft and gentle", style: "whispering", qualityTier: "good" },
+      { id: "shimmer-warm", name: "Shimmer (Warm)", gender: "female", description: "Soft and gentle", style: "warm", qualityTier: "good" }
     ];
 
     // OpenAI supports these languages
@@ -715,7 +716,13 @@ export async function GET(req: NextRequest) {
       
       const normalizedLang = languageMap[langCode] || `${langCode}-${langCode.toUpperCase()}`;
       
-      voicesByLanguage[normalizedLang] = openAIVoiceVariants.map(voice => ({
+      // Filter voices based on language - restrict poor quality voices for non-English
+      const isEnglish = langCode === "en";
+      const filteredVoices = isEnglish ? 
+        openAIVoiceVariants : // All voices for English
+        openAIVoiceVariants.filter((voice: any) => voice.qualityTier !== "poor"); // No Echo for non-English
+      
+      voicesByLanguage[normalizedLang] = filteredVoices.map(voice => ({
         id: `${voice.id}-${langCode}`,
         name: voice.name,
         gender: voice.gender === "neutral" ? null : voice.gender as "male" | "female",

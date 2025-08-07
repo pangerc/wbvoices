@@ -29,6 +29,7 @@ export class AudioService {
             voiceId: track.voice.id,
             style: track.style,
             useCase: track.useCase,
+            projectId: `voice-project-${Date.now()}`, // Add projectId for blob storage
           }),
         });
 
@@ -37,8 +38,20 @@ export class AudioService {
           throw new Error(JSON.stringify(errBody));
         }
 
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
+        let url: string;
+        const contentType = res.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          // New blob storage response format (OpenAI and future providers)
+          const jsonResponse = await res.json();
+          url = jsonResponse.audio_url;
+          console.log(`Using permanent blob URL for ${selectedProvider}:`, url);
+        } else {
+          // Legacy blob response format (ElevenLabs, Lovo for now)
+          const blob = await res.blob();
+          url = URL.createObjectURL(blob);
+          console.log(`Using temporary blob URL for ${selectedProvider}:`, url);
+        }
         
         const mixerTrack: MixerTrack = {
           id: `voice-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -137,6 +150,7 @@ export class AudioService {
         body: JSON.stringify({
           text: prompt,
           duration: duration,
+          projectId: `soundfx-project-${Date.now()}`, // Add projectId for blob storage
         }),
       });
 
@@ -149,8 +163,20 @@ export class AudioService {
         );
       }
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      let url: string;
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/json')) {
+        // New blob storage response format
+        const jsonResponse = await response.json();
+        url = jsonResponse.audio_url;
+        console.log(`Using permanent blob URL for SoundFX:`, url);
+      } else {
+        // Legacy blob response format
+        const blob = await response.blob();
+        url = URL.createObjectURL(blob);
+        console.log(`Using temporary blob URL for SoundFX:`, url);
+      }
 
       const mixerTrack: MixerTrack = {
         id: `soundfx-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,

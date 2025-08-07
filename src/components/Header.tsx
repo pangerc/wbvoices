@@ -248,7 +248,7 @@ export function Header({ selectedTab, onTabChange, onStartOver }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="flex items-center text-white text-sm">
+          <button className="flex items-center text-white/70 text-sm hover:text-white transition-colors duration-200">
             <svg
               width="20"
               height="20"
