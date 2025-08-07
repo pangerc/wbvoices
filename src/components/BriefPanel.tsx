@@ -6,7 +6,7 @@ import {
   AIModel,
   SoundFxPrompt,
 } from "@/types";
-import { generateCreativeCopy } from "@/utils/ai-api";
+import { generateCreativeCopy } from "@/utils/ai-api-client";
 import { parseCreativeXML } from "@/utils/xml-parser";
 import { parseCreativeJSON } from "@/utils/json-parser";
 import { Language, getFlagCode, formatAccentName } from "@/utils/language";

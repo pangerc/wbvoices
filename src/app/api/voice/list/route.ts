@@ -720,7 +720,7 @@ export async function GET(req: NextRequest) {
       const isEnglish = langCode === "en";
       const filteredVoices = isEnglish ? 
         openAIVoiceVariants : // All voices for English
-        openAIVoiceVariants.filter((voice: any) => voice.qualityTier !== "poor"); // No Echo for non-English
+        openAIVoiceVariants.filter((voice: { qualityTier?: string }) => voice.qualityTier !== "poor"); // No Echo for non-English
       
       voicesByLanguage[normalizedLang] = filteredVoices.map(voice => ({
         id: `${voice.id}-${langCode}`,

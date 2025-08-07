@@ -57,7 +57,7 @@ export function GlassyCombobox<T>({
                 e.target.parentElement!.style.boxShadow = "none";
                 e.target.parentElement!.style.borderColor =
                   "rgba(255, 255, 255, 0.1)";
-                onQueryChange && onQueryChange("");
+                onQueryChange?.("");
               }}
               onChange={(e) => onQueryChange && onQueryChange(e.target.value)}
               onClick={(e) => (e.target as HTMLInputElement).select()}

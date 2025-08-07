@@ -176,10 +176,15 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
       jsonData.script.forEach((item) => {
         // Handle voice segments
         if (item.type === "voice") {
+          // Extract voice ID from speaker string like "Jessica (id: cgSgspJ2msm6clMCkdW9)"
+          const idMatch = item.speaker.match(/\(id:\s*([^)]+)\)/);
+          const voiceId = idMatch ? idMatch[1] : item.speaker;
+          const voiceName = idMatch ? item.speaker.substring(0, item.speaker.indexOf('(')).trim() : item.speaker;
+          
           const voiceTrack: VoiceTrack = {
             voice: {
-              id: item.speaker,
-              name: item.speaker,
+              id: voiceId,
+              name: voiceName,
               gender: null,
             },
             text: item.text,
