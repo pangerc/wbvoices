@@ -180,15 +180,14 @@ export function SoundFxPanel({
             value={duration}
             onChange={setDuration}
             min={1}
-            max={30}
+            max={10}
             step={1}
             formatLabel={(val) => `${val} seconds`}
             tickMarks={[
               { value: 1, label: "1s" },
+              { value: 3, label: "3s" },
               { value: 5, label: "5s" },
               { value: 10, label: "10s" },
-              { value: 20, label: "20s" },
-              { value: 30, label: "30s" },
             ]}
           />
         </div>

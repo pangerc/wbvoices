@@ -29,8 +29,7 @@ export async function POST(req: NextRequest) {
         provider: "mubert",
         original_url: _internal_ready_url,
         blob_info: {
-          downloadUrl: blobResult.downloadUrl,
-          size: blobResult.size
+          downloadUrl: blobResult.downloadUrl
         }
       });
     } catch (error) {
@@ -183,8 +182,7 @@ export async function POST(req: NextRequest) {
         provider: "mubert",
         original_url: generation.url,
         blob_info: {
-          downloadUrl: blobResult.downloadUrl,
-          size: blobResult.size
+          downloadUrl: blobResult.downloadUrl
         }
       });
     }
@@ -203,44 +201,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Download from Mubert and upload to Vercel Blob for permanent storage
-    try {
-      console.log("Mubert music generated, downloading and uploading to Vercel Blob...");
-      
-      const blobResult = await uploadMusicToBlob(
-        track.url, // Mubert provides temporary URL
-        prompt.substring(0, 50), // Use first 50 chars as prompt
-        'mubert',
-        projectId
-      );
-      
-      console.log(`Mubert music uploaded to blob: ${blobResult.url}`);
-      
-      return NextResponse.json({
-        id: track.id || `mubert_${Date.now()}`,
-        title: track.title || prompt.substring(0, 50),
-        url: blobResult.url, // Permanent Vercel Blob URL
-        duration: track.duration || duration,
-        provider: "mubert",
-        original_url: track.url, // Original Mubert URL for debugging
-        blob_info: {
-          downloadUrl: blobResult.downloadUrl,
-          size: blobResult.size
-        }
-      });
-    } catch (blobError) {
-      console.error('Failed to upload Mubert music to blob:', blobError);
-      
-      // Fallback: return the original Mubert URL
-      console.log('Falling back to direct Mubert URL');
-      return NextResponse.json({
-        id: track.id || `mubert_${Date.now()}`,
-        title: track.title || prompt.substring(0, 50),
-        url: track.url,
-        duration: track.duration || duration,
-        provider: "mubert",
-      });
-    }
+    // If we get here, the status is unexpected
+    console.warn(`Unexpected generation status: ${generation.status}`);
+    return NextResponse.json(
+      { error: `Unexpected track status: ${generation.status}` },
+      { status: 500 }
+    );
   } catch (error) {
     console.error("Error generating music with Mubert:", error);
     return NextResponse.json(

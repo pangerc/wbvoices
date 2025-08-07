@@ -24,8 +24,8 @@ import {
   SoundFxPanel,
 } from "@/components";
 import { Header } from "@/components/Header";
-import { generateMusic } from "@/utils/beatoven-api";
 import { generateMusicWithLoudly } from "@/utils/loudly-api";
+import { generateMusicWithMubert } from "@/utils/mubert-api";
 import { useMixerStore } from "@/store/mixerStore";
 
 type Track = {
@@ -546,8 +546,8 @@ export default function DemoTTS() {
 
       let musicTrack;
 
-      if (provider === "beatoven") {
-        musicTrack = await generateMusic(prompt, duration);
+      if (provider === "mubert") {
+        musicTrack = await generateMusicWithMubert(prompt, duration);
       } else {
         // Loudly requires duration in 15-second increments
         const Duration = Math.round(duration / 15) * 15;

@@ -217,10 +217,23 @@ For single voice (ad_read) format:
 Remember: 
 - The response must be valid JSON only
 - Use exact voice IDs from the available voices list
-- Sound effects are optional but can add impact (e.g., bottle opening for beverages, car doors for automotive)
-- Keep sound effects short and relevant - they should enhance, not overwhelm the voice
+- Sound effects are optional but can add impact (e.g., bottle opening for beverages, car doors for automotive, baby crying for baby products)
+- CRITICAL: Sound effects must be very short (maximum 3 seconds) - they should punctuate, not underlay the entire ad
+- Keep sound effects brief and relevant - they should enhance, not overwhelm the voice
 - soundFxPrompts array can be empty [] if no sound effects are needed
-- Do not add any text before or after the JSON`;
+- Do not add any text before or after the JSON
+
+Music examples by theme:
+- Baby/parenting products: "soft soothing lullaby", "gentle nursery rhyme melody", "calm acoustic guitar"
+- Automotive: "driving rock anthem", "energetic electronic beat"
+- Food/beverage: "upbeat pop music", "cheerful acoustic melody"
+- Technology: "modern electronic synthwave", "futuristic ambient sounds"
+
+Sound effect examples by theme:
+- Baby products: "baby giggling" (1-2s), "baby crying" (2-3s), "gentle rattle shake" (1s)
+- Automotive: "car engine starting" (2s), "car door closing" (1s)
+- Food/beverage: "soda can opening" (1s), "sizzling pan" (2s)
+- Technology: "notification chime" (1s), "keyboard typing" (2s)`;
 
     const model = aiModel === "o3" ? "o3" : "gpt-4.1";
     const temperature = aiModel === "o3" ? 1 : 0.7;
