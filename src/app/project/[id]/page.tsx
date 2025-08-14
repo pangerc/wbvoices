@@ -120,6 +120,13 @@ export default function ProjectWorkspace() {
           
           console.log('✅ Voice system state restored successfully!');
           
+          // CRITICAL: Force voice manager to reload with correct parameters
+          console.log('🔄 Force reloading voice manager voices...');
+          await voiceManager.loadVoices();
+          
+          // Allow state to fully propagate to UI
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
           // Step 5: CRITICAL - Bypass state management and load voices directly
           console.log('🔄 Loading voices directly with correct parameters');
           const targetLanguage = normalizedLanguage;
