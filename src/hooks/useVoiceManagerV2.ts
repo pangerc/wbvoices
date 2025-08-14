@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Provider, Voice, Language, CampaignFormat } from "@/types";
 import { ProviderSelector, VoiceCounts } from "@/utils/providerSelection";
 import { hasRegionalAccents, getLanguageRegions, getRegionalAccents } from "@/utils/language";
@@ -50,6 +50,9 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedAccent, setSelectedAccent] = useState<string>("neutral");
   const [selectedProvider, setSelectedProvider] = useState<Provider>("any");
+  
+  // AbortController to cancel previous voice loading requests
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Available options with safe initial states
   const [availableLanguages, setAvailableLanguages] = useState<{ code: Language; name: string }[]>([]);
@@ -252,9 +255,20 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
   
   // Voice loading logic extracted into reusable function
   const loadVoices = useCallback(async () => {
+    // Cancel previous request if it's still running
+    if (abortControllerRef.current) {
+      console.log('🚫 Cancelling previous voice loading request');
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
     console.log(`🔄 Loading voices for provider=${selectedProvider}, language=${selectedLanguage}, accent=${selectedAccent}`);
     setIsLoading(true);
     setCurrentVoices([]); // Clear immediately
+    
     try {
       let allVoices: Voice[] = [];
       
@@ -271,11 +285,16 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
               url.searchParams.set('accent', selectedAccent);
             }
             
-            const response = await fetch(url);
+            const response = await fetch(url, { signal: abortController.signal });
             const voices = await response.json();
             // Tag each voice with its provider
             return Array.isArray(voices) ? voices.map((v: Voice) => ({...v, provider})) : [];
           } catch (error) {
+            // Don't log abort errors as they're intentional
+            if (error instanceof Error && error.name === 'AbortError') {
+              console.log(`🚫 ${provider} voice request cancelled`);
+              return [];
+            }
             console.error(`Failed to load ${provider} voices:`, error);
             return [];
           }
@@ -293,7 +312,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
           url.searchParams.set('accent', selectedAccent);
         }
         
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: abortController.signal });
         const voices = await response.json();
         allVoices = Array.isArray(voices) ? voices : [];
       }
@@ -317,13 +336,26 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
         } as Voice & { provider?: string };
       });
       
-      console.log(`✅ Loaded ${mappedVoices.length} voices for ${selectedProvider}/${selectedLanguage}`);
-      console.log(`🔍 First few voices:`, mappedVoices.slice(0, 3).map(v => ({ name: v.name, language: v.language, accent: v.accent })));
-      setCurrentVoices(mappedVoices);
+      // Only update state if this request wasn't aborted
+      if (!abortController.signal.aborted) {
+        console.log(`✅ Loaded ${mappedVoices.length} voices for ${selectedProvider}/${selectedLanguage}`);
+        console.log(`🔍 First few voices:`, mappedVoices.slice(0, 3).map(v => ({ name: v.name, language: v.language, accent: v.accent })));
+        setCurrentVoices(mappedVoices);
+      } else {
+        console.log('🚫 Voice loading request was aborted, skipping state update');
+      }
     } catch (error) {
+      // Don't log abort errors as they're intentional
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('🚫 Voice loading request cancelled');
+        return; // Exit early for aborted requests
+      }
       console.error('Failed to load voices:', error);
     } finally {
-      setIsLoading(false);
+      // Only clear loading state if this request wasn't aborted
+      if (!abortController.signal.aborted) {
+        setIsLoading(false);
+      }
     }
   }, [selectedProvider, selectedLanguage, selectedAccent]);
 
@@ -404,6 +436,15 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
     console.log(`🎯 Auto-selected ${bestProvider} for ${format}`);
     return bestProvider;
   }, [voiceCounts]);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
   
   return {
     // Core state

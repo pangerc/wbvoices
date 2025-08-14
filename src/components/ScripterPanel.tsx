@@ -19,6 +19,7 @@ type ScripterPanelProps = {
   getFilteredVoices: () => Voice[];
   isVoicesLoading: boolean;
   resetForm: () => void;
+  overrideVoices?: Voice[] | null;
 };
 
 export function ScripterPanel({
@@ -32,8 +33,18 @@ export function ScripterPanel({
   getFilteredVoices,
   isVoicesLoading,
   resetForm,
+  overrideVoices,
 }: ScripterPanelProps) {
-  const voices = getFilteredVoices();
+  // 🎯 Use overrideVoices if provided (project restoration), otherwise use voice manager
+  const voices = overrideVoices || getFilteredVoices();
+  
+  // Debug logging to see which voices are being used
+  console.log('🎯 ScripterPanel voices:', {
+    useOverride: !!overrideVoices,
+    voiceCount: voices.length,
+    firstVoice: voices[0]?.name,
+    firstVoiceLanguage: voices[0]?.language
+  });
 
   // Create unique options with a counter to ensure uniqueness
   const createUniqueOptions = (index: number) => {

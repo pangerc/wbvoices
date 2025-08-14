@@ -30,6 +30,7 @@ export default function ProjectWorkspace() {
   const [projectNotFound, setProjectNotFound] = useState(false);
   const [projectName, setProjectName] = useState<string>("");
   const [, setIsInitializing] = useState(true);
+  const [restoredVoices, setRestoredVoices] = useState<Voice[] | null>(null);
   
   // Brief Panel State
   const [clientDescription, setClientDescription] = useState("");
@@ -120,13 +121,6 @@ export default function ProjectWorkspace() {
           
           console.log('✅ Voice system state restored successfully!');
           
-          // CRITICAL: Force voice manager to reload with correct parameters
-          console.log('🔄 Force reloading voice manager voices...');
-          await voiceManager.loadVoices();
-          
-          // Allow state to fully propagate to UI
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
           // Step 5: CRITICAL - Bypass state management and load voices directly
           console.log('🔄 Loading voices directly with correct parameters');
           const targetLanguage = normalizedLanguage;
@@ -159,6 +153,10 @@ export default function ProjectWorkspace() {
             sampleUrl: v.sampleUrl as string,
             provider: v.provider as string
           } as Voice)) : [];
+          
+          // 🎯 Set restored voices for ScripterPanel to use directly
+          console.log('🎯 Setting restored voices for ScripterPanel:', mappedVoices.length);
+          setRestoredVoices(mappedVoices);
           
           // Step 6: CRITICAL - Restore voice tracks with directly loaded voices
           if (project.voiceTracks && project.voiceTracks.length > 0) {
@@ -230,6 +228,7 @@ export default function ProjectWorkspace() {
           setProjectName("");
           setProjectNotFound(true); // This means "new project"
           setSelectedTab(0); // Start at brief tab
+          setRestoredVoices(null); // Clear any previous restored voices
         }
         
       } catch (error) {
@@ -409,6 +408,9 @@ export default function ProjectWorkspace() {
     
     // Reset form manager state
     formManager.resetAllForms();
+    
+    // Clear restored voices
+    setRestoredVoices(null);
     
     // Navigate to a new project
     const newProjectId = generateProjectId();
@@ -660,6 +662,7 @@ export default function ProjectWorkspace() {
               getFilteredVoices={voiceManager.getFilteredVoices}
               isVoicesLoading={voiceManager.isLoading}
               resetForm={formManager.resetVoiceTracks}
+              overrideVoices={restoredVoices}
             />
           )}
 
