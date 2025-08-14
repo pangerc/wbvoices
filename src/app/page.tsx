@@ -1,19 +1,28 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useProjectHistoryStore } from "@/store/projectHistoryStore";
 import { generateProjectId } from "@/utils/projectId";
 
 export default function HomePage() {
   const router = useRouter();
-  const { loadProjects, recentProjects } = useProjectHistoryStore();
+  const { loadProjects } = useProjectHistoryStore();
+  const hasRedirected = useRef(false);
 
   useEffect(() => {
     const initializeApp = async () => {
+      // Prevent multiple simultaneous redirects
+      if (hasRedirected.current) {
+        return;
+      }
+
       try {
         // Load user's projects
         await loadProjects();
+        
+        // Get current state after loading
+        const { recentProjects } = useProjectHistoryStore.getState();
         
         // Filter out any old UUID projects and only use valid short IDs
         const validProjects = recentProjects.filter(project => {
@@ -26,6 +35,7 @@ export default function HomePage() {
         if (validProjects.length > 0) {
           const mostRecentProject = validProjects[0];
           console.log('🔄 Redirecting to most recent project:', mostRecentProject.headline);
+          hasRedirected.current = true;
           router.replace(`/project/${mostRecentProject.id}`);
           return;
         }
@@ -33,18 +43,22 @@ export default function HomePage() {
         // No valid projects, create a new one with short ID
         const newProjectId = generateProjectId();
         console.log('🔄 Creating new project with ID:', newProjectId);
+        hasRedirected.current = true;
         router.replace(`/project/${newProjectId}`);
         
       } catch (error) {
         console.error('❌ Failed to initialize app:', error);
         // Create a new project as fallback
-        const newProjectId = generateProjectId();
-        router.replace(`/project/${newProjectId}`);
+        if (!hasRedirected.current) {
+          const newProjectId = generateProjectId();
+          hasRedirected.current = true;
+          router.replace(`/project/${newProjectId}`);
+        }
       }
     };
 
     initializeApp();
-  }, [router, loadProjects, recentProjects]);
+  }, [router, loadProjects]);
 
   // Show loading state while determining where to redirect
   return (
