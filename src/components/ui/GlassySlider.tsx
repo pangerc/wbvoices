@@ -1,4 +1,4 @@
-import React from "react";
+import React, { ReactNode } from "react";
 
 export interface TickMark {
   value: number;
@@ -6,7 +6,7 @@ export interface TickMark {
 }
 
 export interface GlassySliderProps {
-  label?: string;
+  label?: ReactNode;
   value: number;
   onChange: (value: number) => void;
   min: number;
@@ -33,10 +33,7 @@ export function GlassySlider({
     <div className="mt-6">
       <label className="block text-base mb-3">
         {label ? (
-          <>
-            {label}&nbsp;
-            <span className="text-xs text-gray-500">{formatLabel(value)}</span>
-          </>
+          label
         ) : (
           <span className=" text-xs text-gray-500">{formatLabel(value)}</span>
         )}
@@ -52,6 +49,12 @@ export function GlassySlider({
           style={{ width: `${percentage}%` }}
         ></div>
 
+        {/* Slider thumb */}
+        <div
+          className="absolute w-4 h-4 bg-white rounded-full shadow-lg border border-white/20 pointer-events-none"
+          style={{ left: `${percentage}%`, transform: "translateX(-50%)" }}
+        ></div>
+
         {/* Actual range input (invisible but handles interaction) */}
         <input
           type="range"
@@ -60,14 +63,8 @@ export function GlassySlider({
           step={step}
           value={value}
           onChange={(e) => onChange(parseInt(e.target.value))}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
-
-        {/* Slider thumb */}
-        <div
-          className="absolute w-4 h-4 bg-white rounded-full z-20 shadow-lg border border-white/20 pointer-events-none"
-          style={{ left: `${percentage}%`, transform: "translateX(-50%)" }}
-        ></div>
       </div>
 
       {/* Tick marks */}

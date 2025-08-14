@@ -1,5 +1,5 @@
 export { BriefPanel } from "./BriefPanel";
 export { ScripterPanel } from "./ScripterPanel";
 export { MusicPanel } from "./MusicPanel";
-export { NewMixerPanel } from "./NewMixerPanel";
+export { MixerPanel } from "./MixerPanel";
 export { SoundFxPanel } from "./SoundFxPanel";

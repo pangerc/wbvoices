@@ -20,7 +20,8 @@ export interface LoudlyTaskResponse {
  */
 export async function generateMusicWithLoudly(
   prompt: string,
-  duration: number
+  duration: number,
+  projectId?: string
 ): Promise<MusicTrack | null> {
   try {
     console.log("Generating music with Loudly...");
@@ -33,7 +34,7 @@ export async function generateMusicWithLoudly(
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt, duration }),
+        body: JSON.stringify({ prompt, duration, projectId }),
       });
 
       if (!createResponse.ok) {
@@ -111,8 +112,11 @@ export async function generateMusicWithLoudly(
 
       let statusResponse;
       try {
-        // Use our dedicated status API route for status checks
-        statusResponse = await fetch(`/api/music/loudly/status?id=${id}`);
+        // Use our main API route for status checks (via GET)
+        const statusUrl = `/api/music/loudly?id=${id}${
+          projectId ? `&projectId=${projectId}` : ""
+        }`;
+        statusResponse = await fetch(statusUrl);
         console.log(`Status response status: ${statusResponse.status}`);
 
         if (!statusResponse.ok) {

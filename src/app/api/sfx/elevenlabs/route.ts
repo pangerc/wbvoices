@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { uploadSoundFxToBlob } from "@/utils/blob-storage";
+import { uploadSoundFxToBlob, generateCacheKey, findCachedContent } from "@/utils/blob-storage";
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +11,27 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Check cache first
+    const cacheKey = await generateCacheKey(text, { duration: duration || 5, provider: 'elevenlabs' });
+    const cached = await findCachedContent(cacheKey, 'elevenlabs', 'soundfx');
+    
+    if (cached) {
+      console.log(`✅ Using cached SoundFX for prompt: "${text.substring(0, 30)}..."`);
+      return NextResponse.json({
+        audio_url: cached.url,
+        original_text: text,
+        duration: duration || 5,
+        provider: 'elevenlabs',
+        type: 'soundfx',
+        cached: true,
+        blob_info: {
+          downloadUrl: cached.downloadUrl,
+        }
+      });
+    }
+
+    console.log(`💰 Generating NEW SoundFX for prompt: "${text.substring(0, 30)}..."`);
 
     // Call the ElevenLabs Sound Generation API
     const url = "https://api.elevenlabs.io/v1/sound-generation";

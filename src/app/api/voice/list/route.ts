@@ -22,7 +22,6 @@ const saveJsonToFile = async (
     await ensureDirectoryExists(dataDir);
     const filePath = path.join(dataDir, fileName);
     await fsPromises.writeFile(filePath, JSON.stringify(data, null, 2));
-    console.log(`Data saved to ${filePath}`);
   } catch (error) {
     console.error(`Error saving data to ${fileName}:`, error);
   }
@@ -122,9 +121,6 @@ const getVoiceLanguage = (
       accentLower.includes("peninsular") ||
       accentLower.includes("latin american")
     ) {
-      console.log(
-        `Mapping multilingual voice with accent "${accent}" to Spanish (es-ES)`
-      );
       return {
         language: "es-ES",
         isMultilingual: true,
@@ -283,14 +279,32 @@ const extractAccentFromSpeaker = (speaker: LovoSpeaker): string | undefined => {
         AR: "standard",
       };
       const accent = arabicAccentMap[region] || "standard";
-      console.log(
-        `Mapped Arabic voice with region ${region} to accent: ${accent}`
-      );
       return accent;
 
     case "it":
-      // Italian accents - most italian voices just use "italian" accent
-      return "italian";
+      // Italian accents - Northern and Southern regions
+      const italianAccentMap: Record<string, string> = {
+        IT: "standard", // Standard Italian
+      };
+      // Check for specific cities/regions that map to accents
+      if (speaker.displayName) {
+        const lowerName = speaker.displayName.toLowerCase();
+        if (
+          lowerName.includes("milano") ||
+          lowerName.includes("milan") ||
+          lowerName.includes("north")
+        ) {
+          return "northern";
+        }
+        if (
+          lowerName.includes("napoli") ||
+          lowerName.includes("naples") ||
+          lowerName.includes("south")
+        ) {
+          return "southern";
+        }
+      }
+      return italianAccentMap[region] || "standard";
 
     case "de":
       // German accents
@@ -314,9 +328,31 @@ const extractAccentFromSpeaker = (speaker: LovoSpeaker): string | undefined => {
       };
       return chineseAccentMap[region] || "standard";
 
+    case "pl":
+      // Polish accents
+      const polishAccentMap: Record<string, string> = {
+        PL: "standard",
+      };
+      // Check for specific regions that map to accents
+      if (speaker.displayName) {
+        const lowerName = speaker.displayName.toLowerCase();
+        if (lowerName.includes("warsaw") || lowerName.includes("mazov")) {
+          return "mazovian";
+        }
+      }
+      return polishAccentMap[region] || "standard";
+
+    case "sv":
+      // Swedish accents
+      const swedishAccentMap: Record<string, string> = {
+        SE: "swedish", // Default Swedish accent
+      };
+      return swedishAccentMap[region] || "swedish";
+
     default:
-      // For other languages, return a meaningful accent based on region if available
-      return region ? `${region.toLowerCase()}` : "standard";
+      // For languages without defined regional accents, default to standard
+      // This prevents country codes from being interpreted as meaningless accents
+      return "standard";
   }
 };
 
@@ -421,42 +457,53 @@ export async function GET(req: NextRequest) {
 
     for (const speaker of speakers) {
       // Skip deprecated speakers or those without styles
-      if (
-        !speaker.speakerStyles.length ||
-        speaker.speakerStyles[0].deprecated
-      ) {
+      if (!speaker.speakerStyles.length) {
         continue;
       }
 
-      const voice: LovoVoice = {
-        id: speaker.id,
-        name: speaker.displayName,
-        gender: speaker.gender.toLowerCase(),
-        sampleUrl:
-          speaker.speakerStyles[0].sampleTtsUrl || "/samples/default.mp3",
-        // Derive additional attributes based on available Lovo data
-        age: speaker.ageRange ? mapLovoAgeRange(speaker.ageRange) : undefined,
-        description: mapLovoStyleToDescription(speaker),
-        use_case: inferUseCase(speaker.speakerType),
-        style: speaker.speakerStyles[0].displayName || undefined,
-      };
+      // 🎭 CREATE SEPARATE VOICE ENTRY FOR EACH STYLE!
+      for (const style of speaker.speakerStyles) {
+        // Skip deprecated styles
+        if (style.deprecated) {
+          continue;
+        }
 
-      // Extract accent information
-      const accent = extractAccentFromSpeaker(speaker);
-      if (accent) {
-        voice.accent = accent;
-        console.log(
-          `Voice "${speaker.displayName}" (${speaker.locale}): accent = "${accent}"`
-        );
+        // Use a composite ID that encodes both the speaker and the exact style ID
+        // This allows TTS generation to send { speaker, speakerStyle } precisely
+        const styleId = `${speaker.id}|${style.id}`;
+
+        const voice: LovoVoice = {
+          id: styleId, // speakerId|styleId (exact mapping for TTS)
+          name:
+            style.displayName === "Default"
+              ? speaker.displayName
+              : `${speaker.displayName} (${style.displayName})`,
+          gender: speaker.gender.toLowerCase(),
+          sampleUrl: style.sampleTtsUrl || "/samples/default.mp3",
+          // Derive additional attributes based on available Lovo data
+          age: speaker.ageRange ? mapLovoAgeRange(speaker.ageRange) : undefined,
+          description:
+            style.displayName === "Default"
+              ? mapLovoStyleToDescription(speaker)
+              : style.displayName.toLowerCase(),
+          use_case: inferUseCase(speaker.speakerType),
+          style: style.displayName,
+        };
+
+        // Extract accent information
+        const accent = extractAccentFromSpeaker(speaker);
+        if (accent) {
+          voice.accent = accent;
+        }
+
+        // Normalize the language code
+        const normalizedLocale = normalizeLanguageCode(speaker.locale);
+
+        if (!voicesByLanguage[normalizedLocale]) {
+          voicesByLanguage[normalizedLocale] = [];
+        }
+        voicesByLanguage[normalizedLocale].push(voice);
       }
-
-      // Normalize the language code
-      const normalizedLocale = normalizeLanguageCode(speaker.locale);
-
-      if (!voicesByLanguage[normalizedLocale]) {
-        voicesByLanguage[normalizedLocale] = [];
-      }
-      voicesByLanguage[normalizedLocale].push(voice);
     }
 
     // Save processed Lovo data if requested
@@ -470,11 +517,6 @@ export async function GET(req: NextRequest) {
 
     // If language is specified, return only voices for that language
     if (language && language in voicesByLanguage) {
-      console.log(
-        "Returning voices for language:",
-        language,
-        voicesByLanguage[language]
-      );
       return NextResponse.json({
         voicesByLanguage: {
           [language]: voicesByLanguage[language],
@@ -482,10 +524,6 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    console.log(
-      "Returning all voices by language:",
-      Object.keys(voicesByLanguage)
-    );
     return NextResponse.json({ voicesByLanguage });
   } else if (provider === "elevenlabs") {
     const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -522,28 +560,11 @@ export async function GET(req: NextRequest) {
       await saveJsonToFile(data, `elevenlabs-raw-${timestamp}.json`);
     }
 
-    console.log(
-      "First voice example:",
-      JSON.stringify(data.voices[0], null, 2)
-    );
-    console.log("Voice models:", data.voices[0].high_quality_base_model_ids);
-    console.log("Voice labels:", data.voices[0].labels);
-    console.log("Voice fine tuning:", data.voices[0].fine_tuning);
-    console.log("Voice verified languages:", data.voices[0].verified_languages);
-
     const voices = data.voices.map((voice: ElevenLabsVoice): Voice => {
       const { language, isMultilingual, accent } = getVoiceLanguage(voice);
 
       // Normalize language codes for consistency
       const normalizedLanguage = normalizeLanguageCode(language);
-
-      console.log(
-        `Voice "${
-          voice.name
-        }" - Language: ${normalizedLanguage}, Multilingual: ${isMultilingual}, Accent: ${
-          accent || "none"
-        }`
-      );
 
       return {
         id: voice.voice_id,
@@ -565,15 +586,8 @@ export async function GET(req: NextRequest) {
       await saveJsonToFile(voices, `elevenlabs-processed-${timestamp}.json`);
     }
 
-    // Log unique languages for debugging
-    const uniqueLanguages = [
-      ...new Set(voices.map((v: Voice) => v.language)),
-    ].sort();
-    console.log("Available languages:", uniqueLanguages);
-    console.log(
-      "Number of multilingual voices:",
-      voices.filter((v: Voice) => v.isMultilingual).length
-    );
+    // Calculate unique languages (no logging)
+    // const uniqueLanguages = [...new Set(voices.map((v: Voice) => v.language))].sort();
 
     // If language is specified, filter voices
     if (language) {
@@ -603,137 +617,225 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ voices });
   } else if (provider === "openai") {
-    // OpenAI TTS voices with quality-based filtering for emerging markets
+    // OpenAI TTS voices - show only base voices with styles as metadata
     // Research shows: Fable and Nova are best for non-English, Echo is worst
     const openAIVoiceVariants = [
-      // Alloy variants - moderate quality for non-English
-      { id: "alloy", name: "Alloy", gender: "neutral", description: "Neutral and balanced", style: "Default", qualityTier: "good" },
-      { id: "alloy-confident", name: "Alloy (Confident)", gender: "neutral", description: "Neutral and balanced", style: "confident", qualityTier: "good" },
-      { id: "alloy-casual", name: "Alloy (Casual)", gender: "neutral", description: "Neutral and balanced", style: "casual", qualityTier: "good" },
-      
-      // Echo variants - poor quality for non-English, restrict for emerging markets
-      { id: "echo", name: "Echo", gender: "male", description: "Warm and conversational (English-optimized)", style: "Default", qualityTier: "poor" },
-      { id: "echo-excited", name: "Echo (Excited)", gender: "male", description: "Warm and conversational (English-optimized)", style: "excited", qualityTier: "poor" },
-      { id: "echo-serious", name: "Echo (Serious)", gender: "male", description: "Warm and conversational (English-optimized)", style: "serious", qualityTier: "poor" },
-      
-      // Fable variants - BEST for non-English
-      { id: "fable", name: "Fable", gender: "neutral", description: "Expressive and dynamic", style: "Default", qualityTier: "excellent" },
-      { id: "fable-dramatic", name: "Fable (Dramatic)", gender: "neutral", description: "Expressive and dynamic", style: "dramatic", qualityTier: "excellent" },
-      { id: "fable-playful", name: "Fable (Playful)", gender: "neutral", description: "Expressive and dynamic", style: "playful", qualityTier: "excellent" },
-      
-      // Onyx variants - moderate quality for non-English  
-      { id: "onyx", name: "Onyx", gender: "male", description: "Deep and authoritative", style: "Default", qualityTier: "good" },
-      { id: "onyx-authoritative", name: "Onyx (Authoritative)", gender: "male", description: "Deep and authoritative", style: "authoritative", qualityTier: "good" },
-      { id: "onyx-calm", name: "Onyx (Calm)", gender: "male", description: "Deep and authoritative", style: "calm", qualityTier: "good" },
-      
-      // Nova variants - BEST for non-English
-      { id: "nova", name: "Nova", gender: "female", description: "Friendly and warm", style: "Default", qualityTier: "excellent" },
-      { id: "nova-cheerful", name: "Nova (Cheerful)", gender: "female", description: "Friendly and warm", style: "cheerful", qualityTier: "excellent" },
-      { id: "nova-professional", name: "Nova (Professional)", gender: "female", description: "Friendly and warm", style: "formal", qualityTier: "excellent" },
-      
-      // Shimmer variants - good quality for non-English
-      { id: "shimmer", name: "Shimmer", gender: "female", description: "Soft and gentle", style: "Default", qualityTier: "good" },
-      { id: "shimmer-whispering", name: "Shimmer (Whispering)", gender: "female", description: "Soft and gentle", style: "whispering", qualityTier: "good" },
-      { id: "shimmer-warm", name: "Shimmer (Warm)", gender: "female", description: "Soft and gentle", style: "warm", qualityTier: "good" }
+      // Base voices only - styles handled as metadata and in LLM prompt
+      {
+        id: "alloy",
+        name: "Alloy",
+        gender: "neutral",
+        description: "Neutral and balanced",
+        style: "Default",
+        qualityTier: "good",
+        availableStyles: ["Default", "confident", "casual"],
+      },
+      {
+        id: "echo",
+        name: "Echo",
+        gender: "male",
+        description: "Warm and conversational (English-optimized)",
+        style: "Default",
+        qualityTier: "poor",
+        availableStyles: ["Default", "excited", "serious"],
+      },
+      {
+        id: "fable",
+        name: "Fable",
+        gender: "neutral",
+        description: "Expressive and dynamic",
+        style: "Default",
+        qualityTier: "excellent",
+        availableStyles: ["Default", "dramatic", "playful"],
+      },
+      {
+        id: "onyx",
+        name: "Onyx",
+        gender: "male",
+        description: "Deep and authoritative",
+        style: "Default",
+        qualityTier: "good",
+        availableStyles: ["Default", "authoritative", "calm"],
+      },
+      {
+        id: "nova",
+        name: "Nova",
+        gender: "female",
+        description: "Friendly and warm",
+        style: "Default",
+        qualityTier: "excellent",
+        availableStyles: ["Default", "cheerful", "professional"],
+      },
+      {
+        id: "shimmer",
+        name: "Shimmer",
+        gender: "female",
+        description: "Soft and gentle",
+        style: "Default",
+        qualityTier: "good",
+        availableStyles: ["Default", "whispering", "warm"],
+      },
     ];
 
     // OpenAI supports these languages
     const openAILanguages = [
-      "af", "ar", "hy", "az", "be", "bs", "bg", "ca", "zh", "hr", "cs", "da", "nl", "en",
-      "et", "fi", "fr", "gl", "de", "el", "he", "hi", "hu", "is", "id", "it", "ja", "kn",
-      "kk", "ko", "lv", "lt", "mk", "ms", "mr", "mi", "ne", "no", "fa", "pl", "pt", "ro",
-      "ru", "sr", "sk", "sl", "es", "sw", "sv", "tl", "ta", "th", "tr", "uk", "ur", "vi", "cy"
+      "af",
+      "ar",
+      "hy",
+      "az",
+      "be",
+      "bs",
+      "bg",
+      "ca",
+      "zh",
+      "hr",
+      "cs",
+      "da",
+      "nl",
+      "en",
+      "et",
+      "fi",
+      "fr",
+      "gl",
+      "de",
+      "el",
+      "he",
+      "hi",
+      "hu",
+      "is",
+      "id",
+      "it",
+      "ja",
+      "kn",
+      "kk",
+      "ko",
+      "lv",
+      "lt",
+      "mk",
+      "ms",
+      "mr",
+      "mi",
+      "ne",
+      "no",
+      "fa",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sr",
+      "sk",
+      "sl",
+      "es",
+      "sw",
+      "sv",
+      "tl",
+      "ta",
+      "th",
+      "tr",
+      "uk",
+      "ur",
+      "vi",
+      "cy",
     ];
 
     // Create voice entries for each language
     const voicesByLanguage: { [key: string]: Voice[] } = {};
-    
-    openAILanguages.forEach(langCode => {
+
+    openAILanguages.forEach((langCode) => {
       // Map short codes to our Language format
       const languageMap: { [key: string]: string } = {
-        "en": "en-US",
-        "es": "es-ES",
-        "fr": "fr-FR",
-        "de": "de-DE",
-        "it": "it-IT",
-        "pt": "pt-BR",
-        "nl": "nl-NL",
-        "pl": "pl-PL",
-        "ru": "ru-RU",
-        "ja": "ja-JP",
-        "ko": "ko-KR",
-        "zh": "zh-CN",
-        "ar": "ar-SA",
-        "hi": "hi-IN",
-        "sv": "sv-SE",
-        "da": "da-DK",
-        "fi": "fi-FI",
-        "no": "nb-NO",
-        "tr": "tr-TR",
-        "cs": "cs-CZ",
-        "el": "el-GR",
-        "he": "he-IL",
-        "hu": "hu-HU",
-        "id": "id-ID",
-        "th": "th-TH",
-        "vi": "vi-VN",
-        "uk": "uk-UA",
-        "ro": "ro-RO",
-        "bg": "bg-BG",
-        "hr": "hr-HR",
-        "sk": "sk-SK",
-        "sl": "sl-SI",
-        "lt": "lt-LT",
-        "lv": "lv-LV",
-        "et": "et-EE",
-        "fa": "fa-IR",
-        "ur": "ur-PK",
-        "ta": "ta-IN",
-        "bn": "bn-BD",
-        "mr": "mr-IN",
-        "kn": "kn-IN",
-        "sw": "sw-KE",
-        "ca": "ca-ES",
-        "gl": "gl-ES",
-        "eu": "eu-ES",
-        "mk": "mk-MK",
-        "bs": "bs-BA",
-        "sr": "sr-RS",
-        "sq": "sq-AL",
-        "az": "az-AZ",
-        "kk": "kk-KZ",
-        "be": "be-BY", // Belarusian
-        "hy": "hy-AM", // Armenian
-        "ne": "ne-NP", // Nepali
-        "mi": "mi-NZ", // Maori
-        "cy": "cy-GB", // Welsh
-        "is": "is-IS", // Icelandic
-        "ms": "ms-MY", // Malay
-        "tl": "tl-PH", // Tagalog
-        "nb": "nb-NO", // Norwegian Bokmål
-        "af": "af-ZA"
+        en: "en-US",
+        es: "es-ES",
+        fr: "fr-FR",
+        de: "de-DE",
+        it: "it-IT",
+        pt: "pt-BR",
+        nl: "nl-NL",
+        pl: "pl-PL",
+        ru: "ru-RU",
+        ja: "ja-JP",
+        ko: "ko-KR",
+        zh: "zh-CN",
+        ar: "ar-SA",
+        hi: "hi-IN",
+        sv: "sv-SE",
+        da: "da-DK",
+        fi: "fi-FI",
+        no: "nb-NO",
+        tr: "tr-TR",
+        cs: "cs-CZ",
+        el: "el-GR",
+        he: "he-IL",
+        hu: "hu-HU",
+        id: "id-ID",
+        th: "th-TH",
+        vi: "vi-VN",
+        uk: "uk-UA",
+        ro: "ro-RO",
+        bg: "bg-BG",
+        hr: "hr-HR",
+        sk: "sk-SK",
+        sl: "sl-SI",
+        lt: "lt-LT",
+        lv: "lv-LV",
+        et: "et-EE",
+        fa: "fa-IR",
+        ur: "ur-PK",
+        ta: "ta-IN",
+        bn: "bn-BD",
+        mr: "mr-IN",
+        kn: "kn-IN",
+        sw: "sw-KE",
+        ca: "ca-ES",
+        gl: "gl-ES",
+        eu: "eu-ES",
+        mk: "mk-MK",
+        bs: "bs-BA",
+        sr: "sr-RS",
+        sq: "sq-AL",
+        az: "az-AZ",
+        kk: "kk-KZ",
+        be: "be-BY", // Belarusian
+        hy: "hy-AM", // Armenian
+        ne: "ne-NP", // Nepali
+        mi: "mi-NZ", // Maori
+        cy: "cy-GB", // Welsh
+        is: "is-IS", // Icelandic
+        ms: "ms-MY", // Malay
+        tl: "tl-PH", // Tagalog
+        nb: "nb-NO", // Norwegian Bokmål
+        af: "af-ZA",
       };
-      
-      const normalizedLang = languageMap[langCode] || `${langCode}-${langCode.toUpperCase()}`;
-      
+
+      const normalizedLang =
+        languageMap[langCode] || `${langCode}-${langCode.toUpperCase()}`;
+
       // Filter voices based on language - restrict poor quality voices for non-English
       const isEnglish = langCode === "en";
-      const filteredVoices = isEnglish ? 
-        openAIVoiceVariants : // All voices for English
-        openAIVoiceVariants.filter((voice: { qualityTier?: string }) => voice.qualityTier !== "poor"); // No Echo for non-English
-      
-      voicesByLanguage[normalizedLang] = filteredVoices.map(voice => ({
-        id: `${voice.id}-${langCode}`,
-        name: voice.name,
-        gender: voice.gender === "neutral" ? null : voice.gender as "male" | "female",
-        language: normalizedLang,
-        description: voice.description,
-        use_case: "general",
-        age: "middle_aged",
-        isMultilingual: true,
-        accent: "neutral",
-        style: voice.style
-      } as Voice));
+      const filteredVoices = isEnglish
+        ? openAIVoiceVariants // All voices for English
+        : openAIVoiceVariants.filter(
+            (voice: { qualityTier?: string }) => voice.qualityTier !== "poor"
+          ); // No Echo for non-English
+
+      voicesByLanguage[normalizedLang] = filteredVoices.map(
+        (voice) =>
+          ({
+            id: `${voice.id}-${langCode}`,
+            name: voice.name,
+            gender:
+              voice.gender === "neutral"
+                ? null
+                : (voice.gender as "male" | "female"),
+            language: normalizedLang,
+            description: voice.description,
+            use_case: "general",
+            age: "middle_aged",
+            isMultilingual: true,
+            accent: "neutral",
+            style: voice.style,
+          } as Voice)
+      );
     });
 
     // For language filter

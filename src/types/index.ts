@@ -1,10 +1,10 @@
 import { Language } from "@/utils/language";
 
-export type Provider = "lovo" | "elevenlabs" | "openai";
+export type Provider = "any" | "lovo" | "elevenlabs" | "openai";
 
 export type { Language };
 
-export type AIModel = "gpt4" | "o3" | "gemini";
+export type AIModel = "gpt4" | "gpt5" | "gemini";
 
 export type Voice = {
   id: string;
@@ -28,6 +28,7 @@ export type VoiceTrack = {
   isConcurrent?: boolean;
   style?: string;
   useCase?: string;
+  voiceInstructions?: string; // OpenAI-specific voice control instructions
 };
 
 export type CampaignFormat = "ad_read" | "dialog";
@@ -59,4 +60,57 @@ export type SoundFxPrompt = {
   playAfter?: string;
   overlap?: number;
   duration?: number;
+};
+
+// Project History Types
+export type ProjectBrief = {
+  clientDescription: string;
+  creativeBrief: string;
+  campaignFormat: CampaignFormat;
+  selectedLanguage: Language;
+  selectedProvider: Provider;
+  selectedRegion?: string | null; // Optional for backwards compatibility
+  adDuration: number;
+  selectedAccent: string | null;
+  selectedAiModel: AIModel;
+  musicProvider?: MusicProvider; // Optional for backwards compatibility
+};
+
+export type ProjectMetadata = {
+  id: string;
+  headline: string;
+  timestamp: number;
+  language: Language;
+  format: CampaignFormat;
+  provider: Provider;
+};
+
+export type Project = {
+  id: string; // UUID
+  headline: string; // LLM-generated title
+  timestamp: number; // Creation time
+  lastModified: number; // Last update time
+  brief: ProjectBrief; // Original brief settings
+  voiceTracks: VoiceTrack[]; // Generated voice scripts
+  musicPrompt: string; // Music generation prompt
+  soundFxPrompt: SoundFxPrompt | null; // Sound effects prompt
+  // Store actual generated audio URLs (now permanent with Vercel Blob)
+  generatedTracks?: {
+    voiceUrls: string[];
+    musicUrl?: string;
+    soundFxUrl?: string;
+  };
+  // Mixer state - positions and volumes
+  mixerState?: {
+    tracks: Array<{
+      id: string;
+      url: string;
+      label: string;
+      type: "voice" | "music" | "soundfx";
+      duration?: number;
+      volume?: number;
+      startTime?: number;
+    }>;
+    totalDuration?: number;
+  };
 };

@@ -262,8 +262,18 @@ export const useMixerStore = create<MixerState>((set, get) => ({
         tracks: tracks.filter((track) => track.type !== type),
       });
     } else {
-      // Remove all tracks
-      set({ tracks: [] });
+      // Remove all tracks and reset all related state
+      set({ 
+        tracks: [],
+        calculatedTracks: [],
+        totalDuration: 0,
+        trackVolumes: {},
+        loadingStates: {},
+        audioErrors: {},
+        audioDurations: {},
+        previewUrl: null,
+        isExporting: false
+      });
     }
 
     // Recalculate timings

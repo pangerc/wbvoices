@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { Voice } from "@/types";
+import { getLanguageName } from "@/utils/language";
 
 // Initialize OpenAI client with server-side key
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, // No NEXT_PUBLIC_ prefix
 });
 
-// Utility function to shuffle an array (Fisher-Yates algorithm)
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,29 +38,41 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`Generating creative copy with ${aiModel} for ${provider}...`);
+    console.log(
+      `🗣️ Received ${filteredVoices.length} voices from SINGLE provider: ${provider}`
+    );
 
-    // Build provider-specific style instructions
+    // Build provider-specific STYLE instructions
     let styleInstructions = "";
 
     switch (provider) {
       case "lovo":
-        styleInstructions = `Each voice may have style variants listed (e.g., "Narrative", "Cheerful"). Include the appropriate style in your response.`;
+        styleInstructions = `Lovo voices have styles built into the voice selection (e.g., "Ava (Cheerful)" vs "Ava (Serious)"). The emotional style is already encoded in the voice ID you choose - no additional style parameter is needed or used by the API.`;
         break;
       case "openai":
-        styleInstructions = `Voices support emotional styles like "cheerful", "excited", "whispering". Choose appropriate styles for the content.`;
+        styleInstructions = `OpenAI voices support advanced voice control through detailed instructions. You can control:
+- Emotional range (cheerful, confident, dramatic, authoritative, warm, whispering, etc.)
+- Accent and pronunciation (specify regional accents, clear articulation)
+- Intonation and tone (professional, conversational, promotional, serious)
+- Speaking pace and emphasis (energetic delivery, measured pace, emphasis on key words)
+- Special techniques (whispering for intimacy, authoritative for credibility)
+
+For each voice in your response, include a "voiceInstructions" field with detailed guidance like:
+"Speak in a confident, promotional tone with slight excitement. Use clear articulation and a professional pace suitable for radio advertising. Emphasize key product benefits with warmth and credibility."`;
         break;
       case "elevenlabs":
-        styleInstructions = `Voices can have emotional settings. Use descriptive styles like "enthusiastic", "professional", "warm" when appropriate.`;
+        styleInstructions = `For each voice, you MUST choose ONE tone from this complete list:
+cheerful | happy | excited | energetic | dynamic | calm | gentle | soothing | serious | professional | authoritative | empathetic | warm | fast_read | slow_read
+
+Include this as "description" field (REQUIRED).`;
         break;
       default:
         styleInstructions = "";
     }
 
-    // Sample 8 voices from the filtered list for format presentation
-    const sampleSize = Math.min(8, filteredVoices.length);
-    const sampledVoices = shuffleArray(filteredVoices).slice(0, sampleSize);
+    // Use ALL filtered voices - LLM needs complete catalog to make informed choices
 
-    const voiceOptions = (sampledVoices as Voice[])
+    const voiceOptions = (filteredVoices as Voice[])
       .map((voice: Voice) => {
         let voiceDescription = `${voice.name} (id: ${voice.id})`;
 
@@ -108,7 +112,10 @@ As an expert in audio advertising, you specialize in creating culturally authent
 
 You excel at matching voice characteristics to brand personality and target audience demographics, always considering regional dialects, cultural nuances, and local market preferences.`;
 
-    const userPrompt = `Create a ${duration}-second audio advertisement in ${language}.
+    // Convert language code to readable name for LLM
+    const languageName = getLanguageName(language);
+
+    const userPrompt = `Create a ${duration}-second audio advertisement in ${languageName} language.
 
 CLIENT BRIEF:
 ${clientDescription}
@@ -119,12 +126,8 @@ ${creativeBrief}
 FORMAT: ${campaignFormat}
 ${formatGuide}
 
-AVAILABLE VOICES (showing ${sampleSize} of ${filteredVoices.length} voices):
+AVAILABLE VOICES (${filteredVoices.length} voices):
 ${voiceOptions}
-
-Note: Total available voices: ${
-      filteredVoices.length
-    }. The voices shown above are a representative sample.
 
 Create a script that:
 1. Captures attention in the first 3 seconds
@@ -145,69 +148,41 @@ ${styleInstructions}
     : ""
 }
 IMPORTANT OUTPUT FORMAT INSTRUCTIONS:
-You MUST respond with a valid JSON object following this EXACT structure. 
-Do not include any markdown formatting, code blocks, or explanation text.
-The response must be pure JSON that can be parsed directly.
-
-For dialogue format, use this structure:
+You MUST respond with a valid JSON object with this structure:
 {
   "script": [
-    {
-      "type": "soundfx",
-      "description": "Sound effect description (in English)",
-      "playAfter": "start",
-      "overlap": 0
-    },
     {
       "type": "voice",
       "speaker": "Voice Name (id: exact_voice_id)",
       "text": "What the voice says"${
-        styleInstructions ? ',\n      "style": "appropriate_style"' : ""
+        provider === "openai"
+          ? ',\n      "voiceInstructions": "Detailed voice delivery instructions"'
+          : provider === "elevenlabs"
+          ? ',\n      "description": "cheerful"'
+          : ""
       }
-    },
+    }${campaignFormat === "dialog" ? `,
     {
       "type": "voice", 
-      "speaker": "Another Voice Name (id: exact_voice_id)",
+      "speaker": "Different Voice Name (id: different_voice_id)",
       "text": "What this voice says"${
-        styleInstructions ? ',\n      "style": "appropriate_style"' : ""
+        provider === "openai"
+          ? ',\n      "voiceInstructions": "Different voice instructions"'
+          : provider === "elevenlabs"
+          ? ',\n      "description": "serious"'
+          : ""
       }
-    }
+    }` : ""}
   ],
   "music": {
-    "description": "Description of background music mood and style (in English)",
+    "description": "Background music description (in English)",
     "playAt": "start",
     "fadeIn": 1,
     "fadeOut": 2
   },
   "soundFxPrompts": [
     {
-      "description": "Sound effect description (in English)",
-      "playAfter": "start",
-      "overlap": 0
-    }
-  ]
-}
-
-For single voice (ad_read) format:
-{
-  "script": [
-    {
-      "type": "voice",
-      "speaker": "Voice Name (id: exact_voice_id)",
-      "text": "The complete ad script"${
-        styleInstructions ? ',\n      "style": "appropriate_style"' : ""
-      }
-    }
-  ],
-  "music": {
-    "description": "Description of background music mood and style (in English)",
-    "playAt": "start",
-    "fadeIn": 1,
-    "fadeOut": 2
-  },
-  "soundFxPrompts": [
-    {
-      "description": "Sound effect description if needed (in English)",
+      "description": "Sound effect description (in English)", 
       "playAfter": "start",
       "overlap": 0
     }
@@ -223,20 +198,22 @@ Remember:
 - soundFxPrompts array can be empty [] if no sound effects are needed
 - Do not add any text before or after the JSON
 
-Music examples by theme:
-- Baby/parenting products: "soft soothing lullaby", "gentle nursery rhyme melody", "calm acoustic guitar"
+Music examples by theme (keep the description as short and concise, don't overdo it):
+- Baby/parenting products: "soft soothing lullaby", "peaceful piano"
 - Automotive: "driving rock anthem", "energetic electronic beat"
 - Food/beverage: "upbeat pop music", "cheerful acoustic melody"
 - Technology: "modern electronic synthwave", "futuristic ambient sounds"
 
-Sound effect examples by theme:
-- Baby products: "baby giggling" (1-2s), "baby crying" (2-3s), "gentle rattle shake" (1s)
+Sound effect examples by theme (keep the description as short and concise, don't overdo it):
+- Baby products: "baby giggling" (1-2s), "baby crying" (2-3s)
 - Automotive: "car engine starting" (2s), "car door closing" (1s)
 - Food/beverage: "soda can opening" (1s), "sizzling pan" (2s)
 - Technology: "notification chime" (1s), "keyboard typing" (2s)`;
 
-    const model = aiModel === "o3" ? "o3" : "gpt-4.1";
-    const temperature = aiModel === "o3" ? 1 : 0.7;
+    // Map selected model to OpenAI API model name
+    const model = aiModel === "gpt5" ? "gpt-5" : "gpt-4.1";
+    const temperature = aiModel === "gpt5" ? 1 : 0.7;
+
 
     const response = await openai.chat.completions.create({
       model,

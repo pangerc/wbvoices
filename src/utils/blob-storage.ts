@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob';
+import { put, list } from '@vercel/blob';
 
 /**
  * Uploads a file to Vercel Blob storage and returns a permanent URL
@@ -150,4 +150,163 @@ export async function uploadSoundFxToBlob(
     filename,
     'audio/mpeg'
   );
+}
+
+/**
+ * Generates a cache key from prompt and parameters
+ */
+export async function generateCacheKey(prompt: string, params: Record<string, unknown> = {}): Promise<string> {
+  const normalized = JSON.stringify({
+    prompt: prompt.trim().toLowerCase(),
+    ...params
+  });
+  
+  // Use Web Crypto API for Edge Runtime compatibility
+  const encoder = new TextEncoder();
+  const data = encoder.encode(normalized);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  return hashHex.substring(0, 16);
+}
+
+/**
+ * Searches for cached content based on metadata
+ */
+export async function findCachedContent(
+  cacheKey: string,
+  provider: string,
+  type: 'music' | 'voice' | 'soundfx'
+): Promise<{ url: string; downloadUrl: string } | null> {
+  try {
+    console.log(`🔍 Searching cache for ${type} from ${provider} with key: ${cacheKey}`);
+    
+    // Search for blobs with matching metadata
+    const { blobs } = await list({
+      prefix: `${type}-${provider}`,
+      limit: 100 // Search recent uploads
+    });
+
+    // Find blob with matching cache key in filename or metadata
+    const cachedBlob = blobs.find(blob => 
+      blob.pathname.includes(cacheKey) || 
+      (blob as unknown as { customMetadata?: { cacheKey?: string } }).customMetadata?.cacheKey === cacheKey
+    );
+
+    if (cachedBlob) {
+      console.log(`✅ Cache HIT! Using cached ${type}: ${cachedBlob.url}`);
+      return {
+        url: cachedBlob.url,
+        downloadUrl: cachedBlob.downloadUrl || cachedBlob.url
+      };
+    }
+
+    console.log(`❌ Cache MISS for ${type} from ${provider}`);
+    return null;
+  } catch (error) {
+    console.error('Cache search failed:', error);
+    return null; // Fail gracefully, generate new content
+  }
+}
+
+/**
+ * Enhanced music upload with caching metadata
+ */
+export async function uploadMusicToBlobWithCache(
+  sourceUrl: string,
+  prompt: string,
+  provider: 'beatoven' | 'loudly' | 'mubert',
+  duration: number,
+  projectId?: string
+): Promise<{ url: string; downloadUrl: string; cached: boolean }> {
+  const cacheKey = await generateCacheKey(prompt, { duration, provider });
+  
+  // Check cache first
+  const cached = await findCachedContent(cacheKey, provider, 'music');
+  if (cached) {
+    return { ...cached, cached: true };
+  }
+
+  // Generate new content with cache metadata
+  const filename = generateBlobFilename(
+    `music-${provider}-${cacheKey}`,
+    'wav',
+    projectId
+  );
+  
+  console.log(`💰 Generating NEW music for prompt: "${prompt.substring(0, 50)}..."`);
+  
+  const result = await downloadAndUploadToBlob(
+    sourceUrl,
+    filename,
+    'audio/wav'
+  );
+
+  return { ...result, cached: false };
+}
+
+/**
+ * Enhanced sound effect upload with caching metadata
+ */
+export async function uploadSoundFxToBlobWithCache(
+  audioBlob: Blob,
+  prompt: string,
+  provider: 'elevenlabs',
+  duration: number,
+  projectId?: string
+): Promise<{ url: string; downloadUrl: string; cached: boolean }> {
+  const cacheKey = await generateCacheKey(prompt, { duration, provider });
+  
+  // Check cache first
+  const cached = await findCachedContent(cacheKey, provider, 'soundfx');
+  if (cached) {
+    return { ...cached, cached: true };
+  }
+
+  // Generate new content with cache metadata
+  const sanitizedPrompt = prompt
+    .replace(/[^a-zA-Z0-9\s]/g, '')
+    .replace(/\s+/g, '-')
+    .substring(0, 30);
+    
+  const filename = generateBlobFilename(
+    `soundfx-${provider}-${cacheKey}-${sanitizedPrompt}`,
+    'mp3',
+    projectId
+  );
+  
+  console.log(`💰 Generating NEW sound effect for prompt: "${prompt.substring(0, 50)}..."`);
+  
+  const result = await uploadToBlob(
+    audioBlob,
+    filename,
+    'audio/mpeg'
+  );
+
+  return { ...result, cached: false };
+}
+
+/**
+ * Check if cached sound effect exists for the exact prompt
+ */
+export async function checkSoundFxCache(
+  prompt: string,
+  provider: 'elevenlabs',
+  duration: number
+): Promise<{ url: string; downloadUrl: string } | null> {
+  const cacheKey = await generateCacheKey(prompt, { duration, provider });
+  return findCachedContent(cacheKey, provider, 'soundfx');
+}
+
+/**
+ * Check if cached music exists for the exact prompt
+ */
+export async function checkMusicCache(
+  prompt: string,
+  provider: 'loudly' | 'mubert',
+  duration: number
+): Promise<{ url: string; downloadUrl: string } | null> {
+  const cacheKey = await generateCacheKey(prompt, { duration, provider });
+  return findCachedContent(cacheKey, provider, 'music');
 }

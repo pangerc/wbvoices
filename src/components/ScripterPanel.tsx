@@ -17,6 +17,7 @@ type ScripterPanelProps = {
   statusMessage?: string;
   selectedLanguage: string;
   getFilteredVoices: () => Voice[];
+  isVoicesLoading: boolean;
   resetForm: () => void;
 };
 
@@ -29,6 +30,7 @@ export function ScripterPanel({
   statusMessage,
   selectedLanguage,
   getFilteredVoices,
+  isVoicesLoading,
   resetForm,
 }: ScripterPanelProps) {
   const voices = getFilteredVoices();
@@ -78,7 +80,7 @@ export function ScripterPanel({
           <ResetButton onClick={handleReset} />
           <GenerateButton
             onClick={generateAudio}
-            disabled={!voiceTracks.some((t) => t.voice && t.text)}
+            disabled={!voiceTracks.some((t) => t.voice && t.text) || isVoicesLoading}
             isGenerating={isGenerating}
             text="Generate Voices"
             generatingText="Generating Voices..."
@@ -125,39 +127,154 @@ export function ScripterPanel({
                     label: opt.label,
                     flag: opt.flag,
                   }))}
+                  disabled={isVoicesLoading}
                 />
+                {isVoicesLoading && (
+                  <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+                    <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Loading voices...</span>
+                  </div>
+                )}
+
+                {/* Two neutral gray lines: speaker metadata + creative direction */}
+                {track.voice && (
+                  <div className="mt-2 text-xs text-gray-400 space-y-1">
+                    <p>
+                      <span className="font-medium text-gray-300">
+                        Speaker:
+                      </span>{" "}
+                      {[
+                        track.voice.name,
+                        track.voice.accent && `${track.voice.accent} accent`,
+                        track.voice.gender &&
+                          track.voice.gender.charAt(0).toUpperCase() +
+                            track.voice.gender.slice(1),
+                        track.voice.style &&
+                          track.voice.style !== "Default" &&
+                          track.voice.style,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    {(track.style ||
+                      track.useCase ||
+                      track.voiceInstructions) && (
+                      <p>
+                        <span className="font-medium text-gray-300">
+                          Creative:
+                        </span>{" "}
+                        {[
+                          track.style && `Tone=${track.style}`,
+                          track.useCase && `Use=${track.useCase}`,
+                          track.voiceInstructions &&
+                            `Instructions=${track.voiceInstructions}`,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {track.voice && (
-                  <p className="mt-2 pl-4 text-xs text-gray-400">
-                    {track.voice.accent ? (
-                      <span
-                        className={`font-medium ${
-                          track.voice.language?.startsWith("ar-")
-                            ? "text-green-800"
-                            : "text-sky-300"
-                        }`}
-                      >
-                        {track.voice.accent} accent
-                      </span>
-                    ) : null}
-                    {[
-                      track.voice.gender &&
-                        track.voice.gender.charAt(0).toUpperCase() +
-                          track.voice.gender.slice(1),
-                      track.voice.isMultilingual && "Multilingual",
-                    ]
-                      .filter(Boolean)
-                      .map((attr, i) => (
-                        <React.Fragment
-                          key={`${track.voice?.id || index}-attr-${i}`}
+                  <div className="mt-2 pl-4 text-xs text-gray-400 space-y-1 hidden">
+                    {/* Voice characteristics */}
+                    <p>
+                      {track.voice.accent ? (
+                        <span
+                          className={`font-medium ${
+                            track.voice.language?.startsWith("ar-")
+                              ? "text-green-800"
+                              : "text-sky-300"
+                          }`}
                         >
-                          {track.voice && (track.voice.accent || i > 0)
-                            ? " · "
-                            : ""}
-                          {attr}
-                        </React.Fragment>
-                      ))}
-                  </p>
+                          {track.voice.accent} accent
+                        </span>
+                      ) : null}
+                      {[
+                        track.voice.gender &&
+                          track.voice.gender.charAt(0).toUpperCase() +
+                            track.voice.gender.slice(1),
+                        track.voice.age && `${track.voice.age}`,
+                        track.voice.isMultilingual && "Multilingual",
+                      ]
+                        .filter(Boolean)
+                        .map((attr, i) => (
+                          <React.Fragment
+                            key={`${track.voice?.id || index}-attr-${i}`}
+                          >
+                            {track.voice && (track.voice.accent || i > 0)
+                              ? " · "
+                              : ""}
+                            {attr}
+                          </React.Fragment>
+                        ))}
+                    </p>
+
+                    {/* Provider speaker style metadata (e.g., Lovo) */}
+                    {track.voice.style && track.voice.style !== "Default" && (
+                      <div className="mt-1 text-xs">
+                        <span className="text-amber-400 font-medium">
+                          Speaker style:
+                        </span>{" "}
+                        <span className="text-amber-300">
+                          {track.voice.style}
+                        </span>
+                      </div>
+                    )}
+                    {track.voice.description && (
+                      <div className="mt-1 text-xs">
+                        <span className="text-amber-400 font-medium">
+                          Tone:
+                        </span>{" "}
+                        <span className="text-amber-300">
+                          {track.voice.description}
+                        </span>
+                      </div>
+                    )}
+                    {track.voice.use_case &&
+                      track.voice.use_case !== "general" && (
+                        <div className="mt-1 text-xs">
+                          <span className="text-amber-400 font-medium">
+                            Best for:
+                          </span>{" "}
+                          <span className="text-amber-300">
+                            {track.voice.use_case}
+                          </span>
+                        </div>
+                      )}
+
+                    {/* Emotional dimensions from LLM */}
+                    {(track.style ||
+                      track.useCase ||
+                      track.voiceInstructions) && (
+                      <div className="bg-purple-900/20 border border-purple-500/30 rounded p-2 mt-2">
+                        <p className="text-purple-300 font-medium mb-1">
+                          🎭 LLM Creative Instructions:
+                        </p>
+                        {track.style && (
+                          <p className="text-purple-200">
+                            <span className="font-medium">Style:</span>{" "}
+                            {track.style}
+                          </p>
+                        )}
+                        {track.useCase && (
+                          <p className="text-purple-200">
+                            <span className="font-medium">Use Case:</span>{" "}
+                            {track.useCase}
+                          </p>
+                        )}
+                        {track.voiceInstructions && (
+                          <p className="text-purple-200">
+                            <span className="font-medium">
+                              Voice Instructions:
+                            </span>{" "}
+                            {track.voiceInstructions}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -191,7 +308,7 @@ export function ScripterPanel({
                 )}
 
                 {!track.playAfter && index > 0 && (
-                  <div className="mt-1 text-xs text-gray-400 italic">
+                  <div className="mt-4 text-xs text-gray-600">
                     This voice will play sequentially after the previous
                     element.
                   </div>

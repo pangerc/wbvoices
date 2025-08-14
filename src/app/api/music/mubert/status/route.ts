@@ -1,10 +1,12 @@
 export const runtime = "edge";
 
 import { NextRequest, NextResponse } from "next/server";
-
-const MUBERT_BASE_URL = "https://music-api.mubert.com/api/v3";
+import { createProvider } from "@/lib/providers";
 
 export async function GET(req: NextRequest) {
+  const provider = createProvider('music', 'mubert');
+  
+  // Extract parameters from URL
   const trackId = req.nextUrl.searchParams.get("id");
   const customerId = req.nextUrl.searchParams.get("customer_id");
   const accessToken = req.nextUrl.searchParams.get("access_token");
@@ -16,38 +18,52 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  console.log(`Checking Mubert track status: ${trackId}`);
+  if (!provider.pollStatus) {
+    return NextResponse.json(
+      { error: "Provider does not support polling" },
+      { status: 400 }
+    );
+  }
 
   try {
-    const response = await fetch(`${MUBERT_BASE_URL}/public/tracks/${trackId}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "customer-id": customerId,
-        "access-token": accessToken,
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Mubert status check error:", errorText);
+    const result = await provider.pollStatus(trackId, { customerId, accessToken });
+    
+    if (!result.success) {
       return NextResponse.json(
-        { error: `Mubert status error: ${response.status} ${errorText}` },
-        { status: response.status }
+        { error: result.error },
+        { status: 500 }
       );
     }
 
-    const data = await response.json();
-    console.log("Mubert status response:", data);
+    // Return status data in the format the client expects
+    // The client expects: { data: { generations: [{ status: 'done', url: '...' }] } }
+    if (result.data?.status === 'completed' && result.data?.generation_url) {
+      return NextResponse.json({
+        data: {
+          id: trackId,
+          generations: [{
+            status: 'done',
+            url: result.data.generation_url
+          }]
+        }
+      });
+    }
 
-    return NextResponse.json(data);
+    // Return processing status in expected format
+    return NextResponse.json({
+      data: {
+        id: trackId,
+        generations: [{
+          status: result.data?.status || 'processing',
+          url: null
+        }]
+      }
+    });
   } catch (error) {
-    console.error("Error checking Mubert track status:", error);
+    console.error("Error checking Mubert status:", error);
     return NextResponse.json(
       { 
-        error: error instanceof Error 
-          ? `Status check failed: ${error.message}` 
-          : "Unknown error checking track status" 
+        error: error instanceof Error ? error.message : "Unknown error checking track status" 
       },
       { status: 500 }
     );

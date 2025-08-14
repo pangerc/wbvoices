@@ -17,7 +17,7 @@ export function GlassyTextarea({
       {label && <label className="block mb-2 text-white">{label}</label>}
       <div className="relative bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 transition-all duration-200">
         <TextareaAutosize
-          className={`block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-400 focus:outline-none bg-transparent resize-none ${className}`}
+          className={`block text-sm w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-400 focus:outline-none bg-transparent resize-none ${className}`}
           style={{
             resize: "none",
             ...props.style,

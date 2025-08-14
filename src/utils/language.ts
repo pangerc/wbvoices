@@ -42,15 +42,20 @@ export const areSameLanguageFamily = (
 };
 
 /**
- * Normalizes a language code according to ISO standards
- * Handles malformed codes like "en-US-EN-US" automatically
+ * Normalizes a language code for unified voice database
+ * Converts provider-specific codes to unified base languages while preserving accents
+ * 
+ * Examples:
+ * - Lovo: "es-AR" → "es" (Argentinian preserved in accent)
+ * - ElevenLabs: "es-ES" → "es" (Castilian preserved in accent) 
+ * - OpenAI: "es" → "es" (neutral preserved in accent)
  */
 export const normalizeLanguageCode = (locale: string): string => {
-  if (!locale) return "en-US"; // Default fallback
+  if (!locale) return "es"; // Default fallback changed to Spanish for global coverage
 
   // Handle completely malformed codes with regex
   if (!locale.match(/^[a-zA-Z]{2,3}(-[a-zA-Z]{2,3})?/)) {
-    return "en-US"; // Default to English for completely invalid codes
+    return "es"; // Default to Spanish for completely invalid codes
   }
 
   // Handle codes with more than one hyphen (like en-US-EN-US)
@@ -63,55 +68,127 @@ export const normalizeLanguageCode = (locale: string): string => {
   // Split the locale into language and region
   const [lang, region] = locale.split("-");
 
-  // If we have both language and region, format them properly
-  if (lang && region) {
-    return `${lang.toLowerCase()}-${region.toUpperCase()}`;
-  }
-
-  // If we only have language, use standard region codes based on ISO
-  const standardRegions: Record<string, string> = {
-    en: "US",
-    es: "ES",
-    fr: "FR",
-    de: "DE",
-    it: "IT",
-    pt: "PT",
-    ru: "RU",
-    zh: "CN",
-    ja: "JP",
-    ko: "KR",
-    ar: "SA",
-    // Add more as needed based on ISO standards
+  // For unified voice database, we normalize to base language only
+  // The region/country info is preserved in the accent field instead
+  
+  // Special cases for languages with complex variations
+  const languageMapping: Record<string, string> = {
+    // Chinese variants all normalize to "zh"
+    "zh-CN": "zh",
+    "zh-TW": "zh", 
+    "zh-HK": "zh",
+    "yue-CN": "zh", // Cantonese → Chinese
+    "wuu-CN": "zh", // Wu → Chinese
+    
+    // Arabic variants all normalize to "ar"  
+    "ar-SA": "ar",
+    "ar-EG": "ar",
+    "ar-DZ": "ar",
+    "ar-AR": "ar",
+    "ar-JO": "ar",
+    "ar-AE": "ar",
+    "ar-BH": "ar",
+    "ar-IQ": "ar",
+    "ar-KW": "ar",
+    "ar-LB": "ar",
+    
+    // Spanish variants all normalize to "es"
+    "es-ES": "es",
+    "es-MX": "es",
+    "es-AR": "es",
+    "es-CO": "es",
+    "es-CL": "es",
+    "es-PE": "es",
+    "es-US": "es",
+    "es-VE": "es",
+    "es-EC": "es",
+    "es-GT": "es",
+    "es-CR": "es",
+    "es-PA": "es",
+    "es-DO": "es",
+    "es-HN": "es",
+    "es-NI": "es",
+    "es-PY": "es",
+    "es-SV": "es",
+    "es-UY": "es",
+    "es-BO": "es",
+    "es-CU": "es",
+    "es-GQ": "es",
+    "es-PR": "es",
+    
+    // English variants all normalize to "en"
+    "en-US": "en",
+    "en-GB": "en",
+    "en-AU": "en",
+    "en-CA": "en",
+    "en-IE": "en",
+    "en-IN": "en",
+    "en-NZ": "en",
+    "en-ZA": "en",
+    "en-SG": "en",
+    "en-PH": "en",
+    "en-HK": "en",
+    "en-KE": "en",
+    "en-NG": "en",
+    "en-GH": "en",
+    "en-TZ": "en",
+    
+    // French variants all normalize to "fr"
+    "fr-FR": "fr",
+    "fr-CA": "fr",
+    "fr-BE": "fr",
+    "fr-CH": "fr",
+    
+    // Portuguese variants all normalize to "pt"
+    "pt-PT": "pt",
+    "pt-BR": "pt",
+    
+    // German variants all normalize to "de"
+    "de-DE": "de",
+    "de-AT": "de",
+    "de-CH": "de",
+    
+    // Special cases
+    "multi-LINGUAL": "multi",
+    "nb-NO": "no", // Norwegian Bokmål → Norwegian
   };
 
-  if (lang && standardRegions[lang.toLowerCase()]) {
-    return `${lang.toLowerCase()}-${standardRegions[lang.toLowerCase()]}`;
+  // Check for exact mapping first
+  if (languageMapping[locale]) {
+    return languageMapping[locale];
   }
-
-  // Last resort - use language code for both parts
-  return `${lang.toLowerCase()}-${lang.toUpperCase()}`;
+  
+  // If we have a region, check if there's a mapping for the full code
+  const fullCode = region ? `${lang.toLowerCase()}-${region.toUpperCase()}` : locale;
+  if (languageMapping[fullCode]) {
+    return languageMapping[fullCode];
+  }
+  
+  // Otherwise, just return the base language code
+  return lang.toLowerCase();
 };
 
-// Languages that should be shown as a single language option with multiple accents
-// rather than as separate language choices in the dropdown
+// Languages that have multiple regional accents and should be unified
+// These correspond to the major world languages with significant regional variations
 export const unifiedDisplayLanguages = [
-  "ar", // Arabic variants
-  "en", // English variants
-  "es", // Spanish variants
-  "fr", // French variants
-  "de", // German variants
-  "pt", // Portuguese variants
-  "zh", // Chinese variants
+  "ar", // Arabic (Saudi, Egyptian, Gulf, Maghrebi, Levantine, etc.)
+  "en", // English (American, British, Australian, Canadian, Indian, etc.)
+  "es", // Spanish (Castilian, Mexican, Argentinian, Colombian, etc.)
+  "fr", // French (Parisian, Canadian, Belgian, Swiss, etc.)
+  "de", // German (Standard, Austrian, Swiss, Bavarian, etc.)
+  "pt", // Portuguese (European, Brazilian, etc.)
+  "zh", // Chinese (Mandarin, Cantonese, Taiwanese, etc.)
 ];
 
 /**
  * Get display name for a language based on its code
- * Uses standard language naming
+ * Works with both original provider codes and normalized codes
  */
 export const getLanguageName = (code: string): string => {
-  const normalizedCode = normalizeLanguageCode(code);
-  const [lang, region] = normalizedCode.split("-");
-
+  // For display purposes, we sometimes want the original code's region info
+  // but for the voice system, we work with normalized codes
+  const [lang, region] = code.split("-");
+  
   // Base language names according to ISO standards
   const baseLanguageNames: Record<string, string> = {
     en: "English",
@@ -130,6 +207,7 @@ export const getLanguageName = (code: string): string => {
     fi: "Finnish",
     da: "Danish",
     no: "Norwegian",
+    nb: "Norwegian",
     pl: "Polish",
     tr: "Turkish",
     cs: "Czech",
@@ -144,6 +222,7 @@ export const getLanguageName = (code: string): string => {
     id: "Indonesian",
     ms: "Malay",
     fil: "Filipino",
+    tl: "Tagalog",
     he: "Hebrew",
     ro: "Romanian",
     uk: "Ukrainian",
@@ -202,24 +281,30 @@ export const getLanguageName = (code: string): string => {
     mk: "Macedonian",
     sq: "Albanian",
     mt: "Maltese",
-    yue: "Cantonese",
-    wuu: "Wu Chinese",
     be: "Belarusian",
     mi: "Maori",
-    nb: "Norwegian Bokmål",
-    tl: "Tagalog",
     multi: "Multilingual",
   };
 
-  // For languages that should be unified in display, ignore region in name
+  // Special handling for multilingual
+  if (code === "multi-LINGUAL" || code === "multi") {
+    return "Multilingual";
+  }
+  
+  // For normalized codes (no region), return base language name
+  if (!region) {
+    return baseLanguageNames[lang.toLowerCase()] || lang;
+  }
+  
+  // For unified display languages, show base name only (region info in accent)
   if (unifiedDisplayLanguages.includes(lang)) {
     return baseLanguageNames[lang.toLowerCase()] || lang;
   }
 
-  // Region names for common regions
+  // Region names for non-unified languages that still show regions
   const regionNames: Record<string, string> = {
     US: "US",
-    GB: "UK",
+    GB: "UK", 
     AU: "Australia",
     CA: "Canada",
     IE: "Ireland",
@@ -238,57 +323,282 @@ export const getLanguageName = (code: string): string => {
     BR: "Brazil",
     RU: "Russia",
     CN: "China",
-    TW: "Taiwan",
+    TW: "Taiwan", 
     HK: "Hong Kong",
     JP: "Japan",
     KR: "Korea",
     IT: "Italy",
+    NL: "Netherlands",
+    SE: "Sweden",
+    FI: "Finland",
+    DK: "Denmark",
+    NO: "Norway",
+    PL: "Poland",
+    TR: "Turkey",
+    CZ: "Czech Republic",
+    HU: "Hungary",
+    TH: "Thailand",
+    VN: "Vietnam",
+    ID: "Indonesia",
+    MY: "Malaysia",
+    PH: "Philippines",
+    IL: "Israel",
+    RO: "Romania",
+    UA: "Ukraine",
+    GR: "Greece",
+    BG: "Bulgaria",
+    HR: "Croatia",
+    RS: "Serbia",
+    SK: "Slovakia",
+    SI: "Slovenia",
+    EE: "Estonia",
+    LV: "Latvia",
+    LT: "Lithuania",
+    ZA: "South Africa",
+    IS: "Iceland",
+    IR: "Iran",
+    PK: "Pakistan",
+    BD: "Bangladesh",
+    MM: "Myanmar",
+    KH: "Cambodia",
+    LA: "Laos",
+    ET: "Ethiopia",
+    KE: "Kenya",
+    SO: "Somalia",
+    LK: "Sri Lanka",
+    MN: "Mongolia",
+    AM: "Armenia",
+    GE: "Georgia",
+    AZ: "Azerbaijan",
+    KZ: "Kazakhstan",
+    UZ: "Uzbekistan",
+    AF: "Afghanistan",
+    NP: "Nepal",
+    BA: "Bosnia and Herzegovina",
+    MK: "North Macedonia",
+    AL: "Albania",
+    MT: "Malta",
+    BY: "Belarus",
+    NZ: "New Zealand"
   };
-
-  // Special cases where region shouldn't be shown
-  const skipRegion = ["CN", "JP", "KR", "IT", "RU", "SA", "DE", "FR"];
 
   // Get base language name
   const baseName = baseLanguageNames[lang.toLowerCase()] || lang;
 
-  // If it's a special "multi-LINGUAL" code
-  if (code === "multi-LINGUAL") {
-    return "Multilingual";
-  }
-
-  // For most major languages, don't show region for the primary region
-  if (
-    skipRegion.includes(region) &&
-    normalizedCode === `${lang.toLowerCase()}-${region}`
-  ) {
-    return baseName;
-  }
-
-  // Add region for other cases
-  const regionName = regionNames[region];
+  // Add region for detailed language variants
+  const regionName = regionNames[region?.toUpperCase()];
   return regionName ? `${baseName} (${regionName})` : baseName;
 };
 
 /**
  * Get the flag code for a language
- * Uses ISO country codes
+ * Uses appropriate flags for normalized language codes
  */
 export const getFlagCode = (languageCode: string): string => {
-  const normalizedCode = normalizeLanguageCode(languageCode);
-  const [, region] = normalizedCode.split("-");
-
-  // Special cases
-  const specialCases: Record<string, string> = {
-    "multi-LINGUAL": "un", // UN flag for multilingual
-    "en-GB": "gb", // Use GB flag for British English
+  // For normalized language codes (no region), use representative flags
+  const flagMapping: Record<string, string> = {
+    // Major languages
+    "en": "us", // English → US flag (most common)
+    "es": "es", // Spanish → Spain flag
+    "fr": "fr", // French → France flag
+    "de": "de", // German → Germany flag
+    "it": "it", // Italian → Italy flag
+    "pt": "pt", // Portuguese → Portugal flag
+    "ar": "sa", // Arabic → Saudi Arabia flag (most common)
+    "zh": "cn", // Chinese → China flag
+    "ja": "jp", // Japanese → Japan flag
+    "ko": "kr", // Korean → South Korea flag
+    "ru": "ru", // Russian → Russia flag
+    "multi": "un", // Multilingual → UN flag
+    "multi-LINGUAL": "un", // Alternative multilingual → UN flag
+    
+    // European languages
+    "sl": "si", // Slovenian → Slovenia flag
+    "hr": "hr", // Croatian → Croatia flag
+    "cs": "cz", // Czech → Czech Republic flag
+    "sk": "sk", // Slovak → Slovakia flag
+    "pl": "pl", // Polish → Poland flag
+    "hu": "hu", // Hungarian → Hungary flag
+    "ro": "ro", // Romanian → Romania flag
+    "bg": "bg", // Bulgarian → Bulgaria flag
+    "sr": "rs", // Serbian → Serbia flag
+    "bs": "ba", // Bosnian → Bosnia and Herzegovina flag
+    "mk": "mk", // Macedonian → North Macedonia flag
+    "sq": "al", // Albanian → Albania flag
+    "et": "ee", // Estonian → Estonia flag
+    "lv": "lv", // Latvian → Latvia flag
+    "lt": "lt", // Lithuanian → Lithuania flag
+    "fi": "fi", // Finnish → Finland flag
+    "sv": "se", // Swedish → Sweden flag
+    "no": "no", // Norwegian → Norway flag
+    "da": "dk", // Danish → Denmark flag
+    "is": "is", // Icelandic → Iceland flag
+    "nl": "nl", // Dutch → Netherlands flag
+    "el": "gr", // Greek → Greece flag
+    "mt": "mt", // Maltese → Malta flag
+    "ga": "ie", // Irish → Ireland flag
+    "cy": "gb", // Welsh → Great Britain flag (Wales part of UK)
+    "uk": "ua", // Ukrainian → Ukraine flag
+    "be": "by", // Belarusian → Belarus flag
+    
+    // Asian languages
+    "hi": "in", // Hindi → India flag
+    "bn": "bd", // Bengali → Bangladesh flag (most speakers)
+    "ur": "pk", // Urdu → Pakistan flag
+    "ta": "in", // Tamil → India flag (most speakers)
+    "te": "in", // Telugu → India flag
+    "mr": "in", // Marathi → India flag
+    "gu": "in", // Gujarati → India flag
+    "kn": "in", // Kannada → India flag
+    "ml": "in", // Malayalam → India flag
+    "pa": "in", // Punjabi → India flag (most speakers)
+    "ne": "np", // Nepali → Nepal flag
+    "si": "lk", // Sinhala → Sri Lanka flag
+    "my": "mm", // Myanmar → Myanmar flag
+    "km": "kh", // Khmer → Cambodia flag
+    "lo": "la", // Lao → Laos flag
+    "th": "th", // Thai → Thailand flag
+    "vi": "vn", // Vietnamese → Vietnam flag
+    "id": "id", // Indonesian → Indonesia flag
+    "ms": "my", // Malay → Malaysia flag
+    "tl": "ph", // Filipino/Tagalog → Philippines flag
+    "jv": "id", // Javanese → Indonesia flag
+    "su": "id", // Sundanese → Indonesia flag
+    
+    // Middle Eastern and African languages  
+    "he": "il", // Hebrew → Israel flag
+    "fa": "ir", // Persian → Iran flag
+    "tr": "tr", // Turkish → Turkey flag
+    "az": "az", // Azerbaijani → Azerbaijan flag
+    "ka": "ge", // Georgian → Georgia flag
+    "hy": "am", // Armenian → Armenia flag
+    "kk": "kz", // Kazakh → Kazakhstan flag
+    "ky": "kg", // Kyrgyz → Kyrgyzstan flag
+    "uz": "uz", // Uzbek → Uzbekistan flag
+    "mn": "mn", // Mongolian → Mongolia flag
+    "af": "za", // Afrikaans → South Africa flag
+    "zu": "za", // Zulu → South Africa flag
+    "sw": "ke", // Swahili → Kenya flag (major usage)
+    "so": "so", // Somali → Somalia flag
+    "am": "et", // Amharic → Ethiopia flag
+    "ha": "ng", // Hausa → Nigeria flag
+    "yo": "ng", // Yoruba → Nigeria flag
+    "ig": "ng", // Igbo → Nigeria flag
+    
+    // Other languages
+    "eu": "es", // Basque → Spain flag (largest population)
+    "ca": "es", // Catalan → Spain flag (largest population)  
+    "gl": "es", // Galician → Spain flag
+    "br": "fr", // Breton → France flag
+    "co": "fr", // Corsican → France flag
+    "rm": "ch", // Romansh → Switzerland flag
+    "lb": "lu", // Luxembourgish → Luxembourg flag
   };
-
-  if (specialCases[languageCode]) {
-    return specialCases[languageCode];
+  
+  // Handle special cases first
+  if (flagMapping[languageCode]) {
+    return flagMapping[languageCode];
   }
+  
+  // For codes with regions, extract region
+  const [lang, region] = languageCode.split("-");
+  
+  if (region) {
+    // Special region mappings
+    const specialCases: Record<string, string> = {
+      "en-GB": "gb", // British English
+      "zh-TW": "tw", // Traditional Chinese
+      "zh-HK": "hk", // Hong Kong Chinese
+    };
+    
+    if (specialCases[languageCode]) {
+      return specialCases[languageCode];
+    }
+    
+    // Convert region code to lowercase for flag icons
+    return region.toLowerCase();
+  }
+  
+  // For base language codes, use the mapping or default to the language code
+  return flagMapping[lang] || lang;
+};
 
-  // Convert region code to lowercase for flag icons
-  return region.toLowerCase();
+// Regional groupings for accents - groups accents by geographic regions
+export const accentRegions: Record<string, Record<string, string[]>> = {
+  en: {
+    "north_america": ["american", "canadian"],
+    "europe": ["british", "irish", "scottish"],
+    "oceania": ["australian"],
+    "asia": ["indian"]
+  },
+  es: {
+    "europe": ["castilian", "peninsular", "spanish"],
+    "latin_america": ["latin_american", "mexican", "argentinian", "colombian", "chilean", "peruvian", "venezuelan", "ecuadorian", "cuban", "puerto_rican"],
+    "africa": ["equatorial_guinean"]
+  },
+  ar: {
+    "middle_east": ["saudi", "gulf", "kuwaiti", "bahraini", "jordanian", "lebanese", "iraqi"],
+    "africa": ["egyptian", "maghrebi"]
+  },
+  fr: {
+    "europe": ["parisian", "belgian", "swiss"],
+    "north_america": ["canadian"],
+    "africa": ["southern"]
+  },
+  pt: {
+    "europe": ["european"],
+    "south_america": ["brazilian"]
+  }
+};
+
+// Region display names
+export const regionDisplayNames: Record<string, string> = {
+  "north_america": "North America",
+  "south_america": "South America", 
+  "latin_america": "Latin America",
+  "europe": "Europe",
+  "africa": "Africa",
+  "asia": "Asia",
+  "oceania": "Oceania",
+  "middle_east": "Middle East"
+};
+
+/**
+ * Check if a language has regional variations
+ */
+export const hasRegionalAccents = (languageCode: string): boolean => {
+  const normalizedCode = normalizeLanguageCode(languageCode);
+  const [lang] = normalizedCode.split("-");
+  return !!(accentRegions[lang] && Object.keys(accentRegions[lang]).length > 1);
+};
+
+/**
+ * Get available regions for a language
+ */
+export const getLanguageRegions = (languageCode: string): Array<{code: string, displayName: string}> => {
+  const normalizedCode = normalizeLanguageCode(languageCode);
+  const [lang] = normalizedCode.split("-");
+  
+  if (!accentRegions[lang]) return [];
+  
+  return Object.keys(accentRegions[lang]).map(regionCode => ({
+    code: regionCode,
+    displayName: regionDisplayNames[regionCode] || regionCode
+  }));
+};
+
+/**
+ * Get accents for a specific language and region
+ */
+export const getRegionalAccents = (languageCode: string, regionCode: string): string[] => {
+  const normalizedCode = normalizeLanguageCode(languageCode);
+  const [lang] = normalizedCode.split("-");
+  
+  if (!accentRegions[lang] || !accentRegions[lang][regionCode]) {
+    return ["standard"];
+  }
+  
+  return ["none", ...accentRegions[lang][regionCode]];
 };
 
 /**
@@ -425,107 +735,85 @@ export const formatAccentName = (accent: string): string => {
     .join(" ");
 };
 
+// Normalized Language Type - base languages only (no regions)
+// This matches the normalized codes from normalizeLanguageCode()
 export type Language =
-  | "af-ZA"
-  | "am-ET"
-  | "ar-AR" // Arabic (generic)
-  | "ar-DZ"
-  | "ar-EG"
-  | "ar-SA"
-  | "ar-AE"
-  | "ar-BH"
-  | "ar-JO"
-  | "ar-IQ"
-  | "ar-KW"
-  | "ar-LB"
-  | "az-AZ"
-  | "bg-BG"
-  | "bn-BD"
-  | "bn-IN"
-  | "bs-BA"
-  | "ca-ES"
-  | "cs-CZ"
-  | "cy-GB"
-  | "da-DK"
-  | "de-AT"
-  | "de-CH"
-  | "de-DE"
-  | "el-GR"
-  | "en-AU"
-  | "en-GB"
-  | "en-IE"
-  | "en-IN"
-  | "en-US"
-  | "es-ES"
-  | "es-MX"
-  | "et-EE"
-  | "eu-ES"
-  | "fa-IR"
-  | "fi-FI"
-  | "fil-PH"
-  | "fr-BE"
-  | "fr-CA"
-  | "fr-CH"
-  | "fr-FR"
-  | "ga-IE"
-  | "gl-ES"
-  | "gu-IN"
-  | "he-IL"
-  | "hi-IN"
-  | "hr-HR"
-  | "hu-HU"
-  | "hy-AM"
-  | "id-ID"
-  | "is-IS"
-  | "it-IT"
-  | "ja-JP"
-  | "jv-ID"
-  | "ka-GE"
-  | "kk-KZ"
-  | "km-KH"
-  | "kn-IN"
-  | "ko-KR"
-  | "lo-LA"
-  | "lt-LT"
-  | "lv-LV"
-  | "mk-MK"
-  | "ml-IN"
-  | "mn-MN"
-  | "mr-IN"
-  | "ms-MY"
-  | "mt-MT"
-  | "multi-LINGUAL"
-  | "my-MM"
-  | "nb-NO"
-  | "ne-NP"
-  | "nl-BE"
-  | "nl-NL"
-  | "pl-PL"
-  | "ps-AF"
-  | "pt-BR"
-  | "pt-PT"
-  | "ro-RO"
-  | "ru-RU"
-  | "si-LK"
-  | "sk-SK"
-  | "sl-SI"
-  | "so-SO"
-  | "sq-AL"
-  | "sr-RS"
-  | "su-ID"
-  | "sv-SE"
-  | "sw-KE"
-  | "ta-IN"
-  | "te-IN"
-  | "th-TH"
-  | "tr-TR"
-  | "uk-UA"
-  | "ur-PK"
-  | "uz-UZ"
-  | "vi-VN"
-  | "wuu-CN"
-  | "yue-CN"
-  | "zh-CN"
-  | "zh-HK"
-  | "zh-TW"
-  | "zu-ZA";
+  | "af" // Afrikaans
+  | "am" // Amharic  
+  | "ar" // Arabic (unified)
+  | "az" // Azerbaijani
+  | "bg" // Bulgarian
+  | "bn" // Bengali
+  | "bs" // Bosnian
+  | "ca" // Catalan
+  | "cs" // Czech
+  | "cy" // Welsh
+  | "da" // Danish
+  | "de" // German (unified)
+  | "el" // Greek
+  | "en" // English (unified)
+  | "es" // Spanish (unified)
+  | "et" // Estonian
+  | "eu" // Basque
+  | "fa" // Persian
+  | "fi" // Finnish
+  | "fil" // Filipino
+  | "fr" // French (unified)
+  | "ga" // Irish
+  | "gl" // Galician
+  | "gu" // Gujarati
+  | "he" // Hebrew
+  | "hi" // Hindi
+  | "hr" // Croatian
+  | "hu" // Hungarian
+  | "hy" // Armenian
+  | "id" // Indonesian
+  | "is" // Icelandic
+  | "it" // Italian
+  | "ja" // Japanese
+  | "jv" // Javanese
+  | "ka" // Georgian
+  | "kk" // Kazakh
+  | "km" // Khmer
+  | "kn" // Kannada
+  | "ko" // Korean
+  | "lo" // Lao
+  | "lt" // Lithuanian
+  | "lv" // Latvian
+  | "mk" // Macedonian
+  | "ml" // Malayalam
+  | "mn" // Mongolian
+  | "mr" // Marathi
+  | "ms" // Malay
+  | "mt" // Maltese
+  | "multi" // Multilingual
+  | "my" // Burmese
+  | "nb" // Norwegian Bokmål 
+  | "ne" // Nepali
+  | "nl" // Dutch
+  | "no" // Norwegian (normalized from nb)
+  | "pl" // Polish
+  | "ps" // Pashto
+  | "pt" // Portuguese (unified)
+  | "ro" // Romanian
+  | "ru" // Russian
+  | "si" // Sinhala
+  | "sk" // Slovak
+  | "sl" // Slovenian
+  | "so" // Somali
+  | "sq" // Albanian
+  | "sr" // Serbian
+  | "su" // Sundanese
+  | "sv" // Swedish
+  | "sw" // Swahili
+  | "ta" // Tamil
+  | "te" // Telugu
+  | "th" // Thai
+  | "tl" // Tagalog
+  | "tr" // Turkish
+  | "uk" // Ukrainian
+  | "ur" // Urdu
+  | "uz" // Uzbek
+  | "vi" // Vietnamese
+  | "zh" // Chinese (unified)
+  | "zu"; // Zulu

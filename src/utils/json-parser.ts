@@ -8,8 +8,12 @@ interface ScriptVoiceItem {
   text: string;
   playAfter?: string;
   overlap?: number;
-  style?: string;
-  useCase?: string;
+  // Provider-specific fields
+  style?: string;              // Lovo emotional style
+  useCase?: string;            // Lovo use case  
+  description?: string;        // ElevenLabs emotional tone
+  use_case?: string;           // ElevenLabs use case
+  voiceInstructions?: string;  // OpenAI voice control instructions
 }
 
 interface ScriptSoundFxItem {
@@ -190,8 +194,10 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
               gender: null,
             },
             text: item.text,
-            style: item.style,
-            useCase: item.useCase,
+            // Handle provider-specific emotional dimensions
+            style: item.style || item.description,           // Lovo uses style, ElevenLabs uses description
+            useCase: item.useCase || item.use_case,          // Lovo uses useCase, ElevenLabs uses use_case
+            voiceInstructions: item.voiceInstructions,       // OpenAI only
           };
 
           // Add timing information if provided
@@ -251,6 +257,10 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
                   gender: null,
                 },
                 text: element.text,
+                // Handle provider-specific emotional dimensions
+                style: element.style || element.description,           // Lovo uses style, ElevenLabs uses description
+                useCase: element.useCase || element.use_case,          // Lovo uses useCase, ElevenLabs uses use_case
+                voiceInstructions: element.voiceInstructions,          // OpenAI only
                 isConcurrent: true, // Mark as concurrent so mixer can handle it specially
               };
 

@@ -12,6 +12,10 @@ export interface VoiceTrack {
   playAfter?: string;
   overlap?: number;
   isConcurrent?: boolean;
+  // Add voice control properties
+  style?: string; // For Lovo, ElevenLabs style variants
+  useCase?: string; // General use case info
+  voiceInstructions?: string; // OpenAI-specific detailed voice instructions
 }
 
 // Check if SoundFxPrompt needs duration property and add it

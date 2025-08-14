@@ -18,6 +18,8 @@ type MusicPanelProps = {
   statusMessage?: string;
   initialPrompt?: string;
   adDuration: number;
+  musicProvider: MusicProvider;
+  setMusicProvider: (provider: MusicProvider) => void;
   resetForm: () => void;
 };
 
@@ -27,11 +29,12 @@ export function MusicPanel({
   statusMessage: parentStatusMessage,
   initialPrompt = "",
   adDuration,
+  musicProvider,
+  setMusicProvider,
   resetForm,
 }: MusicPanelProps) {
   const [prompt, setPrompt] = useState(initialPrompt);
-  const [provider, setProvider] = useState<MusicProvider>("loudly");
-  const [duration, setDuration] = useState(adDuration);
+  const [duration, setDuration] = useState(adDuration + 5);
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
 
   // Update prompt when initialPrompt changes
@@ -39,9 +42,9 @@ export function MusicPanel({
     setPrompt(initialPrompt);
   }, [initialPrompt]);
 
-  // Update duration when adDuration changes
+  // Update duration when adDuration changes - add 5 seconds for smoother fade
   useEffect(() => {
-    setDuration(adDuration);
+    setDuration(adDuration + 5);
   }, [adDuration]);
 
   // Update local status message when parent status message changes
@@ -60,20 +63,20 @@ export function MusicPanel({
   // Handle local reset
   const handleReset = () => {
     setPrompt("");
-    setProvider("loudly");
-    setDuration(adDuration);
+    setMusicProvider("loudly");
+    setDuration(adDuration + 5);
     setLocalStatusMessage("");
     resetForm();
   };
 
   const handleGenerate = () => {
     // For Loudly, we need to round to the nearest 15 seconds
-    if (provider === "loudly") {
+    if (musicProvider === "loudly") {
       const roundedDuration = Math.round(duration / 15) * 15;
-      onGenerate(prompt, provider, roundedDuration);
+      onGenerate(prompt, musicProvider, roundedDuration);
     } else {
       // For Mubert, we pass the exact duration
-      onGenerate(prompt, provider, duration);
+      onGenerate(prompt, musicProvider, duration);
     }
   };
 
@@ -142,8 +145,8 @@ export function MusicPanel({
         <div className="space-y-12">
           <GlassyOptionPicker
             label="AI Music Provider"
-            value={provider}
-            onChange={setProvider}
+            value={musicProvider}
+            onChange={setMusicProvider}
             options={providerOptions}
           />
 
@@ -153,13 +156,13 @@ export function MusicPanel({
             onChange={setDuration}
             min={15}
             max={120}
-            step={provider === "loudly" ? 15 : 5}
+            step={musicProvider === "loudly" ? 15 : 5}
             formatLabel={(val) =>
               `${val} seconds${
-                provider === "loudly" && val % 15 !== 0
+                musicProvider === "loudly" && val % 15 !== 0
                   ? " (will be rounded to nearest 15s)"
                   : ""
-              }`
+              }${val === adDuration + 5 ? " (recommended)" : ""}`
             }
             tickMarks={[
               { value: 15, label: "15s" },

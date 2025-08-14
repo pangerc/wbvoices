@@ -122,7 +122,7 @@ export function SoundFxPanel({
     console.log(
       `Sound effect component initialized with ad duration ${adDuration}s, but using fixed defaults instead`
     );
-  }, []);
+  }, [adDuration]);
 
   return (
     <div className="py-8 text-white">

@@ -1,103 +1,86 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createMix, TrackTiming } from "@/utils/audio-mixer";
+import { useMixerStore, MixerTrack } from "@/store/mixerStore";
+import {
+  TimelineTrack,
+  TimelineTrackData,
+  getDefaultVolumeForType,
+} from "@/components/TimelineTrack";
 import { ResetButton } from "@/components/ui/ResetButton";
-
-// Helper function to clean track labels
-function cleanTrackLabel(label: string): string {
-  // Remove duration indicators like (30s), (15s), etc.
-  return label.replace(/\s*\(\d+s\)\s*$/i, "");
-}
-
-type Track = {
-  url: string;
-  label: string;
-  type: "voice" | "music" | "soundfx";
-  // Timing properties
-  startTime?: number;
-  duration?: number;
-  playAfter?: string;
-  overlap?: number;
-  // Volume control
-  volume?: number;
-  // Concurrent speech grouping
-  concurrentGroup?: string;
-  isConcurrent?: boolean;
-  // Loading state
-  isLoading?: boolean;
-};
+import { VolumeToggleButton } from "@/components/ui/VolumeToggleButton";
+import { PlayButton } from "@/components/ui/PlayButton";
 
 type MixerPanelProps = {
-  tracks: Track[];
-  onRemoveTrack?: (index: number) => void;
-  resetForm: () => void;
-  // Add props to indicate which asset types are being generated
   isGeneratingVoice?: boolean;
   isGeneratingMusic?: boolean;
   isGeneratingSoundFx?: boolean;
+  resetForm: () => void;
 };
 
 export function MixerPanel({
-  tracks,
-  onRemoveTrack,
-  resetForm,
   isGeneratingVoice = false,
   isGeneratingMusic = false,
   isGeneratingSoundFx = false,
+  resetForm,
 }: MixerPanelProps) {
-  const [isExporting, setIsExporting] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  // Track loading states
-  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>(
-    {}
-  );
+  // Get data and actions from store
+  const {
+    tracks,
+    calculatedTracks,
+    totalDuration,
+    trackVolumes,
+    audioErrors,
+    loadingStates,
+    isExporting,
+    previewUrl,
+    // We'll use removeTrack later when implementing full error handling
+    // removeTrack,
+    setTrackVolume,
+    setTrackLoading,
+    setTrackError,
+    setAudioDuration,
+    setPreviewUrl,
+    setIsExporting,
+    clearTracks,
+  } = useMixerStore();
+
+  // Reference to the timeline container for measuring width
+  const timelineRef = useRef<HTMLDivElement>(null);
+
+  // Track references map for audio elements
+  const audioRefs = useRef<{ [key: string]: HTMLAudioElement | null }>({});
+
+  // Separate tracks by type for easier rendering
   const voiceTracks = tracks.filter((track) => track.type === "voice");
   const musicTracks = tracks.filter((track) => track.type === "music");
   const soundFxTracks = tracks.filter((track) => {
     if (track.type !== "soundfx") return false;
 
     // Basic URL validation - this helps filter out placeholder tracks
-    return (
+    const hasValidUrl =
       track.url &&
       (track.url.startsWith("blob:") ||
         track.url.startsWith("http:") ||
-        track.url.startsWith("https:"))
-    );
+        track.url.startsWith("https:"));
+
+    // Debug soundFx URL validation
+    console.log(`SoundFx track "${track.label}" URL validation:`, {
+      id: track.id,
+      url: track.url,
+      isValid: hasValidUrl,
+    });
+
+    return hasValidUrl;
   });
 
-  // Track which URLs have errors
-  const [audioErrors, setAudioErrors] = useState<{ [url: string]: boolean }>(
-    {}
-  );
-  // Track references map for audio elements
-  const audioRefs = useRef<{ [key: string]: HTMLAudioElement | null }>({});
-  // Preserve existing audio references when tracks change
-  const prevTracksRef = useRef<Track[]>([]);
-
-  // Track volume controls (default values)
-  const [trackVolumes, setTrackVolumes] = useState<{ [url: string]: number }>(
-    {}
-  );
-
-  // State for track timing calculation
-  const [calculatedTracks, setCalculatedTracks] = useState<
-    Array<Track & { actualStartTime: number; actualDuration: number }>
-  >([]);
-  const [totalDuration, setTotalDuration] = useState(0);
-
-  // Reference to the timeline container for measuring width
-  const timelineRef = useRef<HTMLDivElement>(null);
-
   // Handle audio error
-  const handleAudioError = (url: string, label: string) => {
+  const handleAudioError = (id: string, label: string) => {
     console.error(`Error with audio for ${label}`);
-    setAudioErrors((prev) => ({
-      ...prev,
-      [url]: true,
-    }));
+    setTrackError(id, true);
 
     // Schedule a retry after a short delay
     setTimeout(() => {
-      const audio = audioRefs.current[url];
+      const audio = audioRefs.current[id];
       if (audio) {
         console.log(`Retrying load for ${label}...`);
         audio.load();
@@ -106,24 +89,24 @@ export function MixerPanel({
   };
 
   // Check if a track is in a loading state
-  const isTrackLoading = (track: Track) => {
+  const isTrackLoading = (track: MixerTrack) => {
     // If audio has already loaded or errors are cleared, never show loading
-    const audioElement = audioRefs.current[track.url];
+    const audioElement = audioRefs.current[track.id];
     if (audioElement && audioElement.readyState >= 3) return false;
 
     // If there's an error loading this track, don't show loading animation
-    if (audioErrors[track.url]) return false;
+    if (audioErrors[track.id]) return false;
 
     // If the track is explicitly marked as loaded, don't show loading
-    if (loadingStates[track.url] === false) return false;
+    if (loadingStates[track.id] === false) return false;
 
     // For tracks that appear in the timeline view, never show as loading
-    const calculatedTrack = calculatedTracks.find((t) => t.url === track.url);
+    const calculatedTrack = calculatedTracks.find((t) => t.id === track.id);
     if (calculatedTrack) return false;
 
     // Check track-specific loading state first
     if (track.isLoading) return true;
-    if (loadingStates[track.url]) return true;
+    if (loadingStates[track.id]) return true;
 
     // Only check global generation state for tracks that don't have readyState or haven't been processed
     if (!audioElement) {
@@ -136,136 +119,83 @@ export function MixerPanel({
   };
 
   // Track when audio becomes available - mark as loaded
-  const handleAudioLoaded = (url: string) => {
-    console.log(`Audio loaded for ${url}`);
-    setLoadingStates((prev) => {
-      const updated = { ...prev };
-      updated[url] = false; // Explicitly mark as NOT loading (rather than deleting)
-      return updated;
-    });
+  const handleAudioLoaded = (id: string) => {
+    console.log(`Audio loaded for ${id}`);
+    setTrackLoading(id, false);
 
     // Also clear any errors
-    if (audioErrors[url]) {
-      setAudioErrors((prev) => {
-        const updated = { ...prev };
-        delete updated[url];
-        return updated;
-      });
+    if (audioErrors[id]) {
+      setTrackError(id, false);
     }
-  };
-
-  // Update loading states when tracks change
-  useEffect(() => {
-    // Determine which tracks are new by comparing with previous tracks
-    const prevUrls = new Set(prevTracksRef.current.map((t) => t.url));
-    const newTracks = tracks.filter((t) => !prevUrls.has(t.url));
-
-    // Mark new tracks as loading
-    if (newTracks.length > 0) {
-      const newLoadingStates: Record<string, boolean> = {};
-      newTracks.forEach((track) => {
-        newLoadingStates[track.url] = true;
-      });
-      setLoadingStates((prev) => ({ ...prev, ...newLoadingStates }));
-    }
-
-    // Update the previous tracks reference
-    prevTracksRef.current = [...tracks];
-  }, [tracks]);
-
-  // Initialize track volumes with defaults based on type
-  useEffect(() => {
-    const initialVolumes: { [url: string]: number } = {};
-    tracks.forEach((track) => {
-      if (!trackVolumes[track.url]) {
-        switch (track.type) {
-          case "voice":
-            initialVolumes[track.url] = track.volume || 1.0;
-            break;
-          case "music":
-            initialVolumes[track.url] = track.volume || 0.25;
-            break;
-          case "soundfx":
-            initialVolumes[track.url] = track.volume || 0.7;
-            break;
-        }
-      }
-    });
-
-    if (Object.keys(initialVolumes).length > 0) {
-      setTrackVolumes((prev) => ({ ...prev, ...initialVolumes }));
-    }
-  }, [tracks]);
-
-  // Handle volume change
-  const handleVolumeChange = (url: string, volume: number) => {
-    setTrackVolumes((prev) => ({
-      ...prev,
-      [url]: volume,
-    }));
   };
 
   // Build audio refs for each track
   useEffect(() => {
-    // Preserve existing audio elements
-    const existingRefs = audioRefs.current;
-
     // Create audio elements to measure actual durations
     tracks.forEach((track) => {
-      // If we already have a working audio element for this URL, don't recreate it
-      if (existingRefs[track.url] && !audioErrors[track.url]) {
+      // If we already have a working audio element for this track, don't recreate it
+      if (audioRefs.current[track.id] && !audioErrors[track.id]) {
         // If it's already loaded, mark it as loaded in our state
-        const existingAudio = existingRefs[track.url];
+        const existingAudio = audioRefs.current[track.id];
         if (existingAudio && existingAudio.readyState >= 3) {
-          handleAudioLoaded(track.url);
+          handleAudioLoaded(track.id);
         }
         return;
       }
 
-      if (!audioRefs.current[track.url]) {
+      if (!audioRefs.current[track.id]) {
         const audio = new Audio(track.url);
 
         // Add error handling for blob URL issues
         audio.onerror = () => {
-          handleAudioError(track.url, track.label);
+          handleAudioError(track.id, track.label);
           // We'll keep the reference to retry loading later
         };
 
         // Handle successful load
         audio.onloadeddata = () => {
-          handleAudioLoaded(track.url);
+          handleAudioLoaded(track.id);
         };
 
         // Also handle canplaythrough event
         audio.oncanplaythrough = () => {
-          handleAudioLoaded(track.url);
+          handleAudioLoaded(track.id);
         };
 
-        audioRefs.current[track.url] = audio;
+        audioRefs.current[track.id] = audio;
 
         // Add event listener to update duration when metadata is loaded
         audio.addEventListener("loadedmetadata", () => {
           if (audio.duration && !isNaN(audio.duration)) {
-            // Clear any previous error for this URL
-            if (audioErrors[track.url]) {
-              setAudioErrors((prev) => {
-                const updated = { ...prev };
-                delete updated[track.url];
-                return updated;
-              });
+            // Clear any previous error for this track
+            if (audioErrors[track.id]) {
+              setTrackError(track.id, false);
             }
-            // Recalculate timing with actual duration
-            calculateTimingWithActualDurations();
+            // Save actual duration
+            setAudioDuration(track.id, audio.duration);
+
+            // Debug sound FX track durations
+            if (track.type === "soundfx") {
+              console.log(
+                `Setting duration for soundFx track "${track.label}":`,
+                {
+                  id: track.id,
+                  actualDuration: audio.duration,
+                  url: track.url,
+                }
+              );
+            }
+
             // Mark as loaded
-            handleAudioLoaded(track.url);
+            handleAudioLoaded(track.id);
           }
         });
 
         // Force load metadata
         audio.load();
-      } else if (audioRefs.current[track.url]) {
+      } else if (audioRefs.current[track.id]) {
         // Always try to reload, even if no error, to ensure proper loading
-        const audio = audioRefs.current[track.url];
+        const audio = audioRefs.current[track.id];
         if (audio) {
           audio.load();
         }
@@ -274,11 +204,11 @@ export function MixerPanel({
 
     // Set up auto-retry mechanism for all tracks
     const retryTimeout = setTimeout(() => {
-      const hasErrors = Object.keys(audioErrors).length > 0;
-      if (hasErrors) {
+      const errorIds = Object.keys(audioErrors).filter((id) => audioErrors[id]);
+      if (errorIds.length > 0) {
         console.log("Auto-retrying failed audio loads...");
-        Object.keys(audioErrors).forEach((url) => {
-          const audio = audioRefs.current[url];
+        errorIds.forEach((id) => {
+          const audio = audioRefs.current[id];
           if (audio) {
             audio.load();
           }
@@ -289,111 +219,8 @@ export function MixerPanel({
     // Cleanup function
     return () => {
       clearTimeout(retryTimeout);
-
-      // Don't remove the audio elements when the component reloads
-      // Just clean up event listeners
-      Object.values(audioRefs.current).forEach((audio) => {
-        if (audio) {
-          audio.removeEventListener(
-            "loadedmetadata",
-            calculateTimingWithActualDurations
-          );
-        }
-      });
     };
-  }, [tracks, audioErrors]);
-
-  // Function to get actual duration from an audio element
-  const getActualDuration = (url: string): number => {
-    const audio = audioRefs.current[url];
-    if (audio && audio.duration && !isNaN(audio.duration)) {
-      return audio.duration;
-    }
-    return 3; // Default to 3 seconds if duration not available
-  };
-
-  // Calculate timing with actual durations from audio elements
-  const calculateTimingWithActualDurations = () => {
-    if (tracks.length === 0) {
-      setCalculatedTracks([]);
-      setTotalDuration(0);
-      return;
-    }
-
-    // Filter out invalid tracks (like ones with invalid or missing URLs)
-    const validTracks = tracks.filter((track) => {
-      const audio = audioRefs.current[track.url];
-      if (!audio) return false;
-
-      // Validate URL - must be a valid blob or http URL
-      if (
-        !track.url ||
-        !(
-          track.url.startsWith("blob:") ||
-          track.url.startsWith("http:") ||
-          track.url.startsWith("https:")
-        )
-      ) {
-        return false;
-      }
-
-      return true;
-    });
-
-    // Calculate timing relationship for tracks with actual durations
-    const tracksWithTiming = calculateTrackTiming(validTracks);
-    setCalculatedTracks(tracksWithTiming);
-
-    // Calculate total duration - use the latest end time
-    if (tracksWithTiming.length === 0) {
-      setTotalDuration(0);
-    } else {
-      const maxEndTime = Math.max(
-        ...tracksWithTiming.map((t) => t.actualStartTime + t.actualDuration)
-      );
-      setTotalDuration(Math.ceil(maxEndTime));
-    }
-  };
-
-  // Calculate track timing on component mount and when tracks change
-  useEffect(() => {
-    if (tracks.length === 0) {
-      setCalculatedTracks([]);
-      setTotalDuration(0);
-      return;
-    }
-
-    // Filter out invalid tracks
-    const validTracks = tracks.filter((track) => {
-      // Validate URL - must be a valid blob or http URL
-      if (
-        !track.url ||
-        !(
-          track.url.startsWith("blob:") ||
-          track.url.startsWith("http:") ||
-          track.url.startsWith("https:")
-        )
-      ) {
-        return false;
-      }
-
-      return true;
-    });
-
-    // Initial calculation (will be updated when audio metadata loads)
-    const tracksWithTiming = calculateTrackTiming(validTracks);
-    setCalculatedTracks(tracksWithTiming);
-
-    // Calculate total duration
-    if (tracksWithTiming.length === 0) {
-      setTotalDuration(0);
-    } else {
-      const maxEndTime = Math.max(
-        ...tracksWithTiming.map((t) => t.actualStartTime + t.actualDuration)
-      );
-      setTotalDuration(Math.ceil(maxEndTime));
-    }
-  }, [tracks]);
+  }, [tracks, audioErrors]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle local reset
   const handleReset = () => {
@@ -402,466 +229,12 @@ export function MixerPanel({
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
     }
+
+    // Clear all tracks
+    clearTracks();
+
+    // Call parent reset
     resetForm();
-  };
-
-  // Modify the calculateTrackTiming function to handle music and sound effect timing better
-  const calculateTrackTiming = (
-    trackList: Track[]
-  ): Array<Track & { actualStartTime: number; actualDuration: number }> => {
-    const result: Array<
-      Track & {
-        actualStartTime: number;
-        actualDuration: number;
-      }
-    > = [];
-
-    // Guard against empty track list
-    if (!trackList || trackList.length === 0) {
-      return result;
-    }
-
-    // We'll use this map to keep track of calculated start times
-    const trackStartTimes = new Map<string, number>();
-
-    // First, identify groups of concurrent tracks
-    const concurrentGroups = new Map<string, Track[]>();
-
-    // Identify tracks with explicit start times first
-    trackList.forEach((track) => {
-      if (track.startTime !== undefined) {
-        const actualDuration = getActualDuration(track.url);
-        result.push({
-          ...track,
-          actualStartTime: track.startTime,
-          actualDuration: track.duration || actualDuration,
-        });
-        trackStartTimes.set(track.url, track.startTime);
-      }
-    });
-
-    // Group concurrent tracks
-    trackList.forEach((track) => {
-      if (
-        track.isConcurrent &&
-        track.concurrentGroup &&
-        !trackStartTimes.has(track.url)
-      ) {
-        if (!concurrentGroups.has(track.concurrentGroup)) {
-          concurrentGroups.set(track.concurrentGroup, []);
-        }
-        concurrentGroups.get(track.concurrentGroup)?.push(track);
-      }
-    });
-
-    // Process voice tracks first (prioritize voices)
-    const voiceTracks = trackList.filter(
-      (t) =>
-        t.type === "voice" &&
-        !trackStartTimes.has(t.url) &&
-        (!t.isConcurrent || !t.concurrentGroup)
-    );
-    if (voiceTracks.length > 0) {
-      // Position the first voice track at the beginning if not explicitly positioned
-      const firstVoice = voiceTracks[0];
-      if (firstVoice && !trackStartTimes.has(firstVoice.url)) {
-        const actualDuration = getActualDuration(firstVoice.url);
-        result.push({
-          ...firstVoice,
-          actualStartTime: 0,
-          actualDuration: firstVoice.duration || actualDuration,
-        });
-        trackStartTimes.set(firstVoice.url, 0);
-
-        // Process the rest of the voice tracks
-        let currentTime = firstVoice.duration || actualDuration;
-        for (let i = 1; i < voiceTracks.length; i++) {
-          const voiceTrack = voiceTracks[i];
-          if (trackStartTimes.has(voiceTrack.url)) continue;
-
-          if (voiceTrack.playAfter) {
-            // Use playAfter logic for this voice track
-            let startTime = currentTime;
-            if (voiceTrack.playAfter === "previous") {
-              // Play after the previous voice track
-              const prevTrack = voiceTracks[i - 1];
-              if (trackStartTimes.has(prevTrack.url)) {
-                const prevStart = trackStartTimes.get(prevTrack.url) || 0;
-                const prevDuration =
-                  prevTrack.duration || getActualDuration(prevTrack.url);
-                startTime = prevStart + prevDuration;
-
-                // Apply overlap if specified
-                if (voiceTrack.overlap && voiceTrack.overlap > 0) {
-                  startTime = Math.max(
-                    prevStart,
-                    startTime - voiceTrack.overlap
-                  );
-                }
-              }
-            } else {
-              // Find referenced track by URL
-              const refTrack = trackList.find(
-                (t) => t.url === voiceTrack.playAfter
-              );
-              if (refTrack && trackStartTimes.has(refTrack.url)) {
-                const refStart = trackStartTimes.get(refTrack.url) || 0;
-                const refDuration =
-                  refTrack.duration || getActualDuration(refTrack.url);
-                startTime = refStart + refDuration;
-
-                // Apply overlap if specified
-                if (voiceTrack.overlap && voiceTrack.overlap > 0) {
-                  startTime = Math.max(
-                    refStart,
-                    startTime - voiceTrack.overlap
-                  );
-                }
-              }
-            }
-
-            const actualDuration = getActualDuration(voiceTrack.url);
-            result.push({
-              ...voiceTrack,
-              actualStartTime: startTime,
-              actualDuration: actualDuration || voiceTrack.duration || 3,
-            });
-            trackStartTimes.set(voiceTrack.url, startTime);
-            currentTime = startTime + (voiceTrack.duration || actualDuration);
-          } else {
-            // Sequential placement
-            const actualDuration = getActualDuration(voiceTrack.url);
-            result.push({
-              ...voiceTrack,
-              actualStartTime: currentTime,
-              actualDuration: actualDuration || voiceTrack.duration || 3,
-            });
-            trackStartTimes.set(voiceTrack.url, currentTime);
-            currentTime += voiceTrack.duration || actualDuration;
-          }
-        }
-      }
-    }
-
-    // Process concurrent voice groups
-    concurrentGroups.forEach((groupTracks) => {
-      if (groupTracks.length === 0) return;
-
-      // Determine start time based on playAfter/overlap of first track in group
-      const firstTrack = groupTracks[0];
-      let groupStartTime = 0;
-
-      if (firstTrack.playAfter) {
-        if (firstTrack.playAfter === "previous") {
-          // Find the latest end time of tracks processed so far
-          if (result.length > 0) {
-            const latestEndTime = Math.max(
-              ...result.map((t) => t.actualStartTime + t.actualDuration)
-            );
-            groupStartTime = latestEndTime;
-
-            // Apply overlap if specified
-            if (firstTrack.overlap && firstTrack.overlap > 0) {
-              groupStartTime = Math.max(0, groupStartTime - firstTrack.overlap);
-            }
-          }
-        } else {
-          // Look for specific track to play after
-          const refTrackUrl = firstTrack.playAfter;
-          const refTrackIndex = result.findIndex((t) => t.url === refTrackUrl);
-
-          if (refTrackIndex !== -1) {
-            const refTrack = result[refTrackIndex];
-            groupStartTime = refTrack.actualStartTime + refTrack.actualDuration;
-
-            // Apply overlap if specified
-            if (firstTrack.overlap && firstTrack.overlap > 0) {
-              groupStartTime = Math.max(
-                refTrack.actualStartTime,
-                groupStartTime - firstTrack.overlap
-              );
-            }
-          }
-        }
-      } else if (result.length === 0) {
-        // If no other tracks are placed yet, start at the beginning
-        groupStartTime = 0;
-      } else {
-        // Default: place after the last track
-        groupStartTime = Math.max(
-          ...result.map((t) => t.actualStartTime + t.actualDuration)
-        );
-      }
-
-      // Place all tracks in the concurrent group at the same starting point
-      groupTracks.forEach((track) => {
-        const actualDuration = getActualDuration(track.url);
-        result.push({
-          ...track,
-          actualStartTime: groupStartTime,
-          actualDuration: actualDuration || track.duration || 3,
-        });
-        trackStartTimes.set(track.url, groupStartTime);
-      });
-    });
-
-    // Now handle music tracks - place at beginning or alongside voice tracks
-    const musicTrack = trackList.find(
-      (t) => t.type === "music" && !trackStartTimes.has(t.url)
-    );
-    if (musicTrack) {
-      // Music starts at the beginning by default
-      const startTime = 0;
-      const actualDuration = getActualDuration(musicTrack.url);
-
-      // Find the end time of the last voice track
-      const lastVoiceEndTime = result
-        .filter((t) => t.type === "voice")
-        .reduce((maxEnd, track) => {
-          const end = track.actualStartTime + track.actualDuration;
-          return Math.max(maxEnd, end);
-        }, 0);
-
-      // If we have voice tracks, fade out music 2-3 seconds after the last voice ends
-      // Otherwise use full music duration
-      let adjustedDuration = actualDuration;
-      if (lastVoiceEndTime > 0) {
-        // Add a small amount (2-3 seconds) of music after the last voice ends
-        adjustedDuration = Math.min(actualDuration, lastVoiceEndTime + 3);
-      }
-
-      result.push({
-        ...musicTrack,
-        actualStartTime: startTime,
-        actualDuration: adjustedDuration || actualDuration || 3,
-      });
-      trackStartTimes.set(musicTrack.url, startTime);
-    }
-
-    // Handle sound FX tracks with relative positioning
-    trackList
-      .filter((t) => t.type === "soundfx" && !trackStartTimes.has(t.url))
-      .forEach((track) => {
-        // First, check if this is the final sound effect
-        const soundFxTracks = trackList.filter(
-          (t) =>
-            t.type === "soundfx" &&
-            (t.url.startsWith("blob:") ||
-              t.url.startsWith("http:") ||
-              t.url.startsWith("https:"))
-        );
-        const isFinalSoundEffect =
-          soundFxTracks.indexOf(track) === soundFxTracks.length - 1;
-
-        // Find the end time of all voice tracks
-        const voiceTracks = result.filter((t) => t.type === "voice");
-        const lastVoiceEndTime =
-          voiceTracks.length > 0
-            ? Math.max(
-                ...voiceTracks.map((t) => t.actualStartTime + t.actualDuration)
-              )
-            : 0;
-
-        if (track.startTime !== undefined) {
-          // Handle explicit start times
-          const actualDuration = getActualDuration(track.url);
-          result.push({
-            ...track,
-            actualStartTime: track.startTime,
-            actualDuration: actualDuration || track.duration || 3,
-          });
-          trackStartTimes.set(track.url, track.startTime);
-        } else if (track.playAfter) {
-          // Special case: If playAfter is "start", position at the beginning
-          if (track.playAfter === "start") {
-            const actualDuration = getActualDuration(track.url);
-            result.push({
-              ...track,
-              actualStartTime: 0, // Position at the start of the timeline
-              actualDuration: actualDuration || track.duration || 3,
-            });
-            trackStartTimes.set(track.url, 0);
-          } else if (track.playAfter === "previous") {
-            // Find the previous track in the list
-            const trackIndex = trackList.indexOf(track);
-            let referenceTrack: Track | undefined;
-
-            if (trackIndex > 0) {
-              referenceTrack = trackList[trackIndex - 1];
-            } else if (result.length > 0) {
-              // If this is the first track but we already have placed tracks, use the last placed track
-              referenceTrack = result[result.length - 1];
-            }
-
-            if (referenceTrack && trackStartTimes.has(referenceTrack.url)) {
-              const referenceStartTime =
-                trackStartTimes.get(referenceTrack.url) || 0;
-              const referenceDuration =
-                referenceTrack.duration ||
-                getActualDuration(referenceTrack.url);
-              const referenceEndTime = referenceStartTime + referenceDuration;
-
-              // Calculate start time based on playAfter and overlap
-              let startTime = referenceEndTime;
-              if (track.overlap && track.overlap > 0) {
-                startTime = Math.max(
-                  referenceStartTime,
-                  referenceEndTime - track.overlap
-                );
-              }
-
-              const actualDuration = getActualDuration(track.url);
-              const duration = actualDuration || track.duration || 3;
-              result.push({
-                ...track,
-                actualStartTime: startTime,
-                actualDuration: duration,
-              });
-
-              trackStartTimes.set(track.url, startTime);
-            } else {
-              // If reference track not found, place after all voice tracks
-              const startTime = lastVoiceEndTime > 0 ? lastVoiceEndTime : 0;
-              const actualDuration = getActualDuration(track.url);
-              result.push({
-                ...track,
-                actualStartTime: startTime,
-                actualDuration: actualDuration || track.duration || 3,
-              });
-              trackStartTimes.set(track.url, startTime);
-            }
-          } else {
-            // Find by URL
-            let referenceTrack = trackList.find(
-              (t) => t.url === track.playAfter
-            );
-
-            // If not found by URL, try finding a voice with that ID (might be a voice ID)
-            if (!referenceTrack) {
-              referenceTrack = trackList.find(
-                (t) =>
-                  t.type === "voice" && t.label.includes(track.playAfter || "")
-              );
-            }
-
-            if (referenceTrack && trackStartTimes.has(referenceTrack.url)) {
-              const referenceStartTime =
-                trackStartTimes.get(referenceTrack.url) || 0;
-              const referenceDuration =
-                referenceTrack.duration ||
-                getActualDuration(referenceTrack.url);
-              const referenceEndTime = referenceStartTime + referenceDuration;
-
-              // Calculate start time based on playAfter and overlap
-              let startTime = referenceEndTime;
-              if (track.overlap && track.overlap > 0) {
-                startTime = Math.max(
-                  referenceStartTime,
-                  referenceEndTime - track.overlap
-                );
-              }
-
-              const actualDuration = getActualDuration(track.url);
-              const duration = actualDuration || track.duration || 3;
-              result.push({
-                ...track,
-                actualStartTime: startTime,
-                actualDuration: duration,
-              });
-
-              trackStartTimes.set(track.url, startTime);
-            } else {
-              // If reference track not found, place after all voice tracks
-              const startTime = lastVoiceEndTime > 0 ? lastVoiceEndTime : 0;
-              const actualDuration = getActualDuration(track.url);
-              result.push({
-                ...track,
-                actualStartTime: startTime,
-                actualDuration: actualDuration || track.duration || 3,
-              });
-              trackStartTimes.set(track.url, startTime);
-            }
-          }
-        } else if (isFinalSoundEffect && lastVoiceEndTime > 0) {
-          // Special case for final sound effect with no timing
-          const actualDuration = getActualDuration(track.url);
-          // Position the sound effect to start slightly before the last voice ends
-          const startTime = Math.max(0, lastVoiceEndTime - 0.5);
-
-          result.push({
-            ...track,
-            actualStartTime: startTime,
-            actualDuration: actualDuration || track.duration || 3,
-          });
-          trackStartTimes.set(track.url, startTime);
-        } else {
-          // For sound effects with no explicit timing, distribute them evenly across the timeline
-          // Find the total duration of all voice tracks
-          const voiceDuration = lastVoiceEndTime;
-
-          // Place sound effects at the beginning by default, or distribute if we have multiple
-          const untimed = trackList.filter(
-            (t) =>
-              t.type === "soundfx" &&
-              !trackStartTimes.has(t.url) &&
-              !t.playAfter &&
-              t.startTime === undefined
-          );
-
-          if (untimed.length > 1) {
-            // Count how many sound effects we've already positioned with no timing info
-            const positionedCount = result.filter(
-              (t) =>
-                t.type === "soundfx" &&
-                !t.playAfter &&
-                t.startTime === undefined
-            ).length;
-
-            // Calculate position based on distribution across voice duration
-            const position = (positionedCount / untimed.length) * voiceDuration;
-            const actualDuration = getActualDuration(track.url);
-
-            result.push({
-              ...track,
-              actualStartTime: position,
-              actualDuration: actualDuration || track.duration || 3,
-            });
-            trackStartTimes.set(track.url, position);
-          } else {
-            // If it's the only sound effect with no timing, place at beginning
-            const actualDuration = getActualDuration(track.url);
-            result.push({
-              ...track,
-              actualStartTime: 0,
-              actualDuration: actualDuration || track.duration || 3,
-            });
-            trackStartTimes.set(track.url, 0);
-          }
-        }
-      });
-
-    // Process any remaining tracks
-    trackList.forEach((track) => {
-      // Skip already processed tracks
-      if (trackStartTimes.has(track.url)) return;
-
-      // Default placement - after all existing tracks
-      const latestEndTime =
-        result.length > 0
-          ? Math.max(...result.map((t) => t.actualStartTime + t.actualDuration))
-          : 0;
-
-      const actualDuration = getActualDuration(track.url);
-      const duration = actualDuration || track.duration || 3;
-      result.push({
-        ...track,
-        actualStartTime: latestEndTime,
-        actualDuration: duration,
-      });
-      trackStartTimes.set(track.url, latestEndTime);
-    });
-
-    return result;
   };
 
   const handleExport = async () => {
@@ -872,14 +245,49 @@ export function MixerPanel({
       const soundFxUrls = soundFxTracks.map((t) => t.url);
 
       // Prepare timing information for the mixer
-      const timingInfo: TrackTiming[] = calculatedTracks.map((track) => ({
-        id: track.url,
-        url: track.url,
-        type: track.type,
-        startTime: track.actualStartTime,
-        duration: track.actualDuration,
-        gain: trackVolumes[track.url],
-      }));
+      const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
+        const timing = {
+          id: track.id,
+          url: track.url,
+          type: track.type,
+          startTime: track.actualStartTime,
+          duration: track.actualDuration,
+          gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
+        };
+
+        // IMPORTANT: Use the visualized duration for music to match the timeline
+        // We used to use originalDuration here, but that creates an inconsistency
+        // between what's shown and what's heard
+        if (track.type === "music" && track.metadata?.originalDuration) {
+          // Only add a small fade-out buffer if needed
+          const playbackDuration = track.actualDuration;
+          timing.duration = playbackDuration;
+          console.log(
+            `Using visualized music duration for mixing: ${timing.duration}s (original was ${track.metadata.originalDuration}s)`
+          );
+        }
+
+        // Debug timing info
+        console.log(`Track timing for ${track.label} (${track.type}):`, {
+          startTime: timing.startTime,
+          duration: timing.duration,
+          gain: timing.gain,
+        });
+
+        return timing;
+      });
+
+      // Sort timing info to ensure correct playback order (important for sound effects before voices)
+      timingInfo.sort((a, b) => a.startTime - b.startTime);
+      console.log(
+        "Sorted timing info for mixer:",
+        timingInfo.map((t) => ({
+          id: t.id,
+          type: t.type,
+          startTime: t.startTime,
+          duration: t.duration,
+        }))
+      );
 
       const { blob } = await createMix(
         voiceUrls,
@@ -904,62 +312,418 @@ export function MixerPanel({
     }
   };
 
+  // Add state for playback
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackPosition, setPlaybackPosition] = useState(0);
+  const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+
+  // For tracking if volume has changed
+  const hasVolumeChangedRef = useRef(false);
+
+  // Effect to invalidate preview when volume changes
+  useEffect(() => {
+    // Skip this effect during initial render
+    if (!hasVolumeChangedRef.current) {
+      hasVolumeChangedRef.current = true;
+      return;
+    }
+
+    // Avoid regenerating preview when not playing
+    if (!previewUrl || !isPlaying) {
+      return;
+    }
+
+    // Use a debounce to prevent rapid regeneration
+    const debounceTime = 500; // ms
+    const debounceTimerId = setTimeout(() => {
+      console.log(
+        "Volume settings changed, regenerating preview on next play..."
+      );
+
+      // Instead of regenerating immediately, just invalidate the current preview
+      // so it will be regenerated on next play
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
+
+      if (playbackAudioRef.current) {
+        playbackAudioRef.current.pause();
+        setIsPlaying(false);
+      }
+    }, debounceTime);
+
+    return () => clearTimeout(debounceTimerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackVolumes]);
+
   const handlePreview = async () => {
     try {
+      // Always regenerate the preview regardless of existing URL
       setIsExporting(true);
+      console.log("Generating preview mix...");
+
       // Clean up previous preview URL
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
 
-      const voiceUrls = voiceTracks.map((t) => t.url);
-      const musicUrl = musicTracks.length > 0 ? musicTracks[0].url : null;
-      const soundFxUrls = soundFxTracks.map((t) => t.url);
+      // Make sure we have all valid URLs for tracks
+      const voiceUrls = voiceTracks
+        .filter(
+          (t) =>
+            t.url && (t.url.startsWith("blob:") || t.url.startsWith("http"))
+        )
+        .map((t) => t.url);
+
+      const musicUrl =
+        musicTracks.length > 0 && musicTracks[0].url
+          ? musicTracks[0].url
+          : null;
+
+      const soundFxUrls = soundFxTracks
+        .filter(
+          (t) =>
+            t.url && (t.url.startsWith("blob:") || t.url.startsWith("http"))
+        )
+        .map((t) => t.url);
+
+      // Log what we're mixing to debug
+      console.log("Audio sources for mixing:", {
+        voiceCount: voiceUrls.length,
+        hasMusic: !!musicUrl,
+        soundFxCount: soundFxUrls.length,
+      });
+
+      // Debug calculated tracks
+      console.log("All calculated tracks:", calculatedTracks);
+      console.log("Total duration:", totalDuration);
+      console.log("Track sources:", { voiceUrls, musicUrl, soundFxUrls });
 
       // Prepare timing information for the mixer
-      const timingInfo: TrackTiming[] = calculatedTracks.map((track) => ({
-        id: track.url,
-        url: track.url,
-        type: track.type,
-        startTime: track.actualStartTime,
-        duration: track.actualDuration,
-        gain: trackVolumes[track.url],
-      }));
+      const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
+        const timing = {
+          id: track.id,
+          url: track.url,
+          type: track.type,
+          startTime: track.actualStartTime,
+          duration: track.actualDuration,
+          gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
+        };
 
+        // IMPORTANT: Use the visualized duration for music to match the timeline
+        // We used to use originalDuration here, but that creates an inconsistency
+        // between what's shown and what's heard
+        if (track.type === "music" && track.metadata?.originalDuration) {
+          // Only add a small fade-out buffer if needed
+          const playbackDuration = track.actualDuration;
+          timing.duration = playbackDuration;
+          console.log(
+            `Using visualized music duration for mixing: ${timing.duration}s (original was ${track.metadata.originalDuration}s)`
+          );
+        }
+
+        // Debug timing info
+        console.log(`Track timing for ${track.label} (${track.type}):`, {
+          startTime: timing.startTime,
+          duration: timing.duration,
+          gain: timing.gain,
+        });
+
+        return timing;
+      });
+
+      // Sort timing info to ensure correct playback order (important for sound effects before voices)
+      timingInfo.sort((a, b) => a.startTime - b.startTime);
+      console.log(
+        "Sorted timing info for mixer:",
+        timingInfo.map((t) => ({
+          id: t.id,
+          type: t.type,
+          startTime: t.startTime,
+          duration: t.duration,
+        }))
+      );
+
+      // Create the mixed audio
+      console.log("Creating mix with timing:", timingInfo);
       const { blob } = await createMix(
         voiceUrls,
         musicUrl,
         soundFxUrls,
         timingInfo
       );
+
       const url = URL.createObjectURL(blob);
+      console.log("Mixed audio blob created:", url);
       setPreviewUrl(url);
+
+      // Set up the playback audio element if it doesn't exist yet
+      if (!playbackAudioRef.current) {
+        console.log("Creating new Audio element");
+        const audio = new Audio();
+
+        // Set up event listeners before setting the source
+        audio.addEventListener("canplaythrough", () => {
+          console.log("Audio can play through");
+        });
+
+        audio.addEventListener("error", (e) => {
+          console.error("Audio playback error:", e);
+        });
+
+        audio.addEventListener("ended", () => {
+          console.log("Audio playback ended");
+          setIsPlaying(false);
+          setPlaybackPosition(0);
+          if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+          }
+        });
+
+        // Set the source AFTER adding all event listeners
+        audio.src = url;
+        playbackAudioRef.current = audio;
+      } else {
+        // If audio element exists, update its source
+        console.log("Updating existing Audio element source");
+        const audio = playbackAudioRef.current;
+
+        // Pause first to avoid abort errors
+        if (!audio.paused) {
+          audio.pause();
+        }
+
+        // Reset audio to avoid carrying over state
+        audio.currentTime = 0;
+
+        // Update source
+        audio.src = url;
+      }
+
+      // Try to preload
+      if (playbackAudioRef.current) {
+        playbackAudioRef.current.load();
+      }
+
+      console.log("Preview generation completed");
+      return url; // Return the URL for chaining
     } catch (error) {
       console.error("Failed to create preview:", error);
+      return null;
     } finally {
       setIsExporting(false);
     }
   };
 
-  const handleRemovePreview = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
+  const handlePlayPause = async () => {
+    console.log("Play/Pause button clicked, current state:", {
+      isPlaying,
+      hasPreviewUrl: !!previewUrl,
+      hasAudioRef: !!playbackAudioRef.current,
+    });
+
+    // If currently playing, stop (not pause) and reset
+    if (isPlaying) {
+      console.log("Stopping playback and resetting");
+      const audio = playbackAudioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+        setIsPlaying(false);
+        setPlaybackPosition(0);
+
+        // Revoke old preview URL to force regeneration next time
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+          setPreviewUrl(null);
+        }
+
+        // Stop the animation
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
+      } else {
+        console.error("Audio element not found when trying to stop");
+      }
+      return;
+    }
+
+    // Handle play
+    try {
+      // Always regenerate the preview to ensure we have the latest mix with all tracks
+      console.log("Generating new preview mix...");
+      const url = await handlePreview();
+      if (!url) {
+        console.error("Failed to generate preview");
+        return;
+      }
+
+      // At this point we should have a valid playback audio reference
+      const audio = playbackAudioRef.current;
+      if (!audio) {
+        console.error(
+          "Audio element still not available after preview generation"
+        );
+        return;
+      }
+
+      // Start playback
+      console.log("Starting playback with audio element:", audio);
+      try {
+        await audio.play();
+        console.log("Playback started successfully");
+        setIsPlaying(true);
+        startPlaybackAnimation();
+      } catch (error) {
+        console.error("Playback failed:", error);
+        setIsPlaying(false);
+      }
+    } catch (error) {
+      console.error("Error in play/pause handler:", error);
+      setIsPlaying(false);
     }
   };
 
-  // Helper function to get colors based on track type
-  const getTrackColor = (type: "voice" | "music" | "soundfx") => {
-    switch (type) {
-      case "voice":
-        return "bg-sky-800 border-sky-500";
-      case "music":
-        return "bg-green-800 border-green-500";
-      case "soundfx":
-        return "bg-orange-800 border-orange-500";
-      default:
-        return "bg-gray-800 border-gray-500";
+  const startPlaybackAnimation = useCallback(() => {
+    console.log("Starting playback animation");
+
+    // Cancel any existing animation before starting a new one
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     }
+
+    const updatePosition = () => {
+      const audio = playbackAudioRef.current;
+      if (!audio) {
+        console.warn("No audio element available for animation");
+        return;
+      }
+
+      if (audio.paused || audio.ended) {
+        console.log("Audio paused or ended, stopping animation");
+        setIsPlaying(false);
+        setPlaybackPosition(0);
+        return;
+      }
+
+      // Only update position if we have valid duration and current time
+      if (
+        audio.duration &&
+        !isNaN(audio.duration) &&
+        !isNaN(audio.currentTime)
+      ) {
+        const position = (audio.currentTime / audio.duration) * 100;
+        setPlaybackPosition(position);
+
+        // Debug every second or so
+        if (Math.floor(audio.currentTime) % 2 === 0) {
+          console.log(
+            `Playback progress: ${position.toFixed(
+              1
+            )}% (${audio.currentTime.toFixed(1)}s / ${audio.duration.toFixed(
+              1
+            )}s)`
+          );
+        }
+      }
+
+      // Continue the animation
+      animationFrameRef.current = requestAnimationFrame(updatePosition);
+    };
+
+    // Start the animation
+    animationFrameRef.current = requestAnimationFrame(updatePosition);
+  }, [setIsPlaying, setPlaybackPosition]);
+
+  // Hidden audio element for playback
+  const HiddenAudio = () => (
+    <audio
+      ref={(el) => {
+        // Only use this ref if we don't already have a playback ref
+        if (el && !playbackAudioRef.current) {
+          console.log("Audio element reference created from JSX");
+          playbackAudioRef.current = el;
+
+          el.addEventListener("canplaythrough", () => {
+            console.log("Audio can play through (mounted element)");
+          });
+
+          el.addEventListener("error", (e) => {
+            console.error("Audio playback error (mounted element):", e);
+          });
+
+          el.addEventListener("play", () => {
+            console.log("Audio play event from mounted element");
+            setIsPlaying(true);
+            startPlaybackAnimation();
+          });
+
+          el.addEventListener("pause", () => {
+            console.log("Audio pause event from mounted element");
+            setIsPlaying(false);
+          });
+        }
+      }}
+      style={{ display: "none" }}
+      controls={false}
+      onEnded={() => {
+        console.log("Audio playback ended (onEnded event)");
+        setIsPlaying(false);
+        setPlaybackPosition(0);
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
+      }}
+      preload="auto"
+      src={previewUrl || undefined}
+    />
+  );
+
+  // Create a function to sync play state and UI state
+  const ensureCorrectPlayState = useCallback(() => {
+    if (!playbackAudioRef.current) return;
+
+    const audio = playbackAudioRef.current;
+    const isAudioPlaying =
+      !audio.paused && !audio.ended && audio.currentTime > 0;
+
+    // If our UI state doesn't match the actual audio state, fix it
+    if (isPlaying !== isAudioPlaying) {
+      console.log("Fixing play state mismatch:", {
+        uiState: isPlaying,
+        audioState: isAudioPlaying,
+      });
+      setIsPlaying(isAudioPlaying);
+
+      if (isAudioPlaying && !animationFrameRef.current) {
+        startPlaybackAnimation();
+      }
+    }
+  }, [isPlaying, startPlaybackAnimation]);
+
+  // Effect to monitor playback state
+  useEffect(() => {
+    let syncInterval: NodeJS.Timeout | null = null;
+
+    if (previewUrl && playbackAudioRef.current) {
+      syncInterval = setInterval(ensureCorrectPlayState, 500);
+    }
+
+    return () => {
+      if (syncInterval) clearInterval(syncInterval);
+    };
+  }, [previewUrl, ensureCorrectPlayState]);
+
+  // Custom volume change handler to add a delay
+  const handleVolumeChange = (trackId: string, value: number) => {
+    console.log(`Setting volume for track ${trackId} to ${value}`);
+    setTrackVolume(trackId, value);
   };
 
   // Format seconds as MM:SS
@@ -969,28 +733,18 @@ export function MixerPanel({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Get width percentage for timeline elements
-  const getWidthPercent = (start: number, duration: number) => {
-    if (totalDuration === 0) return { left: 0, width: 0 };
-    const leftPercent = (start / totalDuration) * 100;
-    const widthPercent = (duration / totalDuration) * 100;
-    return { left: leftPercent, width: widthPercent };
+  // Adjust markers to make sure they go to exactly the total duration
+  const getTotalMarkers = () => {
+    // For durations that are exact seconds (like 19.0), include that second
+    // For durations with partial seconds (like 19.2), round up to the next second (20)
+    return Math.ceil(totalDuration) + (Number.isInteger(totalDuration) ? 1 : 0);
   };
-
-  // Clean up preview URL when component unmounts
-  useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [previewUrl]);
 
   // Render loading animation for a track
   const renderLoadingAnimation = (trackType: "voice" | "music" | "soundfx") => {
     let color = "bg-sky-300";
-    if (trackType === "music") color = "bg-green-300";
-    if (trackType === "soundfx") color = "bg-orange-300";
+    if (trackType === "music") color = "bg-sky-700";
+    if (trackType === "soundfx") color = "bg-red-700";
 
     return (
       <div className="flex items-center space-x-2 py-2 px-1">
@@ -1012,70 +766,108 @@ export function MixerPanel({
     );
   };
 
-  // Render the audio player or error message for a track
-  const renderAudioPlayer = (track: Track) => {
-    // Show loading animation if track is loading
-    if (isTrackLoading(track)) {
-      return renderLoadingAnimation(track.type);
-    }
+  // Create state to track playing status for each track
+  const [playingTracks, setPlayingTracks] = React.useState<{
+    [key: string]: boolean;
+  }>({});
 
-    // Show error message if there's an issue with the audio
-    if (audioErrors[track.url]) {
-      return (
-        <div className="bg-red-50 p-3 rounded text-red-600 text-sm mb-2">
-          <div className="flex justify-between items-center">
-            <div>
-              <p>Unable to play audio. The file might be invalid.</p>
-              <p className="text-xs mt-1">
-                Try removing and recreating this track.
-              </p>
-              <button
-                onClick={() => {
-                  const audio = audioRefs.current[track.url];
-                  if (audio) {
-                    console.log(`Manual retry for ${track.label}...`);
-                    audio.load();
-                  }
-                }}
-                className="text-sm mt-1 underline text-red-700 hover:text-red-800"
-              >
-                Retry loading
-              </button>
-            </div>
-            {onRemoveTrack && (
-              <button
-                onClick={() => onRemoveTrack(tracks.indexOf(track))}
-                className="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm"
-              >
-                Remove
-              </button>
-            )}
-          </div>
-        </div>
+  // Create state to track playback progress for each track
+  const [playbackProgress, setPlaybackProgress] = React.useState<{
+    [key: string]: number;
+  }>({});
+
+  // Create state to track volume drawer visibility
+  const [isVolumeDrawerOpen, setIsVolumeDrawerOpen] = React.useState(false);
+
+  // Set up play/pause event listeners for audio elements
+  useEffect(() => {
+    // Set up event listeners for all audio elements
+    Object.keys(audioRefs.current).forEach((trackId) => {
+      const audio = audioRefs.current[trackId];
+      if (!audio) return;
+
+      // Add play event listener
+      const handlePlay = () => {
+        setPlayingTracks((prev) => ({ ...prev, [trackId]: true }));
+      };
+
+      // Add pause event listener
+      const handlePause = () => {
+        setPlayingTracks((prev) => ({ ...prev, [trackId]: false }));
+      };
+
+      // Add ended event listener
+      const handleEnded = () => {
+        setPlayingTracks((prev) => ({ ...prev, [trackId]: false }));
+        setPlaybackProgress((prev) => ({ ...prev, [trackId]: 0 }));
+      };
+
+      // Add timeupdate event listener for progress tracking
+      const handleTimeUpdate = () => {
+        if (audio.duration) {
+          const progress = (audio.currentTime / audio.duration) * 100;
+          setPlaybackProgress((prev) => ({ ...prev, [trackId]: progress }));
+        }
+      };
+
+      audio.addEventListener("play", handlePlay);
+      audio.addEventListener("pause", handlePause);
+      audio.addEventListener("ended", handleEnded);
+      audio.addEventListener("timeupdate", handleTimeUpdate);
+
+      // Return cleanup function for this specific audio element
+      return () => {
+        audio.removeEventListener("play", handlePlay);
+        audio.removeEventListener("pause", handlePause);
+        audio.removeEventListener("ended", handleEnded);
+        audio.removeEventListener("timeupdate", handleTimeUpdate);
+      };
+    });
+  }, [tracks, calculatedTracks]);
+
+  // Debug calculated tracks for each type
+  useEffect(() => {
+    if (calculatedTracks.length > 0) {
+      const voiceCalcTracks = calculatedTracks.filter(
+        (t) => t.type === "voice"
       );
-    }
+      const musicCalcTracks = calculatedTracks.filter(
+        (t) => t.type === "music"
+      );
+      const soundFxCalcTracks = calculatedTracks.filter(
+        (t) => t.type === "soundfx"
+      );
 
-    // Show the audio player
-    return (
-      <audio
-        controls
-        src={track.url}
-        className="w-full"
-        ref={(el) => {
-          if (el) {
-            audioRefs.current[track.url] = el;
-          }
-          return undefined;
-        }}
-        onLoadedMetadata={() => {
-          calculateTimingWithActualDurations();
-          handleAudioLoaded(track.url);
-        }}
-        onError={() => handleAudioError(track.url, track.label)}
-      >
-        Your browser does not support the audio element.
-      </audio>
-    );
+      console.log("Calculated tracks analysis:", {
+        totalDuration,
+        voiceTracks: voiceCalcTracks.map((t) => ({
+          id: t.id,
+          label: t.label,
+          start: t.actualStartTime,
+          duration: t.actualDuration,
+          percentOfTotal: (t.actualDuration / totalDuration) * 100,
+        })),
+        musicTracks: musicCalcTracks.map((t) => ({
+          id: t.id,
+          label: t.label,
+          start: t.actualStartTime,
+          duration: t.actualDuration,
+          percentOfTotal: (t.actualDuration / totalDuration) * 100,
+        })),
+        soundFxTracks: soundFxCalcTracks.map((t) => ({
+          id: t.id,
+          label: t.label,
+          start: t.actualStartTime,
+          duration: t.actualDuration,
+          percentOfTotal: (t.actualDuration / totalDuration) * 100,
+        })),
+      });
+    }
+  }, [calculatedTracks, totalDuration]);
+
+  // Function to handle setting audio reference
+  const handleAudioRef = (id: string) => (element: HTMLAudioElement | null) => {
+    audioRefs.current[id] = element;
   };
 
   return (
@@ -1085,397 +877,221 @@ export function MixerPanel({
           <h1 className="text-4xl font-black mb-2">
             Make It All Come Together
           </h1>
-          <h2 className=" font-medium mb-12  ">
+          <h2 className="font-medium mb-12">
             Preview and export your fully produced audio ad. Ready when you are.{" "}
           </h2>
         </div>
-        {/* Generate button */}
+        {/* Reset button */}
         <div className="flex items-center gap-2">
           <ResetButton onClick={handleReset} />
+
+          {tracks.length > 0 && (
+            <>
+              <button
+                onClick={handleExport}
+                disabled={isExporting}
+                className="px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-wb-blue/30 hover:border-wb-blue/50 focus:outline-none focus:ring-1 focus:ring-wb-blue/50 disabled:bg-gray-700/50 disabled:border-gray-600/30 disabled:text-gray-400 rounded-full text-white transition-all duration-200"
+              >
+                {isExporting ? "Exporting..." : "Export"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Timeline visualization */}
+      {/* Timeline visualization with embedded audio controls */}
       {calculatedTracks.length > 0 && (
         <div className="mb-8">
-          <h3 className="text-lg font-semibold mb-2">Timeline</h3>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-lg ">Timeline</h3>
+            <PlayButton
+              isPlaying={isPlaying}
+              onClick={handlePlayPause}
+              disabled={isExporting || tracks.length === 0}
+            />
+          </div>
           <div
             ref={timelineRef}
-            className="relative h-auto bg-gray-900 border border-gray-700 rounded p-2 overflow-x-auto"
+            className="relative bg-white/3 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden timeline"
           >
+            {/* Playback indicator line - positioned absolutely and doesn't interfere with mouse events */}
+            {isPlaying && (
+              <div
+                className="absolute top-0 bottom-0 w-[2px] bg-green-500 z-10 pointer-events-none"
+                style={{ left: `${playbackPosition}%` }}
+              />
+            )}
+
             {/* Time markers */}
-            <div className="h-6 border-b border-gray-700 mb-2 relative">
-              {[...Array(Math.min(11, totalDuration + 1))].map((_, i) => {
-                const timePosition = i * (totalDuration / 10);
-                const percent = (timePosition / totalDuration) * 100;
+            <div
+              className={`h-7 border-b border-white/20 mb-4 relative px-2 ${
+                isVolumeDrawerOpen ? "opacity-0" : ""
+              }`}
+            >
+              {/* Create markers that properly span the entire duration */}
+              {Array.from({ length: getTotalMarkers() }).map((_, i) => {
+                // Calculate position based on actual seconds, not just percentage
+                const seconds = i;
+                const percent = (seconds / totalDuration) * 100;
+
                 return (
                   <div
                     key={i}
-                    className="absolute top-0 h-3 border-l border-gray-600"
+                    className="absolute top-0 h-3 border-l border-white/30"
                     style={{ left: `${percent}%` }}
                   >
                     <div className="absolute top-3 text-xs text-gray-400 transform -translate-x-1/2">
-                      {formatTime(timePosition)}
+                      {formatTime(seconds)}
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* Track visualizations by type */}
-            <div className="space-y-2 pt-4">
+            {/* timeline with audio tracks */}
+            <div
+              className={`px-4 pb-4 ${
+                isVolumeDrawerOpen
+                  ? "bg-gradient-to-r from-transparent to-gray-900/80"
+                  : ""
+              }`}
+            >
               {/* Voice tracks */}
               {calculatedTracks
-                .filter(
-                  (t) =>
-                    t.type === "voice" &&
-                    t.url &&
-                    (t.url.startsWith("blob:") ||
-                      t.url.startsWith("http:") ||
-                      t.url.startsWith("https:"))
-                )
-                .map((track, idx) => {
-                  const { left, width } = getWidthPercent(
-                    track.actualStartTime,
-                    track.actualDuration
-                  );
-                  return (
-                    <div className="relative h-8" key={`voice-${idx}`}>
-                      <div
-                        className={`absolute h-full rounded border ${getTrackColor(
-                          "voice"
-                        )} p-1 text-xs truncate`}
-                        style={{ left: `${left}%`, width: `${width}%` }}
-                      >
-                        {cleanTrackLabel(track.label)}
-                      </div>
-                    </div>
-                  );
-                })}
+                .filter((track) => track.type === "voice")
+                .map((track) => (
+                  <TimelineTrack
+                    key={track.id}
+                    track={track as TimelineTrackData}
+                    totalDuration={totalDuration}
+                    isVolumeDrawerOpen={isVolumeDrawerOpen}
+                    trackVolume={
+                      trackVolumes[track.id] || getDefaultVolumeForType("voice")
+                    }
+                    audioError={audioErrors[track.id] || false}
+                    playingState={playingTracks[track.id] || false}
+                    playbackProgress={playbackProgress[track.id] || 0}
+                    audioRef={handleAudioRef(track.id)}
+                    onVolumeChange={(value) =>
+                      handleVolumeChange(track.id, value)
+                    }
+                    onAudioLoaded={() => {
+                      const audio = audioRefs.current[track.id];
+                      if (audio && audio.duration && !isNaN(audio.duration)) {
+                        setAudioDuration(track.id, audio.duration);
+                      }
+                      handleAudioLoaded(track.id);
+                    }}
+                    onAudioError={() => handleAudioError(track.id, track.label)}
+                    isTrackLoading={isTrackLoading(track)}
+                  />
+                ))}
 
               {/* Music tracks */}
               {calculatedTracks
-                .filter(
-                  (t) =>
-                    t.type === "music" &&
-                    t.url &&
-                    (t.url.startsWith("blob:") ||
-                      t.url.startsWith("http:") ||
-                      t.url.startsWith("https:"))
-                )
-                .map((track, idx) => {
-                  const { left, width } = getWidthPercent(
-                    track.actualStartTime,
-                    track.actualDuration
-                  );
-                  return (
-                    <div className="relative h-8" key={`music-${idx}`}>
-                      <div
-                        className={`absolute h-full rounded border ${getTrackColor(
-                          "music"
-                        )} p-1 text-xs truncate`}
-                        style={{ left: `${left}%`, width: `${width}%` }}
-                      >
-                        {cleanTrackLabel(track.label)}
-                      </div>
-                    </div>
-                  );
-                })}
+                .filter((track) => track.type === "music")
+                .map((track) => (
+                  <TimelineTrack
+                    key={track.id}
+                    track={track as TimelineTrackData}
+                    totalDuration={totalDuration}
+                    isVolumeDrawerOpen={isVolumeDrawerOpen}
+                    trackVolume={
+                      trackVolumes[track.id] || getDefaultVolumeForType("music")
+                    }
+                    audioError={audioErrors[track.id] || false}
+                    playingState={playingTracks[track.id] || false}
+                    playbackProgress={playbackProgress[track.id] || 0}
+                    audioRef={handleAudioRef(track.id)}
+                    onVolumeChange={(value) =>
+                      handleVolumeChange(track.id, value)
+                    }
+                    onAudioLoaded={() => {
+                      const audio = audioRefs.current[track.id];
+                      if (audio && audio.duration && !isNaN(audio.duration)) {
+                        setAudioDuration(track.id, audio.duration);
+                      }
+                      handleAudioLoaded(track.id);
+                    }}
+                    onAudioError={() => handleAudioError(track.id, track.label)}
+                    isTrackLoading={isTrackLoading(track)}
+                  />
+                ))}
 
               {/* Sound FX tracks */}
               {calculatedTracks
-                .filter(
-                  (t) =>
-                    t.type === "soundfx" &&
-                    t.url &&
-                    (t.url.startsWith("blob:") ||
-                      t.url.startsWith("http:") ||
-                      t.url.startsWith("https:"))
-                )
-                .map((track, idx) => {
-                  const { left, width } = getWidthPercent(
-                    track.actualStartTime,
-                    track.actualDuration
-                  );
-                  return (
-                    <div className="relative h-8" key={`fx-${idx}`}>
-                      <div
-                        className={`absolute h-full rounded border ${getTrackColor(
-                          "soundfx"
-                        )} p-1 text-xs truncate`}
-                        style={{ left: `${left}%`, width: `${width}%` }}
-                      >
-                        {cleanTrackLabel(track.label)}
-                      </div>
-                    </div>
-                  );
-                })}
+                .filter((track) => track.type === "soundfx")
+                .map((track) => (
+                  <TimelineTrack
+                    key={track.id}
+                    track={track as TimelineTrackData}
+                    totalDuration={totalDuration}
+                    isVolumeDrawerOpen={isVolumeDrawerOpen}
+                    trackVolume={
+                      trackVolumes[track.id] ||
+                      getDefaultVolumeForType("soundfx")
+                    }
+                    audioError={audioErrors[track.id] || false}
+                    playingState={playingTracks[track.id] || false}
+                    playbackProgress={playbackProgress[track.id] || 0}
+                    audioRef={handleAudioRef(track.id)}
+                    onVolumeChange={(value) =>
+                      handleVolumeChange(track.id, value)
+                    }
+                    onAudioLoaded={() => {
+                      const audio = audioRefs.current[track.id];
+                      if (audio && audio.duration && !isNaN(audio.duration)) {
+                        setAudioDuration(track.id, audio.duration);
+                      }
+                      handleAudioLoaded(track.id);
+                    }}
+                    onAudioError={() => handleAudioError(track.id, track.label)}
+                    isTrackLoading={isTrackLoading(track)}
+                  />
+                ))}
             </div>
 
-            <div className="text-xs text-gray-400 mt-2 italic">
+            {/* Volume Controls Toggle */}
+            <div className="absolute top-0 right-0">
+              <VolumeToggleButton
+                isOpen={isVolumeDrawerOpen}
+                onClick={() => setIsVolumeDrawerOpen(!isVolumeDrawerOpen)}
+              />
+            </div>
+
+            <div className="px-4 text-xs text-gray-400 mt-2 mb-2 italic">
               Total duration: {formatTime(totalDuration)}
             </div>
           </div>
         </div>
       )}
 
-      {/* Track lists */}
-      {(voiceTracks.length > 0 || isGeneratingVoice) && (
-        <div className="mb-8">
-          <h3 className="text-lg font-semibold mb-4">Voice Tracks</h3>
-          <div className="space-y-4">
-            {isGeneratingVoice && voiceTracks.length === 0 && (
-              <div className="p-4 bg-gray-800">
-                {renderLoadingAnimation("voice")}
-              </div>
-            )}
-
-            {voiceTracks.map((track, index) => {
-              const calculatedTrack = calculatedTracks.find(
-                (t) => t.url === track.url
-              );
-              return (
-                <div key={index} className="p-4 bg-gray-800">
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm text-gray-300">
-                      {cleanTrackLabel(track.label)}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      {calculatedTrack && (
-                        <span className="text-xs bg-sky-900 px-2 py-1 rounded border border-sky-800">
-                          Starts at:{" "}
-                          {formatTime(calculatedTrack.actualStartTime)}
-                          {calculatedTrack.actualDuration && (
-                            <span className="ml-1">
-                              (Duration:{" "}
-                              {calculatedTrack.actualDuration.toFixed(1)}s)
-                            </span>
-                          )}
-                        </span>
-                      )}
-                      {onRemoveTrack && (
-                        <button
-                          onClick={() => onRemoveTrack(tracks.indexOf(track))}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div>{renderAudioPlayer(track)}</div>
-                  <div className="flex items-center space-x-2 mt-2">
-                    <span className="text-sm whitespace-nowrap">Volume:</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={trackVolumes[track.url] || 1.0}
-                      onChange={(e) =>
-                        handleVolumeChange(
-                          track.url,
-                          parseFloat(e.target.value)
-                        )
-                      }
-                      className="w-full"
-                    />
-                    <span className="text-sm whitespace-nowrap">
-                      {Math.round((trackVolumes[track.url] || 1.0) * 100)}%
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {(musicTracks.length > 0 || isGeneratingMusic) && (
-        <div className="mb-8">
-          <h3 className="text-lg font-semibold mb-4">Music Track</h3>
-          <div className="space-y-4">
-            {isGeneratingMusic && musicTracks.length === 0 && (
-              <div className="p-4 bg-gray-800">
-                {renderLoadingAnimation("music")}
-              </div>
-            )}
-
-            {musicTracks.map((track, index) => {
-              const calculatedTrack = calculatedTracks.find(
-                (t) => t.url === track.url
-              );
-              return (
-                <div key={index} className="p-4 bg-gray-800">
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm text-gray-300">
-                      {cleanTrackLabel(track.label)}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      {calculatedTrack && (
-                        <span className="text-xs bg-green-900 px-2 py-1 rounded border border-green-800">
-                          Duration: {calculatedTrack.actualDuration.toFixed(1)}s
-                        </span>
-                      )}
-                      {onRemoveTrack && (
-                        <button
-                          onClick={() => onRemoveTrack(tracks.indexOf(track))}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div>{renderAudioPlayer(track)}</div>
-                  <div className="flex items-center space-x-2 mt-2">
-                    <span className="text-sm whitespace-nowrap">Volume:</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={trackVolumes[track.url] || 0.25}
-                      onChange={(e) =>
-                        handleVolumeChange(
-                          track.url,
-                          parseFloat(e.target.value)
-                        )
-                      }
-                      className="w-full"
-                    />
-                    <span className="text-sm whitespace-nowrap">
-                      {Math.round((trackVolumes[track.url] || 0.25) * 100)}%
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {(soundFxTracks.length > 0 || isGeneratingSoundFx) && (
-        <div className="mb-8">
-          <h3 className="text-lg font-semibold mb-4">Sound FX Tracks</h3>
-          <div className="space-y-4">
-            {isGeneratingSoundFx && soundFxTracks.length === 0 && (
-              <div className="p-4 bg-gray-800">
-                {renderLoadingAnimation("soundfx")}
-              </div>
-            )}
-
-            {soundFxTracks.map((track, index) => {
-              const calculatedTrack = calculatedTracks.find(
-                (t) => t.url === track.url
-              );
-              return (
-                <div key={index} className="p-4 bg-gray-800">
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm text-gray-300">
-                      {cleanTrackLabel(track.label)}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      {calculatedTrack && (
-                        <span className="text-xs bg-orange-900 px-2 py-1 rounded border border-orange-800">
-                          Starts at:{" "}
-                          {formatTime(calculatedTrack.actualStartTime)}
-                          {calculatedTrack.actualDuration && (
-                            <span className="ml-1">
-                              (Duration:{" "}
-                              {calculatedTrack.actualDuration.toFixed(1)}s)
-                            </span>
-                          )}
-                        </span>
-                      )}
-                      {onRemoveTrack && (
-                        <button
-                          onClick={() => onRemoveTrack(tracks.indexOf(track))}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div>{renderAudioPlayer(track)}</div>
-                  <div className="flex items-center space-x-2 mt-2">
-                    <span className="text-sm whitespace-nowrap">Volume:</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={trackVolumes[track.url] || 0.7}
-                      onChange={(e) =>
-                        handleVolumeChange(
-                          track.url,
-                          parseFloat(e.target.value)
-                        )
-                      }
-                      className="w-full"
-                    />
-                    <span className="text-sm whitespace-nowrap">
-                      {Math.round((trackVolumes[track.url] || 0.7) * 100)}%
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {tracks.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-lg font-semibold mb-4">Final Mix</h3>
-          <div className="p-4 bg-gray-800">
-            {previewUrl ? (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center mb-2">
-                  <p className="text-sm text-gray-300">Mixed Audio Preview</p>
-                  <button
-                    onClick={handleRemovePreview}
-                    className="text-red-400 hover:text-red-300"
-                  >
-                    Remove
-                  </button>
-                </div>
-                <audio controls src={previewUrl} className="w-full mb-4">
-                  Your browser does not support the audio element.
-                </audio>
-                <button
-                  onClick={handleExport}
-                  disabled={isExporting}
-                  className="w-full px-4 py-2 bg-white text-black hover:bg-sky-500 hover:text-white disabled:opacity-50"
-                >
-                  {isExporting ? "Downloading..." : "Download Mix"}
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={handlePreview}
-                disabled={isExporting}
-                className="w-full px-4 py-2 bg-white text-black text-lg font-semibold hover:bg-sky-500 hover:text-white disabled:opacity-50"
-              >
-                {isExporting ? "Processing..." : "Preview Mix"}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {tracks.length === 0 &&
-        !isGeneratingVoice &&
-        !isGeneratingMusic &&
-        !isGeneratingSoundFx && (
-          <div className="flex flex-col justify-center items-start h-128">
-            <p className=" text-gray-600 text-2xl ">
-              No tracks available. Generate some voice, music, or sound FX
-              tracks to get started.
-            </p>
-          </div>
+      {/* Loading states for asset generation */}
+      <div className="mt-8">
+        {isGeneratingVoice && voiceTracks.length === 0 && (
+          <div className="text-2xl">{renderLoadingAnimation("voice")}</div>
         )}
+
+        {isGeneratingMusic && musicTracks.length === 0 && (
+          <div className="text-2xl">{renderLoadingAnimation("music")}</div>
+        )}
+
+        {isGeneratingSoundFx && soundFxTracks.length === 0 && (
+          <div className="text-2xl">{renderLoadingAnimation("soundfx")}</div>
+        )}
+      </div>
+
+      {/* Hidden audio element for playback */}
+      <HiddenAudio />
+
+      {/* Add visible indicator for debugging */}
+      <div className="text-xs text-gray-500 mt-4">
+        {isPlaying
+          ? "Playing: " + Math.round(playbackPosition) + "%"
+          : previewUrl
+          ? "Ready to play"
+          : "No preview generated"}
+      </div>
     </div>
   );
 }

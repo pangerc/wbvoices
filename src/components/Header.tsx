@@ -1,11 +1,17 @@
 import React from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { GlassTabBar, GlassTab } from "./ui";
+import { HistoryDropdown, useHistoryDropdown } from "./HistoryDropdown";
+import { ProjectMetadata } from "@/types";
 
 type HeaderProps = {
   selectedTab: number;
   onTabChange: (index: number) => void;
-  onStartOver: () => void;
+  onNewProject: () => void;
+  projectId?: string;
+  isNewProject?: boolean;
+  projectName?: string;
 };
 
 const tabItems = [
@@ -216,7 +222,26 @@ const tabItems = [
   },
 ];
 
-export function Header({ selectedTab, onTabChange, onStartOver }: HeaderProps) {
+export function Header({
+  selectedTab,
+  onTabChange,
+  onNewProject,
+  projectId,
+  isNewProject,
+  projectName,
+}: HeaderProps) {
+  const { isOpen, toggle, close } = useHistoryDropdown();
+  const router = useRouter();
+
+  const handleProjectSelect = (project: ProjectMetadata) => {
+    console.log(
+      "🔄 Header: Navigating to project:",
+      project.id,
+      project.headline
+    );
+    router.push(`/project/${project.id}`);
+    close();
+  };
   return (
     <header className="py-10 bg-black">
       <div className="container mx-auto px-4 flex justify-between items-center">
@@ -231,7 +256,7 @@ export function Header({ selectedTab, onTabChange, onStartOver }: HeaderProps) {
         </div>
 
         <div className="flex-1 mx-12">
-          <div className="flex justify-center items-center ">
+          <div className="flex flex-col justify-center items-center">
             <GlassTabBar className="py-2">
               {tabItems.map((item, index) => (
                 <GlassTab
@@ -247,32 +272,44 @@ export function Header({ selectedTab, onTabChange, onStartOver }: HeaderProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <button className="flex items-center text-white/70 text-sm hover:text-white transition-colors duration-200">
+        <div className="flex items-center gap-4 relative">
+          <button
+            onClick={toggle}
+            className="flex items-center text-white/70 text-sm hover:text-white transition-colors duration-200"
+          >
+            <span className="truncate max-w-[200px]">
+              {projectName && !isNewProject ? projectName : "Blank"}
+            </span>
             <svg
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              className="mr-2 h-4 w-auto"
+              className="ml-1 flex-shrink-0"
             >
               <path
-                d="M10 6V10L12.5 12.5M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z"
+                d="M4 6L8 10L12 6"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             </svg>
-            History
           </button>
 
+          <HistoryDropdown
+            isOpen={isOpen}
+            onClose={close}
+            onProjectSelect={handleProjectSelect}
+            currentProjectId={projectId}
+          />
+
           <button
-            onClick={onStartOver}
-            className="text-white/70 text-sm hover:text-white transition-colors duration-200"
+            onClick={onNewProject}
+            className="px-4 py-3 rounded-full flex items-center gap-2 text-gray-300 text-sm border transition-all duration-200 bg-wb-blue/10 backdrop-blur-sm border-wb-blue/20 hover:bg-wb-blue/20 hover:border-wb-blue/30 focus:outline-none focus:ring-1 focus:ring-wb-blue/50"
           >
-            Start Over
+            <span>New Project</span>
           </button>
         </div>
       </div>

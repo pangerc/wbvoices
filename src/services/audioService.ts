@@ -22,7 +22,13 @@ export class AudioService {
       for (const track of voiceTracks) {
         if (!track.voice || !track.text) continue;
 
-        const res = await fetch(`/api/voice/${selectedProvider}`, {
+        console.log(`🎭 Sending emotional parameters to ${selectedProvider}:`);
+        console.log(`  - Voice: ${track.voice.name} (${track.voice.id})`);
+        console.log(`  - Style: ${track.style || 'none'}`);
+        console.log(`  - Use Case: ${track.useCase || 'none'}`);
+        console.log(`  - Voice Instructions: ${track.voiceInstructions || 'none'}`);
+
+        const res = await fetch(`/api/voice/${selectedProvider}-v2`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -30,6 +36,7 @@ export class AudioService {
             voiceId: track.voice.id,
             style: track.style,
             useCase: track.useCase,
+            voiceInstructions: track.voiceInstructions, // OpenAI-specific voice instructions
             projectId: `voice-project-${Date.now()}`, // Add projectId for blob storage
           }),
         });
@@ -147,7 +154,7 @@ export class AudioService {
     clearTracks("soundfx");
     
     try {
-      const response = await fetch("/api/sfx/elevenlabs", {
+      const response = await fetch("/api/sfx/elevenlabs-v2", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -181,19 +188,38 @@ export class AudioService {
         console.log(`Using temporary blob URL for SoundFX:`, url);
       }
 
+      // Measure actual audio duration before creating track
+      const actualDuration = await new Promise<number>((resolve) => {
+        const audio = new Audio(url);
+        audio.addEventListener('loadedmetadata', () => {
+          if (audio.duration && !isNaN(audio.duration)) {
+            console.log(`Measured sound effect duration: ${audio.duration}s (requested: ${duration}s)`);
+            resolve(audio.duration);
+          } else {
+            console.warn(`Could not measure audio duration, using requested duration: ${duration}s`);
+            resolve(duration);
+          }
+        });
+        audio.addEventListener('error', () => {
+          console.warn(`Error loading audio for duration measurement, using requested duration: ${duration}s`);
+          resolve(duration);
+        });
+        audio.load();
+      });
+
       const mixerTrack: MixerTrack = {
         id: `soundfx-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         url,
         label: `Sound FX: "${prompt.substring(0, 30)}${
           prompt.length > 30 ? "..." : ""
-        }" (${duration}s)`,
+        }" (${actualDuration.toFixed(1)}s)`,
         type: "soundfx",
-        duration,
+        duration: actualDuration,
         playAfter: soundFxPrompt?.playAfter,
         overlap: soundFxPrompt?.overlap,
         metadata: {
           promptText: prompt,
-          originalDuration: duration,
+          originalDuration: duration, // Keep the requested duration in metadata
         },
       };
 
@@ -209,13 +235,22 @@ export class AudioService {
     filteredVoices: Voice[],
     allVoices: Voice[]
   ): VoiceTrack[] {
-    return segments.map((segment) => {
+    console.log('🔍 mapVoiceSegmentsToTracks called with:');
+    console.log('  - Segments:', segments.map(s => ({ voiceId: s.voiceId, text: s.text?.slice(0, 30) + '...' })));
+    console.log('  - Filtered voices:', filteredVoices.length, 'voices');
+    console.log('  - All voices:', allVoices.length, 'voices');
+    
+    return segments.map((segment, index) => {
+      console.log(`🎯 Processing segment ${index}:`, { voiceId: segment.voiceId, text: segment.text?.slice(0, 30) + '...' });
+      
       // Try to find the voice by ID from filtered voices first
       let voice = filteredVoices.find((v) => v.id === segment.voiceId);
+      console.log(`  - Found in filtered voices:`, !!voice, voice?.name);
 
       // If not found in filtered voices, try all voices (fallback)
       if (!voice) {
         voice = allVoices.find((v) => v.id === segment.voiceId);
+        console.log(`  - Found in all voices:`, !!voice, voice?.name);
       }
 
       // If still not found, try to find a voice by name in filtered voices
@@ -223,6 +258,7 @@ export class AudioService {
         voice = filteredVoices.find(
           (v) => v.name.toLowerCase() === segment.voiceId.toLowerCase()
         );
+        console.log(`  - Found by name in filtered voices:`, !!voice, voice?.name);
       }
 
       // If still not found, try to find by name in all voices (fallback)
@@ -230,22 +266,28 @@ export class AudioService {
         voice = allVoices.find(
           (v) => v.name.toLowerCase() === segment.voiceId.toLowerCase()
         );
+        console.log(`  - Found by name in all voices:`, !!voice, voice?.name);
       }
 
       // If still not found, use the first available voice
       if (!voice) {
         console.log(
-          `Voice ID "${segment.voiceId}" not found, using a fallback voice`
+          `❌ Voice ID "${segment.voiceId}" not found anywhere, using fallback voice`
         );
         voice = filteredVoices.length > 0 ? filteredVoices[0] : allVoices[0];
+        console.log(`  - Using fallback:`, voice?.name);
       }
 
-      return {
+      const result = {
         voice,
         text: segment.text,
         style: segment.style,
         useCase: segment.useCase,
+        voiceInstructions: (segment as typeof segment & { voiceInstructions?: string }).voiceInstructions,
       } as VoiceTrack;
+      
+      console.log(`  - Final result:`, { hasVoice: !!result.voice, voiceName: result.voice?.name, text: result.text?.slice(0, 20) + '...' });
+      return result;
     });
   }
 }
