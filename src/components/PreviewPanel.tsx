@@ -338,7 +338,7 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
           <h3 className="text-xl font-semibold text-white mb-6">
             Live Preview
           </h3>
-          <div className="flex-1 flex items-center justify-centermin-h-[680px] p-6">
+          <div className="p-6 min-h-[680px]">
             <SpotifyPreview
               brand={previewData.brandName}
               slogan={previewData.slogan}

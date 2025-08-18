@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const config = FILE_CONFIGS[fileType];
 
     // Validate file type
-    if (!config.allowedTypes.includes(file.type)) {
+    if (!(config.allowedTypes as readonly string[]).includes(file.type)) {
       return NextResponse.json({ 
         error: `Invalid file format. Allowed: ${config.allowedTypes.join(', ')}` 
       }, { status: 400 });

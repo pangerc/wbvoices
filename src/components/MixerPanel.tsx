@@ -241,14 +241,26 @@ export function MixerPanel({
       const { url: permanentUrl } = await uploadMixedAudioToBlob(blob, projectId);
       console.log('✅ Mixed audio uploaded to blob:', permanentUrl);
 
-      // Update project with the permanent preview URL
-      await updateProject(projectId, {
-        preview: {
-          mixedAudioUrl: permanentUrl,
-        },
-        lastModified: Date.now(),
-      });
-      console.log('✅ Project updated with permanent preview URL');
+      // Load current project to get existing preview data
+      const { loadProjectFromRedis } = useProjectHistoryStore.getState();
+      const currentProject = await loadProjectFromRedis(projectId);
+      
+      if (currentProject) {
+        // Update project with the permanent mixed audio URL
+        await updateProject(projectId, {
+          preview: {
+            ...currentProject.preview,
+            mixedAudioUrl: permanentUrl,
+          },
+          lastModified: Date.now(),
+        });
+        console.log('✅ Project updated with permanent mixed audio URL');
+      } else {
+        console.warn('⚠️ Could not load current project, only updating lastModified');
+        await updateProject(projectId, {
+          lastModified: Date.now(),
+        });
+      }
 
       return permanentUrl;
     } catch (error) {

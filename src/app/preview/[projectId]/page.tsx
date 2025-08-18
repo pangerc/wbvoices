@@ -50,7 +50,7 @@ export default function PreviewPage({ params }: PreviewPageProps) {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center text-white">
           <h1 className="text-2xl mb-2">Project not found</h1>
-          <p className="text-gray-400">The preview you're looking for doesn't exist.</p>
+          <p className="text-gray-400">The preview you&apos;re looking for doesn&apos;t exist.</p>
         </div>
       </div>
     );

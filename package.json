@@ -12,11 +12,13 @@
   "dependencies": {
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "^2.2.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/uuid": "^10.0.0",
     "@upstash/redis": "^1.35.3",
     "@vercel/blob": "^1.1.1",
     "date-fns": "^4.1.0",
     "flag-icons": "^7.3.2",
+    "jsonwebtoken": "^9.0.2",
     "liquid-glass-react": "^1.1.1",
     "next": "15.4.5",
     "openai": "^4.28.4",

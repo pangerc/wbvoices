@@ -6,7 +6,15 @@ import {
   GlassySlider,
   ResetButton,
   GenerateButton,
+  GlassTabBar,
+  GlassTab,
 } from "./ui";
+import { FileUpload, useFileUpload } from "./ui/FileUpload";
+import { useMixerStore } from "@/store/mixerStore";
+import { useProjectHistoryStore } from "@/store/projectHistoryStore";
+import { useParams } from "next/navigation";
+
+type MusicMode = 'generate' | 'upload';
 
 type MusicPanelProps = {
   onGenerate: (
@@ -33,6 +41,21 @@ export function MusicPanel({
   setMusicProvider,
   resetForm,
 }: MusicPanelProps) {
+  const params = useParams();
+  const projectId = params.id as string;
+  const { addTrack } = useMixerStore();
+  const { updateProject, loadProjectFromRedis } = useProjectHistoryStore();
+  
+  // File upload hook
+  const {
+    uploadedFiles,
+    isUploading,
+    errors,
+    handleUploadComplete,
+    handleUploadError,
+  } = useFileUpload();
+  
+  const [mode, setMode] = useState<MusicMode>('generate');
   const [prompt, setPrompt] = useState(initialPrompt);
   const [duration, setDuration] = useState(adDuration + 5);
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
@@ -60,8 +83,53 @@ export function MusicPanel({
     setLocalStatusMessage("");
   }, []);
 
+  // Handle music upload completion
+  const handleMusicUpload = async (result: { url: string; filename: string }) => {
+    handleUploadComplete("music")(result);
+    
+    if (!projectId) {
+      console.error('No project ID for music upload');
+      return;
+    }
+    
+    try {
+      // Load current project to preserve existing data
+      const currentProject = await loadProjectFromRedis(projectId);
+      if (!currentProject) {
+        console.error('Project not found for music upload');
+        return;
+      }
+      
+      // Update project with uploaded music URL (same place as generated music)
+      await updateProject(projectId, {
+        generatedTracks: {
+          voiceUrls: currentProject.generatedTracks?.voiceUrls || [],
+          soundFxUrl: currentProject.generatedTracks?.soundFxUrl,
+          musicUrl: result.url,
+        },
+        lastModified: Date.now(),
+      });
+      
+      // Add track to mixer store (same as generated music)
+      addTrack({
+        id: `custom-music-${Date.now()}`,
+        url: result.url,
+        label: "Custom Music Track",
+        type: "music",
+        metadata: {
+          originalDuration: duration, // Use the selected duration
+        },
+      });
+      
+      console.log('✅ Custom music track uploaded and added to mixer');
+    } catch (error) {
+      console.error('❌ Failed to process music upload:', error);
+    }
+  };
+
   // Handle local reset
   const handleReset = () => {
+    setMode('generate');
     setPrompt("");
     setMusicProvider("loudly");
     setDuration(adDuration + 5);
@@ -100,24 +168,67 @@ export function MusicPanel({
         <div>
           <h1 className="text-4xl font-black mb-2">Soundtrack Your Story</h1>
           <h2 className="font-medium mb-12">
-            Choose the mood. We&apos;ll generate the perfect track for your
-            audio ad.
+            {mode === 'generate' 
+              ? "Choose the mood. We'll generate the perfect track for your audio ad."
+              : "Upload your own music track to use as the soundtrack."
+            }
           </h2>
         </div>
         {/* Button group */}
         <div className="flex items-center gap-2">
           <ResetButton onClick={handleReset} />
-          <GenerateButton
-            onClick={handleGenerate}
-            disabled={!prompt.trim()}
-            isGenerating={isGenerating}
-            text="Generate Music"
-            generatingText="Generating..."
-          />
+          {mode === 'generate' && (
+            <GenerateButton
+              onClick={handleGenerate}
+              disabled={!prompt.trim()}
+              isGenerating={isGenerating}
+              text="Generate Music"
+              generatingText="Generating..."
+            />
+          )}
         </div>
       </div>
 
-      <div className="space-y-12 md:grid md:grid-cols-2 md:gap-6">
+      {/* Mode Toggle */}
+      <div className="flex justify-center mb-8">
+        <GlassTabBar>
+          <GlassTab 
+            isActive={mode === 'generate'} 
+            onClick={() => setMode('generate')}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M8 1L8.5 4.5L12 2L9.5 5.5L14 4L10.5 7.5L15 8L11.5 8.5L14 12L10.5 9.5L12 14L8.5 10.5L8 15L7.5 11.5L4 14L6.5 10.5L2 12L5.5 8.5L1 8L4.5 7.5L2 4L5.5 6.5L4 2L7.5 5.5L8 1Z"
+                fill={mode === 'generate' ? "#2F7DFA" : "#FFFFFF"}
+              />
+            </svg>
+          </GlassTab>
+          <GlassTab 
+            isActive={mode === 'upload'} 
+            onClick={() => setMode('upload')}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M8 10V2M8 2L5.5 4.5M8 2L10.5 4.5"
+                stroke={mode === 'upload' ? "#2F7DFA" : "#FFFFFF"}
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M2 12V13C2 13.5304 2.21071 14.0391 2.58579 14.4142C2.96086 14.7893 3.46957 15 4 15H12C12.5304 15 13.0391 14.7893 13.4142 14.4142C13.7893 14.0391 14 13.5304 14 13V12"
+                stroke={mode === 'upload' ? "#2F7DFA" : "#FFFFFF"}
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </GlassTab>
+        </GlassTabBar>
+      </div>
+
+      {mode === 'generate' ? (
+        <div className="space-y-12 md:grid md:grid-cols-2 md:gap-6">
         <div>
           <GlassyTextarea
             label="Music Description"
@@ -174,12 +285,72 @@ export function MusicPanel({
           />
         </div>
 
-        {localStatusMessage && (
-          <p className="text-center text-sm text-gray-300">
-            {localStatusMessage}
-          </p>
-        )}
-      </div>
+          {localStatusMessage && (
+            <p className="text-center text-sm text-gray-300">
+              {localStatusMessage}
+            </p>
+          )}
+        </div>
+      ) : (
+        /* Upload Mode */
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-8">
+            <FileUpload
+              fileType="custom-music"
+              projectId={projectId}
+              onUploadComplete={handleMusicUpload}
+              onUploadError={handleUploadError("music")}
+              disabled={isUploading.music}
+              className="w-full px-8 py-12 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 text-white hover:bg-white/10 transition-colors disabled:opacity-50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+            >
+              <div className="text-center">
+                <svg width="48" height="48" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto mb-4 opacity-70">
+                  <path
+                    d="M8 10V2M8 2L5.5 4.5M8 2L10.5 4.5"
+                    stroke="white"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M2 12V13C2 13.5304 2.21071 14.0391 2.58579 14.4142C2.96086 14.7893 3.46957 15 4 15H12C12.5304 15 13.0391 14.7893 13.4142 14.4142C13.7893 14.0391 14 13.5304 14 13V12"
+                    stroke="white"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <h3 className="text-lg font-semibold mb-2">
+                  {isUploading.music ? "Uploading..." : "Upload Music Track"}
+                </h3>
+                <p className="text-gray-400 text-sm mb-4">
+                  Drag & drop your music file here, or click to browse
+                </p>
+                <p className="text-xs text-gray-500">
+                  Supported: MP3, WAV, M4A • Max size: 50MB
+                </p>
+              </div>
+            </FileUpload>
+            
+            {errors.music && (
+              <p className="text-red-400 text-sm mt-4">{errors.music}</p>
+            )}
+            
+            {uploadedFiles.music && (
+              <div className="mt-6 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+                <p className="text-green-400 font-medium">✅ Upload Complete</p>
+                <p className="text-gray-400 text-sm mt-1">
+                  {uploadedFiles.music.filename}
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <div className="text-center text-sm text-gray-400 mt-8">
+            <p>Your custom music will be automatically added to the mixer and subject to the same timing calculations as generated tracks.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

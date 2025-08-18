@@ -75,17 +75,17 @@ const adjustL = (hsl: { h: number; s: number; l: number }, delta: number) => ({
 });
 
 async function getAverageRgb(url: string): Promise<Rgb | null> {
-  console.log('🎨 getAverageRgb: Starting with URL:', url);
+  console.log("🎨 getAverageRgb: Starting with URL:", url);
   try {
     const img = new globalThis.Image();
-    img.crossOrigin = 'anonymous';
+    img.crossOrigin = "anonymous";
     await new Promise<void>((resolve, reject) => {
       img.onload = () => {
-        console.log('🎨 getAverageRgb: Image loaded successfully');
+        console.log("🎨 getAverageRgb: Image loaded successfully");
         resolve();
       };
       img.onerror = (error) => {
-        console.error('🎨 getAverageRgb: Image failed to load:', error);
+        console.error("🎨 getAverageRgb: Image failed to load:", error);
         reject(error);
       };
       img.src = url;
@@ -110,7 +110,7 @@ async function getAverageRgb(url: string): Promise<Rgb | null> {
     }
     return { r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) };
   } catch (error) {
-    console.error('🎨 getAverageRgb: Error caught:', error);
+    console.error("🎨 getAverageRgb: Error caught:", error);
     return null;
   }
 }
@@ -142,17 +142,17 @@ function rgbToHsv({ r, g, b }: Rgb): { h: number; s: number; v: number } {
 }
 
 async function getDominantRgb(url: string): Promise<Rgb | null> {
-  console.log('🎨 getDominantRgb: Starting with URL:', url);
+  console.log("🎨 getDominantRgb: Starting with URL:", url);
   try {
     const img = new globalThis.Image();
-    img.crossOrigin = 'anonymous';
+    img.crossOrigin = "anonymous";
     await new Promise<void>((resolve, reject) => {
       img.onload = () => {
-        console.log('🎨 getDominantRgb: Image loaded successfully');
+        console.log("🎨 getDominantRgb: Image loaded successfully");
         resolve();
       };
       img.onerror = (error) => {
-        console.error('🎨 getDominantRgb: Image failed to load:', error);
+        console.error("🎨 getDominantRgb: Image failed to load:", error);
         reject(error);
       };
       img.src = url;
@@ -191,7 +191,7 @@ async function getDominantRgb(url: string): Promise<Rgb | null> {
       b: Math.round(sums[best].b / counts[best]),
     };
   } catch (error) {
-    console.error('🎨 getDominantRgb: Error caught:', error);
+    console.error("🎨 getDominantRgb: Error caught:", error);
     return null;
   }
 }
@@ -202,7 +202,7 @@ export function SpotifyPreview({
   brand,
   slogan,
   cta = "Learn More",
-  audioSrc
+  audioSrc,
 }: SpotifyPreviewProps) {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
@@ -264,32 +264,48 @@ export function SpotifyPreview({
   // Compute gradient colors dynamically from the image, or use default grays
   React.useEffect(() => {
     let cancelled = false;
-    console.log('🎨 SpotifyPreview: Gradient effect triggered, adImage:', adImage);
-    
+    console.log(
+      "🎨 SpotifyPreview: Gradient effect triggered, adImage:",
+      adImage
+    );
+
     (async () => {
       if (adImage) {
-        console.log('🎨 SpotifyPreview: Processing image for gradient:', adImage);
-        
+        console.log(
+          "🎨 SpotifyPreview: Processing image for gradient:",
+          adImage
+        );
+
         try {
-          console.log('🎨 SpotifyPreview: Calling getDominantRgb...');
+          console.log("🎨 SpotifyPreview: Calling getDominantRgb...");
           const dominantColor = await getDominantRgb(adImage);
-          console.log('🎨 SpotifyPreview: getDominantRgb result:', dominantColor);
-          
+          console.log(
+            "🎨 SpotifyPreview: getDominantRgb result:",
+            dominantColor
+          );
+
           let dom = dominantColor;
-          
+
           if (!dom) {
-            console.log('🎨 SpotifyPreview: No dominant color, trying getAverageRgb...');
+            console.log(
+              "🎨 SpotifyPreview: No dominant color, trying getAverageRgb..."
+            );
             dom = await getAverageRgb(adImage);
-            console.log('🎨 SpotifyPreview: getAverageRgb result:', dom);
+            console.log("🎨 SpotifyPreview: getAverageRgb result:", dom);
           }
-          
+
           if (!dom || cancelled) {
-            console.log('🎨 SpotifyPreview: No dominant color found or cancelled, dom:', dom, 'cancelled:', cancelled);
+            console.log(
+              "🎨 SpotifyPreview: No dominant color found or cancelled, dom:",
+              dom,
+              "cancelled:",
+              cancelled
+            );
             return;
           }
-          
-          console.log('🎨 SpotifyPreview: Extracted dominant color:', dom);
-          
+
+          console.log("🎨 SpotifyPreview: Extracted dominant color:", dom);
+
           const hsl = rgbToHsl(dom);
           const saturated = {
             h: hsl.h,
@@ -300,25 +316,32 @@ export function SpotifyPreview({
           const top = toCss(hslToRgb(adjustL(base, -0.11)));
           const mid = toCss(hslToRgb(adjustL(base, -0.2)));
           const bottom = toCss(hslToRgb(adjustL(base, -0.62)));
-          
-          console.log('🎨 SpotifyPreview: Generated gradient:', { top, mid, bottom });
+
+          console.log("🎨 SpotifyPreview: Generated gradient:", {
+            top,
+            mid,
+            bottom,
+          });
           setGrad({ top, mid, bottom });
         } catch (error) {
-          console.error('🎨 SpotifyPreview: Error processing image for gradient:', error);
+          console.error(
+            "🎨 SpotifyPreview: Error processing image for gradient:",
+            error
+          );
           // Fallback to default gradient
-          setGrad({ 
-            top: "#4B5563", 
-            mid: "#374151", 
-            bottom: "#1F2937" 
+          setGrad({
+            top: "#4B5563",
+            mid: "#374151",
+            bottom: "#1F2937",
           });
         }
       } else {
-        console.log('🎨 SpotifyPreview: No adImage, using default gradient');
+        console.log("🎨 SpotifyPreview: No adImage, using default gradient");
         // Use dark gray gradient as placeholder
-        setGrad({ 
-          top: "#4B5563", 
-          mid: "#374151", 
-          bottom: "#1F2937" 
+        setGrad({
+          top: "#4B5563",
+          mid: "#374151",
+          bottom: "#1F2937",
         });
       }
     })();
@@ -329,7 +352,7 @@ export function SpotifyPreview({
 
   return (
     <div className="w-full max-w-[390px] mx-auto">
-      <div className="rounded-[28px] overflow-hidden shadow-2xl">
+      <div className="rounded-[28px] overflow-hidden ring ring-white/20 ">
         <div
           className="bg-gradient-to-b from-[var(--grad-top)] via-[var(--grad-mid)] to-[var(--grad-bottom)]"
           style={{
@@ -365,11 +388,7 @@ export function SpotifyPreview({
               aria-label="menu"
               className="p-2 rounded-full hover:bg-white/10 text-gray-400"
             >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-6 w-6"
-                fill="currentColor"
-              >
+              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
                 <circle cx="5" cy="12" r="1.5" />
                 <circle cx="12" cy="12" r="1.5" />
                 <circle cx="19" cy="12" r="1.5" />
@@ -391,8 +410,12 @@ export function SpotifyPreview({
               ) : (
                 <div className="w-full aspect-square bg-gray-600 flex items-center justify-center">
                   <div className="text-center text-gray-400">
-                    <svg className="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17l2.5-3.15L14 17H9zm4.5-5.15L17 17h-2.5l-1-1.35z"/>
+                    <svg
+                      className="w-12 h-12 mx-auto mb-2"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17l2.5-3.15L14 17H9zm4.5-5.15L17 17h-2.5l-1-1.35z" />
                     </svg>
                     <p className="text-xs">Campaign Visual</p>
                   </div>
@@ -414,8 +437,12 @@ export function SpotifyPreview({
                 />
               ) : (
                 <div className="h-12 w-12 rounded-sm bg-gray-600 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  <svg
+                    className="w-6 h-6 text-gray-400"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                   </svg>
                 </div>
               )}
@@ -484,20 +511,8 @@ export function SpotifyPreview({
                 >
                   {isPlaying ? (
                     <>
-                      <rect
-                        x="7"
-                        y="6"
-                        width="3"
-                        height="12"
-                        rx="0.5"
-                      ></rect>
-                      <rect
-                        x="14"
-                        y="6"
-                        width="3"
-                        height="12"
-                        rx="0.5"
-                      ></rect>
+                      <rect x="7" y="6" width="3" height="12" rx="0.5"></rect>
+                      <rect x="14" y="6" width="3" height="12" rx="0.5"></rect>
                     </>
                   ) : (
                     <path d="M8 5v14l11-7z" />
@@ -532,7 +547,7 @@ export function SpotifyPreview({
 
             {/* CTA */}
             <div className="mt-6 pb-4">
-              <div 
+              <div
                 className="rounded-lg p-4"
                 style={{ backgroundColor: grad.mid }}
               >
