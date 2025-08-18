@@ -249,7 +249,12 @@ export function MixerPanel({
         // Update project with the permanent mixed audio URL
         await updateProject(projectId, {
           preview: {
-            ...currentProject.preview,
+            brandName: currentProject.preview?.brandName || "",
+            slogan: currentProject.preview?.slogan || "",
+            destinationUrl: currentProject.preview?.destinationUrl || "",
+            cta: currentProject.preview?.cta || "Learn More",
+            logoUrl: currentProject.preview?.logoUrl,
+            visualUrl: currentProject.preview?.visualUrl,
             mixedAudioUrl: permanentUrl,
           },
           lastModified: Date.now(),
