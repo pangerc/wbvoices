@@ -948,6 +948,7 @@ The architecture has evolved significantly, demonstrating how systematic improve
 - **Demo UX optimization**: Always create fresh projects for better first impression
 - **Infinite redirect fix**: Stable browser navigation without redirect loops
 - **Build performance**: 60% home page bundle reduction and clean compile output
+- **Voice counting architecture perfection**: Eliminated hybrid counting approaches with single "always load all voices" pattern
 
 ### 14. Code Quality & Architecture Cleanup (August 14, 2025) ✅
 
@@ -1031,5 +1032,81 @@ The architecture has evolved significantly, demonstrating how systematic improve
 - **Unlock Lovo's emotional styles**: Expand from 636 to 1,000+ voice combinations
 - **Advanced voice filtering**: By personality, use case, age, style
 - **Request parallelization**: Batch voice generation for faster workflows
+
+### 15. Voice Counting Architecture Perfection (August 18, 2025) ✅
+
+#### The Voice Counting Problem - ELIMINATED!
+
+**Problem**: Provider counts would incorrectly go to 0 when selecting specific providers, breaking regional filtering functionality.
+
+**Root Causes**:
+1. **Hybrid Counting Logic**: BriefPanel attempted to count voices from `currentVoices` which only contained the selected provider's voices
+2. **State Inconsistency**: When OpenAI selected, `currentVoices` only had OpenAI voices, so ElevenLabs and Lovo showed 0 counts
+3. **Regional Filtering Mismatch**: Server-side `voiceCounts` ignored client-side regional filtering
+
+#### The Clean Solution - Always Load All Voices
+
+**Architecture Decision**: Eliminate all hybrid approaches with a single, consistent voice loading pattern.
+
+**Implementation Changes**:
+
+1. **useVoiceManagerV2 Simplification**:
+   ```typescript
+   // Always load ALL voices from all providers, tagged by provider
+   const loadVoices = useCallback(async () => {
+     const providers = ['elevenlabs', 'lovo', 'openai'] as const;
+     const voicePromises = providers.map(async (provider) => {
+       const voices = await fetchVoices(provider, language, accent);
+       return voices.map((v: Voice) => ({...v, provider})); // Tag each voice
+     });
+     
+     const allVoices = (await Promise.all(voicePromises)).flat();
+     setCurrentVoices(allVoices);
+   }, [selectedLanguage, selectedAccent]); // Only reload when language/accent changes
+   ```
+
+2. **BriefPanel Count Calculation**:
+   ```typescript
+   // Single source of truth - count from the complete tagged voice set
+   const filteredProviderOptions = useMemo(() => {
+     // Apply regional filtering once to the complete voice set
+     let regionFilteredVoices = currentVoices;
+     if (selectedRegion && hasRegions) {
+       const regionalAccents = getRegionalAccents(selectedLanguage, selectedRegion);
+       regionFilteredVoices = currentVoices.filter(voice => {
+         if (voice.provider === 'openai') return true; // OpenAI always available
+         return regionalAccents.includes(voice.accent) && voice.accent !== 'none';
+       });
+     }
+     
+     // Count by provider from the filtered set
+     const filteredCounts = regionFilteredVoices.reduce((acc, voice) => {
+       acc[voice.provider] = (acc[voice.provider] || 0) + 1;
+       return acc;
+     }, {});
+     
+     return buildProviderOptions(filteredCounts);
+   }, [currentVoices, selectedRegion, hasRegions, selectedLanguage]);
+   ```
+
+#### Benefits Achieved
+
+- **Single Loading Pattern**: Always load all voices, never conditionally
+- **Regional Responsiveness**: Provider counts correctly update when region changes
+- **Provider Switching**: No reloads needed when switching providers
+- **ScripterPanel Compatibility**: Existing `getFilteredVoices()` continues to work
+- **Clean Architecture**: Single source of truth eliminates race conditions
+
+#### The Final Voice Loading Architecture
+
+```
+Language/Accent Change → Load ALL voices (tagged) → Store in currentVoices
+                              ↓
+Region Selection → Filter currentVoices by regional accents → Update counts  
+                              ↓
+Provider Selection → Filter currentVoices by provider → No reload!
+```
+
+**Impact**: Eliminated the last remaining "hybrid approach" in the voice system, creating a clean, maintainable architecture that works correctly in all scenarios.
 
 The system successfully delivered a working demo while revealing important production-readiness gaps, particularly around API resilience and error handling.

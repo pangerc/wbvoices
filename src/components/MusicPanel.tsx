@@ -143,7 +143,7 @@ export function MusicPanel({
       const roundedDuration = Math.round(duration / 15) * 15;
       onGenerate(prompt, musicProvider, roundedDuration);
     } else {
-      // For Mubert, we pass the exact duration
+      // For Mubert and ElevenLabs, we pass the exact duration
       onGenerate(prompt, musicProvider, duration);
     }
   };
@@ -159,6 +159,11 @@ export function MusicPanel({
       value: "mubert" as MusicProvider,
       label: "Mubert",
       description: "Real-time AI music for ads (fast generation)",
+    },
+    {
+      value: "elevenlabs" as MusicProvider,
+      label: "ElevenLabs",
+      description: "AI-composed music with advanced synthesis",
     },
   ];
 

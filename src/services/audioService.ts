@@ -2,6 +2,7 @@ import { Provider, Voice, VoiceTrack, MusicProvider, SoundFxPrompt } from "@/typ
 // Beatoven removed - trial expired and poor quality
 import { generateMusicWithLoudly } from "@/utils/loudly-api";
 import { generateMusicWithMubert } from "@/utils/mubert-api";
+import { generateMusicWithElevenLabs } from "@/utils/elevenlabs-music-api";
 import { useMixerStore, MixerTrack } from "@/store/mixerStore";
 
 export class AudioService {
@@ -110,6 +111,8 @@ export class AudioService {
         musicTrack = await generateMusicWithLoudly(prompt, adjustedDuration);
       } else if (provider === "mubert") {
         musicTrack = await generateMusicWithMubert(prompt, duration);
+      } else if (provider === "elevenlabs") {
+        musicTrack = await generateMusicWithElevenLabs(prompt, duration);
       } else {
         throw new Error(`Unsupported music provider: ${provider}`);
       }

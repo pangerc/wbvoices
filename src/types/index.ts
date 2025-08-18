@@ -33,7 +33,7 @@ export type VoiceTrack = {
 
 export type CampaignFormat = "ad_read" | "dialog";
 
-export type MusicProvider = "loudly" | "mubert";
+export type MusicProvider = "loudly" | "mubert" | "elevenlabs";
 
 export type MusicTrack = {
   id: string;

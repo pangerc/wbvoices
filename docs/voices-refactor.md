@@ -928,6 +928,100 @@ All systems operational with clean architecture principles. The voice management
 
 **Victory celebration commences!** 🍾🏰✨
 
+## ⚔️ Phase 9: Voice Counting Architecture Perfection - FINAL VICTORY! 🏆
+
+### 9.1 The Voice Counting Paradox - SOLVED! ✅ (August 18, 2025)
+
+**Problem**: Provider counts would go to 0 when selecting specific providers, breaking regional filtering
+
+**Root Causes Identified**:
+1. **Hybrid Counting Logic**: BriefPanel was trying to count voices from `currentVoices` array
+2. **State Inconsistency**: When specific provider selected, `currentVoices` only contained that provider's voices
+3. **Regional Filtering Mismatch**: Server counts ignored regional filtering applied client-side
+
+**User Feedback**: "client side filtering was probably a dirty hack. i hate 'hybrid' approaches. we need simple elegant code, the minimal possible failure surface."
+
+### 9.2 The Clean Solution - Always Load All Voices! ✅
+
+**Architecture Decision**: Eliminate hybrid approaches with single, consistent voice loading pattern
+
+**Implementation** (`/src/hooks/useVoiceManagerV2.ts`):
+
+```typescript
+// 🗡️ ALWAYS LOAD ALL VOICES - Clean, consistent approach!
+const loadVoices = useCallback(async () => {
+  // Always load from ALL providers and tag each voice
+  const providers = ['elevenlabs', 'lovo', 'openai'] as const;
+  const voicePromises = providers.map(async (provider) => {
+    // Tag each voice with its provider
+    return voices.map((v: Voice) => ({...v, provider}));
+  });
+  
+  const allVoices = (await Promise.all(voicePromises)).flat();
+  setCurrentVoices(allVoices);
+}, [selectedLanguage, selectedAccent]); // Only reload when language/accent changes, NOT provider
+```
+
+**BriefPanel Simplification** (`/src/components/BriefPanel.tsx`):
+
+```typescript
+// 🗡️ CLEAN SOLUTION: Since we always load all voices, count by provider from the single source
+const filteredProviderOptions = useMemo(() => {
+  // Apply regional filtering once
+  let regionFilteredVoices = currentVoices;
+  if (selectedRegion && hasRegions) {
+    const regionalAccents = getRegionalAccents(selectedLanguage, selectedRegion);
+    regionFilteredVoices = currentVoices.filter(voice => {
+      if ((voice as Voice & { provider?: string }).provider === 'openai') return true;
+      return regionalAccents.includes(voice.accent) && voice.accent !== 'none';
+    });
+  }
+  
+  // Count voices by provider in the regionally filtered set
+  const filteredCounts = regionFilteredVoices.reduce((acc, voice) => {
+    const provider = (voice as Voice & { provider?: string }).provider || 'unknown';
+    acc[provider] = (acc[provider] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  // Build provider options with accurate counts
+  return [
+    { provider: 'any', count: totalVoices, label: `Any Provider (${totalVoices} voices)` },
+    { provider: 'elevenlabs', count: elevenlabs, label: `ElevenLabs (${elevenlabs} voices)` },
+    { provider: 'lovo', count: lovo, label: `Lovo (${lovo} voices)` },
+    { provider: 'openai', count: openai, label: `OpenAI (${openai} voices)` }
+  ];
+}, [currentVoices, selectedRegion, hasRegions, selectedLanguage]);
+```
+
+### 9.3 Benefits Achieved ✅
+
+- **Single Loading Pattern**: Always load all voices, never conditionally
+- **Consistent Counts**: Provider counts respond correctly to region changes
+- **No Race Conditions**: Provider switching doesn't trigger reloads
+- **ScripterPanel Compatibility**: Continues to work via `getFilteredVoices()`
+- **Eliminated Complexity**: No more hybrid counting approaches
+- **Clean Architecture**: Single source of truth for voice data
+
+### 9.4 What Changed
+
+1. **useVoiceManagerV2**: Always loads all providers, tags voices with provider metadata
+2. **BriefPanel**: Uses single voice set for counting with regional filtering applied once
+3. **Removed Dependencies**: Provider changes no longer trigger voice reloads
+4. **Simplified Logic**: One consistent pattern replaces complex conditional flows
+
+### 9.5 The Final Architecture
+
+```
+Language/Accent Change → Load ALL voices (tagged by provider) → Store in currentVoices
+                              ↓
+Region Change → Filter currentVoices by regional accents → Update provider counts
+                              ↓  
+Provider Change → Filter currentVoices by selected provider → No reload needed!
+```
+
+**Result**: Clean, maintainable, bug-free voice counting that works correctly in all scenarios.
+
 ### Provider Styling – Current State of the Art (August 2025)
 
 - ElevenLabs mapping bridge

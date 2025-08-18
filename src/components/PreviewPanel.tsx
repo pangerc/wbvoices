@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { GlassyInput, GenerateButton } from "./ui";
 import { FileUpload, useFileUpload } from "./ui/FileUpload";
@@ -39,6 +39,7 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
   });
 
   const [project, setProject] = useState<Project | null>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Debug logging
   React.useEffect(() => {
@@ -134,18 +135,14 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
     loadProject();
   }, [projectId, loadProjectFromRedis]);
 
-  const handleInputChange = (field: keyof PreviewData, value: string) => {
-    setPreviewData((prev) => ({ ...prev, [field]: value }));
+  // Debounced update function
+  const debouncedUpdateProject = useCallback(
+    (updatedPreviewData: PreviewData) => {
+      if (!projectId || !project) return;
 
-    // Auto-save to project
-    if (projectId && project) {
       const updatedPreview = {
         ...project.preview,
-        brandName: field === "brandName" ? value : previewData.brandName,
-        slogan: field === "slogan" ? value : previewData.slogan,
-        destinationUrl:
-          field === "destinationUrl" ? value : previewData.destinationUrl,
-        cta: field === "cta" ? value : previewData.cta,
+        ...updatedPreviewData,
         logoUrl: uploadedFiles.logo?.url || project.preview?.logoUrl,
         visualUrl: uploadedFiles.visual?.url || project.preview?.visualUrl,
       };
@@ -160,8 +157,33 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
         preview: updatedPreview,
         lastModified: Date.now(),
       });
+    },
+    [projectId, project, uploadedFiles.logo?.url, uploadedFiles.visual?.url, updateProject]
+  );
+
+  const handleInputChange = (field: keyof PreviewData, value: string) => {
+    const newPreviewData = { ...previewData, [field]: value };
+    setPreviewData(newPreviewData);
+
+    // Clear existing timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
     }
+
+    // Set new timeout for debounced update (500ms delay)
+    debounceTimeoutRef.current = setTimeout(() => {
+      debouncedUpdateProject(newPreviewData);
+    }, 500);
   };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const logoUrl = uploadedFiles.logo?.url || project?.preview?.logoUrl;
   const visualUrl = uploadedFiles.visual?.url || project?.preview?.visualUrl;

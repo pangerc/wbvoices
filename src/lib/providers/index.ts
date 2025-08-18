@@ -6,6 +6,7 @@ import { OpenAIVoiceProvider } from './OpenAIVoiceProvider';
 import { ElevenLabsVoiceProvider } from './ElevenLabsVoiceProvider';
 import { LovoVoiceProvider } from './LovoVoiceProvider';
 import { ElevenLabsSoundFxProvider } from './ElevenLabsSoundFxProvider';
+import { ElevenLabsMusicProvider } from './ElevenLabsMusicProvider';
 
 // Register all providers
 AudioProviderFactory.register('music', 'mubert', MubertProvider);
@@ -14,6 +15,7 @@ AudioProviderFactory.register('voice', 'openai', OpenAIVoiceProvider);
 AudioProviderFactory.register('voice', 'elevenlabs', ElevenLabsVoiceProvider);
 AudioProviderFactory.register('voice', 'lovo', LovoVoiceProvider);
 AudioProviderFactory.register('sfx', 'elevenlabs', ElevenLabsSoundFxProvider);
+AudioProviderFactory.register('music', 'elevenlabs', ElevenLabsMusicProvider);
 
 // Export factory and providers
 export { AudioProviderFactory, createProvider } from './ProviderFactory';
@@ -24,6 +26,7 @@ export { OpenAIVoiceProvider } from './OpenAIVoiceProvider';
 export { ElevenLabsVoiceProvider } from './ElevenLabsVoiceProvider';
 export { LovoVoiceProvider } from './LovoVoiceProvider';
 export { ElevenLabsSoundFxProvider } from './ElevenLabsSoundFxProvider';
+export { ElevenLabsMusicProvider } from './ElevenLabsMusicProvider';
 
 // Export types
 export type {

@@ -86,7 +86,7 @@ export function generateBlobFilename(
 export async function uploadMusicToBlob(
   sourceUrl: string,
   prompt: string,
-  provider: 'beatoven' | 'loudly' | 'mubert',
+  provider: 'beatoven' | 'loudly' | 'mubert' | 'elevenlabs',
   projectId?: string
 ): Promise<{ url: string; downloadUrl: string }> {
   const filename = generateBlobFilename(
@@ -213,10 +213,27 @@ export async function findCachedContent(
 /**
  * Enhanced music upload with caching metadata
  */
+// Overloaded function signatures
 export async function uploadMusicToBlobWithCache(
   sourceUrl: string,
   prompt: string,
-  provider: 'beatoven' | 'loudly' | 'mubert',
+  provider: 'beatoven' | 'loudly' | 'mubert' | 'elevenlabs',
+  duration: number,
+  projectId?: string
+): Promise<{ url: string; downloadUrl: string; cached: boolean }>;
+
+export async function uploadMusicToBlobWithCache(
+  audioBlob: Blob,
+  prompt: string,
+  provider: 'beatoven' | 'loudly' | 'mubert' | 'elevenlabs',
+  duration: number,
+  projectId?: string
+): Promise<{ url: string; downloadUrl: string; cached: boolean }>;
+
+export async function uploadMusicToBlobWithCache(
+  sourceUrlOrBlob: string | Blob,
+  prompt: string,
+  provider: 'beatoven' | 'loudly' | 'mubert' | 'elevenlabs',
   duration: number,
   projectId?: string
 ): Promise<{ url: string; downloadUrl: string; cached: boolean }> {
@@ -237,11 +254,23 @@ export async function uploadMusicToBlobWithCache(
   
   console.log(`💰 Generating NEW music for prompt: "${prompt.substring(0, 50)}..."`);
   
-  const result = await downloadAndUploadToBlob(
-    sourceUrl,
-    filename,
-    'audio/wav'
-  );
+  let result: { url: string; downloadUrl: string };
+  
+  if (typeof sourceUrlOrBlob === 'string') {
+    // Handle URL-based upload (existing providers like Loudly, Mubert)
+    result = await downloadAndUploadToBlob(
+      sourceUrlOrBlob,
+      filename,
+      'audio/wav'
+    );
+  } else {
+    // Handle Blob-based upload (ElevenLabs)
+    result = await uploadToBlob(
+      sourceUrlOrBlob,
+      filename,
+      'audio/mpeg'
+    );
+  }
 
   return { ...result, cached: false };
 }
@@ -304,7 +333,7 @@ export async function checkSoundFxCache(
  */
 export async function checkMusicCache(
   prompt: string,
-  provider: 'loudly' | 'mubert',
+  provider: 'loudly' | 'mubert' | 'elevenlabs',
   duration: number
 ): Promise<{ url: string; downloadUrl: string } | null> {
   const cacheKey = await generateCacheKey(prompt, { duration, provider });

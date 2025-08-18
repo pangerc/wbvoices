@@ -544,7 +544,7 @@ export default function ProjectWorkspace() {
 
   const handleGenerateMusic = async (
     prompt: string,
-    provider: "loudly" | "mubert",
+    provider: "loudly" | "mubert" | "elevenlabs",
     duration: number
   ) => {
     try {
