@@ -9,6 +9,9 @@ import {
 import { ResetButton } from "@/components/ui/ResetButton";
 import { VolumeToggleButton } from "@/components/ui/VolumeToggleButton";
 import { PlayButton } from "@/components/ui/PlayButton";
+import { useProjectHistoryStore } from "@/store/projectHistoryStore";
+import { useParams } from "next/navigation";
+import { uploadMixedAudioToBlob } from "@/utils/blob-storage";
 
 type MixerPanelProps = {
   isGeneratingVoice?: boolean;
@@ -23,6 +26,10 @@ export function MixerPanel({
   isGeneratingSoundFx = false,
   resetForm,
 }: MixerPanelProps) {
+  const params = useParams();
+  const projectId = params.id as string;
+  const { updateProject } = useProjectHistoryStore();
+
   // Get data and actions from store
   const {
     tracks,
@@ -222,6 +229,35 @@ export function MixerPanel({
     };
   }, [tracks, audioErrors]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Helper function to upload mixed audio and update project
+  const uploadAndUpdateProject = async (blob: Blob, localPreviewUrl: string) => {
+    if (!projectId) {
+      console.warn('No project ID available for mixed audio upload');
+      return localPreviewUrl;
+    }
+
+    try {
+      console.log('📤 Uploading mixed audio to Vercel blob storage...');
+      const { url: permanentUrl } = await uploadMixedAudioToBlob(blob, projectId);
+      console.log('✅ Mixed audio uploaded to blob:', permanentUrl);
+
+      // Update project with the permanent preview URL
+      await updateProject(projectId, {
+        preview: {
+          mixedAudioUrl: permanentUrl,
+        },
+        lastModified: Date.now(),
+      });
+      console.log('✅ Project updated with permanent preview URL');
+
+      return permanentUrl;
+    } catch (error) {
+      console.error('❌ Failed to upload mixed audio or update project:', error);
+      // Return the local preview URL as fallback
+      return localPreviewUrl;
+    }
+  };
+
   // Handle local reset
   const handleReset = () => {
     // Clean up preview URL if it exists
@@ -296,15 +332,20 @@ export function MixerPanel({
         timingInfo
       );
 
-      // Create download link
-      const url = URL.createObjectURL(blob);
+      // Upload to blob storage and update project
+      const localPreviewUrl = URL.createObjectURL(blob);
+      const permanentUrl = await uploadAndUpdateProject(blob, localPreviewUrl);
+
+      // Create download link using the permanent URL if available
       const a = document.createElement("a");
-      a.href = url;
+      a.href = permanentUrl;
       a.download = "mixed-audio.wav";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      
+      // Clean up local URL
+      URL.revokeObjectURL(localPreviewUrl);
     } catch (error) {
       console.error("Failed to export mix:", error);
     } finally {
@@ -455,9 +496,15 @@ export function MixerPanel({
         timingInfo
       );
 
-      const url = URL.createObjectURL(blob);
-      console.log("Mixed audio blob created:", url);
-      setPreviewUrl(url);
+      const localPreviewUrl = URL.createObjectURL(blob);
+      console.log("Mixed audio blob created:", localPreviewUrl);
+      
+      // Upload to blob storage and update project (async, don't block preview)
+      uploadAndUpdateProject(blob, localPreviewUrl).catch(error => {
+        console.error("Background upload failed:", error);
+      });
+      
+      setPreviewUrl(localPreviewUrl);
 
       // Set up the playback audio element if it doesn't exist yet
       if (!playbackAudioRef.current) {
@@ -484,7 +531,7 @@ export function MixerPanel({
         });
 
         // Set the source AFTER adding all event listeners
-        audio.src = url;
+        audio.src = localPreviewUrl;
         playbackAudioRef.current = audio;
       } else {
         // If audio element exists, update its source
@@ -500,7 +547,7 @@ export function MixerPanel({
         audio.currentTime = 0;
 
         // Update source
-        audio.src = url;
+        audio.src = localPreviewUrl;
       }
 
       // Try to preload
@@ -509,7 +556,7 @@ export function MixerPanel({
       }
 
       console.log("Preview generation completed");
-      return url; // Return the URL for chaining
+      return localPreviewUrl; // Return the URL for chaining
     } catch (error) {
       console.error("Failed to create preview:", error);
       return null;

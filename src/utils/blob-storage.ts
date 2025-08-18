@@ -310,3 +310,35 @@ export async function checkMusicCache(
   const cacheKey = await generateCacheKey(prompt, { duration, provider });
   return findCachedContent(cacheKey, provider, 'music');
 }
+
+/**
+ * Mixed audio-specific blob upload helper
+ * Uploads the final mixed audio from the mixer to permanent storage
+ * Uses API route because client-side blob uploads don't have access to tokens
+ */
+export async function uploadMixedAudioToBlob(
+  audioBlob: Blob,
+  projectId?: string
+): Promise<{ url: string; downloadUrl: string }> {
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'mixed-audio.wav');
+  if (projectId) {
+    formData.append('projectId', projectId);
+  }
+
+  const response = await fetch('/api/upload-mixed-audio', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(`Mixed audio upload failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
+  }
+
+  const result = await response.json();
+  return {
+    url: result.url,
+    downloadUrl: result.downloadUrl
+  };
+}

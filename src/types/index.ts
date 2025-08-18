@@ -113,4 +113,14 @@ export type Project = {
     }>;
     totalDuration?: number;
   };
+  // Preview fields for client sharing
+  preview?: {
+    brandName: string;
+    slogan: string;
+    destinationUrl: string;
+    cta: string;
+    logoUrl?: string; // Vercel blob URL
+    visualUrl?: string; // Vercel blob URL
+    mixedAudioUrl?: string; // Final mixed audio from mixer
+  };
 };

@@ -5,11 +5,11 @@
   - ElevenLabs (Voices API → cache)
     - Stored per voice: id, name, gender, language, accent, description/personality, age, use_case, sampleUrl, isMultilingual.
     - No numeric “emotion” controls are stored. These aren’t in their voices API; they’re parameters for the TTS call.
-    - Where: built in `src/app/api/voice/list/route.ts` and stored via `src/services/voiceCatalogueService.ts`.
+    - Where: built in `src/app/api/voice/list/route.ts` (infrastructure - cache population) and stored via `src/services/voiceCatalogueService.ts`.
   - Lovo (Speakers API → cache)
     - One entry per speaker style. We encode the exact style using a composite ID: voice.id = speakerId|styleId.
     - Stored per voice: id (speakerId|styleId), name (often includes style), gender, language/derived accent, age, description, use_case, style (displayName), sampleUrl.
-    - Where: `src/app/api/voice/list/route.ts` (creates entries per style) and stored via `voiceCatalogueService.ts`.
+    - Where: `src/app/api/voice/list/route.ts` (creates entries per style for cache) and stored via `voiceCatalogueService.ts`.
 
 - What we give to the LLM (monoprovider subset)
 
@@ -61,7 +61,7 @@
 
 File map for quick reference
 
-- Cache ingestion and normalization: `src/app/api/voice/list/route.ts`
+- Cache ingestion and normalization: `src/app/api/voice/list/route.ts` (infrastructure only - feeds Redis cache)
 - Cache storage/lookup: `src/services/voiceCatalogueService.ts`
 - Prompt assembly: `src/app/api/ai/generate/route.ts`
 - Response parsing: `src/utils/json-parser.ts`

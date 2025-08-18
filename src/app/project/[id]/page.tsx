@@ -8,6 +8,7 @@ import {
   MixerPanel,
   MusicPanel,
   SoundFxPanel,
+  PreviewPanel,
 } from "@/components";
 import { BriefPanel } from "@/components/BriefPanel";
 import { Header } from "@/components/Header";
@@ -696,6 +697,12 @@ export default function ProjectWorkspace() {
               isGeneratingVoice={formManager.isGenerating}
               isGeneratingMusic={formManager.isGeneratingMusic}
               isGeneratingSoundFx={formManager.isGeneratingSoundFx}
+            />
+          )}
+
+          {selectedTab === 5 && (
+            <PreviewPanel
+              projectId={projectId}
             />
           )}
         </div>

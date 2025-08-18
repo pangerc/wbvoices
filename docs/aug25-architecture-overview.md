@@ -7,7 +7,7 @@
 
 # Voice Generation Architecture Overview
 
-_August 8, 2025_
+_August 14, 2025_
 
 ## System Architecture
 
@@ -75,10 +75,10 @@ Kim Baker (female, ID: kim-baker)
 
 ### 2. Voice Selection & Management
 
-#### NEW: Redis-Powered Voice System (`/src/hooks/useVoiceManagerV2.ts`) ✅
+#### Redis-Powered Voice System (`/src/hooks/useVoiceManagerV2.ts`) ✅ PRODUCTION
 
-- **Architecture**: Three-tower Redis structure for instant lookups
-- **Flow**: Language → Accent → Provider (with real-time counts)
+- **Architecture**: Three-tower Redis structure for instant lookups via `/src/services/voiceCatalogueService.ts`
+- **Flow**: Language → Region → Accent → Provider (with real-time counts)
 - **Coverage**: 1,594 voices with 100+ accent variants across all languages
 - **Performance**: <50ms voice lookups vs 500ms+ API cascades
 - **Key Features**:
@@ -86,12 +86,16 @@ Kim Baker (female, ID: kim-baker)
   - Cross-provider accent visibility ("Any Provider" option)
   - URL extraction from Lovo samples revealing hidden regional accents
   - Comprehensive accent mappings for LATAM and MENA markets
+  - AbortController prevents race conditions during voice loading
+  - Direct voice passing for project restoration bypassing state dependencies
   - Lovo IDs include style id (`speakerId|styleId`) to ensure the picked style is what TTS receives
 
-#### Legacy Voice Manager (`/src/hooks/useVoiceManager.ts`) - DEPRECATED
+#### Legacy Voice Manager - ✅ REMOVED (August 14, 2025)
 
-- Old provider-first approach with complex API cascades
-- Being phased out via feature flag system
+- **Status**: Completely removed from codebase during linting cleanup
+- **Files Deleted**: `/src/hooks/useVoiceManager.ts` and all references
+- **Migration**: All components now use VoiceManagerV2 exclusively
+- **Benefits**: Eliminated code duplication, reduced bundle size, cleaner architecture
 
 #### Voice Data Structure
 
@@ -129,7 +133,9 @@ Central service for audio generation with direct mixerStore integration:
 
 - **ElevenLabs** (`/api/voice/elevenlabs-v2`): High-quality multilingual voices. We send numeric `voice_settings` derived from LLM tone labels (stability, similarity_boost, style, speed, use_speaker_boost). Reference: https://elevenlabs.io/docs/api-reference/text-to-speech/convert
 - **Lovo** (`/api/voice/lovo-v2`): Exact speaker styles. Voice IDs encode `speakerId|styleId`; generation uses Sync TTS and short‑polls if sync returns a pending job (90s behavior). Reference: https://docs.genny.lovo.ai/reference/sync-tts
-- **OpenAI** (`/api/voice/openai`): Text modifiers like "cheerful", "excited", "whispering"
+- **OpenAI** (`/api/voice/openai-v2`): Text modifiers like "cheerful", "excited", "whispering"
+
+**Note**: All voice generation uses v2 endpoints with the standardized provider architecture. The `/api/voice/list` endpoint serves cache population only.
 
 ### 4. Track Mixing & Timeline Management
 
@@ -341,18 +347,29 @@ Auto-save to Redis with complete track properties
 ```
 User visits localhost:3000
     ↓
-Redirects to most recent project OR creates new project ID
+ALWAYS creates fresh new project ID (demo-friendly UX)
     ↓
 URL: /project/bright-forest-847
     ↓
-Load project from Redis OR start with blank state
+Start with clean blank state for better first impression
     ↓
 All changes auto-saved with 1-second debounce
     ↓
-Project picker in header allows instant switching
+Project picker in header allows access to previous projects
 ```
 
-### 15. Layout and UX Improvements (January 2025) ✅
+#### Demo UX Optimization (August 14, 2025) ✅
+
+- **Problem**: New users confused by old project content when hitting home page
+- **Solution**: Always create fresh projects instead of restoring previous ones
+- **Benefits**: 
+  - Clean first impression for every demo session
+  - No hunting for "New Project" button
+  - Previous projects still accessible via header dropdown
+  - Simplified home page logic (reduced from 2.48 kB to 977 B)
+- **Impact**: Much better pilot/demo experience for new users
+
+### 15. Layout and UX Improvements (August 2025) ✅
 
 #### BriefPanel Layout Restructuring
 
@@ -578,7 +595,7 @@ await voiceManagerV2.loadVoices();
 // ✅ Done! No race conditions, reliable voice loading
 ```
 
-#### Voice Loading Race Condition Fix ✅ FIXED (January 2025)
+#### Voice Loading Race Condition Fix ✅ FIXED (August 2025)
 
 **Problem**: Spanish projects restored with American voices in pickers due to useEffect dependencies not triggering reliably when multiple parameters changed during restoration.
 
@@ -905,7 +922,7 @@ const result = await provider.generateAudio(params);
 
 The architecture has evolved significantly, demonstrating how systematic improvements can enhance both security and user experience. The migration from XML to JSON, implementation of server-side API routes, and voice deduplication fixes show the value of addressing pain points methodically.
 
-**Recent achievements (August 2025 - January 2025):**
+**Recent achievements (August 2025):**
 
 - **Security hardening**: Eliminated client-side API key exposure
 - **Quality improvements**: Fixed model configuration for better LLM output
@@ -925,7 +942,62 @@ The architecture has evolved significantly, demonstrating how systematic improve
 - **Layout optimization**: 2-column BriefPanel with natural tab order
 - **Architecture cleanup**: Removed complex parameter threading and duct-tape fixes
 - **Provider/Voice sync fix**: Proper voice filtering ensures LLM only sees correct provider's voices
-- **Voice loading race conditions**: Fixed project restoration showing wrong language voices via explicit loadVoices() method
+- **Voice loading race conditions**: Fixed project restoration showing wrong language voices via AbortController + direct voice passing approach
+- **Legacy code removal**: Completely eliminated old voice manager and experimental components
+- **TypeScript strict mode**: Full type safety with zero `any` types and proper interface definitions
+- **Demo UX optimization**: Always create fresh projects for better first impression
+- **Infinite redirect fix**: Stable browser navigation without redirect loops
+- **Build performance**: 60% home page bundle reduction and clean compile output
+
+### 14. Code Quality & Architecture Cleanup (August 14, 2025) ✅
+
+#### TypeScript & Linting Overhaul
+
+**Problems Addressed**:
+- Numerous TypeScript strict mode violations (`@typescript-eslint/no-explicit-any`)
+- Unused variables and parameters cluttering codebase
+- Missing React Hook exhaustive dependencies
+- Unsafe function type definitions
+- Duplicate object keys causing build failures
+
+**Solutions Implemented**:
+- **Type Safety**: Eliminated all `any` types with proper interface definitions
+- **Provider Architecture**: Created `ActualProvider` type excluding "any" for type-safe voice tower operations
+- **Voice Type Mapping**: Added proper type guards for voice data transformation from API responses
+- **Dependency Arrays**: Fixed all React Hook dependency warnings for stable effects
+- **Cleanup**: Removed unused imports, variables, and legacy code remnants
+- **Duplicate Resolution**: Fixed conflicting accent mappings in language configuration
+
+#### Legacy Code Removal
+
+**Files Completely Removed**:
+- `/src/hooks/useVoiceManager.ts` - Replaced by VoiceManagerV2
+- `/src/components/NewMixerPanel.tsx` - Superseded by current MixerPanel
+- `/src/app/page-original.tsx` - Legacy home page implementation
+- Multiple documentation files for deprecated voice providers
+
+**Architecture Simplification**:
+- Unified provider system using single voice management approach
+- Eliminated complex feature flag logic and dual implementations
+- Reduced API surface area with consistent v2 endpoints
+- Cleaner component hierarchy with removed experimental components
+
+#### Build Performance Improvements
+
+**Results**:
+- **Clean Build**: Zero TypeScript errors, zero linting warnings
+- **Bundle Size Reduction**: Home page reduced from 2.48 kB → 977 B (60% reduction)
+- **Type Safety**: Full compile-time checking prevents runtime voice system errors
+- **Developer Experience**: Cleaner console output, fewer false positive warnings
+- **Maintainability**: Single source of truth for voice management eliminates confusion
+
+#### Infinite Redirect Loop Fix
+
+**Problem**: Demo failing on new browsers with continuous redirect loop
+**Root Cause**: `recentProjects` included in useEffect dependencies causing state update loops
+**Solution**: Removed reactive dependencies, used store.getState() for current state access
+**Additional Safety**: Added `hasRedirected` ref to prevent multiple simultaneous redirects
+**Result**: Stable demo experience across all browser sessions
 
 **Architectural Principles Applied:**
 
@@ -937,19 +1009,20 @@ The architecture has evolved significantly, demonstrating how systematic improve
 
 **Current strengths:**
 
-- Clear separation of concerns
-- Extensible provider system (ElevenLabs, Lovo, OpenAI)
-- Battle-tested timing engine with LegacyTimelineCalculator
-- Secure server-side architecture
-- Rich voice personality integration
-- Complete project persistence with Redis
-- URL-based deterministic project management
-- Timeline positioning consistency across sessions
-- Intuitive project management UI
-- Redis-powered voice management with 100+ accent variants
-- Clean auto-selection heuristics without complex state management
-- Regional accent grouping for global market deployment
-- Bug-free voice generation workflow
+- **Clean Architecture**: Single voice management system with unified provider approach
+- **Type Safety**: Full TypeScript strict mode compliance with zero `any` types
+- **Performance**: Redis-powered voice lookups (<50ms) with 100+ accent variants
+- **Demo-Ready**: Always fresh projects for optimal first impressions
+- **Extensible Provider System**: ElevenLabs, Lovo, OpenAI with unified interface
+- **Battle-tested Timeline Engine**: LegacyTimelineCalculator with consistent positioning
+- **Security**: Server-side API routes with no client-side key exposure
+- **Rich Voice Integration**: Comprehensive personality and accent metadata
+- **Complete Persistence**: Redis-based project history with auto-save
+- **URL-based Management**: Deterministic project routing without conflicts
+- **Regional Market Support**: LATAM/MENA accent grouping for global deployment
+- **Race Condition Free**: AbortController + direct voice passing prevents state issues
+- **Build Performance**: Optimized bundle sizes and clean compilation
+- **Intuitive UX**: Natural tab flows, logical control grouping, clean state transitions
 
 **Key opportunities:**
 

@@ -182,28 +182,37 @@ user_projects:{session_id}  → User's project ID list
 - **Solution**: Cleaned up logging, treat new projects as normal case
 - **Impact**: Cleaner development experience
 
-### Sound Effects Not Saving to Redis 🐛 → ✅ FIXED (January 2025)
+### Sound Effects Not Saving to Redis 🐛 → ✅ FIXED (August 2025)
 - **Problem**: Sound effects displayed in timeline but disappeared after project restoration
 - **Root Cause**: React stale closure issue - `saveProject` used component-scoped `tracks` variable instead of current store state
 - **Solution**: Modified `saveProject` to use `useMixerStore.getState().tracks` for fresh state
 - **Impact**: Sound effects now properly persist and restore across sessions
 
-### Sound Effect Duration Timing Issues 🐛 → ✅ FIXED (January 2025)
+### Sound Effect Duration Timing Issues 🐛 → ✅ FIXED (August 2025)
 - **Problem**: 3-second gaps in timeline where 1-second sound effects should be (timing mismatch between requested vs actual duration)
 - **Root Cause**: Tracks saved with LLM-requested duration (3s) instead of actual audio duration (~1s)
 - **Solution 1**: Modified `saveProject` to use `audioDurations` from store for correct track durations
 - **Solution 2**: Enhanced `AudioService.generateSoundEffect` to measure actual audio duration before creating track
 - **Impact**: Perfect timeline positioning with correct sound effect durations from generation through restoration
 
-### Project Restoration Voice Loading Race Condition 🐛 → ✅ FIXED (January 2025)
-- **Problem**: Spanish projects restored with American voices in pickers, inconsistent BriefPanel voice counts (span showing "6 voices" but dropdown showing "elevenlabs (0 voices)")
-- **Root Cause**: Voice loading useEffect dependencies weren't triggering reliably when multiple parameters (language, region, provider) changed during restoration
-- **Solution**: Added explicit `loadVoices()` method to useVoiceManagerV2 and force reload after setting all restoration parameters
-- **Technical Details**: 
-  - Extracted voice loading logic into reusable `loadVoices()` callback
-  - Added `await voiceManagerV2.loadVoices()` after parameter restoration
-  - Eliminated race conditions between parameter setting and voice loading
-- **Impact**: Spanish, Slovenian and all regional projects now restore with correct voices immediately, consistent voice counts across UI components
+### Project Restoration Voice Loading Race Condition 🐛 → ✅ FIXED (August 2025)
+- **Problem**: Spanish/Slovenian projects restored with American voices in pickers, inconsistent voice counts, "undefeatable American voices bug"
+- **Root Cause**: Multiple async voice loading requests racing - English voices loaded after Spanish/Slovenian and overwrote them
+- **Evolution of Fixes**:
+  1. **Phase 1**: Added explicit `loadVoices()` method and force reload - partially fixed but race conditions persisted
+  2. **Phase 2**: Added AbortController to cancel previous voice loading requests - eliminated races but UI still showed stale voices
+  3. **Phase 3**: Implemented direct voice passing - bypassed voice manager state entirely for restoration
+- **Final Solution (Option 2)**: 
+  - Added `restoredVoices` state to project page
+  - Pass directly-loaded voices to ScripterPanel via `overrideVoices` prop  
+  - ScripterPanel uses: `const voices = overrideVoices || getFilteredVoices()`
+  - Bypasses complex voice manager state synchronization entirely
+- **Technical Implementation**:
+  - AbortController prevents race conditions in voice manager
+  - Direct API loads voices for restoration
+  - ScripterPanel receives explicit voice list, no state dependency
+  - Clean data flow: Direct API → restoredVoices state → ScripterPanel
+- **Impact**: Spanish, Slovenian and all regional projects now restore with correct voices immediately - "American voices finally defeated!"
 
 ## Current Limitations & Future Enhancements
 
@@ -315,14 +324,14 @@ The project history feature is fully operational with:
 - ✅ URL-based architecture eliminating auto-save conflicts  
 - ✅ Short, readable project IDs
 - ✅ Clean "New Project" functionality
-- ✅ **Sound effects fully persist and restore (January 2025)**
-- ✅ **Perfect timeline positioning with accurate durations (January 2025)**
-- ✅ **Voice loading race conditions eliminated (January 2025)**
-- ✅ **Regional project restoration consistency (January 2025)**
+- ✅ **Sound effects fully persist and restore (August 2025)**
+- ✅ **Perfect timeline positioning with accurate durations (August 2025)**
+- ✅ **Voice loading race conditions eliminated via AbortController + direct voice passing (August 2025)**
+- ✅ **Regional project restoration consistency - "American voices finally defeated" (August 2025)**
 - ✅ Production-ready architecture
 
 **Reality Check**: This feature required major architectural pivots and bug fixes that weren't anticipated in the original naive design. The final implementation is much more robust than initially planned, but required solving complex state management, timeline consistency, URL routing challenges, React closure issues, audio duration measurement timing problems, and voice loading race conditions.
 
-**Latest Achievement (January 2025)**: After discovering and fixing critical bugs with sound effects not persisting to Redis, timeline duration mismatches, and voice loading race conditions during project restoration, the system now provides **bulletproof audio timeline restoration** where every track (voice, music, and sound effects) maintains perfect positioning and timing across save/restore cycles, with immediate voice availability regardless of language or region complexity.
+**Latest Achievement (August 2025)**: After discovering and fixing critical bugs with sound effects not persisting to Redis, timeline duration mismatches, and voice loading race conditions during project restoration, the system now provides **bulletproof audio timeline restoration** where every track (voice, music, and sound effects) maintains perfect positioning and timing across save/restore cycles, with immediate voice availability regardless of language or region complexity. The final solution uses a hybrid approach: AbortController eliminates race conditions in voice manager, while direct voice passing to ScripterPanel ensures the UI always shows correct language voices during restoration.
 
 Users can now confidently iterate on creative variations without fear of losing work, with every change automatically preserved and instantly restorable with perfect timeline positioning and accurate audio durations.
