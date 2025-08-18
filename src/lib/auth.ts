@@ -33,20 +33,11 @@ export function verifyAuthToken(token: string): AuthToken | null {
 }
 
 export function isProductionEnvironment(): boolean {
-  const isVercel = !!process.env.VERCEL;
-  const isProduction = process.env.NODE_ENV === 'production';
-  const isVercelUrl = process.env.VERCEL_URL !== undefined;
-  
-  console.log('🔍 Auth Debug - VERCEL:', process.env.VERCEL, 'NODE_ENV:', process.env.NODE_ENV, 'VERCEL_URL:', !!process.env.VERCEL_URL);
-  
-  // Use any of these indicators that we're on Vercel/production
-  return isVercel || (isProduction && isVercelUrl);
+  return process.env.NEXT_PUBLIC_ENABLE_AUTH === 'true';
 }
 
 export function shouldRequireAuth(): boolean {
-  const shouldAuth = isProductionEnvironment();
-  console.log('🔍 Auth Debug - shouldRequireAuth:', shouldAuth);
-  return shouldAuth;
+  return isProductionEnvironment();
 }
 
 export function isPublicRoute(pathname: string): boolean {
