@@ -153,6 +153,7 @@ export function BriefPanel({
     availableAccents,
     availableProviders,
     currentVoices,
+    voiceCounts,
     isLoading,
     hasRegions,
     hasAccents,
@@ -165,31 +166,38 @@ export function BriefPanel({
   // 🗡️ REMOVED AUTO-SELECTION! Let users choose their own destiny!
   // The dragon's trap was forcing choices on users before they could see all options
 
-  // Get region-filtered voices for display counts
+  // Get region-filtered voices for display counts  
   const displayVoices = voiceManager.getFilteredVoices();
   
-  // Calculate filtered provider counts
+  // Use the voice counts from the hook directly - they're already filtered by language/accent
   const filteredProviderOptions = useMemo(() => {
-    if (!displayVoices.length) return availableProviders;
+    // The voiceCounts from useVoiceManagerV2 are already properly calculated per provider
+    const { elevenlabs, lovo, openai } = voiceCounts;
+    const totalVoices = elevenlabs + lovo + openai;
     
-    // Count voices by provider in the filtered set
-    const filteredCounts = displayVoices.reduce((acc, voice) => {
-      const provider = (voice as Voice & { provider?: string }).provider || 'unknown';
-      acc[provider] = (acc[provider] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    // Update provider options with filtered counts
-    return availableProviders.map(p => ({
-      ...p,
-      count: p.provider === 'any' 
-        ? displayVoices.length 
-        : filteredCounts[p.provider] || 0,
-      label: p.provider === 'any'
-        ? `Any Provider (${displayVoices.length} voices)`
-        : p.label.replace(/\(\d+ voices\)/, `(${filteredCounts[p.provider] || 0} voices)`)
-    }));
-  }, [displayVoices, availableProviders]);
+    return [
+      {
+        provider: 'any' as Provider,
+        count: totalVoices,
+        label: `Any Provider (${totalVoices} voices)`
+      },
+      {
+        provider: 'elevenlabs' as Provider,
+        count: elevenlabs,
+        label: `ElevenLabs (${elevenlabs} voices)`
+      },
+      {
+        provider: 'lovo' as Provider,
+        count: lovo,
+        label: `Lovo (${lovo} voices)`
+      },
+      {
+        provider: 'openai' as Provider,
+        count: openai,
+        label: `OpenAI (${openai} voices)`
+      }
+    ];
+  }, [voiceCounts]);
   
   // Only show helpful warnings, don't force changes
   const shouldWarnAboutDialog =
