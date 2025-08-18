@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { CampaignFormat, AIModel, SoundFxPrompt, Language, Voice } from "@/types";
+import { CampaignFormat, AIModel, SoundFxPrompt, Language, Voice, Provider } from "@/types";
 import { generateCreativeCopy } from "@/utils/ai-api-client";
 import { parseCreativeJSON } from "@/utils/json-parser";
 import { getFlagCode, getRegionalAccents } from "@/utils/language";
@@ -151,7 +151,6 @@ export function BriefPanel({
     availableLanguages,
     availableRegions,
     availableAccents,
-    availableProviders,
     currentVoices,
     voiceCounts,
     isLoading,
