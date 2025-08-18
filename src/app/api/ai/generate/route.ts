@@ -215,21 +215,19 @@ Sound effect examples by theme (keep the description as short and concise, don't
     const temperature = aiModel === "gpt5" ? 1 : 0.7;
 
 
-    const completionParams: any = {
+    const baseParams = {
       model,
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: userPrompt },
       ],
       temperature,
     };
 
     // Use max_completion_tokens for GPT-5, max_tokens for other models
-    if (aiModel === "gpt5") {
-      completionParams.max_completion_tokens = 10000; // Higher limit for GPT-5 reasoning + output
-    } else {
-      completionParams.max_tokens = 2000;
-    }
+    const completionParams = aiModel === "gpt5" 
+      ? { ...baseParams, max_completion_tokens: 10000 }
+      : { ...baseParams, max_tokens: 2000 };
 
     const response = await openai.chat.completions.create(completionParams);
 
