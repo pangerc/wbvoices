@@ -152,7 +152,6 @@ export function BriefPanel({
     availableRegions,
     availableAccents,
     currentVoices,
-    voiceCounts,
     isLoading,
     hasRegions,
     hasAccents,
@@ -168,10 +167,35 @@ export function BriefPanel({
   // Get region-filtered voices for display counts  
   const displayVoices = voiceManager.getFilteredVoices();
   
-  // Use the voice counts from the hook directly - they're already filtered by language/accent
+  // 🗡️ CLEAN SOLUTION: Since we always load all voices, count by provider from the single source
   const filteredProviderOptions = useMemo(() => {
-    // The voiceCounts from useVoiceManagerV2 are already properly calculated per provider
-    const { elevenlabs, lovo, openai } = voiceCounts;
+    // Apply the same regional filtering as getFilteredVoices
+    let regionFilteredVoices = currentVoices;
+    
+    if (selectedRegion && hasRegions) {
+      const regionalAccents = getRegionalAccents(selectedLanguage, selectedRegion);
+      regionFilteredVoices = currentVoices.filter(voice => {
+        // OpenAI voices are always available regardless of region
+        if ((voice as Voice & { provider?: string }).provider === 'openai') {
+          return true;
+        }
+        
+        if (!voice.accent) return false;
+        // Check if voice accent is in the regional accents list (excluding "none")
+        return regionalAccents.includes(voice.accent) && voice.accent !== 'none';
+      });
+    }
+    
+    // Count voices by provider in the regionally filtered set
+    const filteredCounts = regionFilteredVoices.reduce((acc, voice) => {
+      const provider = (voice as Voice & { provider?: string }).provider || 'unknown';
+      acc[provider] = (acc[provider] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const elevenlabs = filteredCounts.elevenlabs || 0;
+    const lovo = filteredCounts.lovo || 0;
+    const openai = filteredCounts.openai || 0;
     const totalVoices = elevenlabs + lovo + openai;
     
     return [
@@ -196,7 +220,7 @@ export function BriefPanel({
         label: `OpenAI (${openai} voices)`
       }
     ];
-  }, [voiceCounts]);
+  }, [currentVoices, selectedRegion, hasRegions, selectedLanguage]);
   
   // Only show helpful warnings, don't force changes
   const shouldWarnAboutDialog =
@@ -229,18 +253,19 @@ export function BriefPanel({
       providerToUse = voiceManager.autoSelectProvider(campaignFormat);
     }
     
-    // Get the correct voices for the provider we're using, filtered by region
-    const regionFilteredVoices = voiceManager.getFilteredVoices();
-    const voicesToUse = providerToUse === selectedProvider 
-      ? regionFilteredVoices 
+    // Get the voices for the selected provider, with regional filtering applied
+    const voicesToUse = providerToUse === "any" 
+      ? displayVoices // Use all regionally filtered voices
       : voiceManager.getVoicesForProvider(providerToUse).filter(voice => {
+          // Apply the same regional filtering as displayVoices
+          if (!selectedRegion || !hasRegions) return true;
+          
           // OpenAI voices are always available regardless of region
           if ((voice as Voice & { provider?: string }).provider === 'openai') return true;
           
-          // Also apply regional filtering to provider-specific voices
-          if (!selectedRegion || !hasRegions) return true;
+          if (!voice.accent) return false;
           const regionalAccents = getRegionalAccents(selectedLanguage, selectedRegion);
-          return voice.accent && regionalAccents.includes(voice.accent) && voice.accent !== 'none';
+          return regionalAccents.includes(voice.accent) && voice.accent !== 'none';
         });
 
     setIsGenerating(true);

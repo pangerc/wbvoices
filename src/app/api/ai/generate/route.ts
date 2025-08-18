@@ -215,18 +215,35 @@ Sound effect examples by theme (keep the description as short and concise, don't
     const temperature = aiModel === "gpt5" ? 1 : 0.7;
 
 
-    const response = await openai.chat.completions.create({
+    const completionParams: any = {
       model,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       temperature,
-      max_tokens: 2000,
-    });
+    };
 
+    // Use max_completion_tokens for GPT-5, max_tokens for other models
+    if (aiModel === "gpt5") {
+      completionParams.max_completion_tokens = 10000; // Higher limit for GPT-5 reasoning + output
+    } else {
+      completionParams.max_tokens = 2000;
+    }
+
+    const response = await openai.chat.completions.create(completionParams);
+
+    console.log("OpenAI response status:", response);
+    console.log("Response choices:", response.choices?.length);
+    
     const content = response.choices[0]?.message?.content || "";
-    console.log("Raw OpenAI response:", content);
+    console.log("Raw OpenAI response content:", JSON.stringify(content));
+    console.log("Content length:", content.length);
+
+    if (!content || content.trim() === "") {
+      console.error("Empty response from OpenAI");
+      throw new Error("AI returned empty response");
+    }
 
     // Clean up the response if it contains markdown
     let cleanedContent = content.trim();
@@ -236,12 +253,16 @@ Sound effect examples by theme (keep the description as short and concise, don't
         .replace(/\n```\s*$/, "");
     }
 
+    console.log("Cleaned content:", JSON.stringify(cleanedContent));
+
     // Validate it's valid JSON
     try {
-      JSON.parse(cleanedContent);
-    } catch {
+      const parsed = JSON.parse(cleanedContent);
+      console.log("Successfully parsed JSON:", parsed);
+    } catch (jsonError) {
       console.error("Invalid JSON response:", cleanedContent);
-      throw new Error("AI returned invalid JSON format");
+      console.error("JSON parse error:", jsonError);
+      throw new Error(`AI returned invalid JSON format: ${jsonError instanceof Error ? jsonError.message : 'Unknown parsing error'}`);
     }
 
     return NextResponse.json({ content: cleanedContent });

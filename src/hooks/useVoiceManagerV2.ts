@@ -253,7 +253,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
     updateProviders();
   }, [selectedLanguage, selectedRegion, selectedAccent]); // Update when language, region, or accent changes
   
-  // Voice loading logic extracted into reusable function
+  // 🗡️ ALWAYS LOAD ALL VOICES - Clean, consistent approach!
   const loadVoices = useCallback(async () => {
     // Cancel previous request if it's still running
     if (abortControllerRef.current) {
@@ -265,57 +265,40 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     
-    console.log(`🔄 Loading voices for provider=${selectedProvider}, language=${selectedLanguage}, accent=${selectedAccent}`);
+    console.log(`🔄 Loading ALL voices for language=${selectedLanguage}, accent=${selectedAccent}`);
     setIsLoading(true);
     setCurrentVoices([]); // Clear immediately
     
     try {
-      let allVoices: Voice[] = [];
-      
-      if (selectedProvider === 'any') {
-        // 🗡️ LOAD VOICES FROM ALL PROVIDERS!
-        const providers = ['elevenlabs', 'lovo', 'openai'] as const;
-        const voicePromises = providers.map(async (provider) => {
-          try {
-            const url = new URL('/api/voice-catalogue', window.location.origin);
-            url.searchParams.set('operation', 'voices');
-            url.searchParams.set('provider', provider);
-            url.searchParams.set('language', selectedLanguage);
-            if (selectedAccent && selectedAccent !== 'neutral') {
-              url.searchParams.set('accent', selectedAccent);
-            }
-            
-            const response = await fetch(url, { signal: abortController.signal });
-            const voices = await response.json();
-            // Tag each voice with its provider
-            return Array.isArray(voices) ? voices.map((v: Voice) => ({...v, provider})) : [];
-          } catch (error) {
-            // Don't log abort errors as they're intentional
-            if (error instanceof Error && error.name === 'AbortError') {
-              console.log(`🚫 ${provider} voice request cancelled`);
-              return [];
-            }
-            console.error(`Failed to load ${provider} voices:`, error);
+      // Always load from ALL providers and tag each voice
+      const providers = ['elevenlabs', 'lovo', 'openai'] as const;
+      const voicePromises = providers.map(async (provider) => {
+        try {
+          const url = new URL('/api/voice-catalogue', window.location.origin);
+          url.searchParams.set('operation', 'voices');
+          url.searchParams.set('provider', provider);
+          url.searchParams.set('language', selectedLanguage);
+          if (selectedAccent && selectedAccent !== 'neutral') {
+            url.searchParams.set('accent', selectedAccent);
+          }
+          
+          const response = await fetch(url, { signal: abortController.signal });
+          const voices = await response.json();
+          // Tag each voice with its provider
+          return Array.isArray(voices) ? voices.map((v: Voice) => ({...v, provider})) : [];
+        } catch (error) {
+          // Don't log abort errors as they're intentional
+          if (error instanceof Error && error.name === 'AbortError') {
+            console.log(`🚫 ${provider} voice request cancelled`);
             return [];
           }
-        });
-        
-        const providerVoicesArrays = await Promise.all(voicePromises);
-        allVoices = providerVoicesArrays.flat();
-      } else {
-        // Load from specific provider
-        const url = new URL('/api/voice-catalogue', window.location.origin);
-        url.searchParams.set('operation', 'voices');
-        url.searchParams.set('provider', selectedProvider);
-        url.searchParams.set('language', selectedLanguage);
-        if (selectedAccent && selectedAccent !== 'neutral') {
-          url.searchParams.set('accent', selectedAccent);
+          console.error(`Failed to load ${provider} voices:`, error);
+          return [];
         }
-        
-        const response = await fetch(url, { signal: abortController.signal });
-        const voices = await response.json();
-        allVoices = Array.isArray(voices) ? voices : [];
-      }
+      });
+      
+      const providerVoicesArrays = await Promise.all(voicePromises);
+      const allVoices = providerVoicesArrays.flat();
       
       // Convert to Voice type (may need mapping)
       const mappedVoices: Voice[] = allVoices.map((v: unknown) => {
@@ -338,8 +321,12 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
       
       // Only update state if this request wasn't aborted
       if (!abortController.signal.aborted) {
-        console.log(`✅ Loaded ${mappedVoices.length} voices for ${selectedProvider}/${selectedLanguage}`);
-        console.log(`🔍 First few voices:`, mappedVoices.slice(0, 3).map(v => ({ name: v.name, language: v.language, accent: v.accent })));
+        console.log(`✅ Loaded ${mappedVoices.length} voices from all providers for ${selectedLanguage}`);
+        console.log(`🔍 Provider breakdown:`, {
+          elevenlabs: mappedVoices.filter(v => (v as Voice & { provider?: string }).provider === 'elevenlabs').length,
+          lovo: mappedVoices.filter(v => (v as Voice & { provider?: string }).provider === 'lovo').length,
+          openai: mappedVoices.filter(v => (v as Voice & { provider?: string }).provider === 'openai').length,
+        });
         setCurrentVoices(mappedVoices);
       } else {
         console.log('🚫 Voice loading request was aborted, skipping state update');
@@ -357,9 +344,9 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
         setIsLoading(false);
       }
     }
-  }, [selectedProvider, selectedLanguage, selectedAccent]);
+  }, [selectedLanguage, selectedAccent]); // Only reload when language/accent changes, NOT provider
 
-  // When provider changes, load voices for that provider (or all if "any")
+  // Load voices when language or accent changes (not provider!)
   useEffect(() => {
     loadVoices();
   }, [loadVoices]);
@@ -397,37 +384,24 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
     });
   }, [currentVoices, selectedRegion, selectedLanguage, hasRegions, selectedProvider]);
   
-  // Helper: Get voices for a specific provider (filters from current voices if needed)
+  // Helper: Get voices for a specific provider (now simple - just filter by provider tag!)
   const getVoicesForProvider = useCallback((provider: Provider) => {
-    // If we're already showing this provider's voices, return them
-    if (selectedProvider === provider) {
-      return currentVoices;
-    }
-    
-    // If we have "any" selected, filter the voices by provider
-    if (selectedProvider === 'any' && currentVoices.length > 0) {
-      // The voices should have provider info attached during loading
-      return currentVoices.filter(voice => {
-        // Check if voice has provider metadata
-        if ('provider' in voice) {
-          return (voice as Voice & { provider: string }).provider === provider;
-        }
-        // Fallback: try to guess by ID format
-        // ElevenLabs IDs are alphanumeric, Lovo uses MongoDB ObjectIds
-        if (provider === 'elevenlabs') {
-          return !voice.id.match(/^[0-9a-f]{24}$/i); // Not a MongoDB ObjectId
-        }
-        if (provider === 'lovo') {
-          return voice.id.match(/^[0-9a-f]{24}$/i); // Is a MongoDB ObjectId
-        }
-        return false;
-      });
-    }
-    
-    // Otherwise return empty - shouldn't happen in normal flow
-    console.warn(`getVoicesForProvider: Unexpected state - provider=${provider}, selectedProvider=${selectedProvider}`);
-    return [];
-  }, [currentVoices, selectedProvider]);
+    // Since we always load all voices with provider tags, just filter by provider
+    return currentVoices.filter(voice => {
+      // Check if voice has provider metadata
+      if ('provider' in voice) {
+        return (voice as Voice & { provider: string }).provider === provider;
+      }
+      // Fallback: try to guess by ID format (shouldn't be needed anymore)
+      if (provider === 'elevenlabs') {
+        return !voice.id.match(/^[0-9a-f]{24}$/i); // Not a MongoDB ObjectId
+      }
+      if (provider === 'lovo') {
+        return voice.id.match(/^[0-9a-f]{24}$/i); // Is a MongoDB ObjectId
+      }
+      return false;
+    });
+  }, [currentVoices]);
   
   // Helper: Auto-select best provider for format
   const autoSelectProvider = useCallback((format: CampaignFormat) => {
