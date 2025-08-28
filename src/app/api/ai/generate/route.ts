@@ -8,6 +8,18 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, // No NEXT_PUBLIC_ prefix
 });
 
+// Initialize Moonshot KIMI client with OpenAI-compatible interface
+const moonshot = new OpenAI({
+  apiKey: process.env.MOONSHOT_API_KEY,
+  baseURL: "https://api.moonshot.ai/v1",
+});
+
+// Initialize Qwen-Max client with OpenAI-compatible interface
+const qwen = new OpenAI({
+  apiKey: process.env.QWEN_API_KEY,
+  baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+});
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,6 +33,8 @@ export async function POST(req: NextRequest) {
       filteredVoices,
       duration = 60,
       provider,
+      region,
+      accent,
     } = body;
 
     // Validate required fields
@@ -37,7 +51,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`Generating creative copy with ${aiModel} for ${provider}...`);
+    const aiProvider = aiModel === "moonshot" ? "Moonshot KIMI" 
+                     : aiModel === "qwen" ? "Qwen-Max" 
+                     : "OpenAI";
+    console.log(`Generating creative copy with ${aiModel} (${aiProvider}) for ${provider}...`);
     console.log(
       `🗣️ Received ${filteredVoices.length} voices from SINGLE provider: ${provider}`
     );
@@ -58,7 +75,9 @@ export async function POST(req: NextRequest) {
 - Special techniques (whispering for intimacy, authoritative for credibility)
 
 For each voice in your response, include a "voiceInstructions" field with detailed guidance like:
-"Speak in a confident, promotional tone with slight excitement. Use clear articulation and a professional pace suitable for radio advertising. Emphasize key product benefits with warmth and credibility."`;
+"Speak in a confident, promotional tone with slight excitement. Use clear articulation and a professional pace suitable for radio advertising. Emphasize key product benefits with warmth and credibility."
+
+${accent && accent !== 'neutral' ? `IMPORTANT: Include accent guidance in voice instructions. The user has selected ${accent} accent${region ? ` from ${region}` : ''}. Add instructions like "Speak with a ${accent} accent" or "${accent} pronunciation" to the voiceInstructions field.` : ''}`;
         break;
       case "elevenlabs":
         styleInstructions = `For each voice, you MUST choose ONE tone from this complete list:
@@ -114,8 +133,19 @@ You excel at matching voice characteristics to brand personality and target audi
 
     // Convert language code to readable name for LLM
     const languageName = getLanguageName(language);
+    
+    // Build dialect instructions if region/accent specified
+    let dialectInstructions = '';
+    if (accent && accent !== 'neutral') {
+      dialectInstructions = ` using ${accent} dialect/accent`;
+      if (region) {
+        dialectInstructions += ` from ${region}`;
+      }
+    } else if (region) {
+      dialectInstructions = ` using regional expressions and terminology from ${region}`;
+    }
 
-    const userPrompt = `Create a ${duration}-second audio advertisement in ${languageName} language.
+    const userPrompt = `Create a ${duration}-second audio advertisement in ${languageName} language${dialectInstructions}.
 
 CLIENT BRIEF:
 ${clientDescription}
@@ -210,36 +240,96 @@ Sound effect examples by theme (keep the description as short and concise, don't
 - Food/beverage: "soda can opening" (1s), "sizzling pan" (2s)
 - Technology: "notification chime" (1s), "keyboard typing" (2s)`;
 
-    // Map selected model to OpenAI API model name
-    const model = aiModel === "gpt5" ? "gpt-5" : "gpt-4.1";
-    const temperature = aiModel === "gpt5" ? 1 : 0.7;
-
-
-    const baseParams = {
-      model,
-      messages: [
-        { role: "system" as const, content: systemPrompt },
-        { role: "user" as const, content: userPrompt },
-      ],
-      temperature,
+    // Select appropriate client and model based on aiModel
+    let client: OpenAI;
+    let model: string;
+    let temperature: number;
+    let completionParams: {
+      model: string;
+      messages: Array<{ role: "system" | "user"; content: string }>;
+      temperature: number;
+      max_tokens?: number;
+      max_completion_tokens?: number;
     };
 
-    // Use max_completion_tokens for GPT-5, max_tokens for other models
-    const completionParams = aiModel === "gpt5" 
-      ? { ...baseParams, max_completion_tokens: 10000 }
-      : { ...baseParams, max_tokens: 2000 };
+    if (aiModel === "moonshot") {
+      if (!process.env.MOONSHOT_API_KEY) {
+        return NextResponse.json(
+          { error: "Moonshot API key not configured" },
+          { status: 500 }
+        );
+      }
+      
+      console.log("Using Moonshot with API key:", process.env.MOONSHOT_API_KEY?.substring(0, 10) + "...");
+      
+      client = moonshot;
+      model = "kimi-latest"; // Use the latest stable model
+      temperature = 0.7;
+      completionParams = {
+        model,
+        messages: [
+          { role: "system" as const, content: systemPrompt },
+          { role: "user" as const, content: userPrompt },
+        ],
+        temperature,
+        max_tokens: 2000,
+      };
+    } else if (aiModel === "qwen") {
+      if (!process.env.QWEN_API_KEY) {
+        return NextResponse.json(
+          { error: "Qwen API key not configured" },
+          { status: 500 }
+        );
+      }
+      
+      console.log("Using Qwen with API key:", process.env.QWEN_API_KEY?.substring(0, 10) + "...");
+      
+      client = qwen;
+      model = "qwen-max"; // Use Qwen-Max model
+      temperature = 0.7;
+      completionParams = {
+        model,
+        messages: [
+          { role: "system" as const, content: systemPrompt },
+          { role: "user" as const, content: userPrompt },
+        ],
+        temperature,
+        max_tokens: 2000,
+      };
+    } else {
+      // OpenAI models
+      client = openai;
+      model = aiModel === "gpt5" ? "gpt-5" : "gpt-4.1";
+      temperature = aiModel === "gpt5" ? 1 : 0.7;
+      
+      const baseParams = {
+        model,
+        messages: [
+          { role: "system" as const, content: systemPrompt },
+          { role: "user" as const, content: userPrompt },
+        ],
+        temperature,
+      };
 
-    const response = await openai.chat.completions.create(completionParams);
+      // Use max_completion_tokens for GPT-5, max_tokens for other models
+      completionParams = aiModel === "gpt5" 
+        ? { ...baseParams, max_completion_tokens: 10000 }
+        : { ...baseParams, max_tokens: 2000 };
+    }
 
-    console.log("OpenAI response status:", response);
+    console.log(`Attempting ${aiProvider} API call with model: ${model}`);
+    
+    const response = await client.chat.completions.create(completionParams);
+
+    console.log(`${aiProvider} response status:`, response);
     console.log("Response choices:", response.choices?.length);
     
     const content = response.choices[0]?.message?.content || "";
-    console.log("Raw OpenAI response content:", JSON.stringify(content));
+    console.log(`Raw ${aiProvider} response content:`, JSON.stringify(content));
     console.log("Content length:", content.length);
 
     if (!content || content.trim() === "") {
-      console.error("Empty response from OpenAI");
+      console.error(`Empty response from ${aiProvider}`);
       throw new Error("AI returned empty response");
     }
 

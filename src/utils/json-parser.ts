@@ -200,6 +200,16 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
             voiceInstructions: item.voiceInstructions,       // OpenAI only
           };
 
+          // Debug logging to see what we're extracting
+          console.log(`🎭 JSON Parser extracting voice track:`, {
+            voiceId,
+            voiceName,
+            text: item.text.substring(0, 30) + '...',
+            style: voiceTrack.style,
+            useCase: voiceTrack.useCase,
+            voiceInstructions: voiceTrack.voiceInstructions
+          });
+
           // Add timing information if provided
           if (item.playAfter) {
             voiceTrack.playAfter = item.playAfter;

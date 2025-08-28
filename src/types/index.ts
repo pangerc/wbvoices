@@ -4,7 +4,7 @@ export type Provider = "any" | "lovo" | "elevenlabs" | "openai";
 
 export type { Language };
 
-export type AIModel = "gpt4" | "gpt5" | "gemini";
+export type AIModel = "gpt4" | "gpt5" | "gemini" | "moonshot" | "qwen";
 
 export type Voice = {
   id: string;

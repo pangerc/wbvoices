@@ -10,7 +10,9 @@ export class AudioService {
     voiceTracks: VoiceTrack[],
     selectedProvider: Provider,
     onStatusUpdate: (message: string) => void,
-    setIsGenerating?: (generating: boolean) => void
+    setIsGenerating?: (generating: boolean) => void,
+    region?: string,
+    accent?: string
   ): Promise<void> {
     setIsGenerating?.(true);
     onStatusUpdate("Generating audio...");
@@ -38,6 +40,8 @@ export class AudioService {
             style: track.style,
             useCase: track.useCase,
             voiceInstructions: track.voiceInstructions, // OpenAI-specific voice instructions
+            region, // Pass region for accent support
+            accent, // Pass accent for dialect support
             projectId: `voice-project-${Date.now()}`, // Add projectId for blob storage
           }),
         });
@@ -234,7 +238,7 @@ export class AudioService {
   }
 
   static mapVoiceSegmentsToTracks(
-    segments: Array<{ voiceId: string; text: string; style?: string; useCase?: string }>,
+    segments: Array<{ voiceId: string; text: string; style?: string; useCase?: string; voiceInstructions?: string }>,
     filteredVoices: Voice[],
     allVoices: Voice[]
   ): VoiceTrack[] {
@@ -286,7 +290,7 @@ export class AudioService {
         text: segment.text,
         style: segment.style,
         useCase: segment.useCase,
-        voiceInstructions: (segment as typeof segment & { voiceInstructions?: string }).voiceInstructions,
+        voiceInstructions: segment.voiceInstructions,
       } as VoiceTrack;
       
       console.log(`  - Final result:`, { hasVoice: !!result.voice, voiceName: result.voice?.name, text: result.text?.slice(0, 20) + '...' });

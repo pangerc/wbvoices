@@ -4,6 +4,7 @@ import { generateCreativeCopy } from "@/utils/ai-api-client";
 import { parseCreativeJSON } from "@/utils/json-parser";
 import { getFlagCode, getRegionalAccents } from "@/utils/language";
 import { VoiceManagerV2State } from "@/hooks/useVoiceManagerV2";
+import { useRegionConfig } from "@/hooks/useRegionConfig";
 import {
   GlassyTextarea,
   GlassyListbox,
@@ -111,7 +112,7 @@ const campaignFormatOptions = [
   },
 ];
 
-const aiModelOptions = [
+const allAiModelOptions = [
   {
     value: "gpt4" as AIModel,
     label: "GPT-4.1",
@@ -122,6 +123,16 @@ const aiModelOptions = [
     value: "gpt5" as AIModel,
     label: "GPT-5",
     description: "Latest model for advanced creative reasoning",
+  },
+  {
+    value: "moonshot" as AIModel,
+    label: "Moonshot KIMI",
+    description: "Chinese LLM optimized for multilingual content",
+  },
+  {
+    value: "qwen" as AIModel,
+    label: "Qwen-Max",
+    description: "Alibaba's multilingual AI model",
   },
 ];
 
@@ -142,6 +153,22 @@ export function BriefPanel({
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [languageQuery, setLanguageQuery] = useState("");
+  
+  // Get region configuration
+  const regionConfig = useRegionConfig();
+  
+  // Filter AI models based on region
+  const aiModelOptions = useMemo(() => {
+    if (!regionConfig.config) {
+      // Default to all models while loading
+      return allAiModelOptions;
+    }
+    
+    const { availableAIModels } = regionConfig.config;
+    return allAiModelOptions.filter(option => 
+      availableAIModels.includes(option.value)
+    );
+  }, [regionConfig.config]);
 
   const {
     selectedLanguage,
@@ -287,7 +314,9 @@ export function BriefPanel({
         campaignFormat,
         filteredVoices,
         adDuration,
-        providerToUse
+        providerToUse,
+        selectedRegion || undefined,
+        selectedAccent || undefined
       );
 
       const { voiceSegments, musicPrompt, soundFxPrompts } =
@@ -300,6 +329,9 @@ export function BriefPanel({
       const segments = voiceSegments.map((segment) => ({
         voiceId: segment.voice?.id || "",
         text: segment.text,
+        style: segment.style,
+        useCase: segment.useCase,
+        voiceInstructions: segment.voiceInstructions,
       }));
 
       onGenerateCreative(segments, musicPrompt || "", soundFxPrompts);

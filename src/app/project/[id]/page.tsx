@@ -527,7 +527,9 @@ export default function ProjectWorkspace() {
         formManager.voiceTracks,
         selectedProvider,
         formManager.setStatusMessage,
-        formManager.setIsGenerating
+        formManager.setIsGenerating,
+        voiceManager.selectedRegion || undefined,
+        voiceManager.selectedAccent || undefined
       );
 
       setSelectedTab(4); // Switch to mixer

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Provider, Voice, Language, CampaignFormat } from "@/types";
 import { ProviderSelector, VoiceCounts } from "@/utils/providerSelection";
 import { hasRegionalAccents, getLanguageRegions, getRegionalAccents } from "@/utils/language";
+import { getRegionConfig } from "@/lib/config";
 
 /**
  * 🗡️ NEW VOICE MANAGER - REDIS POWERED!
@@ -45,8 +46,11 @@ export interface VoiceManagerV2State {
 }
 
 export function useVoiceManagerV2(): VoiceManagerV2State {
+  // Get region config for default language
+  const regionConfig = getRegionConfig();
+  
   // Core state - Language → Region → Accent → Provider flow
-  const [selectedLanguage, setSelectedLanguage] = useState<Language>("en");
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(regionConfig.defaultLanguage as Language);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedAccent, setSelectedAccent] = useState<string>("neutral");
   const [selectedProvider, setSelectedProvider] = useState<Provider>("any");

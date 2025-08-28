@@ -7,7 +7,7 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
   readonly providerType = 'voice' as const;
 
   validateParams(body: Record<string, unknown>): ValidationResult {
-    const { text, voiceId, style, useCase, projectId } = body;
+    const { text, voiceId, style, useCase, projectId, region, accent } = body;
 
     if (!text || typeof text !== 'string') {
       return { 
@@ -30,7 +30,9 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
         voiceId,
         style: typeof style === 'string' ? style : undefined,
         useCase: typeof useCase === 'string' ? useCase : undefined,
-        projectId: typeof projectId === 'string' ? projectId : undefined
+        projectId: typeof projectId === 'string' ? projectId : undefined,
+        region: typeof region === 'string' ? region : undefined,
+        accent: typeof accent === 'string' ? accent : undefined
       }
     };
   }
@@ -51,7 +53,7 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
   }
 
   async makeRequest(params: Record<string, unknown>, credentials: AuthCredentials): Promise<ProviderResponse> {
-    const { text, voiceId, style, useCase, instructions: voiceInstructions } = params;
+    const { text, voiceId, style, useCase, instructions: voiceInstructions, region, accent } = params;
     const { apiKey } = credentials;
 
     console.log(`🎭 OpenAI API Call:`);
@@ -60,6 +62,8 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
     console.log(`  Style: ${style || 'none'}`);
     console.log(`  Use Case: ${useCase || 'none'}`);
     console.log(`  Voice Instructions: ${voiceInstructions || 'none'}`);
+    console.log(`  Region: ${region || 'none'}`);
+    console.log(`  Accent: ${accent || 'none'}`);
     
     // Extract base voice from our ID format
     const openAIVoice = (voiceId as string).split('-')[0];
@@ -91,6 +95,25 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
         instructions = instructionParts.join('. ') + '.';
         console.log(`  🎛️ Built instructions from style/useCase: "${instructions}"`);
       }
+    }
+
+    // Append region/accent information to instructions if available
+    const accentInstructionParts = [];
+    if (accent && accent !== 'neutral') {
+      accentInstructionParts.push(`Speak with a ${accent} accent`);
+    }
+    if (region && !accent) {
+      accentInstructionParts.push(`Use regional pronunciation from ${region}`);
+    }
+    
+    if (accentInstructionParts.length > 0) {
+      const accentInstructions = accentInstructionParts.join('. ') + '.';
+      if (instructions) {
+        instructions += ' ' + accentInstructions;
+      } else {
+        instructions = accentInstructions;
+      }
+      console.log(`  🌍 Appended accent instructions: "${accentInstructions}"`);
     }
 
     // Build API request body

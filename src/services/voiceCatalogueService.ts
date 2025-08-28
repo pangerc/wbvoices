@@ -118,8 +118,25 @@ export class VoiceCatalogueService {
     const countsTower = await redis.get<CountsTower>(this.TOWER_KEYS.COUNTS) || {};
     
     if (accent) {
-      // Specific accent counts
-      return countsTower[language]?.[accent] || { elevenlabs: 0, lovo: 0, openai: 0, any: 0 };
+      // Specific accent counts - but include all OpenAI voices for any accent
+      const accentCounts = countsTower[language]?.[accent] || { elevenlabs: 0, lovo: 0, openai: 0, any: 0 };
+      
+      // For OpenAI, sum all accents since they handle accents via instructions
+      let openaiTotal = 0;
+      const languageCounts = countsTower[language] || {};
+      for (const counts of Object.values(languageCounts)) {
+        openaiTotal += counts.openai || 0;
+      }
+      
+      const result: VoiceCounts = {
+        elevenlabs: accentCounts.elevenlabs || 0,
+        lovo: accentCounts.lovo || 0, 
+        openai: openaiTotal, // Always include all OpenAI voices
+        any: 0
+      };
+      
+      result.any = result.elevenlabs + result.lovo + result.openai;
+      return result;
     } else {
       // Sum all accents for this language
       const languageCounts = countsTower[language] || {};
@@ -163,7 +180,17 @@ export class VoiceCatalogueService {
       // Specific provider
       const actualProvider = provider as ActualProvider;
       if (accent) {
-        voiceIds = voiceTower[actualProvider]?.[language]?.[accent] || [];
+        // For OpenAI, always include all voices regardless of accent
+        // since OpenAI handles accents via instructions parameter
+        if (actualProvider === 'openai') {
+          const providerLanguage = voiceTower[actualProvider]?.[language] || {};
+          for (const accentVoices of Object.values(providerLanguage)) {
+            voiceIds.push(...accentVoices);
+          }
+        } else {
+          // For other providers, filter by specific accent
+          voiceIds = voiceTower[actualProvider]?.[language]?.[accent] || [];
+        }
       } else {
         const providerLanguage = voiceTower[actualProvider]?.[language] || {};
         for (const accentVoices of Object.values(providerLanguage)) {

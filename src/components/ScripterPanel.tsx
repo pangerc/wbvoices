@@ -46,6 +46,18 @@ export function ScripterPanel({
     firstVoiceLanguage: voices[0]?.language
   });
 
+  // Debug logging to see voice track data
+  console.log('🎭 ScripterPanel voice tracks:', voiceTracks.map((track, i) => ({
+    index: i,
+    voiceId: track.voice?.id,
+    voiceName: track.voice?.name,
+    text: track.text?.substring(0, 30) + '...',
+    style: track.style,
+    useCase: track.useCase,
+    voiceInstructions: track.voiceInstructions,
+    hasVoiceInstructions: !!track.voiceInstructions
+  })));
+
   // Create unique options with a counter to ensure uniqueness
   const createUniqueOptions = (index: number) => {
     const uniqueOptions: Array<{

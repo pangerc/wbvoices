@@ -32,12 +32,8 @@ export function verifyAuthToken(token: string): AuthToken | null {
   }
 }
 
-export function isProductionEnvironment(): boolean {
-  return process.env.NEXT_PUBLIC_ENABLE_AUTH === 'true';
-}
-
 export function shouldRequireAuth(): boolean {
-  return isProductionEnvironment();
+  return true; // Always require auth for non-public routes
 }
 
 export function isPublicRoute(pathname: string): boolean {
