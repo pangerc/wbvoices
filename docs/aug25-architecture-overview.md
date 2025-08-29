@@ -134,6 +134,7 @@ Central service for audio generation with direct mixerStore integration:
 - **ElevenLabs** (`/api/voice/elevenlabs-v2`): High-quality multilingual voices. We send numeric `voice_settings` derived from LLM tone labels (stability, similarity_boost, style, speed, use_speaker_boost). Reference: https://elevenlabs.io/docs/api-reference/text-to-speech/convert
 - **Lovo** (`/api/voice/lovo-v2`): Exact speaker styles. Voice IDs encode `speakerId|styleId`; generation uses Sync TTS and short‑polls if sync returns a pending job (90s behavior). Reference: https://docs.genny.lovo.ai/reference/sync-tts
 - **OpenAI** (`/api/voice/openai-v2`): Text modifiers like "cheerful", "excited", "whispering"
+- **Qwen** (`/api/voice/qwen-v2`): Chinese TTS with dialect support including Beijing, Shanghai, and Sichuan variants. Supports mixed Chinese-English content generation with 512 token limit.
 
 **Note**: All voice generation uses v2 endpoints with the standardized provider architecture. The `/api/voice/list` endpoint serves cache population only.
 
@@ -1014,13 +1015,13 @@ The architecture has evolved significantly, demonstrating how systematic improve
 - **Type Safety**: Full TypeScript strict mode compliance with zero `any` types
 - **Performance**: Redis-powered voice lookups (<50ms) with 100+ accent variants
 - **Demo-Ready**: Always fresh projects for optimal first impressions
-- **Extensible Provider System**: ElevenLabs, Lovo, OpenAI with unified interface
+- **Extensible Provider System**: ElevenLabs, Lovo, OpenAI, Qwen with unified interface
 - **Battle-tested Timeline Engine**: LegacyTimelineCalculator with consistent positioning
 - **Security**: Server-side API routes with no client-side key exposure
 - **Rich Voice Integration**: Comprehensive personality and accent metadata
 - **Complete Persistence**: Redis-based project history with auto-save
 - **URL-based Management**: Deterministic project routing without conflicts
-- **Regional Market Support**: LATAM/MENA accent grouping for global deployment
+- **Regional Market Support**: LATAM/MENA/Chinese accent grouping for global deployment
 - **Race Condition Free**: AbortController + direct voice passing prevents state issues
 - **Build Performance**: Optimized bundle sizes and clean compilation
 - **Intuitive UX**: Natural tab flows, logical control grouping, clean state transitions
@@ -1054,7 +1055,7 @@ The architecture has evolved significantly, demonstrating how systematic improve
    ```typescript
    // Always load ALL voices from all providers, tagged by provider
    const loadVoices = useCallback(async () => {
-     const providers = ['elevenlabs', 'lovo', 'openai'] as const;
+     const providers = ['elevenlabs', 'lovo', 'openai', 'qwen'] as const;
      const voicePromises = providers.map(async (provider) => {
        const voices = await fetchVoices(provider, language, accent);
        return voices.map((v: Voice) => ({...v, provider})); // Tag each voice
@@ -1108,5 +1109,75 @@ Provider Selection → Filter currentVoices by provider → No reload!
 ```
 
 **Impact**: Eliminated the last remaining "hybrid approach" in the voice system, creating a clean, maintainable architecture that works correctly in all scenarios.
+
+### 16. Qwen Chinese TTS Integration (August 29, 2025) ✅
+
+#### Chinese Market Expansion Support
+
+**Business Need**: Support for Chinese market expansion with authentic Chinese voices including regional dialects (Beijing, Shanghai, Sichuan).
+
+**Implementation Details**:
+
+```typescript
+// Added Qwen to Provider union type
+export type Provider = "any" | "lovo" | "elevenlabs" | "openai" | "qwen";
+
+// Enhanced voice catalog with Chinese dialect support
+const qwenVoices = [
+  // Standard Chinese voices
+  { id: 'chelsie', name: 'Chelsie', gender: 'female', language: 'zh', accent: 'neutral' },
+  { id: 'cherry', name: 'Cherry', gender: 'female', language: 'zh', accent: 'neutral' },
+  { id: 'ethan', name: 'Ethan', gender: 'male', language: 'zh', accent: 'neutral' },
+  { id: 'serena', name: 'Serena', gender: 'female', language: 'zh', accent: 'neutral' },
+  // Regional dialect voices (qwen-tts-latest model)
+  { id: 'dylan', name: 'Dylan', gender: 'male', language: 'zh', accent: 'beijing' },
+  { id: 'jada', name: 'Jada', gender: 'female', language: 'zh', accent: 'shanghai' },
+  { id: 'sunny', name: 'Sunny', gender: 'female', language: 'zh', accent: 'sichuan' }
+];
+```
+
+**Technical Integration**:
+
+1. **QwenVoiceProvider** (`/src/lib/providers/QwenVoiceProvider.ts`):
+   - Voice mapping (chelsie → Chelsie) with dialect-aware model selection
+   - Text validation with 512 token limit and automatic truncation
+   - Vercel blob storage integration for permanent URLs
+   - Beijing region API support with proper authentication
+
+2. **API Route** (`/src/app/api/voice/qwen-v2/route.ts`):
+   - Standard provider factory pattern integration
+   - Consistent error handling and response formatting
+
+3. **Cache Population** (`/src/app/api/admin/voice-cache/route.ts`):
+   - Hardcoded voice list (no Qwen voice list API available)
+   - Dual language support: each voice created for both Chinese (zh) and English (en-US)
+   - Proper three-tower Redis integration
+
+4. **Type System Updates**:
+   - Updated all Provider union types throughout codebase
+   - Enhanced VoiceCounts to include qwen provider
+   - Fixed tower initialization to include qwen: {} and qwen: 0
+
+**Architecture Adherence**:
+
+- **No Downstream Patches**: Qwen voices added to Redis population step, not `/api/voice/list` endpoints
+- **Clean Provider Pattern**: Follows established BaseAudioProvider architecture
+- **Type Safety**: Full TypeScript integration with zero compilation errors
+- **UI Integration**: Provider dropdown shows "Qwen (14 voices)" with real-time counts
+
+**Results Achieved**:
+
+- **Voice Coverage**: Added 14 Qwen voices (7 Chinese + 7 English variants) to 1,100+ total catalog
+- **Regional Dialect Support**: Beijing, Shanghai, and Sichuan dialect variants available
+- **Multilingual Capability**: Supports mixed Chinese-English content generation
+- **Cache Integration**: All voices properly indexed in three-tower Redis architecture
+- **End-to-End Functionality**: Complete voice generation workflow with blob storage
+
+**Benefits for Global Deployment**:
+
+- **Chinese Market Ready**: Authentic regional dialects for targeted campaigns
+- **Multilingual Content**: Mixed-language support for international brands
+- **Dialect Authenticity**: Beyond standard Mandarin to regional variants
+- **Consistent Architecture**: No special cases or architectural compromises
 
 The system successfully delivered a working demo while revealing important production-readiness gaps, particularly around API resilience and error handling.

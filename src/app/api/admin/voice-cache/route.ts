@@ -173,6 +173,132 @@ async function fetchAndNormalizeVoices() {
     console.error('❌ Failed to fetch OpenAI voices:', error);
   }
   
+  // QWEN - Chinese TTS with dialect support
+  // Hardcoded since Qwen doesn't provide a voice list API
+  const qwenVoices = [
+    // Standard Chinese voices
+    {
+      id: 'chelsie',
+      name: 'Chelsie',
+      gender: 'female' as const,
+      language: 'zh',
+      accent: 'neutral',
+      description: 'Friendly and warm',
+      age: 'young',
+      use_case: 'general'
+    },
+    {
+      id: 'cherry',
+      name: 'Cherry',
+      gender: 'female' as const,
+      language: 'zh',
+      accent: 'neutral',
+      description: 'Cheerful and bright',
+      age: 'young',
+      use_case: 'general'
+    },
+    {
+      id: 'ethan',
+      name: 'Ethan',
+      gender: 'male' as const,
+      language: 'zh',
+      accent: 'neutral',
+      description: 'Professional and clear',
+      age: 'middle_aged',
+      use_case: 'general'
+    },
+    {
+      id: 'serena',
+      name: 'Serena',
+      gender: 'female' as const,
+      language: 'zh',
+      accent: 'neutral',
+      description: 'Calm and sophisticated',
+      age: 'middle_aged',
+      use_case: 'general'
+    },
+    // Dialect voices (requires qwen-tts-latest model)
+    {
+      id: 'dylan',
+      name: 'Dylan',
+      gender: 'male' as const,
+      language: 'zh',
+      accent: 'beijing',
+      description: 'Beijing dialect speaker',
+      age: 'middle_aged',
+      use_case: 'regional'
+    },
+    {
+      id: 'jada',
+      name: 'Jada',
+      gender: 'female' as const,
+      language: 'zh',
+      accent: 'shanghai',
+      description: 'Shanghai dialect speaker',
+      age: 'young',
+      use_case: 'regional'
+    },
+    {
+      id: 'sunny',
+      name: 'Sunny',
+      gender: 'female' as const,
+      language: 'zh',
+      accent: 'sichuan',
+      description: 'Sichuan dialect speaker',
+      age: 'young',
+      use_case: 'regional'
+    }
+  ];
+
+  // Add Qwen voices with both Chinese and English support
+  for (const qwenVoice of qwenVoices) {
+    // Chinese version
+    voices.push({
+      id: qwenVoice.id,
+      provider: 'qwen',
+      catalogueId: `voice:qwen:${qwenVoice.id}`,
+      name: qwenVoice.name,
+      displayName: `${qwenVoice.name} (Qwen)`,
+      gender: qwenVoice.gender,
+      language: 'zh' as Language,
+      accent: qwenVoice.accent, // Already normalized values
+      personality: qwenVoice.description,
+      age: qwenVoice.age,
+      capabilities: {
+        supportsEmotional: false,
+        supportsWhispering: false,
+        isMultilingual: true // Qwen supports mixed Chinese-English
+      },
+      sampleUrl: undefined,
+      useCase: qwenVoice.use_case,
+      lastUpdated: timestamp
+    });
+
+    // English version (Qwen can handle mixed Chinese-English text)
+    voices.push({
+      id: `${qwenVoice.id}-en`,
+      provider: 'qwen',
+      catalogueId: `voice:qwen:${qwenVoice.id}-en`,
+      name: qwenVoice.name,
+      displayName: `${qwenVoice.name} (Qwen)`,
+      gender: qwenVoice.gender,
+      language: 'en-US' as Language,
+      accent: qwenVoice.accent, // Already normalized values
+      personality: `${qwenVoice.description} (supports mixed Chinese-English)`,
+      age: qwenVoice.age,
+      capabilities: {
+        supportsEmotional: false,
+        supportsWhispering: false,
+        isMultilingual: true
+      },
+      sampleUrl: undefined,
+      useCase: qwenVoice.use_case,
+      lastUpdated: timestamp
+    });
+  }
+
+  console.log(`✅ Qwen: ${qwenVoices.length * 2} voices (${qwenVoices.length} Chinese + ${qwenVoices.length} English)`);
+  
   return voices;
 }
 
@@ -205,6 +331,7 @@ export async function POST() {
     console.log(`   ElevenLabs: ${stats.byProvider.elevenlabs}`);
     console.log(`   Lovo: ${stats.byProvider.lovo}`);
     console.log(`   OpenAI: ${stats.byProvider.openai}`);
+    console.log(`   Qwen: ${stats.byProvider.qwen}`);
     
     return NextResponse.json({
       success: true,

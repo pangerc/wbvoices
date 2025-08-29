@@ -275,7 +275,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
     
     try {
       // Always load from ALL providers and tag each voice
-      const providers = ['elevenlabs', 'lovo', 'openai'] as const;
+      const providers = ['elevenlabs', 'lovo', 'openai', 'qwen'] as const;
       const voicePromises = providers.map(async (provider) => {
         try {
           const url = new URL('/api/voice-catalogue', window.location.origin);
@@ -330,6 +330,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
           elevenlabs: mappedVoices.filter(v => (v as Voice & { provider?: string }).provider === 'elevenlabs').length,
           lovo: mappedVoices.filter(v => (v as Voice & { provider?: string }).provider === 'lovo').length,
           openai: mappedVoices.filter(v => (v as Voice & { provider?: string }).provider === 'openai').length,
+          qwen: mappedVoices.filter(v => (v as Voice & { provider?: string }).provider === 'qwen').length,
         });
         setCurrentVoices(mappedVoices);
       } else {

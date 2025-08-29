@@ -83,7 +83,7 @@ export class VoiceCatalogueService {
     const allVoiceIds: string[] = [];
     
     // Collect voice IDs from all providers and accents for this language
-    for (const provider of ['elevenlabs', 'lovo', 'openai'] as ActualProvider[]) {
+    for (const provider of ['elevenlabs', 'lovo', 'openai', 'qwen'] as ActualProvider[]) {
       const providerVoices = voiceTower[provider]?.[language] || {};
       for (const accent of Object.keys(providerVoices)) {
         allVoiceIds.push(...providerVoices[accent]);
@@ -103,7 +103,7 @@ export class VoiceCatalogueService {
     const allVoiceIds: string[] = [];
     
     // Collect voice IDs from all providers for this language+accent
-    for (const provider of ['elevenlabs', 'lovo', 'openai'] as ActualProvider[]) {
+    for (const provider of ['elevenlabs', 'lovo', 'openai', 'qwen'] as ActualProvider[]) {
       const voiceIds = voiceTower[provider]?.[language]?.[accent] || [];
       allVoiceIds.push(...voiceIds);
     }
@@ -119,7 +119,7 @@ export class VoiceCatalogueService {
     
     if (accent) {
       // Specific accent counts - but include all OpenAI voices for any accent
-      const accentCounts = countsTower[language]?.[accent] || { elevenlabs: 0, lovo: 0, openai: 0, any: 0 };
+      const accentCounts = countsTower[language]?.[accent] || { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, any: 0 };
       
       // For OpenAI, sum all accents since they handle accents via instructions
       let openaiTotal = 0;
@@ -132,23 +132,25 @@ export class VoiceCatalogueService {
         elevenlabs: accentCounts.elevenlabs || 0,
         lovo: accentCounts.lovo || 0, 
         openai: openaiTotal, // Always include all OpenAI voices
+        qwen: accentCounts.qwen || 0,
         any: 0
       };
       
-      result.any = result.elevenlabs + result.lovo + result.openai;
+      result.any = result.elevenlabs + result.lovo + result.openai + result.qwen;
       return result;
     } else {
       // Sum all accents for this language
       const languageCounts = countsTower[language] || {};
-      const totals: VoiceCounts = { elevenlabs: 0, lovo: 0, openai: 0, any: 0 };
+      const totals: VoiceCounts = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, any: 0 };
       
       for (const accentCounts of Object.values(languageCounts)) {
         totals.elevenlabs += accentCounts.elevenlabs || 0;
         totals.lovo += accentCounts.lovo || 0;
         totals.openai += accentCounts.openai || 0;
+        totals.qwen += accentCounts.qwen || 0;
       }
       
-      totals.any = totals.elevenlabs + totals.lovo + totals.openai;
+      totals.any = totals.elevenlabs + totals.lovo + totals.openai + totals.qwen;
       
       return totals;
     }
@@ -166,7 +168,7 @@ export class VoiceCatalogueService {
     
     if (provider === 'any') {
       // Get voices from all providers
-      for (const actualProvider of ['elevenlabs', 'lovo', 'openai'] as ActualProvider[]) {
+      for (const actualProvider of ['elevenlabs', 'lovo', 'openai', 'qwen'] as ActualProvider[]) {
         if (accent) {
           voiceIds.push(...(voiceTower[actualProvider]?.[language]?.[accent] || []));
         } else {
@@ -213,7 +215,8 @@ export class VoiceCatalogueService {
     const voiceTower: VoiceTower = {
       elevenlabs: {},
       lovo: {},
-      openai: {}
+      openai: {},
+      qwen: {}
     } as VoiceTower;
     
     const dataTower: VoiceDataTower = {};
@@ -240,7 +243,7 @@ export class VoiceCatalogueService {
         countsTower[voice.language] = {};
       }
       if (!countsTower[voice.language][voice.accent]) {
-        countsTower[voice.language][voice.accent] = { elevenlabs: 0, lovo: 0, openai: 0, any: 0 };
+        countsTower[voice.language][voice.accent] = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, any: 0 };
       }
       countsTower[voice.language][voice.accent][voice.provider]++;
     }
@@ -277,13 +280,13 @@ export class VoiceCatalogueService {
     const dataTower = await redis.get<VoiceDataTower>(this.TOWER_KEYS.DATA) || {};
     const voices = Object.values(dataTower);
     
-    const byProvider: VoiceCounts = { elevenlabs: 0, lovo: 0, openai: 0, any: 0 };
+    const byProvider: VoiceCounts = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, any: 0 };
     
     for (const voice of voices) {
       byProvider[voice.provider]++;
     }
     
-    byProvider.any = byProvider.elevenlabs + byProvider.lovo + byProvider.openai;
+    byProvider.any = byProvider.elevenlabs + byProvider.lovo + byProvider.openai + byProvider.qwen;
     
     return {
       totalVoices: voices.length,

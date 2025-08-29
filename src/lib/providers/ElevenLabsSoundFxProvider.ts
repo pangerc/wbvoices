@@ -18,11 +18,19 @@ export class ElevenLabsSoundFxProvider extends BaseAudioProvider {
       };
     }
 
+    // Validate duration bounds (ElevenLabs API requires 0.5-30 seconds)
+    let validatedDuration = typeof duration === 'number' ? duration : 5;
+    if (validatedDuration < 0.5) {
+      validatedDuration = 0.5;
+    } else if (validatedDuration > 30) {
+      validatedDuration = 30;
+    }
+
     return {
       isValid: true,
       data: {
         text,
-        duration: typeof duration === 'number' ? duration : 5,
+        duration: validatedDuration,
         projectId: typeof projectId === 'string' ? projectId : undefined
       }
     };
@@ -80,6 +88,7 @@ export class ElevenLabsSoundFxProvider extends BaseAudioProvider {
         },
         body: JSON.stringify({
           text: text as string,
+          duration_seconds: duration as number,
         }),
       });
 

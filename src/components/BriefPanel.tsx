@@ -223,7 +223,8 @@ export function BriefPanel({
     const elevenlabs = filteredCounts.elevenlabs || 0;
     const lovo = filteredCounts.lovo || 0;
     const openai = filteredCounts.openai || 0;
-    const totalVoices = elevenlabs + lovo + openai;
+    const qwen = filteredCounts.qwen || 0;
+    const totalVoices = elevenlabs + lovo + openai + qwen;
     
     return [
       {
@@ -245,6 +246,11 @@ export function BriefPanel({
         provider: 'openai' as Provider,
         count: openai,
         label: `OpenAI (${openai} voices)`
+      },
+      {
+        provider: 'qwen' as Provider,
+        count: qwen,
+        label: `Qwen (${qwen} voices)`
       }
     ];
   }, [currentVoices, selectedRegion, hasRegions, selectedLanguage]);
