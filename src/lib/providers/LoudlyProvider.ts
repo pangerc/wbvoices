@@ -75,7 +75,7 @@ export class LoudlyProvider extends BaseAudioProvider {
     formData.append("test", "false");
 
     const response = await this.makeFetch(
-      "https://soundtracks-dev.loudly.com/b2b/ai/prompt/songs",
+      "https://soundtracks.loudly.com/b2b/ai/prompt/songs",
       {
         method: "POST",
         headers: {

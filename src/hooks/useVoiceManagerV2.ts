@@ -70,7 +70,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
   
   // Voice data
   const [currentVoices, setCurrentVoices] = useState<Voice[]>([]);
-  const [voiceCounts, setVoiceCounts] = useState<VoiceCounts>({ elevenlabs: 0, lovo: 0, openai: 0, any: 0 });
+  const [voiceCounts, setVoiceCounts] = useState<VoiceCounts>({ elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, any: 0 });
   
   // Loading state
   const [isLoading, setIsLoading] = useState(false);

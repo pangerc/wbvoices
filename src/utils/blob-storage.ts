@@ -108,7 +108,7 @@ export async function uploadMusicToBlob(
 export async function uploadVoiceToBlob(
   audioBlob: Blob,
   voiceId: string,
-  provider: 'elevenlabs' | 'lovo' | 'openai',
+  provider: 'elevenlabs' | 'lovo' | 'openai' | 'qwen',
   projectId?: string
 ): Promise<{ url: string; downloadUrl: string }> {
   const filename = generateBlobFilename(
