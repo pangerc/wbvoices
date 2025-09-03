@@ -548,6 +548,11 @@ export const accentRegions: Record<string, Record<string, string[]>> = {
   pt: {
     "europe": ["european"],
     "south_america": ["brazilian"]
+  },
+  zh: {
+    "mainland": ["neutral", "beijing"],
+    "regional_dialects": ["shanghai", "sichuan"],
+    "greater_china": ["cantonese", "taiwanese"]
   }
 };
 
@@ -560,7 +565,10 @@ export const regionDisplayNames: Record<string, string> = {
   "africa": "Africa",
   "asia": "Asia",
   "oceania": "Oceania",
-  "middle_east": "Middle East"
+  "middle_east": "Middle East",
+  "mainland": "Mainland China",
+  "regional_dialects": "Regional Dialects",
+  "greater_china": "Greater China"
 };
 
 /**

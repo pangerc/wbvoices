@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { redis, PROJECT_KEYS } from '@/lib/redis'
 import { Project, ProjectMetadata } from '@/types'
 
-export const runtime = 'edge'
+// Use Node.js runtime for proper Redis access
+// export const runtime = 'edge' // REMOVED - Edge Runtime causes env var issues
 
 // GET /api/projects - Load user's projects
 export async function GET(request: NextRequest) {

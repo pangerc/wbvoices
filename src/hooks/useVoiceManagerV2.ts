@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Provider, Voice, Language, CampaignFormat } from "@/types";
 import { ProviderSelector, VoiceCounts } from "@/utils/providerSelection";
 import { hasRegionalAccents, getLanguageRegions, getRegionalAccents } from "@/utils/language";
-import { getRegionConfig } from "@/lib/config";
+// REMOVED: Direct import of voiceCatalogue - client can't access Redis!
 
 /**
  * 🗡️ NEW VOICE MANAGER - REDIS POWERED!
- * No more cascade! No more API calls! Just instant Redis lookups!
+ * Clean data-driven architecture with proper client-server separation
  */
 export interface VoiceManagerV2State {
   // Core state
@@ -39,18 +39,19 @@ export interface VoiceManagerV2State {
   setSelectedProvider: (provider: Provider) => void;
   
   // Helper methods
-  getFilteredVoices: () => Voice[];
-  getVoicesForProvider: (provider: Provider) => Voice[];
   autoSelectProvider: (format: CampaignFormat) => Provider;
-  loadVoices: () => Promise<void>; // Force reload voices
+  
+  // 🗡️ DEPRECATED: Client-side filtering methods removed
+  // Use server-side APIs instead:
+  // - BriefPanel: Uses filtered-voices API operation
+  // - ScripterPanel: Uses restoration endpoint with overrideVoices prop
+  getFilteredVoices: () => Voice[]; // LEGACY: Still needed for ScripterPanel fallback
+  loadVoices: () => Promise<void>; // LEGACY: Still needed for fallback
 }
 
 export function useVoiceManagerV2(): VoiceManagerV2State {
-  // Get region config for default language
-  const regionConfig = getRegionConfig();
-  
-  // Core state - Language → Region → Accent → Provider flow
-  const [selectedLanguage, setSelectedLanguage] = useState<Language>(regionConfig.defaultLanguage as Language);
+  // Core state - Language → Region → Accent → Provider flow  
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>('en');
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedAccent, setSelectedAccent] = useState<string>("neutral");
   const [selectedProvider, setSelectedProvider] = useState<Provider>("any");
@@ -102,17 +103,9 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
         
         setAvailableLanguages(languages);
         
-        // Set default language to English if available, otherwise Spanish
-        const english = languages.find((l: { code: string; name: string }) => l.code === 'en');
-        const spanish = languages.find((l: { code: string; name: string }) => l.code === 'es');
-        
-        if (english) {
-          setSelectedLanguage('en' as Language);
-        } else if (spanish) {
-          setSelectedLanguage('es' as Language);
-        } else if (languages.length > 0) {
-          setSelectedLanguage(languages[0].code);
-        }
+        // 🔥 ELIMINATED: No more automatic language setting!
+        // Let users and project restoration control their own language choice
+        console.log(`✅ Languages loaded (${languages.length}), current language: ${selectedLanguage}`);
       } catch (error) {
         console.error('Failed to initialize languages:', error);
       } finally {
@@ -130,21 +123,17 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
     setCurrentVoices([]);
     
     const regions = getLanguageRegions(selectedLanguage);
-    setAvailableRegions(regions);
     
-    setSelectedRegion(prevRegion => {
-      // Reset region selection if current region is not available
-      if (prevRegion && !regions.find(r => r.code === prevRegion)) {
-        return regions.length > 0 ? regions[0].code : null;
-      } else if (!prevRegion && regions.length > 0) {
-        // Auto-select first region for languages with regions
-        return regions[0].code;
-      } else if (regions.length === 0) {
-        // Clear region for languages without regional variations
-        return null;
-      }
-      return prevRegion;
-    });
+    // Add "All Regions" option if there are regions
+    const regionsWithAll = regions.length > 0
+      ? [{ code: 'all', displayName: 'All Regions' }, ...regions]
+      : regions;
+    
+    setAvailableRegions(regionsWithAll);
+    
+    // 🔥 ELIMINATED: No more automatic region setting!
+    // Let project restoration and user choice control region selection
+    console.log(`✅ Language changed to ${selectedLanguage}, regions available: ${regions.length}, current region: ${selectedRegion}`);
   }, [selectedLanguage]);
   
   // When language or region changes, update available accents
@@ -154,8 +143,8 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
       try {
         let accents: { code: string; displayName: string }[] = [];
         
-        // If we have a selected region, get regional accents
-        if (selectedRegion && hasRegions) {
+        // If we have a selected region (and it's not "all"), get regional accents
+        if (selectedRegion && selectedRegion !== 'all' && hasRegions) {
           const regionalAccents = getRegionalAccents(selectedLanguage, selectedRegion);
           accents = regionalAccents.map(accent => ({
             code: accent === 'none' ? 'neutral' : accent,
@@ -179,21 +168,13 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
         
         setAvailableAccents(accents);
         
-        // Force accent reset when region changes to ensure voice counts update properly
-        if (selectedRegion && hasRegions) {
-          // For regional languages, always reset to first available accent when region changes
-          setSelectedAccent(accents.length > 0 ? accents[0].code : 'neutral');
-        } else {
-          // Keep current accent if it exists, otherwise default to neutral
-          const currentAccentExists = accents.some((a) => a.code === selectedAccent);
-          if (!currentAccentExists) {
-            setSelectedAccent('neutral');
-          }
-        }
+        // 🔥 ELIMINATED: No more automatic accent setting!
+        // Let project restoration and user choice control accent selection
+        console.log(`✅ Accents updated for ${selectedLanguage}/${selectedRegion}, current accent: ${selectedAccent}`);
       } catch (error) {
         console.error('Failed to update accents:', error);
         setAvailableAccents([{ code: 'neutral', displayName: 'Any Accent' }]);
-        setSelectedAccent('neutral');
+        // 🔥 ELIMINATED: No automatic accent setting even on error!
       } finally {
         setIsLoading(false);
       }
@@ -207,45 +188,40 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
     const updateProviders = async () => {
       setIsLoading(true);
       try {
-        // Get voice counts via API - FILTER BY ACCENT when one is selected!
+        // 🗡️ DRAGON SLAYER: Single data-driven call via API!
         const url = new URL('/api/voice-catalogue', window.location.origin);
-        url.searchParams.set('operation', 'counts');
+        url.searchParams.set('operation', 'provider-options');
         url.searchParams.set('language', selectedLanguage);
-        // 🔥 FIX: Pass accent to get accurate counts!
-        if (selectedAccent && selectedAccent !== 'neutral') {
-          url.searchParams.set('accent', selectedAccent);
+        // Only send region if it's not "all"
+        if (selectedRegion && selectedRegion !== 'all') {
+          url.searchParams.set('region', selectedRegion);
         }
+        url.searchParams.set('exclude', 'lovo'); // Lovo disabled due to poor voice quality
         
         const response = await fetch(url);
-        const counts = await response.json();
+        if (!response.ok) {
+          throw new Error('Failed to fetch provider options');
+        }
+        const providers: Array<{ provider: Provider; count: number; label: string; disabled?: boolean }> = await response.json();
+        
+        // Convert to our UI format and set voice counts
+        const uiProviders = providers.map(p => ({
+          provider: p.provider,
+          count: p.count,
+          label: p.label
+        }));
+        
+        setAvailableProviders(uiProviders);
+        
+        // Extract counts for legacy compatibility
+        const counts: VoiceCounts = {
+          elevenlabs: providers.find(p => p.provider === 'elevenlabs')?.count || 0,
+          lovo: 0, // Excluded
+          openai: providers.find(p => p.provider === 'openai')?.count || 0,
+          qwen: providers.find(p => p.provider === 'qwen')?.count || 0,
+          any: providers.find(p => p.provider === 'any')?.count || 0
+        };
         setVoiceCounts(counts);
-        
-        // Build provider options with "Any" as first option
-        const totalVoices = counts.elevenlabs + counts.lovo + counts.openai;
-        const providers = [
-          {
-            provider: 'any' as Provider,
-            count: totalVoices,
-            label: `Any Provider (${totalVoices} voices)`
-          },
-          {
-            provider: 'elevenlabs' as Provider,
-            count: counts.elevenlabs,
-            label: `ElevenLabs (${counts.elevenlabs} voices)`
-          },
-          {
-            provider: 'lovo' as Provider,
-            count: counts.lovo,
-            label: `Lovo (${counts.lovo} voices)`
-          },
-          {
-            provider: 'openai' as Provider,
-            count: counts.openai,
-            label: `OpenAI (${counts.openai} voices)`
-          }
-        ].filter(p => p.count > 0); // Only show providers with voices
-        
-        setAvailableProviders(providers);
         
       } catch (error) {
         console.error('Failed to update providers:', error);
@@ -269,19 +245,22 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     
-    console.log(`🔄 Loading ALL voices for language=${selectedLanguage}, accent=${selectedAccent}`);
+    console.log(`🔄 Loading filtered voices for language=${selectedLanguage}, region=${selectedRegion || 'all'}, accent=${selectedAccent} (excluding Lovo)`);
     setIsLoading(true);
     setCurrentVoices([]); // Clear immediately
     
     try {
-      // Always load from ALL providers and tag each voice
-      const providers = ['elevenlabs', 'lovo', 'openai', 'qwen'] as const;
+      // Load from non-excluded providers only (exclude Lovo due to poor quality)
+      const providers = ['elevenlabs', 'openai', 'qwen'] as const;
       const voicePromises = providers.map(async (provider) => {
         try {
           const url = new URL('/api/voice-catalogue', window.location.origin);
           url.searchParams.set('operation', 'voices');
           url.searchParams.set('provider', provider);
           url.searchParams.set('language', selectedLanguage);
+          if (selectedRegion) {
+            url.searchParams.set('region', selectedRegion);
+          }
           if (selectedAccent && selectedAccent !== 'neutral') {
             url.searchParams.set('accent', selectedAccent);
           }
@@ -349,63 +328,21 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
         setIsLoading(false);
       }
     }
-  }, [selectedLanguage, selectedAccent]); // Only reload when language/accent changes, NOT provider
+  }, [selectedLanguage, selectedAccent, selectedRegion]); // Reload when language/accent/region changes, NOT provider
 
   // Load voices when language or accent changes (not provider!)
   useEffect(() => {
     loadVoices();
   }, [loadVoices]);
   
-  // Helper: Get filtered voices based on region and accent
+  // 🗡️ DEPRECATED: Legacy fallback method for ScripterPanel
+  // This should only be used when overrideVoices is not available
   const getFilteredVoices = useCallback(() => {
-    console.log('🎯 getFilteredVoices called:', {
-      selectedLanguage,
-      selectedProvider,
-      selectedRegion,
-      hasRegions,
-      currentVoicesCount: currentVoices.length,
-      firstVoice: currentVoices[0]?.name,
-      firstVoiceLanguage: currentVoices[0]?.language
-    });
+    console.log('⚠️ getFilteredVoices called (DEPRECATED - use server APIs instead)');
     
-    // If no region selected or no regions available, return all voices
-    if (!selectedRegion || !hasRegions) {
-      return currentVoices;
-    }
-    
-    // Get accents for the selected region
-    const regionalAccents = getRegionalAccents(selectedLanguage, selectedRegion);
-    
-    // Filter voices to only those with accents in the selected region
-    return currentVoices.filter(voice => {
-      // OpenAI voices are always available regardless of region
-      if ((voice as Voice & { provider?: string }).provider === 'openai') {
-        return true;
-      }
-      
-      if (!voice.accent) return false;
-      // Check if voice accent is in the regional accents list (excluding "none")
-      return regionalAccents.includes(voice.accent) && voice.accent !== 'none';
-    });
-  }, [currentVoices, selectedRegion, selectedLanguage, hasRegions, selectedProvider]);
-  
-  // Helper: Get voices for a specific provider (now simple - just filter by provider tag!)
-  const getVoicesForProvider = useCallback((provider: Provider) => {
-    // Since we always load all voices with provider tags, just filter by provider
-    return currentVoices.filter(voice => {
-      // Check if voice has provider metadata
-      if ('provider' in voice) {
-        return (voice as Voice & { provider: string }).provider === provider;
-      }
-      // Fallback: try to guess by ID format (shouldn't be needed anymore)
-      if (provider === 'elevenlabs') {
-        return !voice.id.match(/^[0-9a-f]{24}$/i); // Not a MongoDB ObjectId
-      }
-      if (provider === 'lovo') {
-        return voice.id.match(/^[0-9a-f]{24}$/i); // Is a MongoDB ObjectId
-      }
-      return false;
-    });
+    // Simple fallback: return current voices without complex filtering
+    // The complex regional filtering is now handled server-side
+    return currentVoices;
   }, [currentVoices]);
   
   // Helper: Auto-select best provider for format
@@ -456,9 +393,8 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
     setSelectedProvider,
     
     // Helper methods
-    getFilteredVoices,
-    getVoicesForProvider,
+    getFilteredVoices, // DEPRECATED: Legacy fallback only
     autoSelectProvider,
-    loadVoices, // Force reload voices
+    loadVoices, // DEPRECATED: Legacy fallback only
   };
 }

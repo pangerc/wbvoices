@@ -5,7 +5,8 @@ import { Language } from '@/types';
 
 // 🔥 CRITICAL: This API must return normalized language codes that match the voice towers!
 
-export const runtime = 'edge';
+// Use Node.js runtime for proper Redis access
+// export const runtime = 'edge'; // REMOVED - Edge Runtime causes env var issues
 
 // Languages that should be unified (show as single option)
 const unifiedDisplayLanguages = ["en", "es", "ar", "zh", "pt", "fr"];

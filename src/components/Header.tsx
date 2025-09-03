@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { GlassTabBar, GlassTab } from "./ui";
-import { HistoryDropdown, useHistoryDropdown } from "./HistoryDropdown";
+import { HistoryDrawer, useHistoryDrawer } from "./HistoryDrawer";
 import { ProjectMetadata } from "@/types";
+import { useProjectHistoryStore } from "@/store/projectHistoryStore";
 
 type HeaderProps = {
   selectedTab: number;
@@ -257,8 +258,14 @@ export function Header({
   isNewProject,
   projectName,
 }: HeaderProps) {
-  const { isOpen, toggle, close } = useHistoryDropdown();
+  const { isOpen, toggle, close } = useHistoryDrawer();
+  const { recentProjects, loadProjects } = useProjectHistoryStore();
   const router = useRouter();
+
+  // Load projects when component mounts to ensure count is available
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
   const handleProjectSelect = (project: ProjectMetadata) => {
     console.log(
@@ -292,7 +299,7 @@ export function Header({
                   onClick={() => onTabChange(index)}
                 >
                   {item.icon(selectedTab === index)}
-                  <span>{item.name}</span>
+                  <span className="hidden xl:inline">{item.name}</span>
                 </GlassTab>
               ))}
             </GlassTabBar>
@@ -301,12 +308,52 @@ export function Header({
 
         <div className="flex items-center gap-4 relative">
           <button
-            onClick={toggle}
-            className="flex items-center text-white/70 text-sm hover:text-white transition-colors duration-200"
+            onClick={onNewProject}
+            className="px-4 py-3 rounded-full flex items-center gap-2 text-gray-300 text-sm border transition-all duration-200 bg-wb-blue/10 backdrop-blur-sm border-wb-blue/20 hover:bg-wb-blue/20 hover:border-wb-blue/30 focus:outline-none focus:ring-1 focus:ring-wb-blue/50"
           >
-            <span className="truncate max-w-[200px]">
-              {projectName && !isNewProject ? projectName : "Blank"}
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="flex-shrink-0"
+            >
+              <path
+                d="M9.5 1H3C2.46957 1 1.96086 1.21071 1.58579 1.58579C1.21071 1.96086 1 2.46957 1 3V13C1 13.5304 1.21071 14.0391 1.58579 14.4142C1.96086 14.7893 2.46957 15 3 15H11C11.5304 15 12.0391 14.7893 12.4142 14.4142C12.7893 14.0391 13 13.5304 13 13V4.5L9.5 1Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M9.5 1V4.5H13"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className="hidden xl:inline">New Project</span>
+          </button>
+
+          {/* Active project name - only show when there's a loaded project */}
+          {projectName && !isNewProject && (
+            <span className="text-white/90 text-sm font-medium truncate max-w-[200px] px-3 py-2">
+              {projectName}
             </span>
+          )}
+
+          <button
+            onClick={toggle}
+            className="flex items-center text-white/70 text-sm hover:text-white transition-colors duration-200 group"
+          >
+            <span>History</span>
+            {recentProjects.length > 0 && (
+              <span className="ml-2 px-1.5 py-0.5 bg-white/20 text-white text-xs rounded-full min-w-[20px] text-center">
+                {recentProjects.length}
+              </span>
+            )}
             <svg
               width="16"
               height="16"
@@ -325,19 +372,12 @@ export function Header({
             </svg>
           </button>
 
-          <HistoryDropdown
+          <HistoryDrawer
             isOpen={isOpen}
             onClose={close}
             onProjectSelect={handleProjectSelect}
             currentProjectId={projectId}
           />
-
-          <button
-            onClick={onNewProject}
-            className="px-4 py-3 rounded-full flex items-center gap-2 text-gray-300 text-sm border transition-all duration-200 bg-wb-blue/10 backdrop-blur-sm border-wb-blue/20 hover:bg-wb-blue/20 hover:border-wb-blue/30 focus:outline-none focus:ring-1 focus:ring-wb-blue/50"
-          >
-            <span>New Project</span>
-          </button>
         </div>
       </div>
     </header>

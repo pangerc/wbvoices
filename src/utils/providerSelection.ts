@@ -6,7 +6,7 @@ export type VoiceCounts = Record<Provider, number>;
 export class ProviderSelector {
   /**
    * Dragon-slaying simple provider selection
-   * Quality hierarchy: ElevenLabs > Lovo > OpenAI
+   * Quality hierarchy: ElevenLabs > OpenAI (Lovo disabled)
    * Dialog needs 2+ voices, ad_read needs 1+ voice
    */
   static selectDefault(
@@ -15,14 +15,15 @@ export class ProviderSelector {
   ): Provider {
     const minVoices = format === "dialog" ? 2 : 1;
     
-    // Check providers in quality order
+    // Check providers in quality order (Lovo disabled)
     if (voiceCounts.elevenlabs >= minVoices) {
       return "elevenlabs";
     }
     
-    if (voiceCounts.lovo >= minVoices) {
-      return "lovo";
-    }
+    // Skip Lovo due to poor voice quality
+    // if (voiceCounts.lovo >= minVoices) {
+    //   return "lovo";
+    // }
     
     // OpenAI fallback
     return "openai";
@@ -39,12 +40,13 @@ export class ProviderSelector {
         disabled: voiceCounts.elevenlabs === 0,
         quality: "excellent" as const
       },
-      {
-        value: "lovo", 
-        label: `Lovo (${voiceCounts.lovo})`,
-        disabled: voiceCounts.lovo === 0,
-        quality: "good" as const
-      },
+      // Lovo disabled due to poor voice quality
+      // {
+      //   value: "lovo", 
+      //   label: `Lovo (${voiceCounts.lovo})`,
+      //   disabled: voiceCounts.lovo === 0,
+      //   quality: "good" as const
+      // },
       {
         value: "openai",
         label: `OpenAI (${voiceCounts.openai})`,
@@ -77,13 +79,14 @@ export class ProviderSelector {
       };
     }
     
-    if (optimal === "lovo" && voiceCounts.lovo > voiceCounts[currentProvider]) {
-      return {
-        suggest: true,
-        reason: "Lovo has more voices for this accent",
-        suggestedProvider: "lovo"
-      };
-    }
+    // Lovo suggestions disabled due to poor voice quality
+    // if (optimal === "lovo" && voiceCounts.lovo > voiceCounts[currentProvider]) {
+    //   return {
+    //     suggest: true,
+    //     reason: "Lovo has more voices for this accent",
+    //     suggestedProvider: "lovo"
+    //   };
+    // }
     
     return { suggest: false };
   }

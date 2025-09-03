@@ -1,8 +1,15 @@
-import React, { useState, useMemo } from "react";
-import { CampaignFormat, AIModel, SoundFxPrompt, Language, Voice, Provider } from "@/types";
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  CampaignFormat,
+  AIModel,
+  SoundFxPrompt,
+  Language,
+  Voice,
+  Provider,
+} from "@/types";
 import { generateCreativeCopy } from "@/utils/ai-api-client";
 import { parseCreativeJSON } from "@/utils/json-parser";
-import { getFlagCode, getRegionalAccents } from "@/utils/language";
+import { getFlagCode } from "@/utils/language";
 import { VoiceManagerV2State } from "@/hooks/useVoiceManagerV2";
 import { useRegionConfig } from "@/hooks/useRegionConfig";
 import {
@@ -153,19 +160,31 @@ export function BriefPanel({
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [languageQuery, setLanguageQuery] = useState("");
-  
+
+  // 🔥 NEW: Server-filtered voices to replace client-side getFilteredVoices()
+  const [serverFilteredVoices, setServerFilteredVoices] = useState<{
+    voices: unknown[];
+    count: number;
+    dialogReady?: boolean;
+    dialogWarning?: string;
+  }>({
+    voices: [],
+    count: 0,
+  });
+  const [isLoadingFilteredVoices, setIsLoadingFilteredVoices] = useState(false);
+
   // Get region configuration
   const regionConfig = useRegionConfig();
-  
+
   // Filter AI models based on region
   const aiModelOptions = useMemo(() => {
     if (!regionConfig.config) {
       // Default to all models while loading
       return allAiModelOptions;
     }
-    
+
     const { availableAIModels } = regionConfig.config;
-    return allAiModelOptions.filter(option => 
+    return allAiModelOptions.filter((option) =>
       availableAIModels.includes(option.value)
     );
   }, [regionConfig.config]);
@@ -178,6 +197,7 @@ export function BriefPanel({
     availableLanguages,
     availableRegions,
     availableAccents,
+    availableProviders,
     currentVoices,
     isLoading,
     hasRegions,
@@ -188,78 +208,86 @@ export function BriefPanel({
     setSelectedProvider,
   } = voiceManager;
 
-  // 🗡️ REMOVED AUTO-SELECTION! Let users choose their own destiny!
-  // The dragon's trap was forcing choices on users before they could see all options
-
-  // Get region-filtered voices for display counts  
-  const displayVoices = voiceManager.getFilteredVoices();
-  
-  // 🗡️ CLEAN SOLUTION: Since we always load all voices, count by provider from the single source
-  const filteredProviderOptions = useMemo(() => {
-    // Apply the same regional filtering as getFilteredVoices
-    let regionFilteredVoices = currentVoices;
-    
-    if (selectedRegion && hasRegions) {
-      const regionalAccents = getRegionalAccents(selectedLanguage, selectedRegion);
-      regionFilteredVoices = currentVoices.filter(voice => {
-        // OpenAI voices are always available regardless of region
-        if ((voice as Voice & { provider?: string }).provider === 'openai') {
-          return true;
-        }
-        
-        if (!voice.accent) return false;
-        // Check if voice accent is in the regional accents list (excluding "none")
-        return regionalAccents.includes(voice.accent) && voice.accent !== 'none';
-      });
-    }
-    
-    // Count voices by provider in the regionally filtered set
-    const filteredCounts = regionFilteredVoices.reduce((acc, voice) => {
-      const provider = (voice as Voice & { provider?: string }).provider || 'unknown';
-      acc[provider] = (acc[provider] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    const elevenlabs = filteredCounts.elevenlabs || 0;
-    const lovo = filteredCounts.lovo || 0;
-    const openai = filteredCounts.openai || 0;
-    const qwen = filteredCounts.qwen || 0;
-    const totalVoices = elevenlabs + lovo + openai + qwen;
-    
-    return [
-      {
-        provider: 'any' as Provider,
-        count: totalVoices,
-        label: `Any Provider (${totalVoices} voices)`
-      },
-      {
-        provider: 'elevenlabs' as Provider,
-        count: elevenlabs,
-        label: `ElevenLabs (${elevenlabs} voices)`
-      },
-      {
-        provider: 'lovo' as Provider,
-        count: lovo,
-        label: `Lovo (${lovo} voices)`
-      },
-      {
-        provider: 'openai' as Provider,
-        count: openai,
-        label: `OpenAI (${openai} voices)`
-      },
-      {
-        provider: 'qwen' as Provider,
-        count: qwen,
-        label: `Qwen (${qwen} voices)`
+  // 🔥 NEW: Load server-filtered voices when filter criteria change
+  useEffect(() => {
+    const loadFilteredVoices = async () => {
+      // Don't load if basic data isn't ready yet
+      if (!selectedLanguage || availableLanguages.length === 0) {
+        return;
       }
-    ];
-  }, [currentVoices, selectedRegion, hasRegions, selectedLanguage]);
-  
-  // Only show helpful warnings, don't force changes
+
+      setIsLoadingFilteredVoices(true);
+      try {
+        const url = new URL("/api/voice-catalogue", window.location.origin);
+        url.searchParams.set("operation", "filtered-voices");
+        url.searchParams.set("language", selectedLanguage);
+
+        // Only set region if it's not "all" and has regions
+        if (selectedRegion && selectedRegion !== "all" && hasRegions) {
+          url.searchParams.set("region", selectedRegion);
+        }
+
+        // Set accent if not neutral
+        if (selectedAccent && selectedAccent !== "neutral") {
+          url.searchParams.set("accent", selectedAccent);
+        }
+
+        // Set provider if not "any"
+        if (selectedProvider && selectedProvider !== "any") {
+          url.searchParams.set("provider", selectedProvider);
+        }
+
+        // Add campaign format for dialog validation
+        url.searchParams.set("campaignFormat", campaignFormat);
+
+        // Exclude Lovo (poor quality)
+        url.searchParams.set("exclude", "lovo");
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.error) {
+          console.error("❌ Failed to load filtered voices:", data.error);
+          setServerFilteredVoices({ voices: [], count: 0 });
+        } else {
+          console.log(
+            `✅ Loaded ${data.count} server-filtered voices for ${selectedLanguage}`
+          );
+          setServerFilteredVoices({
+            voices: data.voices || [],
+            count: data.count || 0,
+            dialogReady: data.dialogReady,
+            dialogWarning: data.dialogWarning,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load filtered voices:", error);
+        setServerFilteredVoices({ voices: [], count: 0 });
+      } finally {
+        setIsLoadingFilteredVoices(false);
+      }
+    };
+
+    loadFilteredVoices();
+  }, [
+    selectedLanguage,
+    selectedRegion,
+    selectedAccent,
+    selectedProvider,
+    campaignFormat,
+    availableLanguages.length,
+    hasRegions,
+  ]);
+
+  // 🗡️ REMOVED: Client-side getFilteredVoices() - now using server-side filtering!
+
+  // Only show helpful warnings, don't force changes - now using server data
   const shouldWarnAboutDialog =
-    displayVoices.length < 2 && campaignFormat === "dialog";
+    serverFilteredVoices.dialogWarning && campaignFormat === "dialog";
   const shouldSuggestProvider =
-    filteredProviderOptions.length > 0 && filteredProviderOptions.find(p => p.provider === selectedProvider)?.count === 0;
+    availableProviders.length > 0 &&
+    availableProviders.find((p) => p.provider === selectedProvider)?.count ===
+      0;
 
   // Filter languages based on search
   const filteredLanguages = useMemo(() => {
@@ -281,25 +309,13 @@ export function BriefPanel({
 
     // Auto-select provider if still set to "any" BEFORE generating
     let providerToUse = selectedProvider;
-    
+
     if (selectedProvider === "any" && currentVoices.length > 0) {
       providerToUse = voiceManager.autoSelectProvider(campaignFormat);
     }
-    
-    // Get the voices for the selected provider, with regional filtering applied
-    const voicesToUse = providerToUse === "any" 
-      ? displayVoices // Use all regionally filtered voices
-      : voiceManager.getVoicesForProvider(providerToUse).filter(voice => {
-          // Apply the same regional filtering as displayVoices
-          if (!selectedRegion || !hasRegions) return true;
-          
-          // OpenAI voices are always available regardless of region
-          if ((voice as Voice & { provider?: string }).provider === 'openai') return true;
-          
-          if (!voice.accent) return false;
-          const regionalAccents = getRegionalAccents(selectedLanguage, selectedRegion);
-          return regionalAccents.includes(voice.accent) && voice.accent !== 'none';
-        });
+
+    // 🔥 NEW: Use server-filtered voices instead of client-side filtering
+    const voicesToUse = serverFilteredVoices.voices as Voice[];
 
     setIsGenerating(true);
     setError(null);
@@ -365,10 +381,13 @@ export function BriefPanel({
         <GenerateButton
           onClick={handleGenerateCreative}
           disabled={
-            !clientDescription || !creativeBrief || displayVoices.length === 0
+            !clientDescription ||
+            !creativeBrief ||
+            serverFilteredVoices.count === 0 ||
+            isLoadingFilteredVoices
           }
           isGenerating={isGenerating}
-          text="Generate Creative"
+          text="Generate"
           generatingText="Generating..."
         />
       </div>
@@ -378,7 +397,7 @@ export function BriefPanel({
         {/* Column 1: Client Description */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Client Description
+            What are we promoting (brand name, product, service)?
           </label>
           <GlassyTextarea
             value={clientDescription}
@@ -391,7 +410,7 @@ export function BriefPanel({
         {/* Column 2: Creative Brief */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Creative Brief
+            Creative Brief (description of the ad)
           </label>
           <GlassyTextarea
             value={creativeBrief}
@@ -448,7 +467,7 @@ export function BriefPanel({
                 Region
               </label>
               <GlassyListbox
-                value={selectedRegion || ""}
+                value={selectedRegion || "all"}
                 onChange={(value) => setSelectedRegion(value || null)}
                 options={availableRegions.map((r) => ({
                   value: r.code,
@@ -478,15 +497,16 @@ export function BriefPanel({
           )}
         </div>
 
-        {/* Column 2: Provider and Refresh */}
+        {/* Column 2: Voice Provider - now expanded selection panel */}
         <div className="space-y-4">
-          {/* Provider with counts */}
           <div>
             <label className="flex justify-between text-sm font-medium text-gray-300 mb-2">
               Voice Provider
               <span className="text-xs text-gray-500 pt-2">
-                {displayVoices.length} voices available • {selectedProvider}
-                {hasRegions && selectedRegion && (
+                {isLoadingFilteredVoices
+                  ? "Loading..."
+                  : `${serverFilteredVoices.count} voices available`}
+                {hasRegions && selectedRegion && selectedRegion !== "all" && (
                   <>
                     {" "}
                     •{" "}
@@ -497,34 +517,79 @@ export function BriefPanel({
                 {hasAccents && <> • {selectedAccent} accent</>}
               </span>
             </label>
-            <GlassyListbox
+            <GlassyOptionPicker
+              options={[
+                {
+                  value: "any",
+                  label: "Any Provider",
+                  description: "We will pick the best option for you",
+                },
+                {
+                  value: "elevenlabs",
+                  label: "ElevenLabs",
+                  description:
+                    "Good quality of real actor voices with accents, but speakers need to be handpicked on the ElevenLabs platform",
+                },
+                {
+                  value: "openai",
+                  label: "OpenAI",
+                  description:
+                    "Natural sounding voices with good accent simulation",
+                },
+                {
+                  value: "lovo",
+                  label: "Lovo",
+                  description:
+                    "Broad accent coverage, but poor robotic sounding voice quality",
+                },
+                {
+                  value: "qwen",
+                  label: "Qwen",
+                  description:
+                    "Chinese AI voices optimized for Mandarin and regional dialects",
+                },
+              ]
+                .filter((option) =>
+                  availableProviders.some((p) => p.provider === option.value)
+                )
+                .map((option) => {
+                  const providerData = availableProviders.find(
+                    (p) => p.provider === option.value
+                  );
+                  const voiceCount = providerData?.count || 0;
+
+                  return {
+                    ...option,
+                    value: option.value as Provider,
+                    badge:
+                      option.value === "any"
+                        ? `${serverFilteredVoices.count} voices` // 🔥 FIX: Use filtered count for consistency
+                        : `${voiceCount} voices`,
+                    disabled: voiceCount === 0 && option.value !== "any",
+                  };
+                })}
               value={selectedProvider}
               onChange={setSelectedProvider}
-              options={filteredProviderOptions.map((p) => ({
-                value: p.provider,
-                label: p.label,
-                disabled: p.count === 0,
-              }))}
-              disabled={isLoading}
             />
             {shouldSuggestProvider && (
               <p className="text-xs text-orange-400 mt-1">
                 💡 Try{" "}
-                {filteredProviderOptions.find((p) => p.count > 0)?.provider ||
+                {availableProviders.find((p) => p.count > 0)?.provider ||
                   "another provider"}{" "}
-                - {filteredProviderOptions.find(p => p.provider === selectedProvider)?.count || 0} voices for this region
+                -{" "}
+                {availableProviders.find((p) => p.provider === selectedProvider)
+                  ?.count || 0}{" "}
+                voices for this region
               </p>
             )}
           </div>
-          {/* Voice count indicator */}
 
           {/* Voice Cache Refresh */}
           <RefreshVoiceCache />
 
           {shouldWarnAboutDialog && (
             <p className="text-xs text-yellow-400 mt-2">
-              ⚠️ Only {displayVoices.length} voice(s) available - dialogue needs
-              2+ voices
+              ⚠️ {serverFilteredVoices.dialogWarning}
             </p>
           )}
         </div>
@@ -550,47 +615,54 @@ export function BriefPanel({
           )}
         </div>
 
-        {/* Column 2: AI Model */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            AI Model
-          </label>
-          <GlassyOptionPicker
-            options={aiModelOptions}
-            value={selectedAiModel}
-            onChange={setSelectedAiModel}
-          />
-        </div>
-      </div>
+        {/* Column 2: AI Model and Duration */}
+        <div className="space-y-8">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              AI Model Used for Generation of Creatives
+            </label>
+            <GlassyListbox
+              value={selectedAiModel}
+              onChange={setSelectedAiModel}
+              options={aiModelOptions.map((option) => ({
+                value: option.value,
+                label: `${option.label}${
+                  option.badge ? ` (${option.badge})` : ""
+                }${option.description ? ` - ${option.description}` : ""}`,
+              }))}
+              disabled={isLoading}
+            />
+          </div>
 
-      {/* Row 4: Duration slider (full width) */}
-      <div className="mb-6">
-        <GlassySlider
-          label={
-            <>
-              Duration{" "}
+          {/* Duration slider - now in column */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Ad Duration{" "}
               <span className="text-sm text-gray-400">
                 {adDuration} seconds
               </span>
-            </>
-          }
-          value={adDuration}
-          onChange={setAdDuration}
-          min={10}
-          max={90}
-          step={5}
-          tickMarks={[
-            { value: 10, label: "10s" },
-            { value: 20, label: "20s" },
-            { value: 30, label: "30s" },
-            { value: 40, label: "40s" },
-            { value: 50, label: "50s" },
-            { value: 60, label: "60s" },
-            { value: 70, label: "70s" },
-            { value: 80, label: "80s" },
-            { value: 90, label: "90s" },
-          ]}
-        />
+            </label>
+            <GlassySlider
+              label={null}
+              value={adDuration}
+              onChange={setAdDuration}
+              min={10}
+              max={90}
+              step={5}
+              tickMarks={[
+                { value: 10, label: "10s" },
+                { value: 20, label: "20s" },
+                { value: 30, label: "30s" },
+                { value: 40, label: "40s" },
+                { value: 50, label: "50s" },
+                { value: 60, label: "60s" },
+                { value: 70, label: "70s" },
+                { value: 80, label: "80s" },
+                { value: 90, label: "90s" },
+              ]}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -31,13 +31,15 @@ export function GlassySlider({
 
   return (
     <div className="mt-6">
-      <label className="block text-base mb-3">
-        {label ? (
-          label
-        ) : (
-          <span className=" text-xs text-gray-500">{formatLabel(value)}</span>
-        )}
-      </label>
+      {label !== null && (
+        <label className="block text-base mb-3">
+          {label ? (
+            label
+          ) : (
+            <span className=" text-xs text-gray-500">{formatLabel(value)}</span>
+          )}
+        </label>
+      )}
 
       <div className="relative h-6 flex items-center px-2 bg-white/10 backdrop-blur-sm rounded-full">
         {/* Simple track */}

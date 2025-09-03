@@ -9,7 +9,7 @@ function getUserSessionId(): string {
 export type ProjectHistoryState = {
   // History management
   projects: ProjectMetadata[]
-  recentProjects: ProjectMetadata[] // Computed: last 10 projects
+  recentProjects: ProjectMetadata[] // All projects (no limit)
   
   // UI state
   isGeneratingHeadline: boolean
@@ -228,7 +228,7 @@ export const useProjectHistoryStore = create<ProjectHistoryState>((set, get) => 
       
       set({ 
         projects: projects || [],
-        recentProjects: (projects || []).slice(0, 10)
+        recentProjects: projects || []
       })
       
     } catch (error) {

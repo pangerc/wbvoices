@@ -122,74 +122,57 @@ export default function ProjectWorkspace() {
           
           console.log('✅ Voice system state restored successfully!');
           
-          // Step 5: CRITICAL - Bypass state management and load voices directly
-          console.log('🔄 Loading voices directly with correct parameters');
-          const targetLanguage = normalizedLanguage;
-          const targetProvider = project.brief.selectedProvider;
-          console.log(`🎯 Direct API call: provider=${targetProvider}, language=${targetLanguage}`);
+          // Step 5: 🔥 NEW - Load ALL voices for restored criteria (not just used voices)
+          console.log('🔄 Loading all available voices for restored project criteria');
           
-          // Call API directly to avoid state conflicts
-          const url = new URL('/api/voice-catalogue', window.location.origin);
-          url.searchParams.set('operation', 'voices');
-          url.searchParams.set('provider', targetProvider);
-          url.searchParams.set('language', targetLanguage);
-          
-          const response = await fetch(url);
-          const apiVoices = await response.json();
-          
-          console.log(`✅ Direct API loaded ${apiVoices.length} voices for ${targetProvider}/${targetLanguage}`);
-          console.log(`🔍 First few voices:`, apiVoices.slice(0, 3).map((v: Record<string, unknown>) => ({ name: v.name, language: v.language })));
-          
-          // Map API voices to Voice format
-          const mappedVoices: Voice[] = Array.isArray(apiVoices) ? apiVoices.map((v: Record<string, unknown>) => ({
-            id: v.id as string,
-            name: v.name as string,
-            gender: (v.gender === 'male' || v.gender === 'female') ? v.gender as 'male' | 'female' : null,
-            language: v.language as Language,
-            accent: v.accent as string,
-            description: (v.personality || v.description) as string,
-            age: v.age as string,
-            style: ((v.styles as string[])?.[0] || v.style) as string,
-            use_case: (v.useCase || v.use_case) as string,
-            sampleUrl: v.sampleUrl as string,
-            provider: v.provider as string
-          } as Voice)) : [];
-          
-          // 🎯 Set restored voices for ScripterPanel to use directly
-          console.log('🎯 Setting restored voices for ScripterPanel:', mappedVoices.length);
-          setRestoredVoices(mappedVoices);
-          
-          // Step 6: CRITICAL - Restore voice tracks with directly loaded voices
-          if (project.voiceTracks && project.voiceTracks.length > 0) {
-            console.log('🎯 Restoring voice tracks with directly loaded voices:', project.voiceTracks);
-            console.log(`📋 Available voices for restoration: ${mappedVoices.length}`);
+          try {
+            // Use filtered-voices API to get all voices matching the restored criteria
+            const url = new URL('/api/voice-catalogue', window.location.origin);
+            url.searchParams.set('operation', 'filtered-voices');
+            url.searchParams.set('language', normalizedLanguage);
             
-            if (mappedVoices.length === 0) {
-              console.warn('⚠️ Direct API returned no voices! Using fallback.');
-              // Fallback: Just restore text content without voices
-              const fallbackTracks = project.voiceTracks.map(track => ({
-                voice: null,
-                text: track.text,
-                style: track.style,
-                useCase: track.useCase,
-                voiceInstructions: track.voiceInstructions
-              }));
-              formManager.setVoiceTracks(fallbackTracks);
-            } else {
-              const mappedTracks = AudioService.mapVoiceSegmentsToTracks(
-                project.voiceTracks.map(track => ({
-                  voiceId: track.voice?.id || '',
-                  text: track.text,
-                  style: track.style,
-                  useCase: track.useCase,
-                  voiceInstructions: track.voiceInstructions
-                })),
-                mappedVoices,
-                mappedVoices
-              );
-              
-              formManager.setVoiceTracks(mappedTracks);
+            // Set provider from restored project
+            if (project.brief.selectedProvider && project.brief.selectedProvider !== 'any') {
+              url.searchParams.set('provider', project.brief.selectedProvider);
             }
+            
+            // Set region from restored project (if available)
+            if (project.brief.selectedRegion && project.brief.selectedRegion !== 'all') {
+              url.searchParams.set('region', project.brief.selectedRegion);
+            }
+            
+            // Set accent from restored project (if not neutral)
+            if (project.brief.selectedAccent && project.brief.selectedAccent !== 'neutral') {
+              url.searchParams.set('accent', project.brief.selectedAccent);
+            }
+            
+            // Exclude Lovo (poor quality)
+            url.searchParams.set('exclude', 'lovo');
+            
+            const response = await fetch(url);
+            const filteredData = await response.json();
+            
+            if (filteredData.error) {
+              throw new Error(filteredData.error);
+            }
+            
+            console.log(`✅ Loaded ${filteredData.count} voices for restored criteria (${normalizedLanguage}/${project.brief.selectedProvider}/${project.brief.selectedRegion})`);
+            
+            // 🎯 Set ALL available voices for ScripterPanel to use
+            setRestoredVoices(filteredData.voices as Voice[]);
+            
+          } catch (error) {
+            console.error('❌ Failed to load voices for restored criteria:', error);
+            // Fallback: Set empty array but don't fail project loading
+            setRestoredVoices([]);
+          }
+          
+          // Step 6: Restore voice tracks (will be handled after voices are loaded)
+          // Note: Voice track restoration is deferred until after restoration endpoint responds
+          if (project.voiceTracks && project.voiceTracks.length > 0) {
+            // Store tracks for later restoration - they'll be processed after restoredVoices is set
+            console.log('🎯 Voice tracks will be restored after voices are loaded:', project.voiceTracks.length);
+            formManager.setVoiceTracks(project.voiceTracks);
           } else {
             console.log('📝 No voice tracks found, starting fresh');
             formManager.setVoiceTracks([{ voice: null, text: "" }]);
@@ -226,6 +209,10 @@ export default function ProjectWorkspace() {
           }
         } else {
           // No existing project - this is a NEW project (normal case!)
+          console.log('📝 New project detected - no Redis data found');
+          
+          console.log('🆕 Fresh project: Using voice manager defaults');
+          
           setProjectName("");
           setProjectNotFound(true); // This means "new project"
           setSelectedTab(0); // Start at brief tab
@@ -412,6 +399,8 @@ export default function ProjectWorkspace() {
     
     // Clear restored voices
     setRestoredVoices(null);
+    
+    console.log('🆕 New project: Using voice manager defaults');
     
     // Navigate to a new project
     const newProjectId = generateProjectId();

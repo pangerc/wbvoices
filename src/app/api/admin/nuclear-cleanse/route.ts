@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getRedis } from '@/lib/redis';
 
-export const runtime = 'edge';
+// Use Node.js runtime for proper Redis access
+// export const runtime = 'edge'; // REMOVED - Edge Runtime causes env var issues
 
 /**
  * 🔥 NUCLEAR OPTION: BURN ALL DRAGON ARTIFACTS 🔥

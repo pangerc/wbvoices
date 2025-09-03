@@ -105,7 +105,11 @@ export const ACCENT_REGISTRY: Record<string, AccentDefinition[]> = {
   
   // CHINESE (now uses normalized "zh")
   "zh": [
+    { code: "neutral", displayName: "Standard Chinese", region: "Mainland", isNeutral: true, languageCode: "zh" },
     { code: "mandarin", displayName: "Mandarin Chinese", region: "East Asia", isNeutral: false, languageCode: "zh" },
+    { code: "beijing", displayName: "Beijing Dialect", region: "Mainland", isNeutral: false, languageCode: "zh" },
+    { code: "shanghai", displayName: "Shanghai Dialect", region: "Regional", isNeutral: false, languageCode: "zh" },
+    { code: "sichuan", displayName: "Sichuan Dialect", region: "Regional", isNeutral: false, languageCode: "zh" },
     { code: "cantonese", displayName: "Cantonese", region: "East Asia", isNeutral: false, languageCode: "zh" },
     { code: "taiwanese", displayName: "Taiwanese", region: "East Asia", isNeutral: false, languageCode: "zh" },
   ],
@@ -403,7 +407,9 @@ export function normalizeAccent(providerAccent: string | undefined, originalLang
     "china": "mandarin",
     "cn": "mandarin",
     "mandarin": "mandarin",
-    "beijing": "mandarin",
+    "beijing": "beijing",     // Map beijing to beijing, not mandarin
+    "shanghai": "shanghai",   // Shanghai dialect
+    "sichuan": "sichuan",     // Sichuan dialect
     // TODO: "hong kong" duplicated - need language-specific mapping
     // "hong kong": "cantonese",
     // "hk": "cantonese", // Also duplicated above

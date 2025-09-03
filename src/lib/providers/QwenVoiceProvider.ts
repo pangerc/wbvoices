@@ -156,7 +156,7 @@ export class QwenVoiceProvider extends BaseAudioProvider {
   }
 
   public async processSuccessfulResponse(data: Record<string, unknown>): Promise<NextResponse> {
-    const { audioArrayBuffer, text, voiceId, style, useCase, projectId, originalUrl, expiresAt } = data;
+    const { audioArrayBuffer, text, voiceId, style, useCase, projectId, expiresAt } = data;
     
     try {
       console.log("Qwen: Uploading voice to Vercel Blob...");

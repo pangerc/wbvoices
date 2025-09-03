@@ -4,7 +4,8 @@ import { normalizeLanguageCode } from '@/utils/language';
 import { normalizeAccent } from '@/utils/accents';
 import { Language } from '@/types';
 
-export const runtime = 'edge';
+// Use Node.js runtime for proper Redis access
+// export const runtime = 'edge'; // REMOVED - Edge Runtime causes env var issues
 
 // Type for voice data from providers
 type ProviderVoice = {
