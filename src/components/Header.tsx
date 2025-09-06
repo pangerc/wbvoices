@@ -309,7 +309,7 @@ export function Header({
         <div className="flex items-center gap-4 relative">
           <button
             onClick={onNewProject}
-            className="px-4 py-3 rounded-full flex items-center gap-2 text-gray-300 text-sm border transition-all duration-200 bg-wb-blue/10 backdrop-blur-sm border-wb-blue/20 hover:bg-wb-blue/20 hover:border-wb-blue/30 focus:outline-none focus:ring-1 focus:ring-wb-blue/50"
+            className="px-3 py-3 rounded-full flex items-center gap-2 text-gray-300 text-sm border transition-all duration-200 bg-wb-blue/10 backdrop-blur-sm border-wb-blue/20 hover:bg-wb-blue/20 hover:border-wb-blue/30 focus:outline-none focus:ring-1 focus:ring-wb-blue/50 whitespace-nowrap"
           >
             <svg
               width="16"
@@ -334,7 +334,9 @@ export function Header({
                 strokeLinejoin="round"
               />
             </svg>
-            <span className="hidden xl:inline">New Project</span>
+            <span className="hidden xl:inline text-sm whitespace-nowrap">
+              New Ad
+            </span>
           </button>
 
           {/* Active project name - only show when there's a loaded project */}

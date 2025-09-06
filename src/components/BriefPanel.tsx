@@ -11,14 +11,13 @@ import { generateCreativeCopy } from "@/utils/ai-api-client";
 import { parseCreativeJSON } from "@/utils/json-parser";
 import { getFlagCode } from "@/utils/language";
 import { VoiceManagerV2State } from "@/hooks/useVoiceManagerV2";
-import { useRegionConfig } from "@/hooks/useRegionConfig";
 import {
   GlassyTextarea,
   GlassyListbox,
   GlassyOptionPicker,
   GlassySlider,
   GlassyCombobox,
-  GenerateButton,
+  SplitGenerateButton,
 } from "./ui";
 
 /**
@@ -103,6 +102,11 @@ export type BriefPanelProps = {
     musicPrompt: string,
     soundFxPrompt?: string | string[] | SoundFxPrompt[]
   ) => void;
+  onGenerateCreativeAuto: (
+    segments: Array<{ voiceId: string; text: string }>,
+    musicPrompt: string,
+    soundFxPrompt?: string | string[] | SoundFxPrompt[]
+  ) => void;
 };
 
 const campaignFormatOptions = [
@@ -122,13 +126,12 @@ const campaignFormatOptions = [
 const allAiModelOptions = [
   {
     value: "gpt4" as AIModel,
-    label: "GPT-4.1",
-    description: "Largest GPT model for creative tasks",
-    badge: "Recommended",
+    label: "GPT 4.1",
+    description: "Largest Open AI model for creative tasks",
   },
   {
     value: "gpt5" as AIModel,
-    label: "GPT-5",
+    label: "GPT 5",
     description: "Latest model for advanced creative reasoning",
   },
   {
@@ -156,15 +159,20 @@ export function BriefPanel({
   setSelectedAiModel,
   voiceManager,
   onGenerateCreative,
+  onGenerateCreativeAuto,
 }: BriefPanelProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [languageQuery, setLanguageQuery] = useState("");
 
+  // 🚀 AUTO Mode state - enabled by default for B2B users
+  const [autoModeEnabled, setAutoModeEnabled] = useState(true);
+
   // 🔥 NEW: Server-filtered voices to replace client-side getFilteredVoices()
   const [serverFilteredVoices, setServerFilteredVoices] = useState<{
     voices: unknown[];
     count: number;
+    selectedProvider?: Provider;
     dialogReady?: boolean;
     dialogWarning?: string;
   }>({
@@ -173,21 +181,8 @@ export function BriefPanel({
   });
   const [isLoadingFilteredVoices, setIsLoadingFilteredVoices] = useState(false);
 
-  // Get region configuration
-  const regionConfig = useRegionConfig();
-
-  // Filter AI models based on region
-  const aiModelOptions = useMemo(() => {
-    if (!regionConfig.config) {
-      // Default to all models while loading
-      return allAiModelOptions;
-    }
-
-    const { availableAIModels } = regionConfig.config;
-    return allAiModelOptions.filter((option) =>
-      availableAIModels.includes(option.value)
-    );
-  }, [regionConfig.config]);
+  // Use all AI models without regional filtering
+  const aiModelOptions = allAiModelOptions;
 
   const {
     selectedLanguage,
@@ -198,7 +193,6 @@ export function BriefPanel({
     availableRegions,
     availableAccents,
     availableProviders,
-    currentVoices,
     isLoading,
     hasRegions,
     hasAccents,
@@ -208,8 +202,15 @@ export function BriefPanel({
     setSelectedProvider,
   } = voiceManager;
 
+  // 🧪 DEMON DIAGNOSTIC: Component lifecycle tracking
+  useEffect(() => {
+    console.log('🏁 BRIEF PANEL MOUNTED');
+    return () => console.log('💀 BRIEF PANEL UNMOUNTED');
+  }, []);
+
   // 🔥 NEW: Load server-filtered voices when filter criteria change
   useEffect(() => {
+    console.count('🔥 brief:filtered-voices'); // 🧪 DEMON DIAGNOSTIC
     const loadFilteredVoices = async () => {
       // Don't load if basic data isn't ready yet
       if (!selectedLanguage || availableLanguages.length === 0) {
@@ -232,10 +233,9 @@ export function BriefPanel({
           url.searchParams.set("accent", selectedAccent);
         }
 
-        // Set provider if not "any"
-        if (selectedProvider && selectedProvider !== "any") {
-          url.searchParams.set("provider", selectedProvider);
-        }
+        // 🔥 Send user's selected provider, or "any" for auto-selection
+        // Respect user's explicit choice while allowing server auto-selection
+        url.searchParams.set("provider", selectedProvider);
 
         // Add campaign format for dialog validation
         url.searchParams.set("campaignFormat", campaignFormat);
@@ -251,14 +251,28 @@ export function BriefPanel({
           setServerFilteredVoices({ voices: [], count: 0 });
         } else {
           console.log(
-            `✅ Loaded ${data.count} server-filtered voices for ${selectedLanguage}`
+            `✅ Loaded ${
+              data.count
+            } server-filtered voices for ${selectedLanguage}${
+              data.selectedProvider
+                ? ` (auto-selected: ${data.selectedProvider})`
+                : ""
+            }`
           );
           setServerFilteredVoices({
             voices: data.voices || [],
             count: data.count || 0,
+            selectedProvider: data.selectedProvider,
             dialogReady: data.dialogReady,
             dialogWarning: data.dialogWarning,
           });
+
+          // 🔥 Only update provider when user selected "any" (auto-selection)
+          // Respect explicit user choice by not overriding it
+          if (selectedProvider === "any" && data.selectedProvider) {
+            console.log(`🎯 Server selected provider: ${data.selectedProvider}`);
+            setSelectedProvider(data.selectedProvider);
+          }
         }
       } catch (error) {
         console.error("Failed to load filtered voices:", error);
@@ -274,12 +288,42 @@ export function BriefPanel({
     selectedRegion,
     selectedAccent,
     selectedProvider,
-    campaignFormat,
+    campaignFormat, // 🎯 Campaign format IS in dependencies - good!
     availableLanguages.length,
     hasRegions,
+    // setSelectedProvider is stable and doesn't need to be in dependencies
   ]);
 
+  // 🔥 Provider reset on language change - enables server auto-selection
+  useEffect(() => {
+    console.count('🔥 brief:provider-reset'); // 🧪 DEMON DIAGNOSTIC
+    // Reset provider to "any" when language changes to trigger server auto-selection
+    // Only reset if provider isn't already "any" to avoid unnecessary re-renders
+    if (selectedProvider !== "any") {
+      console.log(`🔄 Language changed to ${selectedLanguage}, resetting provider to "any" for auto-selection`);
+      setSelectedProvider("any");
+    }
+  }, [selectedLanguage, setSelectedProvider]); // FIXED: Removed selectedProvider from dependencies to prevent loop
+
   // 🗡️ REMOVED: Client-side getFilteredVoices() - now using server-side filtering!
+
+  // 🔍 DEBUG: Voice count math investigation
+  useEffect(() => {
+    console.count('🔥 brief:debug-counts'); // 🧪 DEMON DIAGNOSTIC
+    if (availableProviders.length > 0) {
+      const totalCount = availableProviders.reduce(
+        (sum, p) => sum + p.count,
+        0
+      );
+      console.log(`🔍 Available providers debug:`, {
+        providers: availableProviders,
+        totalCount,
+        individualCounts: availableProviders
+          .map((p) => `${p.provider}: ${p.count}`)
+          .join(", "),
+      });
+    }
+  }, [availableProviders]);
 
   // Only show helpful warnings, don't force changes - now using server data
   const shouldWarnAboutDialog =
@@ -301,31 +345,110 @@ export function BriefPanel({
     );
   }, [languageQuery, availableLanguages]);
 
+  /**
+   * 🔥 SURGICAL FIX: Just-in-time provider resolution
+   * If user selected "any", resolve to actual provider before LLM generation
+   * This prevents mixed providers and ensures clean project saving
+   */
+  const resolveProviderForGeneration = async (): Promise<{
+    provider: Provider;
+    voices: Voice[];
+  }> => {
+    if (selectedProvider !== "any") {
+      // Already specific provider - use as-is
+      return {
+        provider: selectedProvider,
+        voices: serverFilteredVoices.voices as Voice[],
+      };
+    }
+
+    // Provider is "any" - need to resolve it server-side
+    console.log("🎯 Resolving 'any' provider for generation...");
+
+    try {
+      const url = new URL("/api/voice-catalogue", window.location.origin);
+      url.searchParams.set("operation", "filtered-voices");
+      url.searchParams.set("language", selectedLanguage);
+      url.searchParams.set("provider", "any"); // Explicitly send "any"
+      url.searchParams.set("campaignFormat", campaignFormat);
+
+      // Add region/accent if specified
+      if (
+        selectedRegion &&
+        selectedRegion !== "all" &&
+        availableRegions.length > 0
+      ) {
+        url.searchParams.set("region", selectedRegion);
+      }
+      if (selectedAccent && selectedAccent !== "neutral") {
+        url.searchParams.set("accent", selectedAccent);
+      }
+
+      const response = await fetch(url.toString());
+      if (!response.ok) {
+        throw new Error(`Failed to resolve provider: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.selectedProvider) {
+        console.log(
+          `🎯 Resolved provider: ${data.selectedProvider} (${data.count} voices)`
+        );
+
+        // Update UI state so user sees which provider was chosen
+        setSelectedProvider(data.selectedProvider);
+
+        return {
+          provider: data.selectedProvider,
+          voices: data.voices as Voice[],
+        };
+      } else {
+        // Fallback - should not happen with current server logic
+        console.warn(
+          "Server did not auto-select provider, falling back to current state"
+        );
+        return {
+          provider: selectedProvider,
+          voices: serverFilteredVoices.voices as Voice[],
+        };
+      }
+    } catch (error) {
+      console.error("Error resolving provider:", error);
+      // Fallback to current state
+      return {
+        provider: selectedProvider,
+        voices: serverFilteredVoices.voices as Voice[],
+      };
+    }
+  };
+
   const handleGenerateCreative = async () => {
     if (!clientDescription.trim() || !creativeBrief.trim()) {
       setError("Please fill in both the client description and creative brief");
       return;
     }
 
-    // Auto-select provider if still set to "any" BEFORE generating
-    let providerToUse = selectedProvider;
-
-    if (selectedProvider === "any" && currentVoices.length > 0) {
-      providerToUse = voiceManager.autoSelectProvider(campaignFormat);
+    // 🚀 AUTO MODE: Choose between auto and manual generation
+    if (autoModeEnabled) {
+      return handleGenerateCreativeAutoMode();
     }
 
-    // 🔥 NEW: Use server-filtered voices instead of client-side filtering
-    const voicesToUse = serverFilteredVoices.voices as Voice[];
+    // MANUAL MODE: Original behavior - just generate creative
+    return handleGenerateCreativeManual();
+  };
 
+  const handleGenerateCreativeManual = async () => {
     setIsGenerating(true);
     setError(null);
 
     try {
-      // Use the correct voices for the selected provider
-      const filteredVoices = voicesToUse;
+      // 🔥 SURGICAL FIX: Resolve provider just-in-time before generation
+      const { provider: providerToUse, voices: voicesToUse } =
+        await resolveProviderForGeneration();
 
       console.log(
-        `🎯 Sending ${filteredVoices.length} ${providerToUse} voices to LLM`
+        `🎯 Sending ${voicesToUse.length} ${providerToUse} voices to LLM`
       );
 
       const jsonResponse = await generateCreativeCopy(
@@ -334,7 +457,7 @@ export function BriefPanel({
         clientDescription,
         creativeBrief,
         campaignFormat,
-        filteredVoices,
+        voicesToUse,
         adDuration,
         providerToUse,
         selectedRegion || undefined,
@@ -367,6 +490,65 @@ export function BriefPanel({
     }
   };
 
+  // 🚀 AUTO MODE: Generate creative + trigger parallel voice/music/soundfx generation
+  const handleGenerateCreativeAutoMode = async () => {
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      // 🔥 SURGICAL FIX: Resolve provider just-in-time before generation
+      const { provider: providerToUse, voices: voicesToUse } =
+        await resolveProviderForGeneration();
+
+      console.log(
+        `🚀 AUTO MODE: Sending ${voicesToUse.length} ${providerToUse} voices to LLM`
+      );
+
+      const jsonResponse = await generateCreativeCopy(
+        selectedAiModel,
+        selectedLanguage,
+        clientDescription,
+        creativeBrief,
+        campaignFormat,
+        voicesToUse,
+        adDuration,
+        providerToUse,
+        selectedRegion || undefined,
+        selectedAccent || undefined
+      );
+
+      const { voiceSegments, musicPrompt, soundFxPrompts } =
+        parseCreativeJSON(jsonResponse);
+
+      if (voiceSegments.length === 0) {
+        throw new Error("No voice segments found in response");
+      }
+
+      const segments = voiceSegments.map((segment) => ({
+        voiceId: segment.voice?.id || "",
+        text: segment.text,
+        style: segment.style,
+        useCase: segment.useCase,
+        voiceInstructions: segment.voiceInstructions,
+      }));
+
+      // Step 2: Trigger AUTO mode with parallel generation
+      console.log(
+        "🚀 AUTO MODE: Triggering parallel voice + music + soundfx generation"
+      );
+      onGenerateCreativeAuto(segments, musicPrompt || "", soundFxPrompts);
+    } catch (error) {
+      console.error("Error in AUTO mode generation:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to generate creative in AUTO mode"
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-8 text-white">
       {/* Header with Generate button */}
@@ -378,7 +560,7 @@ export function BriefPanel({
             perfect voice for your campaign.
           </p>
         </div>
-        <GenerateButton
+        <SplitGenerateButton
           onClick={handleGenerateCreative}
           disabled={
             !clientDescription ||
@@ -387,8 +569,8 @@ export function BriefPanel({
             isLoadingFilteredVoices
           }
           isGenerating={isGenerating}
-          text="Generate"
-          generatingText="Generating..."
+          autoMode={autoModeEnabled}
+          onAutoModeChange={setAutoModeEnabled}
         />
       </div>
 
@@ -505,6 +687,11 @@ export function BriefPanel({
               <span className="text-xs text-gray-500 pt-2">
                 {isLoadingFilteredVoices
                   ? "Loading..."
+                  : selectedProvider === "any"
+                  ? `${
+                      availableProviders.find((p) => p.provider === "any")
+                        ?.count || 0
+                    } voices available`
                   : `${serverFilteredVoices.count} voices available`}
                 {hasRegions && selectedRegion && selectedRegion !== "all" && (
                   <>
@@ -563,7 +750,10 @@ export function BriefPanel({
                     value: option.value as Provider,
                     badge:
                       option.value === "any"
-                        ? `${serverFilteredVoices.count} voices` // 🔥 FIX: Use filtered count for consistency
+                        ? `${
+                            availableProviders.find((p) => p.provider === "any")
+                              ?.count || 0
+                          } voices`
                         : `${voiceCount} voices`,
                     disabled: voiceCount === 0 && option.value !== "any",
                   };
@@ -627,8 +817,8 @@ export function BriefPanel({
               options={aiModelOptions.map((option) => ({
                 value: option.value,
                 label: `${option.label}${
-                  option.badge ? ` (${option.badge})` : ""
-                }${option.description ? ` - ${option.description}` : ""}`,
+                  option.description ? ` - ${option.description}` : ""
+                }`,
               }))}
               disabled={isLoading}
             />

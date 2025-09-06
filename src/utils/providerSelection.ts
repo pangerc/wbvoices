@@ -6,17 +6,37 @@ export type VoiceCounts = Record<Provider, number>;
 export class ProviderSelector {
   /**
    * Dragon-slaying simple provider selection
-   * Quality hierarchy: ElevenLabs > OpenAI (Lovo disabled)
+   * Language-aware quality hierarchy:
+   * - Chinese: Qwen > ElevenLabs > OpenAI
+   * - Other languages: ElevenLabs > OpenAI (Lovo disabled)
    * Dialog needs 2+ voices, ad_read needs 1+ voice
    */
   static selectDefault(
     format: CampaignFormat,
-    voiceCounts: VoiceCounts
+    voiceCounts: VoiceCounts,
+    language?: string
   ): Provider {
     const minVoices = format === "dialog" ? 2 : 1;
+    const isChineseLanguage = language === "zh" || language?.startsWith("zh-");
+    
+    console.log(`🔍 ProviderSelector.selectDefault:`, {
+      format,
+      minVoices,
+      language,
+      isChineseLanguage,
+      voiceCounts,
+      elevenlabsCheck: `${voiceCounts.elevenlabs} >= ${minVoices} = ${voiceCounts.elevenlabs >= minVoices}`
+    });
+    
+    // Chinese language preference: Qwen > ElevenLabs > OpenAI
+    if (isChineseLanguage && voiceCounts.qwen >= minVoices) {
+      console.log(`✅ Selected qwen for Chinese (${voiceCounts.qwen} >= ${minVoices})`);
+      return "qwen";
+    }
     
     // Check providers in quality order (Lovo disabled)
     if (voiceCounts.elevenlabs >= minVoices) {
+      console.log(`✅ Selected elevenlabs (${voiceCounts.elevenlabs} >= ${minVoices})`);
       return "elevenlabs";
     }
     
@@ -26,6 +46,7 @@ export class ProviderSelector {
     // }
     
     // OpenAI fallback
+    console.log(`✅ Fallback to openai (elevenlabs: ${voiceCounts.elevenlabs} < ${minVoices})`);
     return "openai";
   }
   
@@ -47,6 +68,12 @@ export class ProviderSelector {
       //   disabled: voiceCounts.lovo === 0,
       //   quality: "good" as const
       // },
+      {
+        value: "qwen",
+        label: `Qwen (${voiceCounts.qwen})`,
+        disabled: voiceCounts.qwen === 0,
+        quality: "chinese-specialist" as const
+      },
       {
         value: "openai",
         label: `OpenAI (${voiceCounts.openai})`,

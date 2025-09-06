@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { voiceCatalogue } from '@/services/voiceCatalogueService';
-import { Language, Provider } from '@/types';
+import { Language, Provider, CampaignFormat } from '@/types';
+import { ProviderSelector } from '@/utils/providerSelection';
 
 // Use Node.js runtime for proper Redis access
 // export const runtime = 'edge'; // REMOVED - Edge Runtime causes env var issues
@@ -145,10 +146,18 @@ export async function GET(req: NextRequest) {
         
         // Parse campaignFormat for dialog validation
         const campaignFormat = url.searchParams.get('campaignFormat');
+        console.log(`🔍 [${new Date().toISOString()}] filtered-voices API called:`, {
+          language,
+          provider,
+          campaignFormat,
+          region,
+          accent,
+          exclude: excludeProviders
+        });
 
         try {
           // Get all voices for language with filtering applied
-          let allVoices: unknown[] = [];
+          const allVoices: unknown[] = [];
 
           // Load from non-excluded providers
           const availableProviders = ['elevenlabs', 'openai', 'qwen'] as const;
@@ -178,11 +187,13 @@ export async function GET(req: NextRequest) {
                 }
               } else {
                 // No region filtering - get all voices for provider
+                console.log(`🔍 Loading ${providerName} voices for language: ${language}, accent: ${accent || 'none'}`);
                 providerVoices = await voiceCatalogue.getVoicesForProvider(
                   providerName,
                   language as Language,
                   accent || undefined
                 );
+                console.log(`🔍 Loaded ${providerVoices.length} ${providerName} voices for ${language}`);
               }
               
               // Tag voices with provider and add to result
@@ -198,27 +209,74 @@ export async function GET(req: NextRequest) {
             }
           }
 
-          // Apply additional filtering if provider is specified (not "any")
-          if (provider && provider !== 'any') {
-            allVoices = allVoices.filter(voice => (voice as { provider?: string }).provider === provider);
+          // 🔥 FIXED: Server-side provider auto-selection with correct counting  
+          let finalVoices = allVoices;
+          let selectedProvider: Provider | undefined;
+
+          if (!provider || provider === 'any') {
+            // 🔥 FIXED: Count FILTERED voices per provider (not all voices!)
+            const voiceCounts = {
+              elevenlabs: allVoices.filter(voice => (voice as { provider?: string }).provider === 'elevenlabs').length,
+              lovo: allVoices.filter(voice => (voice as { provider?: string }).provider === 'lovo').length,
+              openai: allVoices.filter(voice => (voice as { provider?: string }).provider === 'openai').length,
+              qwen: allVoices.filter(voice => (voice as { provider?: string }).provider === 'qwen').length,
+              any: 0 // Not used in selection
+            };
+
+            console.log(`🔍 Provider auto-selection debug (FIXED):`, {
+              campaignFormat,
+              voiceCounts,
+              language,
+              region: region || 'all', 
+              accent: accent || 'neutral',
+              totalVoices: allVoices.length,
+              // 🔍 DEBUG: Show sample voices to verify language filtering
+              sampleVoices: allVoices.slice(0, 3).map(voice => ({
+                provider: (voice as { provider?: string }).provider,
+                id: (voice as { id?: string }).id,
+                language: (voice as { language?: string }).language
+              }))
+            });
+
+            // Auto-select provider based on campaign format, language, and ACTUAL filtered counts
+            selectedProvider = ProviderSelector.selectDefault(
+              campaignFormat as CampaignFormat || 'ad_read',
+              voiceCounts,
+              language // Pass language for smart Chinese defaults
+            );
+
+            console.log(`🎯 Auto-selected provider: ${selectedProvider} for ${campaignFormat}`);
+
+            // Filter to only selected provider's voices
+            finalVoices = allVoices.filter(voice => 
+              (voice as { provider?: string }).provider === selectedProvider
+            );
+
+            console.log(`🎯 Server auto-selected ${selectedProvider} for ${campaignFormat} (${finalVoices.length} voices)`);
+          } else if (provider && provider !== 'any') {
+            // Apply specific provider filtering
+            finalVoices = allVoices.filter(voice => (voice as { provider?: string }).provider === provider);
+            selectedProvider = provider as Provider;
           }
 
-          // Validation for dialog format
+          // Validation for dialog format based on final filtered voices
           const response: {
             voices: unknown[];
             count: number;
+            selectedProvider?: Provider;
             dialogReady?: boolean;
             dialogWarning?: string;
           } = {
-            voices: allVoices,
-            count: allVoices.length
+            voices: finalVoices,
+            count: finalVoices.length,
+            ...(selectedProvider && { selectedProvider }) // Include selectedProvider if auto-selected
           };
 
           // Add dialog validation if campaignFormat is provided
           if (campaignFormat === 'dialog') {
-            response.dialogReady = allVoices.length >= 2;
-            if (allVoices.length < 2) {
-              response.dialogWarning = `Only ${allVoices.length} voice(s) available - dialogue needs 2+ voices`;
+            response.dialogReady = finalVoices.length >= 2;
+            if (finalVoices.length < 2) {
+              response.dialogWarning = `Only ${finalVoices.length} voice(s) available - dialogue needs 2+ voices`;
             }
           }
 

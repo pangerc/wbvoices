@@ -1025,6 +1025,7 @@ The architecture has evolved significantly, demonstrating how systematic improve
 - **Race Condition Free**: AbortController + direct voice passing prevents state issues
 - **Build Performance**: Optimized bundle sizes and clean compilation
 - **Intuitive UX**: Natural tab flows, logical control grouping, clean state transitions
+- **AUTO Mode State Persistence**: Complete project restoration including LLM data, mixer state, and generated tracks
 
 **Key opportunities:**
 
@@ -1181,3 +1182,153 @@ const qwenVoices = [
 - **Consistent Architecture**: No special cases or architectural compromises
 
 The system successfully delivered a working demo while revealing important production-readiness gaps, particularly around API resilience and error handling.
+
+### 17. AUTO Mode State Persistence Fix (September 2025) ✅
+
+#### The AUTO Mode Saving Crisis - RESOLVED!
+
+**Problem**: AUTO mode projects were not persisting properly to Redis - only BriefPanel data and mixedAudioUrl were saved, while ScripterPanel, MusicPanel, SoundFxPanel, and MixerPanel data was completely lost upon restoration.
+
+**Root Causes Identified**:
+
+1. **Missing LLM Data Save**: AUTO mode wasn't calling `saveProject()` after LLM generation
+2. **No Mixer State Save Trigger**: Mixer state never got saved when tracks were added/calculated  
+3. **Partial Handler Saves**: Handlers used `updateProject()` with partial data instead of full `saveProject()`
+4. **Project Creation Race Condition**: Async project creation vs immediate save attempts causing 404 errors
+
+#### The Three-Part Solution ✅
+
+**1. Fixed LLM Data Saving**:
+```typescript
+// Added missing save call in handleGenerateCreativeAuto
+const llmResponseData = await generateCreativeContent(segments, musicPrompt, soundFxPrompts);
+
+// Save LLM data immediately if project is ready
+if (llmResponseData.projectReady) {
+  await saveProject('AUTO: after generate creative', llmResponseData);
+  console.log('✅ LLM data saved successfully');
+}
+```
+
+**2. Added Mixer State Save Trigger**:
+```typescript
+// Enhanced mixerStore with automatic save callback after timeline recalculation
+calculateTimings: () => {
+  // ... existing calculation logic ...
+  
+  // Call save callback after timeline recalculation completes
+  if (saveCallback) {
+    console.log("💾 Triggering save after timeline recalculation");
+    saveCallback().catch((error) => {
+      console.error("❌ Save callback failed:", error);
+    });
+  }
+}
+```
+
+**3. Fixed Handler Save Calls**:
+```typescript
+// Replaced all partial updateProject() calls with full saveProject()
+// Before: await updateProject(projectId, { voiceTracks: tracksToUse });
+// After: await saveProject('after generate voices');
+```
+
+**4. Resolved Project Creation Race Condition**:
+```typescript
+// Enhanced generateCreativeContent to return project readiness status
+return {
+  voiceTracks: newVoiceTracks,
+  musicPrompt: musicPrompt,
+  soundFxPrompt: processedSoundFxPrompt,
+  projectReady, // Indicates if project exists and is ready for saving
+};
+```
+
+#### Technical Implementation Details
+
+**Mixer Save Callback Architecture**:
+- Added `saveCallback` to mixerStore state with `setSaveCallback()` action
+- Main page component registers save callback that triggers full `saveProject()`
+- Every `addTrack()`, `updateTrack()`, `setAudioDuration()` → `calculateTimings()` → automatic save
+- Works for both AUTO mode (immediate) and manual mode (user-triggered)
+
+**Project Creation Safety**:
+- Modified `generateCreativeContent()` to track project creation success
+- AUTO mode only saves if `projectReady: true` 
+- Eliminates 404 "Project not found" errors from race conditions
+
+**Complete State Preservation**:
+- `voiceTracks`: LLM-generated scripts with voice assignments ✅
+- `musicPrompt`: LLM-generated music descriptions ✅  
+- `soundFxPrompt`: LLM-generated sound effect requests ✅
+- `mixerState`: Complete timeline with track positions and durations ✅
+- `generatedTracks`: All audio asset URLs ✅
+
+#### Results Achieved
+
+**Before Fix** (AUTO mode Redis data):
+```json
+{
+  "voiceTracks": [],
+  "musicPrompt": "",
+  "soundFxPrompt": null,
+  "preview": {
+    "mixedAudioUrl": "https://..."  // Only this worked
+  }
+}
+```
+
+**After Fix** (AUTO mode Redis data):
+```json
+{
+  "voiceTracks": [
+    {
+      "voice": { "id": "cherry", "name": "Cherry" },
+      "text": "Generated script content..."
+    }
+  ],
+  "musicPrompt": "upbeat corporate music",
+  "soundFxPrompt": {
+    "description": "drone buzzing",
+    "duration": 3
+  },
+  "mixerState": {
+    "tracks": [
+      {
+        "id": "voice-123", 
+        "url": "https://...",
+        "startTime": 2.089,
+        "duration": 5.1
+      }
+    ],
+    "totalDuration": 24
+  },
+  "generatedTracks": {
+    "voiceUrls": ["https://..."],
+    "musicUrl": "https://...",
+    "soundFxUrl": "https://..."
+  }
+}
+```
+
+#### Architecture Benefits
+
+**Save Trigger Points** (Now Complete):
+1. **LLM Generation** → `saveProject()` with explicit data  
+2. **Timeline Recalculation** → Automatic `saveProject()` via callback
+3. **Each Generation Completes** → Full `saveProject()` in handlers
+4. **User Manual Changes** → Debounced `saveProject()` (existing)
+
+**No More Race Conditions**: Clean async handling without delays or timing hacks
+
+**Unified Architecture**: AUTO mode now uses the same comprehensive save system as manual mode
+
+#### Impact
+
+- **Complete Project Restoration**: AUTO mode projects now restore with full state including voice scripts, music prompts, sound effects, and complete mixer timeline
+- **Eliminated 404 Errors**: Project creation race conditions resolved with proper async handling  
+- **Consistent UX**: AUTO mode and manual mode now have identical persistence behavior
+- **Cost Efficiency**: Generated tracks persist properly, avoiding regeneration costs
+- **Demo Reliability**: AUTO mode demos now reliably preserve and restore all generated content
+
+The fix ensures AUTO mode achieves the same level of state persistence as manual mode, making the feature production-ready for client demonstrations and iterative workflow scenarios.

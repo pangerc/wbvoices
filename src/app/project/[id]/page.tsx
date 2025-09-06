@@ -2,7 +2,25 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { CampaignFormat, SoundFxPrompt, ProjectBrief, AIModel, MusicProvider, VoiceTrack, Language, Voice } from "@/types";
+import {
+  CampaignFormat,
+  SoundFxPrompt,
+  ProjectBrief,
+  AIModel,
+  MusicProvider,
+  VoiceTrack,
+  Language,
+  Voice,
+  Provider,
+} from "@/types";
+
+// Type for LLM response data that needs to be saved
+type LLMResponseData = {
+  voiceTracks: VoiceTrack[];
+  musicPrompt: string;
+  soundFxPrompt: SoundFxPrompt | null;
+  projectReady?: boolean; // Whether project is ready for saving
+};
 import {
   ScripterPanel,
   MixerPanel,
@@ -32,51 +50,58 @@ export default function ProjectWorkspace() {
   const [projectName, setProjectName] = useState<string>("");
   const [, setIsInitializing] = useState(true);
   const [restoredVoices, setRestoredVoices] = useState<Voice[] | null>(null);
-  
+
   // Brief Panel State
   const [clientDescription, setClientDescription] = useState("");
   const [creativeBrief, setCreativeBrief] = useState("");
-  const [campaignFormat, setCampaignFormat] = useState<CampaignFormat>("dialog");
+  const [campaignFormat, setCampaignFormat] =
+    useState<CampaignFormat>("dialog");
   const [adDuration, setAdDuration] = useState(20);
   const [selectedAiModel, setSelectedAiModel] = useState<AIModel>("gpt4");
   const [musicProvider, setMusicProvider] = useState<MusicProvider>("loudly");
 
   // Custom hooks for complex logic
-  const voiceManager = useVoiceManagerV2(); // Redis-powered voice system
-  const formManager = useFormManager();
-  
+  // 🧪 DEMON HUNTING: THE MOMENT OF TRUTH - Re-enabling prime suspect!
+  const voiceManager = useVoiceManagerV2(); // ⚡ STEP 3: Re-enabled - THE PRIME SUSPECT
+  const formManager = useFormManager(); // ✅ STEP 1: Re-enabled - simpler hook
+
   // Zustand stores
-  const { tracks } = useMixerStore();
-  const { 
-    loadProjectFromRedis, 
-    updateProject, 
-    createProject 
-  } = useProjectHistoryStore();
+  const { tracks } = useMixerStore(); // ✅ STEP 2a: Re-enabled - simple state access
+  const { loadProjectFromRedis, updateProject, createProject } =
+    useProjectHistoryStore(); // ✅ STEP 2b: Re-enabled - project functions
+
+  // 🧪 DEMON DIAGNOSTIC: Component lifecycle tracking
+  useEffect(() => {
+    console.log("🏁 PROJECT PAGE MOUNTED");
+    return () => console.log("💀 PROJECT PAGE UNMOUNTED");
+  }, []);
 
   // Load project data on mount or start with new project
+  // 🧪 DEMON HUNTING: Re-enabling project initialization useEffect - NEW PRIME SUSPECT!
   useEffect(() => {
+    console.count("🔥 project:init"); // 🧪 DEMON DIAGNOSTIC
     let isCancelled = false;
-    
+
     // Reset initialization flag when projectId changes
     setIsInitializing(true);
-    
+
     const initializeProject = async () => {
       if (isCancelled) return;
-      
+
       try {
         setIsLoading(true);
-        
+
         // Try to load existing project
         const project = await loadProjectFromRedis(projectId);
-        
+
         if (isCancelled) return;
-        
+
         if (project) {
           // Existing project found - restore all state
-          console.log('✅ Existing project loaded:', project.headline);
+          console.log("✅ Existing project loaded:", project.headline);
           setProjectName(project.headline);
           setProjectNotFound(false);
-          
+
           // Restore all state from project
           setClientDescription(project.brief.clientDescription);
           setCreativeBrief(project.brief.creativeBrief);
@@ -84,17 +109,21 @@ export default function ProjectWorkspace() {
           setAdDuration(project.brief.adDuration);
           setSelectedAiModel(project.brief.selectedAiModel || "gpt4");
           setMusicProvider(project.brief.musicProvider || "loudly");
-          
+
           // IMPORTANT: Restore voice manager state
           // Redis-powered voice system restoration
-          console.log('🗡️ Redis voice system - restoring project state');
-          
+          console.log("🗡️ Redis voice system - restoring project state");
+
           // Step 1: Set language first (this triggers region loading)
           // CRITICAL: Normalize language code for V2 system (es-ES -> es)
-          const normalizedLanguage = project.brief.selectedLanguage.split('-')[0] as Language;
-          console.log(`🔥 Restoring language: ${project.brief.selectedLanguage} -> ${normalizedLanguage}`);
+          const normalizedLanguage = project.brief.selectedLanguage.split(
+            "-"
+          )[0] as Language;
+          console.log(
+            `🔥 Restoring language: ${project.brief.selectedLanguage} -> ${normalizedLanguage}`
+          );
           voiceManager.setSelectedLanguage(normalizedLanguage);
-          
+
           // Step 2: Set region if available, or default for legacy projects
           if (project.brief.selectedRegion) {
             console.log(`🔥 Restoring region: ${project.brief.selectedRegion}`);
@@ -102,104 +131,73 @@ export default function ProjectWorkspace() {
           } else {
             // For legacy projects without saved region, set a sensible default
             if (hasRegionalAccents(project.brief.selectedLanguage)) {
-              const availableRegions = getLanguageRegions(project.brief.selectedLanguage);
+              const availableRegions = getLanguageRegions(
+                project.brief.selectedLanguage
+              );
               if (availableRegions.length > 0) {
                 const defaultRegion = availableRegions[0].code; // Use first region as default
-                console.log(`🔄 Legacy project: Setting default region for ${project.brief.selectedLanguage}: ${defaultRegion}`);
+                console.log(
+                  `🔄 Legacy project: Setting default region for ${project.brief.selectedLanguage}: ${defaultRegion}`
+                );
                 voiceManager.setSelectedRegion(defaultRegion);
               }
             }
           }
-          
+
           // Step 3: Set accent - handle backwards compatibility
-          const accentToRestore = project.brief.selectedAccent || 'neutral';
+          const accentToRestore = project.brief.selectedAccent || "neutral";
           console.log(`🔥 Restoring accent: ${accentToRestore}`);
           voiceManager.setSelectedAccent(accentToRestore);
-          
+
           // Step 4: Set provider
-          console.log(`🔥 Restoring provider: ${project.brief.selectedProvider}`);
+          console.log(
+            `🔥 Restoring provider: ${project.brief.selectedProvider}`
+          );
           voiceManager.setSelectedProvider(project.brief.selectedProvider);
-          
-          console.log('✅ Voice system state restored successfully!');
-          
-          // Step 5: 🔥 NEW - Load ALL voices for restored criteria (not just used voices)
-          console.log('🔄 Loading all available voices for restored project criteria');
-          
-          try {
-            // Use filtered-voices API to get all voices matching the restored criteria
-            const url = new URL('/api/voice-catalogue', window.location.origin);
-            url.searchParams.set('operation', 'filtered-voices');
-            url.searchParams.set('language', normalizedLanguage);
-            
-            // Set provider from restored project
-            if (project.brief.selectedProvider && project.brief.selectedProvider !== 'any') {
-              url.searchParams.set('provider', project.brief.selectedProvider);
-            }
-            
-            // Set region from restored project (if available)
-            if (project.brief.selectedRegion && project.brief.selectedRegion !== 'all') {
-              url.searchParams.set('region', project.brief.selectedRegion);
-            }
-            
-            // Set accent from restored project (if not neutral)
-            if (project.brief.selectedAccent && project.brief.selectedAccent !== 'neutral') {
-              url.searchParams.set('accent', project.brief.selectedAccent);
-            }
-            
-            // Exclude Lovo (poor quality)
-            url.searchParams.set('exclude', 'lovo');
-            
-            const response = await fetch(url);
-            const filteredData = await response.json();
-            
-            if (filteredData.error) {
-              throw new Error(filteredData.error);
-            }
-            
-            console.log(`✅ Loaded ${filteredData.count} voices for restored criteria (${normalizedLanguage}/${project.brief.selectedProvider}/${project.brief.selectedRegion})`);
-            
-            // 🎯 Set ALL available voices for ScripterPanel to use
-            setRestoredVoices(filteredData.voices as Voice[]);
-            
-          } catch (error) {
-            console.error('❌ Failed to load voices for restored criteria:', error);
-            // Fallback: Set empty array but don't fail project loading
-            setRestoredVoices([]);
-          }
-          
+
+          console.log("✅ Voice system state restored successfully!");
+
+          // Step 5: Load ALL voices for restored criteria (skipped for now)
+
           // Step 6: Restore voice tracks (will be handled after voices are loaded)
           // Note: Voice track restoration is deferred until after restoration endpoint responds
           if (project.voiceTracks && project.voiceTracks.length > 0) {
             // Store tracks for later restoration - they'll be processed after restoredVoices is set
-            console.log('🎯 Voice tracks will be restored after voices are loaded:', project.voiceTracks.length);
+            console.log(
+              "🎯 Voice tracks will be restored after voices are loaded:",
+              project.voiceTracks.length
+            );
             formManager.setVoiceTracks(project.voiceTracks);
           } else {
-            console.log('📝 No voice tracks found, starting fresh');
+            console.log("📝 No voice tracks found, starting fresh");
             formManager.setVoiceTracks([{ voice: null, text: "" }]);
           }
           if (project.musicPrompt) {
             formManager.setMusicPrompt(project.musicPrompt);
           }
           if (project.soundFxPrompt) {
-            console.log('🔊 Restoring sound FX prompt:', project.soundFxPrompt);
+            console.log("🔊 Restoring sound FX prompt:", project.soundFxPrompt);
             formManager.setSoundFxPrompt(project.soundFxPrompt);
           } else {
-            console.log('🔇 No sound FX prompt to restore');
+            console.log("🔇 No sound FX prompt to restore");
           }
-          
+
           // Restore mixer state
           const { clearTracks, addTrack } = useMixerStore.getState();
           clearTracks();
-          
+
           if (project.mixerState && project.mixerState.tracks) {
-            console.log('🎵 Restoring mixer tracks:', project.mixerState.tracks.length);
-            
+            console.log(
+              "🎵 Restoring mixer tracks:",
+              project.mixerState.tracks.length
+            );
+
             for (const track of project.mixerState.tracks) {
               addTrack({
                 ...track, // Restore all original track properties
               });
             }
-            
+
             // Switch to mixer tab if we have tracks
             setSelectedTab(4);
           } else if (project.voiceTracks && project.voiceTracks.length > 0) {
@@ -209,19 +207,18 @@ export default function ProjectWorkspace() {
           }
         } else {
           // No existing project - this is a NEW project (normal case!)
-          console.log('📝 New project detected - no Redis data found');
-          
-          console.log('🆕 Fresh project: Using voice manager defaults');
-          
+          console.log("📝 New project detected - no Redis data found");
+
+          console.log("🆕 Fresh project: Using voice manager defaults");
+
           setProjectName("");
           setProjectNotFound(true); // This means "new project"
           setSelectedTab(0); // Start at brief tab
           setRestoredVoices(null); // Clear any previous restored voices
         }
-        
       } catch (error) {
         if (!isCancelled) {
-          console.error('❌ Failed to initialize project:', error);
+          console.error("❌ Failed to initialize project:", error);
           // Fallback to new project on any error
           setProjectName("");
           setProjectNotFound(true);
@@ -243,7 +240,7 @@ export default function ProjectWorkspace() {
     return () => {
       isCancelled = true;
     };
-  }, [projectId, loadProjectFromRedis]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Removed automatic reset on language/provider change - bad UX!
   // Users should keep their work when changing settings.
@@ -266,142 +263,222 @@ export default function ProjectWorkspace() {
   };
 
   // Manual save project function
-  const saveProject = async (reason?: string) => {
-    if (isLoading || projectNotFound) return;
-    
-    console.log(`💾 Saving project: ${projectId} (${reason || 'manual save'})`);
-    
-    // SAFEGUARD: Prevent saving empty voice tracks if we have mixer tracks with content
-    // This prevents corruption where auto-save might clear valid voice tracks
-    const hasEmptyVoiceTracks = formManager.voiceTracks.length === 1 && 
-                                !formManager.voiceTracks[0].voice && 
-                                !formManager.voiceTracks[0].text;
-    const hasMixerVoiceTracks = tracks.some(t => t.type === 'voice' && t.metadata?.scriptText);
-    
-    if (hasEmptyVoiceTracks && hasMixerVoiceTracks) {
-      console.warn('⚠️ BLOCKED: Attempted to save empty voice tracks while mixer has valid tracks. This would corrupt the project state.');
-      console.log('Current voice tracks:', formManager.voiceTracks);
-      console.log('Mixer voice tracks:', tracks.filter(t => t.type === 'voice').map(t => ({
-        id: t.id,
-        scriptText: t.metadata?.scriptText?.slice(0, 30) + '...'
-      })));
-      return; // Don't save in this corrupted state
-    }
-    
-    // Debug: Log what we're saving
-    console.log('Voice tracks being saved:', formManager.voiceTracks.map(t => ({ 
-      hasVoice: !!t.voice, 
-      voiceId: t.voice?.id, 
-      voiceName: t.voice?.name,
-      text: t.text?.slice(0, 30) + '...'
-    })));
-    console.log('Sound FX prompt being saved:', formManager.soundFxPrompt);
-    
-    // Get fresh tracks from store instead of using potentially stale closure
-    const currentTracks = useMixerStore.getState().tracks;
-    const currentCalculatedTracks = useMixerStore.getState().calculatedTracks;
-    const currentTotalDuration = useMixerStore.getState().totalDuration;
-    // Also get audio durations from store
-    const currentAudioDurations = useMixerStore.getState().audioDurations;
+  // ✅ VICTORY: Re-enabling saveProject callback - demon defeated!
+  const saveProject = useCallback(
+    async (reason?: string, explicitLLMData?: LLMResponseData) => {
+      if (isLoading || projectNotFound) return;
 
-    // Collect mixer state - preserve ALL track properties for accurate restoration
-    const mixerState = currentTracks.length > 0 ? {
-      tracks: currentTracks.map(track => ({
-        ...track, // Preserve all original track properties
-        // Use actual audio duration if available, otherwise keep original duration
-        duration: currentAudioDurations[track.id] || track.duration,
-        volume: track.volume,
-        startTime: currentCalculatedTracks.find(ct => ct.id === track.id)?.actualStartTime
-      })),
-      totalDuration: currentTotalDuration
-    } : undefined;
+      console.log(
+        `💾 Saving project: ${projectId} (${reason || "manual save"})`
+      );
 
-    // Collect generated track URLs
-    const generatedTracks = {
-      voiceUrls: currentTracks.filter(t => t.type === 'voice').map(t => t.url),
-      musicUrl: currentTracks.find(t => t.type === 'music')?.url,
-      soundFxUrl: currentTracks.find(t => t.type === 'soundfx')?.url,
-    };
+      // Get fresh tracks from store instead of using potentially stale closure
+      const currentTracks = useMixerStore.getState().tracks;
+      const currentCalculatedTracks = useMixerStore.getState().calculatedTracks;
+      const currentTotalDuration = useMixerStore.getState().totalDuration;
+      // Also get audio durations from store
+      const currentAudioDurations = useMixerStore.getState().audioDurations;
 
-    const projectUpdate = {
-      brief: {
-        clientDescription,
-        creativeBrief,
-        campaignFormat,
-        selectedLanguage: voiceManager.selectedLanguage,
-        selectedProvider: voiceManager.selectedProvider,
-        selectedRegion: voiceManager.selectedRegion,
-        adDuration,
-        selectedAccent: voiceManager.selectedAccent,
-        selectedAiModel,
-        musicProvider,
-      },
-      voiceTracks: formManager.voiceTracks,
-      musicPrompt: formManager.musicPrompt,
-      soundFxPrompt: formManager.soundFxPrompt,
-      generatedTracks: tracks.length > 0 ? generatedTracks : undefined,
-      mixerState,
-      lastModified: Date.now()
-    };
+      // Collect mixer state - preserve ALL track properties for accurate restoration
+      const mixerState =
+        currentTracks.length > 0
+          ? {
+              tracks: currentTracks.map((track) => ({
+                ...track, // Preserve all original track properties
+                // Use actual audio duration if available, otherwise keep original duration
+                duration: currentAudioDurations[track.id] || track.duration,
+                volume: track.volume,
+                startTime: currentCalculatedTracks.find(
+                  (ct) => ct.id === track.id
+                )?.actualStartTime,
+              })),
+              totalDuration: currentTotalDuration,
+            }
+          : undefined;
 
-    try {
-      await updateProject(projectId, projectUpdate);
-      console.log('✅ Save successful');
-    } catch (error) {
-      console.error('❌ Save failed:', error);
-    }
-  };
+      // Collect generated track URLs
+      const generatedTracks = {
+        voiceUrls: currentTracks
+          .filter((t) => t.type === "voice")
+          .map((t) => t.url),
+        musicUrl: currentTracks.find((t) => t.type === "music")?.url,
+        soundFxUrl: currentTracks.find((t) => t.type === "soundfx")?.url,
+      };
 
-  // Debounced save for text changes (500ms delay)
-  const debouncedSave = useMemo(
-    () => debounce(() => saveProject('text changes'), 500),
-    [projectId, projectNotFound] // eslint-disable-line react-hooks/exhaustive-deps
+      // Use explicit LLM data if provided (AUTO mode), otherwise use formManager state (manual mode)
+      const dataToSave = explicitLLMData || {
+        voiceTracks: formManager.voiceTracks,
+        musicPrompt: formManager.musicPrompt,
+        soundFxPrompt: formManager.soundFxPrompt,
+      };
+
+      // SAFEGUARD: Prevent saving empty voice tracks if we have mixer tracks with content
+      // This prevents corruption where auto-save might clear valid voice tracks
+      // Check the data we're actually saving (not just formManager state)
+      const hasEmptyVoiceTracks =
+        dataToSave.voiceTracks.length === 1 &&
+        !dataToSave.voiceTracks[0].voice &&
+        !dataToSave.voiceTracks[0].text;
+      const hasMixerVoiceTracks = currentTracks.some(
+        (t) => t.type === "voice" && t.metadata?.scriptText
+      );
+
+      if (hasEmptyVoiceTracks && hasMixerVoiceTracks && !explicitLLMData) {
+        console.warn(
+          "⚠️ BLOCKED: Attempted to save empty voice tracks while mixer has valid tracks. This would corrupt the project state."
+        );
+        console.log("Data being saved:", dataToSave.voiceTracks);
+        console.log(
+          "Mixer voice tracks:",
+          currentTracks
+            .filter((t) => t.type === "voice")
+            .map((t) => ({
+              id: t.id,
+              scriptText: t.metadata?.scriptText?.slice(0, 30) + "...",
+            }))
+        );
+        return; // Don't save in this corrupted state
+      }
+
+      // Debug: Log what we're saving
+      console.log(
+        "Voice tracks being saved:",
+        dataToSave.voiceTracks.map((t) => ({
+          hasVoice: !!t.voice,
+          voiceId: t.voice?.id,
+          voiceName: t.voice?.name,
+          text: t.text?.slice(0, 30) + "...",
+        }))
+      );
+      console.log("Sound FX prompt being saved:", dataToSave.soundFxPrompt);
+
+      const projectUpdate = {
+        brief: {
+          clientDescription,
+          creativeBrief,
+          campaignFormat,
+          selectedLanguage: voiceManager.selectedLanguage,
+          selectedProvider: voiceManager.selectedProvider,
+          selectedRegion: voiceManager.selectedRegion,
+          adDuration,
+          selectedAccent: voiceManager.selectedAccent,
+          selectedAiModel,
+          musicProvider,
+        },
+        voiceTracks: dataToSave.voiceTracks,
+        musicPrompt: dataToSave.musicPrompt,
+        soundFxPrompt: dataToSave.soundFxPrompt,
+        generatedTracks: tracks.length > 0 ? generatedTracks : undefined,
+        mixerState,
+        lastModified: Date.now(),
+      };
+
+      try {
+        await updateProject(projectId, projectUpdate);
+        console.log("✅ Save successful");
+      } catch (error) {
+        console.error("❌ Save failed:", error);
+      }
+    },
+    [
+      isLoading,
+      projectNotFound,
+      projectId,
+      formManager,
+      adDuration,
+      campaignFormat,
+      clientDescription,
+      creativeBrief,
+      musicProvider,
+      selectedAiModel,
+      tracks.length,
+      updateProject,
+      voiceManager.selectedAccent,
+      voiceManager.selectedLanguage,
+      voiceManager.selectedProvider,
+      voiceManager.selectedRegion,
+    ]
   );
 
+  // 🗡️ DEMON EXORCISM: Safe debounced mixer state watcher (no circular dependencies)
+  useEffect(() => {
+    // Watch mixer state changes and save with debounce
+    // CRITICAL: No saveProject in dependencies to break circular chain
+    const debouncedMixerSave = debounce(() => {
+      if (!isLoading && !projectNotFound) {
+        // Use current saveProject without creating dependency
+        saveProject("mixer state changed");
+      }
+    }, 1000); // 1 second debounce
+
+    // Only trigger saves when tracks actually change
+    if (tracks.length > 0) {
+      debouncedMixerSave();
+    }
+
+    // No cleanup needed - debounce handles its own timeout
+  }, [tracks.length, tracks, isLoading, projectNotFound]); // No saveProject dependency!
+
+  // Debounced save for text changes (500ms delay)
+  // 🗡️ DEMON EXORCISM: Safe debounced save without saveProject dependency
+  const debouncedSave = useMemo(() => {
+    return debounce(() => {
+      if (!isLoading && !projectNotFound) {
+        saveProject("text changes");
+      }
+    }, 500);
+  }, [projectId, projectNotFound, isLoading]); // No saveProject dependency
+
   // Enhanced voice track update with immediate save for voice changes, debounced for text
+  // 🗡️ DEMON EXORCISM: Restored with safe dependency management
   const handleVoiceTrackUpdate = useCallback(
     (index: number, updates: Partial<VoiceTrack>) => {
       formManager.updateVoiceTrack(index, updates);
-      
-      if ('voice' in updates) {
-        // Voice selection changed - save immediately
-        setTimeout(() => saveProject('voice selection changed'), 100);
-      } else if ('text' in updates) {
+
+      if ("voice" in updates) {
+        // Voice selection changed - save immediately (no circular dependency risk)
+        setTimeout(() => {
+          if (!isLoading && !projectNotFound) {
+            saveProject("voice selection changed");
+          }
+        }, 100);
+      } else if ("text" in updates) {
         // Text changed - save with debounce
         debouncedSave();
       }
     },
-    [formManager, debouncedSave] // eslint-disable-line react-hooks/exhaustive-deps
+    [formManager, debouncedSave, isLoading, projectNotFound] // No saveProject dependency
   );
 
   // Track music prompt changes for saving
+  // 🗡️ DEMON EXORCISM: Restored with safe dependency management
   useEffect(() => {
     if (!isLoading && !projectNotFound && formManager.musicPrompt) {
       debouncedSave();
     }
-  }, [formManager.musicPrompt]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [formManager.musicPrompt, debouncedSave, isLoading, projectNotFound]);
 
   // Track sound FX prompt changes for saving
   useEffect(() => {
     if (!isLoading && !projectNotFound && formManager.soundFxPrompt) {
       debouncedSave();
     }
-  }, [formManager.soundFxPrompt]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [formManager.soundFxPrompt, debouncedSave, isLoading, projectNotFound]);
 
   // Event Handlers
   const handleNewProject = () => {
     // Clear all mixer state before navigating to new project
     const { clearTracks } = useMixerStore.getState();
     clearTracks(); // Clear all tracks
-    
+
     // Reset form manager state
     formManager.resetAllForms();
-    
+
     // Clear restored voices
     setRestoredVoices(null);
-    
-    console.log('🆕 New project: Using voice manager defaults');
-    
+
+    console.log("🆕 New project: Using voice manager defaults");
+
     // Navigate to a new project
     const newProjectId = generateProjectId();
     router.push(`/project/${newProjectId}`);
@@ -417,34 +494,88 @@ export default function ProjectWorkspace() {
     prompt: string,
     soundFxPrompts?: string | string[] | SoundFxPrompt[]
   ) => {
+    const llmResponseData = await generateCreativeContent(
+      segments,
+      prompt,
+      soundFxPrompts
+    ); // Pure generation function
+    setSelectedTab(1); // Navigation
+    await saveProject("after generate creative", llmResponseData); // Save with explicit data
+  };
+
+  // 🎯 PURE GENERATION FUNCTIONS - No navigation, clean separation
+  const generateCreativeContent = async (
+    segments: Array<{ voiceId: string; text: string }>,
+    musicPrompt: string,
+    soundFxPrompts?: string | string[] | SoundFxPrompt[]
+  ): Promise<LLMResponseData> => {
+    console.log("🎯 generateCreativeContent called with:", {
+      segments: segments.length,
+      musicPrompt: !!musicPrompt,
+      soundFxPrompts: !!soundFxPrompts,
+    });
+    console.log("🎯 Segments details:", segments);
+    console.log("🎯 Music prompt:", musicPrompt);
+
     // Map voice segments to tracks FIRST
     const filteredVoices = voiceManager.currentVoices;
     const allVoices = voiceManager.currentVoices;
+    console.log("🎯 Available voices:", filteredVoices.length);
+
     const newVoiceTracks = AudioService.mapVoiceSegmentsToTracks(
       segments,
       filteredVoices,
       allVoices
     );
 
+    console.log("🎯 Generated voice tracks:", newVoiceTracks.length);
+    console.log(
+      "🎯 Voice tracks details:",
+      newVoiceTracks.map((t) => ({
+        hasVoice: !!t.voice,
+        voiceId: t.voice?.id,
+        voiceName: t.voice?.name,
+        text: t.text?.slice(0, 50) + "...",
+      }))
+    );
 
     // Update state - clear mixer tracks from previous generations
     const { clearTracks } = useMixerStore.getState();
     clearTracks(); // Clear all existing mixer tracks
-    
+
     formManager.resetVoiceTracks();
-    // Don't reset sound FX here - we'll set it below if the LLM provides one
     formManager.setVoiceTracks(newVoiceTracks);
-    formManager.setMusicPrompt(prompt);
-    
-    // Debug: Log what we're setting in the form manager
-    console.log('🎯 Setting voice tracks in form manager:', newVoiceTracks.map(t => ({ 
-      hasVoice: !!t.voice, 
-      voiceId: t.voice?.id, 
-      voiceName: t.voice?.name,
-      text: t.text?.slice(0, 30) + '...'
-    })));
-    
-    // NOW create the project if it doesn't exist - AFTER we have the content!
+    formManager.setMusicPrompt(musicPrompt);
+
+    // Handle sound FX prompts
+    let processedSoundFxPrompt: SoundFxPrompt | null = null;
+    if (soundFxPrompts) {
+      console.log("🎵 Processing sound FX prompts from LLM:", soundFxPrompts);
+      if (Array.isArray(soundFxPrompts) && soundFxPrompts.length > 0) {
+        const firstPrompt = soundFxPrompts[0];
+        if (typeof firstPrompt === "object" && "description" in firstPrompt) {
+          processedSoundFxPrompt = firstPrompt as SoundFxPrompt;
+          formManager.setSoundFxPrompt(processedSoundFxPrompt);
+        } else if (typeof firstPrompt === "string") {
+          processedSoundFxPrompt = {
+            description: firstPrompt,
+            duration: 5,
+          };
+          formManager.setSoundFxPrompt(processedSoundFxPrompt);
+        }
+      } else if (typeof soundFxPrompts === "string") {
+        processedSoundFxPrompt = {
+          description: soundFxPrompts,
+          duration: 5,
+        };
+        formManager.setSoundFxPrompt(processedSoundFxPrompt);
+      }
+    }
+
+    // Track if project creation was successful
+    let projectReady = !projectNotFound; // If project already exists, it's ready
+
+    // Create project if needed
     if (projectNotFound) {
       const brief: ProjectBrief = {
         clientDescription,
@@ -459,72 +590,118 @@ export default function ProjectWorkspace() {
       };
 
       try {
-        console.log('📝 Creating new project with content already set:', projectId);
+        console.log(
+          "📝 Creating new project with content already set:",
+          projectId
+        );
         await createProject(projectId, brief);
-        
+
         // Load the newly created project to get the generated headline
         const newProject = await loadProjectFromRedis(projectId);
         if (newProject) {
           setProjectName(newProject.headline);
-          console.log('✅ Updated project name to:', newProject.headline);
         }
-        
+
         setProjectNotFound(false);
+        projectReady = true; // Project creation successful
       } catch (error) {
-        console.error('Failed to create project:', error);
-        // Continue anyway since the content is already set in the UI
+        console.error("Failed to create project:", error);
+        projectReady = false; // Project creation failed
       }
     }
 
-    // Handle sound FX prompts
-    if (soundFxPrompts) {
-      console.log('🎵 Processing sound FX prompts from LLM:', soundFxPrompts);
-      if (Array.isArray(soundFxPrompts) && soundFxPrompts.length > 0) {
-        const firstPrompt = soundFxPrompts[0];
-        if (typeof firstPrompt === "object" && "description" in firstPrompt) {
-          console.log('🔊 Setting sound FX prompt (object):', firstPrompt);
-          formManager.setSoundFxPrompt(firstPrompt as SoundFxPrompt);
-        } else if (typeof firstPrompt === "string") {
-          console.log('🔊 Setting sound FX prompt (string):', firstPrompt);
-          formManager.setSoundFxPrompt({
-            description: firstPrompt,
-            duration: 5,
-          });
-        }
-      } else if (typeof soundFxPrompts === "string") {
-        console.log('🔊 Setting sound FX prompt (direct string):', soundFxPrompts);
-        formManager.setSoundFxPrompt({
-          description: soundFxPrompts,
-          duration: 5,
-        });
-      }
-    } else {
-      console.log('🔇 No sound FX prompts from LLM');
-    }
-
-    setSelectedTab(1); // Switch to scripter
-    
-    // Save project after creative generation completes
-    await saveProject('after generate creative');
+    // Return the processed LLM data and project status for explicit saving
+    return {
+      voiceTracks: newVoiceTracks,
+      musicPrompt: musicPrompt,
+      soundFxPrompt: processedSoundFxPrompt,
+      projectReady, // Include whether project is ready for saving
+    };
   };
 
-  const handleGenerateVoices = async () => {
-    try {
-      const selectedProvider = voiceManager.selectedProvider;
-        
-      await AudioService.generateVoiceAudio(
-        formManager.voiceTracks,
-        selectedProvider,
-        formManager.setStatusMessage,
-        formManager.setIsGenerating,
-        voiceManager.selectedRegion || undefined,
-        voiceManager.selectedAccent || undefined
-      );
+  // 🔥 RESTORED: Simple resolveProvider for AUTO mode compatibility
+  const resolveProvider = (mode: string): Provider => {
+    if (mode === "AUTO") {
+      // AUTO mode: use the provider selected in BriefPanel (server auto-selected)
+      return voiceManager.selectedProvider as Provider;
+    }
+    // Manual mode: will read from Redis in handleGenerateVoices
+    return voiceManager.selectedProvider as Provider;
+  };
 
-      setSelectedTab(4); // Switch to mixer
+  const generateVoiceAudio = async (
+    voiceTracks: VoiceTrack[],
+    provider: Provider
+  ) => {
+    await AudioService.generateVoiceAudio(
+      voiceTracks,
+      provider,
+      formManager.setStatusMessage,
+      formManager.setIsGenerating,
+      voiceManager.selectedRegion || undefined,
+      voiceManager.selectedAccent || undefined
+    );
+  };
+
+  const generateMusicAudio = async (musicPrompt: string, duration: number) => {
+    await AudioService.generateMusic(
+      musicPrompt,
+      musicProvider,
+      duration,
+      formManager.setStatusMessage,
+      formManager.setIsGeneratingMusic
+    );
+  };
+
+  const generateSoundFxAudio = async (soundFxPrompt: SoundFxPrompt) => {
+    await AudioService.generateSoundEffect(
+      soundFxPrompt.description,
+      soundFxPrompt.duration || 5,
+      soundFxPrompt,
+      formManager.setStatusMessage,
+      formManager.setIsGeneratingSoundFx
+    );
+  };
+
+  // 🎯 HANDLERS WITH NAVIGATION - Use pure functions + add navigation
+  const handleGenerateVoices = async (
+    provider?: Provider,
+    voiceTracks?: VoiceTrack[]
+  ) => {
+    try {
+      let providerToUse = provider;
       
-      // Save project after voice generation completes
-      await saveProject('after voice generation');
+      // If no provider specified, get from Redis or voice manager
+      if (!providerToUse) {
+        const project = await loadProjectFromRedis(projectId);
+        const redisProvider = project?.brief?.selectedProvider;
+        
+        // 🔥 FIXED: Ensure we get a string, not an object
+        if (redisProvider && typeof redisProvider === 'string') {
+          providerToUse = redisProvider as Provider;
+          console.log(`📚 Manual mode: Using provider from Redis: ${providerToUse}`);
+        } else {
+          // Fallback to voice manager's current selection
+          providerToUse = voiceManager.selectedProvider as Provider;
+          console.log(`📚 Manual mode: Fallback to voice manager provider: ${providerToUse}`);
+        }
+        
+        // Final fallback to openai if still no valid provider
+        if (!providerToUse || providerToUse === "any") {
+          providerToUse = "openai";
+          console.warn("⚠️ No valid provider found, defaulting to openai");
+        }
+      }
+      
+      const tracksToUse = voiceTracks || formManager.voiceTracks;
+      await generateVoiceAudio(tracksToUse, providerToUse);
+      setSelectedTab(4); // Navigation
+
+      // Save complete project state
+      if (!projectNotFound) {
+        await saveProject("after generate voices");
+        console.log("✅ Project saved after voice generation");
+      }
     } catch (error) {
       console.error(error);
       formManager.setStatusMessage(
@@ -539,18 +716,15 @@ export default function ProjectWorkspace() {
     duration: number
   ) => {
     try {
-      await AudioService.generateMusic(
-        prompt,
-        provider,
-        duration,
-        formManager.setStatusMessage,
-        formManager.setIsGeneratingMusic
-      );
+      setMusicProvider(provider);
+      await generateMusicAudio(prompt, duration);
+      setSelectedTab(4); // Navigation
 
-      setSelectedTab(4); // Switch to mixer
-      
-      // Save project after music generation completes
-      await saveProject('after music generation');
+      // Save complete project state
+      if (!projectNotFound) {
+        await saveProject("after generate music");
+        console.log("✅ Project saved after music generation");
+      }
     } catch (error) {
       console.error("Failed to generate music:", error);
       formManager.setStatusMessage(
@@ -563,22 +737,100 @@ export default function ProjectWorkspace() {
 
   const handleGenerateSoundFx = async (prompt: string, duration: number) => {
     try {
-      await AudioService.generateSoundEffect(
-        prompt,
-        duration,
-        formManager.soundFxPrompt,
-        formManager.setStatusMessage,
-        formManager.setIsGeneratingSoundFx
-      );
+      const soundFxPrompt = { description: prompt, duration };
+      await generateSoundFxAudio(soundFxPrompt);
+      setSelectedTab(4); // Navigation
 
-      setSelectedTab(4); // Switch to mixer
-      
-      // Save project after sound effect generation completes
-      await saveProject('after sound effect generation');
+      // Save complete project state
+      if (!projectNotFound) {
+        await saveProject("after generate sound fx");
+        console.log("✅ Project saved after sound fx generation");
+      }
     } catch (error) {
       console.error("Failed to generate sound effect:", error);
       formManager.setStatusMessage(
         `Failed to generate sound effect: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  };
+
+  // 🚀 AUTO MODE: Sequential LLM → Parallel generation (DEPENDENCY CHAIN FIXED!)
+  const handleGenerateCreativeAuto = async (
+    segments: Array<{ voiceId: string; text: string }>,
+    musicPrompt: string,
+    soundFxPrompts?: string | string[] | SoundFxPrompt[]
+  ) => {
+    console.log("🚀 AUTO MODE: Starting sequential→parallel generation");
+
+    try {
+      // PHASE 1: Generate creative content and WAIT for LLM prompts
+      console.log(
+        "📝 Phase 1: Generating creative content and waiting for LLM prompts..."
+      );
+      const llmResponseData = await generateCreativeContent(
+        segments,
+        musicPrompt,
+        soundFxPrompts
+      );
+
+      console.log(
+        `🔍 LLM generated: ${
+          llmResponseData.voiceTracks.length
+        } voice tracks, music: ${!!llmResponseData.musicPrompt}, soundfx: ${!!llmResponseData.soundFxPrompt}`
+      );
+
+      // Save LLM data immediately if project is ready
+      if (llmResponseData.projectReady) {
+        await saveProject("AUTO: after generate creative", llmResponseData);
+        console.log("✅ LLM data saved successfully");
+      } else {
+        console.warn(
+          "⚠️ Skipping LLM data save - project creation failed or not ready"
+        );
+      }
+
+      formManager.setStatusMessage(
+        "🚀 AUTO MODE: Generating voice + music + sound effects..."
+      );
+
+      // Resolve provider for voice generation
+      const providerToUse = resolveProvider("AUTO");
+
+      const promises: Promise<void>[] = [
+        handleGenerateVoices(providerToUse, llmResponseData.voiceTracks),
+      ];
+
+      if (llmResponseData.musicPrompt?.trim()) {
+        promises.push(
+          handleGenerateMusic(
+            llmResponseData.musicPrompt,
+            musicProvider,
+            adDuration + 5
+          )
+        );
+      }
+      if (llmResponseData.soundFxPrompt) {
+        promises.push(
+          handleGenerateSoundFx(
+            llmResponseData.soundFxPrompt.description,
+            llmResponseData.soundFxPrompt.duration || 3
+          )
+        );
+      }
+
+      console.log(`🚀 Starting ${promises.length} parallel processes...`);
+
+      // PHASE 4: Wait for all parallel processes to complete
+      await Promise.all(promises);
+
+      formManager.setStatusMessage("🚀 AUTO MODE: Complete! Ready for mixing.");
+      setSelectedTab(4);
+    } catch (error) {
+      console.error("🚀 AUTO MODE: Error during generation:", error);
+      formManager.setStatusMessage(
+        `AUTO MODE failed: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
@@ -598,7 +850,8 @@ export default function ProjectWorkspace() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white text-black">
+    <div className="flex flex-col h-screen bg-black text-white">
+      {/* 🗡️ DEMON EXORCISM: Restored original Header with proper props */}
       <Header
         selectedTab={selectedTab}
         onTabChange={handleTabChange}
@@ -639,6 +892,7 @@ export default function ProjectWorkspace() {
               setSelectedAiModel={setSelectedAiModel}
               voiceManager={voiceManager}
               onGenerateCreative={handleGenerateCreative}
+              onGenerateCreativeAuto={handleGenerateCreativeAuto}
             />
           )}
 

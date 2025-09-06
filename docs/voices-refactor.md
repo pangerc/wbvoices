@@ -1022,7 +1022,7 @@ Provider Change → Filter currentVoices by selected provider → No reload need
 
 **Result**: Clean, maintainable, bug-free voice counting that works correctly in all scenarios.
 
-### Provider Styling – Current State of the Art (August 2025)
+### Provider Styling – Current State of the Art (September 2025)
 
 - ElevenLabs mapping bridge
 
@@ -1038,9 +1038,22 @@ Provider Change → Filter currentVoices by selected provider → No reload need
   - We use the Sync TTS endpoint; if it returns a pending job (90s limit), we short‑poll the job endpoint for a few seconds
   - Reference: Sync/Async TTS docs: https://docs.genny.lovo.ai/reference/sync-tts
 
-- OpenAI voices
+- OpenAI voices - **UPDATED SEPTEMBER 2025**
 
-  - LLM can emit rich `voiceInstructions`; we render them as part of creative direction
+  - **Expanded catalog**: 10 voices total (Alloy, Echo, Fable, Onyx, Nova, Shimmer, Ash, Ballad, Coral, Sage)
+  - **Gender classification**: No more "neutral" - all voices assigned male/female based on perceived characteristics
+    - **Male**: Alloy, Echo, Fable, Onyx, Ash, Ballad, Sage
+    - **Female**: Nova, Shimmer, Coral
+  - **Multilingual suitability**: Using `qualityTier` system for language filtering
+    - **English-only** (`qualityTier: "poor"`): Alloy, Echo, Onyx, Ash, Sage (strong English accent in other languages)
+    - **Multilingual suitable** (`qualityTier: "good"/"excellent"`): Fable, Nova, Shimmer, Ballad, Coral
+  - **Enhanced descriptions**: Updated with proper style/tone descriptions from research
+    - Alloy: "Balanced, neutral, clear"
+    - Echo: "Calm, measured, thoughtful" 
+    - Fable: "Warm, engaging, storytelling"
+    - Nova: "Bright, energetic, enthusiastic"
+    - Shimmer: "Soft, gentle, soothing"
+  - **LLM integration**: Can emit rich `voiceInstructions`; rendered as part of creative direction
 
 - ScripterPanel UI
 

@@ -66,6 +66,7 @@ type MixerState = {
   audioDurations: { [key: string]: number };
   isExporting: boolean;
   previewUrl: string | null;
+  saveCallback: (() => Promise<void>) | null;
 
   // Actions
   addTrack: (track: MixerTrack) => void;
@@ -79,6 +80,7 @@ type MixerState = {
   setPreviewUrl: (url: string | null) => void;
   setIsExporting: (isExporting: boolean) => void;
   clearTracks: (type?: "voice" | "music" | "soundfx") => void;
+  setSaveCallback: (callback: (() => Promise<void>) | null) => void;
 };
 
 export const useMixerStore = create<MixerState>((set, get) => ({
@@ -92,6 +94,7 @@ export const useMixerStore = create<MixerState>((set, get) => ({
   isExporting: false,
   previewUrl: null,
   audioDurations: {},
+  saveCallback: null,
 
   // Actions
   addTrack: (track) => {
@@ -227,16 +230,31 @@ export const useMixerStore = create<MixerState>((set, get) => ({
   },
 
   calculateTimings: () => {
-    const { tracks, audioDurations } = get();
+    const { tracks, audioDurations, saveCallback } = get();
 
     // Use battle-tested heuristic calculator
     console.log("🔧 Using Legacy Timeline Calculator (heuristic-based)");
-    const result = LegacyTimelineCalculator.calculateTimings(tracks, audioDurations);
-    
+    const result = LegacyTimelineCalculator.calculateTimings(
+      tracks,
+      audioDurations
+    );
+
     set({
       calculatedTracks: result.calculatedTracks,
       totalDuration: result.totalDuration,
     });
+
+    // 🗡️ DEMON HUNTING: Save callback restored - mixer store was innocent
+    // Call save callback after timeline recalculation completes
+    if (saveCallback) {
+      console.log("💾 Triggering save after timeline recalculation");
+      saveCallback().catch((error) => {
+        console.error(
+          "❌ Save callback failed after timeline recalculation:",
+          error
+        );
+      });
+    }
   },
 
   setPreviewUrl: (url) => {
@@ -263,7 +281,7 @@ export const useMixerStore = create<MixerState>((set, get) => ({
       });
     } else {
       // Remove all tracks and reset all related state
-      set({ 
+      set({
         tracks: [],
         calculatedTracks: [],
         totalDuration: 0,
@@ -272,11 +290,15 @@ export const useMixerStore = create<MixerState>((set, get) => ({
         audioErrors: {},
         audioDurations: {},
         previewUrl: null,
-        isExporting: false
+        isExporting: false,
       });
     }
 
     // Recalculate timings
     get().calculateTimings();
+  },
+
+  setSaveCallback: (callback) => {
+    set({ saveCallback: callback });
   },
 }));

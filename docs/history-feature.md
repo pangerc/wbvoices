@@ -214,6 +214,29 @@ user_projects:{session_id}  → User's project ID list
   - Clean data flow: Direct API → restoredVoices state → ScripterPanel
 - **Impact**: Spanish, Slovenian and all regional projects now restore with correct voices immediately - "American voices finally defeated!"
 
+### AUTO Mode State Persistence Crisis 🐛 → ✅ FIXED (September 2025)
+- **Problem**: AUTO mode projects not persisting to Redis - only BriefPanel data and mixedAudioUrl saved, all other panels (ScripterPanel, MusicPanel, SoundFxPanel, MixerPanel) completely blank upon restoration
+- **Root Causes**: 
+  1. Missing LLM data save after generation
+  2. No mixer state save trigger when tracks added/calculated
+  3. Handlers using partial `updateProject()` instead of full `saveProject()` 
+  4. Project creation race conditions causing 404 errors
+- **The Three-Part Solution**:
+  1. **Added LLM Save**: AUTO mode now calls `saveProject()` after LLM generation with project readiness check
+  2. **Mixer Save Trigger**: Enhanced mixerStore with save callback that triggers after `calculateTimings()` completes
+  3. **Fixed Handler Saves**: Replaced all partial `updateProject()` calls with full `saveProject()` calls
+  4. **Race Condition Fix**: Enhanced `generateCreativeContent()` to return `projectReady` flag preventing saves to non-existent projects
+- **Technical Implementation**:
+  - Added `saveCallback` to mixerStore state with automatic triggering
+  - Every track addition → timeline recalculation → automatic save
+  - Project creation safety with proper async handling
+  - Complete state preservation: voiceTracks, musicPrompt, soundFxPrompt, mixerState, generatedTracks
+- **Architecture Benefits**:
+  - Unified save system: AUTO mode now uses same comprehensive save triggers as manual mode  
+  - No race conditions: Clean async handling without delays or timing hacks
+  - Complete restoration: AUTO mode projects restore with full timeline and all generated content
+- **Impact**: AUTO mode now achieves identical persistence behavior to manual mode, making it production-ready for client demonstrations and iterative workflows
+
 ## Current Limitations & Future Enhancements
 
 ### Current Limitations
@@ -328,10 +351,15 @@ The project history feature is fully operational with:
 - ✅ **Perfect timeline positioning with accurate durations (August 2025)**
 - ✅ **Voice loading race conditions eliminated via AbortController + direct voice passing (August 2025)**
 - ✅ **Regional project restoration consistency - "American voices finally defeated" (August 2025)**
+- ✅ **AUTO mode complete state persistence - LLM data, mixer state, generated tracks (September 2025)**
 - ✅ Production-ready architecture
 
 **Reality Check**: This feature required major architectural pivots and bug fixes that weren't anticipated in the original naive design. The final implementation is much more robust than initially planned, but required solving complex state management, timeline consistency, URL routing challenges, React closure issues, audio duration measurement timing problems, and voice loading race conditions.
 
-**Latest Achievement (August 2025)**: After discovering and fixing critical bugs with sound effects not persisting to Redis, timeline duration mismatches, and voice loading race conditions during project restoration, the system now provides **bulletproof audio timeline restoration** where every track (voice, music, and sound effects) maintains perfect positioning and timing across save/restore cycles, with immediate voice availability regardless of language or region complexity. The final solution uses a hybrid approach: AbortController eliminates race conditions in voice manager, while direct voice passing to ScripterPanel ensures the UI always shows correct language voices during restoration.
+**Latest Achievement (September 2025)**: After discovering and fixing critical bugs with sound effects not persisting to Redis, timeline duration mismatches, voice loading race conditions during project restoration, and AUTO mode state persistence crisis, the system now provides **bulletproof audio timeline restoration** where every track (voice, music, and sound effects) maintains perfect positioning and timing across save/restore cycles, with immediate voice availability regardless of language or region complexity. 
 
-Users can now confidently iterate on creative variations without fear of losing work, with every change automatically preserved and instantly restorable with perfect timeline positioning and accurate audio durations.
+The AUTO mode persistence fix was particularly critical - AUTO mode projects were only saving basic form data while completely losing all LLM-generated content, mixer timeline state, and audio URLs. The comprehensive solution involved adding missing LLM saves, implementing automatic mixer state save triggers after timeline recalculation, fixing partial handler saves, and resolving project creation race conditions.
+
+Both manual and AUTO modes now use an identical, comprehensive save system with multiple trigger points ensuring complete state preservation. The final solution uses a hybrid approach: AbortController eliminates race conditions in voice manager, direct voice passing ensures correct language voices during restoration, and automatic save callbacks capture mixer state changes in real-time.
+
+Users can now confidently iterate on creative variations in both manual and AUTO modes without fear of losing work, with every change automatically preserved and instantly restorable with perfect timeline positioning and accurate audio durations.

@@ -29,6 +29,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.png" sizes="any" />
       </head>
       <body className="font-sans antialiased">
+        {/* 🗡️ DEMON EXORCISM: Restored ClientLayout with new save architecture */}
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

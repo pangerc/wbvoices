@@ -617,63 +617,101 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ voices });
   } else if (provider === "openai") {
-    // OpenAI TTS voices - show only base voices with styles as metadata
-    // Research shows: Fable and Nova are best for non-English, Echo is worst
+    // OpenAI TTS voices - updated with latest voice catalog
+    // qualityTier: "poor" = English-only, "good"/"excellent" = multilingual suitable
     const openAIVoiceVariants = [
-      // Base voices only - styles handled as metadata and in LLM prompt
+      // Original 6 voices with updated data
       {
         id: "alloy",
         name: "Alloy",
-        gender: "neutral",
-        description: "Neutral and balanced",
+        gender: "male", // Updated from neutral - perceived as male/ambiguous per table
+        description: "Balanced, neutral, clear",
         style: "Default",
-        qualityTier: "good",
+        qualityTier: "poor", // Not recommended for multilingual - strong English optimization
         availableStyles: ["Default", "confident", "casual"],
       },
       {
         id: "echo",
         name: "Echo",
         gender: "male",
-        description: "Warm and conversational (English-optimized)",
+        description: "Calm, measured, thoughtful", // Updated description from table
         style: "Default",
-        qualityTier: "poor",
+        qualityTier: "poor", // Not recommended for multilingual - English-primed, accent persists
         availableStyles: ["Default", "excited", "serious"],
       },
       {
         id: "fable",
         name: "Fable",
-        gender: "neutral",
-        description: "Expressive and dynamic",
+        gender: "male", // Updated from neutral per table
+        description: "Warm, engaging, storytelling", // Updated description from table
         style: "Default",
-        qualityTier: "excellent",
+        qualityTier: "excellent", // Better for multilingual - more natural in languages like German
         availableStyles: ["Default", "dramatic", "playful"],
       },
       {
         id: "onyx",
         name: "Onyx",
         gender: "male",
-        description: "Deep and authoritative",
+        description: "Deep, authoritative",
         style: "Default",
-        qualityTier: "good",
+        qualityTier: "poor", // Not recommended for multilingual - English-centric
         availableStyles: ["Default", "authoritative", "calm"],
       },
       {
         id: "nova",
         name: "Nova",
         gender: "female",
-        description: "Friendly and warm",
+        description: "Bright, energetic, enthusiastic", // Updated description from table
         style: "Default",
-        qualityTier: "excellent",
+        qualityTier: "excellent", // Better for multilingual - relatively stronger performance
         availableStyles: ["Default", "cheerful", "professional"],
       },
       {
         id: "shimmer",
         name: "Shimmer",
         gender: "female",
-        description: "Soft and gentle",
+        description: "Soft, gentle, soothing", // Updated description from table
         style: "Default",
-        qualityTier: "good",
+        qualityTier: "good", // Not specified in table - assume multilingual suitable
         availableStyles: ["Default", "whispering", "warm"],
+      },
+      
+      // New voices from expanded catalog
+      {
+        id: "ash",
+        name: "Ash",
+        gender: "male",
+        description: "Mature, sophisticated",
+        style: "Default",
+        qualityTier: "poor", // Not specified - likely similar to Alloy/Echo; assume English-focused
+        availableStyles: ["Default"],
+      },
+      {
+        id: "ballad",
+        name: "Ballad",
+        gender: "male",
+        description: "Smooth, melodic",
+        style: "Default",
+        qualityTier: "good", // Not specified - assume similar constraints as other new voices
+        availableStyles: ["Default"],
+      },
+      {
+        id: "coral",
+        name: "Coral",
+        gender: "female",
+        description: "Vibrant, lively",
+        style: "Default",
+        qualityTier: "good", // Not specified - assume multilingual suitable
+        availableStyles: ["Default"],
+      },
+      {
+        id: "sage",
+        name: "Sage",
+        gender: "male",
+        description: "Wise, contemplative",
+        style: "Default",
+        qualityTier: "poor", // Not specified - likely similar to other English-optimized voices
+        availableStyles: ["Default"],
       },
     ];
 

@@ -111,6 +111,7 @@ export function HistoryDrawer({ isOpen, onClose, onProjectSelect, currentProject
         className={`
           fixed top-0 right-0 h-full w-full sm:w-96 bg-black/95 backdrop-blur-md 
           border-l border-white/20 shadow-2xl z-50 transform transition-transform duration-300
+          flex flex-col
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
         `}
       >
@@ -157,7 +158,7 @@ export function HistoryDrawer({ isOpen, onClose, onProjectSelect, currentProject
         </div>
 
         {/* Content */}
-        <div className="h-full overflow-y-auto pb-20">
+        <div className="flex-1 overflow-y-auto">
           {/* Loading state */}
           {isLoading && (
             <div className="p-8 text-center">
@@ -263,29 +264,29 @@ export function HistoryDrawer({ isOpen, onClose, onProjectSelect, currentProject
               ))}
             </div>
           )}
-
-          {/* Footer with actions */}
-          {!isLoading && !error && recentProjects.length > 0 && (
-            <div className="sticky bottom-0 p-4 border-t border-white/10 bg-black/90 backdrop-blur-md">
-              <div className="flex items-center justify-between">
-                <span className="text-white/60 text-sm">
-                  {recentProjects.length} project{recentProjects.length !== 1 ? 's' : ''}
-                </span>
-                <button
-                  onClick={async () => {
-                    if (confirm('Clear all project history?')) {
-                      await useProjectHistoryStore.getState().clearHistory()
-                      onClose()
-                    }
-                  }}
-                  className="text-white/40 text-sm hover:text-red-400 transition-colors"
-                >
-                  Clear all history
-                </button>
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Footer with actions - outside scrollable area */}
+        {!isLoading && !error && recentProjects.length > 0 && (
+          <div className="flex-shrink-0 p-4 border-t border-white/10 bg-black/90 backdrop-blur-md">
+            <div className="flex items-center justify-between">
+              <span className="text-white/60 text-sm">
+                {recentProjects.length} project{recentProjects.length !== 1 ? 's' : ''}
+              </span>
+              <button
+                onClick={async () => {
+                  if (confirm('Clear all project history?')) {
+                    await useProjectHistoryStore.getState().clearHistory()
+                    onClose()
+                  }
+                }}
+                className="text-white/40 text-sm hover:text-red-400 transition-colors"
+              >
+                Clear all history
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   )

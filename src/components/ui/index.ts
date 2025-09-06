@@ -9,6 +9,7 @@ export * from "./LiquidGlassNav";
 export * from "./LiquidGlassPanel";
 export * from "./ResetButton";
 export * from "./GenerateButton";
+export * from "./SplitGenerateButton";
 export * from "./PlayButton";
 export * from "./VolumeToggleButton";
 export * from "./GlassTabBar";
