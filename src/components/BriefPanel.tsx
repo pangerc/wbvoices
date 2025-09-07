@@ -11,6 +11,7 @@ import { generateCreativeCopy } from "@/utils/ai-api-client";
 import { parseCreativeJSON } from "@/utils/json-parser";
 import { getFlagCode } from "@/utils/language";
 import { VoiceManagerV2State } from "@/hooks/useVoiceManagerV2";
+import { selectAIModelForLanguage } from "@/utils/aiModelSelection";
 import {
   GlassyTextarea,
   GlassyListbox,
@@ -294,19 +295,71 @@ export function BriefPanel({
     // setSelectedProvider is stable and doesn't need to be in dependencies
   ]);
 
-  // 🔥 Provider reset on language change - enables server auto-selection
+  // 🔥 Provider reset on language/region/accent change - enables server auto-selection
   const previousLanguageRef = useRef(selectedLanguage);
+  const previousRegionRef = useRef(selectedRegion);
+  const previousAccentRef = useRef(selectedAccent);
   useEffect(() => {
     console.count('🔥 brief:provider-reset'); // 🧪 DEMON DIAGNOSTIC
-    // Only reset provider when language ACTUALLY changes, not on initial mount
-    if (previousLanguageRef.current !== selectedLanguage) {
-      console.log(`🔄 Language actually changed from ${previousLanguageRef.current} to ${selectedLanguage}, resetting provider to "any"`);
+    
+    // Check what actually changed
+    const languageChanged = previousLanguageRef.current !== selectedLanguage;
+    const regionChanged = previousRegionRef.current !== selectedRegion;
+    const accentChanged = previousAccentRef.current !== selectedAccent;
+    
+    // Only reset provider when filters ACTUALLY change, not on initial mount
+    if (languageChanged || regionChanged || accentChanged) {
+      console.log(`🔄 Filter changed: language(${previousLanguageRef.current} → ${selectedLanguage}) region(${previousRegionRef.current} → ${selectedRegion}) accent(${previousAccentRef.current} → ${selectedAccent}), resetting provider to "any"`);
+      
+      // Update refs
       previousLanguageRef.current = selectedLanguage;
+      previousRegionRef.current = selectedRegion;
+      previousAccentRef.current = selectedAccent;
+      
+      // Reset provider to trigger auto-selection
       if (selectedProvider !== "any") {
         setSelectedProvider("any");
       }
     }
-  }, [selectedLanguage, selectedProvider, setSelectedProvider]);
+  }, [selectedLanguage, selectedRegion, selectedAccent, selectedProvider, setSelectedProvider]);
+
+  // 🎯 AI Model auto-selection for Chinese language - intelligent model matching  
+  useEffect(() => {
+    console.count('🔥 brief:ai-model-selection'); // 🧪 DEMON DIAGNOSTIC
+    
+    const isChineseLanguage = selectedLanguage === 'zh' || selectedLanguage.startsWith('zh-');
+    
+    // Check if we should auto-select for Chinese
+    if (isChineseLanguage) {
+      // Only switch if currently using a non-Chinese model
+      const chineseModels = ['moonshot', 'qwen'];
+      const isUsingChineseModel = chineseModels.includes(selectedAiModel);
+      
+      if (!isUsingChineseModel) {
+        const availableModels = aiModelOptions.map(option => option.value);
+        const suggestedModel = selectAIModelForLanguage(selectedLanguage, availableModels);
+        
+        if (suggestedModel && suggestedModel !== selectedAiModel) {
+          console.log(`🎯 Auto-selecting AI model "${suggestedModel}" for Chinese language`);
+          setSelectedAiModel(suggestedModel);
+        }
+      }
+    } else {
+      // For non-Chinese languages, switch away from Chinese models if needed
+      const chineseModels = ['moonshot', 'qwen'];
+      const isUsingChineseModel = chineseModels.includes(selectedAiModel);
+      
+      if (isUsingChineseModel) {
+        const availableModels = aiModelOptions.map(option => option.value);
+        const suggestedModel = selectAIModelForLanguage(selectedLanguage, availableModels);
+        
+        if (suggestedModel && suggestedModel !== selectedAiModel) {
+          console.log(`🎯 Auto-selecting AI model "${suggestedModel}" for non-Chinese language`);
+          setSelectedAiModel(suggestedModel);
+        }
+      }
+    }
+  }, [selectedLanguage, selectedAiModel, setSelectedAiModel, aiModelOptions]);
 
   // 🗡️ REMOVED: Client-side getFilteredVoices() - now using server-side filtering!
 
@@ -553,7 +606,7 @@ export function BriefPanel({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-8 text-white">
+    <div className="flex-1 h-full overflow-y-auto p-8 text-white">
       {/* Header with Generate button */}
       <div className="flex justify-between items-start mt-8 mb-16">
         <div>
@@ -680,154 +733,30 @@ export function BriefPanel({
               />
             </div>
           )}
+
+          {/* Voice Cache Refresh */}
+          <RefreshVoiceCache />
         </div>
 
-        {/* Column 2: Voice Provider - now expanded selection panel */}
+        {/* Column 2: Ad Format + Duration */}
         <div className="space-y-4">
           <div>
-            <label className="flex justify-between text-sm font-medium text-gray-300 mb-2">
-              Voice Provider
-              <span className="text-xs text-gray-500 pt-2">
-                {isLoadingFilteredVoices
-                  ? "Loading..."
-                  : selectedProvider === "any"
-                  ? `${
-                      availableProviders.find((p) => p.provider === "any")
-                        ?.count || 0
-                    } voices available`
-                  : `${serverFilteredVoices.count} voices available`}
-                {hasRegions && selectedRegion && selectedRegion !== "all" && (
-                  <>
-                    {" "}
-                    •{" "}
-                    {availableRegions.find((r) => r.code === selectedRegion)
-                      ?.displayName || selectedRegion}
-                  </>
-                )}
-                {hasAccents && <> • {selectedAccent} accent</>}
-              </span>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Ad Format
             </label>
             <GlassyOptionPicker
-              options={[
-                {
-                  value: "any",
-                  label: "Any Provider",
-                  description: "We will pick the best option for you",
-                },
-                {
-                  value: "elevenlabs",
-                  label: "ElevenLabs",
-                  description:
-                    "Good quality of real actor voices with accents, but speakers need to be handpicked on the ElevenLabs platform",
-                },
-                {
-                  value: "openai",
-                  label: "OpenAI",
-                  description:
-                    "Natural sounding voices with good accent simulation",
-                },
-                {
-                  value: "lovo",
-                  label: "Lovo",
-                  description:
-                    "Broad accent coverage, but poor robotic sounding voice quality",
-                },
-                {
-                  value: "qwen",
-                  label: "Qwen",
-                  description:
-                    "Chinese AI voices optimized for Mandarin and regional dialects",
-                },
-              ]
-                .filter((option) =>
-                  availableProviders.some((p) => p.provider === option.value)
-                )
-                .map((option) => {
-                  const providerData = availableProviders.find(
-                    (p) => p.provider === option.value
-                  );
-                  const voiceCount = providerData?.count || 0;
-
-                  return {
-                    ...option,
-                    value: option.value as Provider,
-                    badge:
-                      option.value === "any"
-                        ? `${
-                            availableProviders.find((p) => p.provider === "any")
-                              ?.count || 0
-                          } voices`
-                        : `${voiceCount} voices`,
-                    disabled: voiceCount === 0 && option.value !== "any",
-                  };
-                })}
-              value={selectedProvider}
-              onChange={setSelectedProvider}
+              options={campaignFormatOptions}
+              value={campaignFormat}
+              onChange={setCampaignFormat}
             />
-            {shouldSuggestProvider && (
-              <p className="text-xs text-orange-400 mt-1">
-                💡 Try{" "}
-                {availableProviders.find((p) => p.count > 0)?.provider ||
-                  "another provider"}{" "}
-                -{" "}
-                {availableProviders.find((p) => p.provider === selectedProvider)
-                  ?.count || 0}{" "}
-                voices for this region
+            {shouldWarnAboutDialog && (
+              <p className="text-xs text-yellow-400 mt-2">
+                ⚠️ {serverFilteredVoices.dialogWarning}
               </p>
             )}
           </div>
 
-          {/* Voice Cache Refresh */}
-          <RefreshVoiceCache />
-
-          {shouldWarnAboutDialog && (
-            <p className="text-xs text-yellow-400 mt-2">
-              ⚠️ {serverFilteredVoices.dialogWarning}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Row 3: Campaign Format and AI Model */}
-      <div className="grid grid-cols-2 gap-8 mb-8">
-        {/* Column 1: Campaign Format */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Campaign Format
-          </label>
-          <GlassyOptionPicker
-            options={campaignFormatOptions}
-            value={campaignFormat}
-            onChange={setCampaignFormat}
-          />
-          {/* Error message */}
-          {error && (
-            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-              <p className="text-red-400 text-sm">{error}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Column 2: AI Model and Duration */}
-        <div className="space-y-8">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              AI Model Used for Generation of Creatives
-            </label>
-            <GlassyListbox
-              value={selectedAiModel}
-              onChange={setSelectedAiModel}
-              options={aiModelOptions.map((option) => ({
-                value: option.value,
-                label: `${option.label}${
-                  option.description ? ` - ${option.description}` : ""
-                }`,
-              }))}
-              disabled={isLoading}
-            />
-          </div>
-
-          {/* Duration slider - now in column */}
+          {/* Duration slider */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
               Ad Duration{" "}
@@ -855,6 +784,119 @@ export function BriefPanel({
               ]}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Row 3: Voice Provider and AI Model */}
+      <div className="grid grid-cols-2 gap-8 mb-8">
+        {/* Column 1: Voice Provider */}
+        <div>
+          <label className="flex justify-between text-sm font-medium text-gray-300 mb-2">
+            Voice Provider
+            <span className="text-xs text-gray-500 pt-2">
+              {isLoadingFilteredVoices
+                ? "Loading..."
+                : selectedProvider === "any"
+                ? `${
+                    availableProviders.find((p) => p.provider === "any")
+                      ?.count || 0
+                  } voices available`
+                : `${serverFilteredVoices.count} voices available`}
+              {hasRegions && selectedRegion && selectedRegion !== "all" && (
+                <>
+                  {" "}
+                  •{" "}
+                  {availableRegions.find((r) => r.code === selectedRegion)
+                    ?.displayName || selectedRegion}
+                </>
+              )}
+              {hasAccents && <> • {selectedAccent} accent</>}
+            </span>
+          </label>
+          <GlassyListbox
+            value={selectedProvider}
+            onChange={setSelectedProvider}
+            options={[
+              {
+                value: "any",
+                label: "Any Provider - We will pick the best option for you",
+              },
+              {
+                value: "elevenlabs",
+                label: "ElevenLabs - Good quality of real actor voices",
+              },
+              {
+                value: "openai",
+                label: "OpenAI - Natural sounding voices with good accents",
+              },
+              {
+                value: "lovo",
+                label: "Lovo - Broad coverage but robotic quality",
+              },
+              {
+                value: "qwen",
+                label: "Qwen - Chinese AI voices optimized for Mandarin",
+              },
+            ]
+              .filter((option) =>
+                availableProviders.some((p) => p.provider === option.value)
+              )
+              .map((option) => {
+                const providerData = availableProviders.find(
+                  (p) => p.provider === option.value
+                );
+                const voiceCount = providerData?.count || 0;
+
+                return {
+                  ...option,
+                  value: option.value as Provider,
+                  label:
+                    option.value === "any"
+                      ? `${option.label} (${
+                          availableProviders.find((p) => p.provider === "any")
+                            ?.count || 0
+                        } voices)`
+                      : `${option.label} (${voiceCount} voices)`,
+                  disabled: voiceCount === 0 && option.value !== "any",
+                };
+              })}
+            disabled={isLoading}
+          />
+          {shouldSuggestProvider && (
+            <p className="text-xs text-orange-400 mt-1">
+              💡 Try{" "}
+              {availableProviders.find((p) => p.count > 0)?.provider ||
+                "another provider"}{" "}
+              -{" "}
+              {availableProviders.find((p) => p.provider === selectedProvider)
+                ?.count || 0}{" "}
+              voices for this region
+            </p>
+          )}
+          {/* Error message */}
+          {error && (
+            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-red-400 text-sm">{error}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Column 2: AI Model */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            AI Model Used for Generation of Creatives
+          </label>
+          <GlassyListbox
+            value={selectedAiModel}
+            onChange={setSelectedAiModel}
+            options={aiModelOptions.map((option) => ({
+              value: option.value,
+              label: `${option.label}${
+                option.description ? ` - ${option.description}` : ""
+              }`,
+            }))}
+            disabled={isLoading}
+          />
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeLanguageCode } from "@/utils/language";
+// Normalization is now handled during cache ingestion; avoid duplicating here
 import path from "path";
 import { promises as fsPromises } from "fs";
 
@@ -628,7 +629,6 @@ export async function GET(req: NextRequest) {
         description: "Balanced, neutral, clear",
         style: "Default",
         qualityTier: "poor", // Not recommended for multilingual - strong English optimization
-        availableStyles: ["Default", "confident", "casual"],
       },
       {
         id: "echo",
@@ -637,7 +637,6 @@ export async function GET(req: NextRequest) {
         description: "Calm, measured, thoughtful", // Updated description from table
         style: "Default",
         qualityTier: "poor", // Not recommended for multilingual - English-primed, accent persists
-        availableStyles: ["Default", "excited", "serious"],
       },
       {
         id: "fable",
@@ -646,7 +645,6 @@ export async function GET(req: NextRequest) {
         description: "Warm, engaging, storytelling", // Updated description from table
         style: "Default",
         qualityTier: "excellent", // Better for multilingual - more natural in languages like German
-        availableStyles: ["Default", "dramatic", "playful"],
       },
       {
         id: "onyx",
@@ -655,7 +653,6 @@ export async function GET(req: NextRequest) {
         description: "Deep, authoritative",
         style: "Default",
         qualityTier: "poor", // Not recommended for multilingual - English-centric
-        availableStyles: ["Default", "authoritative", "calm"],
       },
       {
         id: "nova",
@@ -664,7 +661,6 @@ export async function GET(req: NextRequest) {
         description: "Bright, energetic, enthusiastic", // Updated description from table
         style: "Default",
         qualityTier: "excellent", // Better for multilingual - relatively stronger performance
-        availableStyles: ["Default", "cheerful", "professional"],
       },
       {
         id: "shimmer",
@@ -673,9 +669,8 @@ export async function GET(req: NextRequest) {
         description: "Soft, gentle, soothing", // Updated description from table
         style: "Default",
         qualityTier: "good", // Not specified in table - assume multilingual suitable
-        availableStyles: ["Default", "whispering", "warm"],
       },
-      
+
       // New voices from expanded catalog
       {
         id: "ash",
@@ -684,7 +679,6 @@ export async function GET(req: NextRequest) {
         description: "Mature, sophisticated",
         style: "Default",
         qualityTier: "poor", // Not specified - likely similar to Alloy/Echo; assume English-focused
-        availableStyles: ["Default"],
       },
       {
         id: "ballad",
@@ -693,7 +687,6 @@ export async function GET(req: NextRequest) {
         description: "Smooth, melodic",
         style: "Default",
         qualityTier: "good", // Not specified - assume similar constraints as other new voices
-        availableStyles: ["Default"],
       },
       {
         id: "coral",
@@ -702,7 +695,6 @@ export async function GET(req: NextRequest) {
         description: "Vibrant, lively",
         style: "Default",
         qualityTier: "good", // Not specified - assume multilingual suitable
-        availableStyles: ["Default"],
       },
       {
         id: "sage",
@@ -711,7 +703,6 @@ export async function GET(req: NextRequest) {
         description: "Wise, contemplative",
         style: "Default",
         qualityTier: "poor", // Not specified - likely similar to other English-optimized voices
-        availableStyles: ["Default"],
       },
     ];
 

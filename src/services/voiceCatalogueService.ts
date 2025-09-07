@@ -243,6 +243,7 @@ export class VoiceCatalogueService {
   async getProviderOptions(filters: {
     language: Language;
     region?: string;
+    accent?: string;
     excludeProviders?: Provider[];
   }): Promise<Array<{ provider: Provider; count: number; label: string; disabled?: boolean }>> {
     
@@ -253,11 +254,11 @@ export class VoiceCatalogueService {
       counts = await this.getVoiceCountsByRegion(filters.language, filters.region);
       
       // OpenAI voices are global - get their actual count regardless of region
-      const openAIVoices = await this.getVoicesForProvider('openai', filters.language);
+      const openAIVoices = await this.getVoicesForProvider('openai', filters.language, filters.accent);
       counts.openai = openAIVoices.length;
     } else {
-      // Get all counts for language
-      counts = await this.getVoiceCounts(filters.language);
+      // Get all counts for language, optionally filtered by accent
+      counts = await this.getVoiceCounts(filters.language, filters.accent);
     }
     
     const excludeProviders = filters.excludeProviders || [];

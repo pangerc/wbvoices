@@ -669,56 +669,10 @@ export default function ProjectWorkspace() {
     voiceTracks?: VoiceTrack[]
   ) => {
     try {
-      let providerToUse = provider;
-      
-      // 🔥 CLEAN: If no provider specified, use current voice manager state (server-updated)
-      if (!providerToUse) {
-        // Voice manager state is already updated by server auto-selection in BriefPanel
-        providerToUse = voiceManager.selectedProvider as Provider;
-        console.log(`📚 Manual mode: Using current provider: ${providerToUse}`);
-        
-        // 🔥 DEFENSIVE: Ensure valid provider before audio generation
-        // This should not happen after ScripterPanel fix, but prevents crashes if it does
-        if (providerToUse === "any") {
-          console.warn(`⚠️ Provider still "any" in manual mode - this should not happen after ScripterPanel provider resolution fix`);
-          
-          // 🛡️ SMART FALLBACK: Detect provider from voice IDs instead of blindly defaulting to openai
-          // This prevents voice ID mismatches between providers
-          const voiceTracksToUse = voiceTracks || formManager.voiceTracks;
-          const firstVoiceWithProvider = voiceTracksToUse.find(track => track.voice);
-          
-          if (firstVoiceWithProvider?.voice) {
-            // Try to detect provider from voice ID patterns
-            const voiceId = firstVoiceWithProvider.voice.id;
-            if (voiceId.startsWith('11_')) {
-              providerToUse = "elevenlabs";
-              console.log(`🔍 Detected ElevenLabs voice ID: ${voiceId}, using elevenlabs provider`);
-            } else if (voiceId.includes('openai') || ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'].includes(voiceId)) {
-              providerToUse = "openai";
-              console.log(`🔍 Detected OpenAI voice ID: ${voiceId}, using openai provider`);
-            } else if (voiceId.includes('qwen') || voiceId.startsWith('zh')) {
-              providerToUse = "qwen";
-              console.log(`🔍 Detected Qwen voice ID: ${voiceId}, using qwen provider`);
-            } else {
-              // Ultimate fallback
-              providerToUse = "openai";
-              console.log(`🛡️ Could not detect provider from voice ID: ${voiceId}, defaulting to openai`);
-            }
-          } else {
-            providerToUse = "openai";
-            console.log(`🛡️ No voices found, defaulting to openai`);
-          }
-        }
-        
-        // Extra validation: ensure provider is a valid string
-        if (!providerToUse || typeof providerToUse !== 'string' || providerToUse.trim() === '') {
-          console.error(`❌ Invalid provider detected: ${JSON.stringify(providerToUse)}`);
-          providerToUse = "openai";
-          console.log(`🛡️ Fallback to openai due to invalid provider`);
-        }
-      }
-      
+      // Simple: use provided provider or fall back to voice manager state
+      const providerToUse = provider || voiceManager.selectedProvider as Provider;
       const tracksToUse = voiceTracks || formManager.voiceTracks;
+      
       await generateVoiceAudio(tracksToUse, providerToUse);
       setSelectedTab(4); // Navigation
 
@@ -933,7 +887,6 @@ export default function ProjectWorkspace() {
               selectedProvider={voiceManager.selectedProvider}
               campaignFormat={campaignFormat}
               resetForm={formManager.resetVoiceTracks}
-              setSelectedProvider={voiceManager.setSelectedProvider}
               overrideVoices={restoredVoices}
             />
           )}

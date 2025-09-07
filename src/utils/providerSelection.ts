@@ -14,7 +14,9 @@ export class ProviderSelector {
   static selectDefault(
     format: CampaignFormat,
     voiceCounts: VoiceCounts,
-    language?: string
+    language?: string,
+    region?: string,
+    accent?: string
   ): Provider {
     const minVoices = format === "dialog" ? 2 : 1;
     const isChineseLanguage = language === "zh" || language?.startsWith("zh-");
@@ -23,20 +25,24 @@ export class ProviderSelector {
       format,
       minVoices,
       language,
+      region,
+      accent,
       isChineseLanguage,
       voiceCounts,
       elevenlabsCheck: `${voiceCounts.elevenlabs} >= ${minVoices} = ${voiceCounts.elevenlabs >= minVoices}`
     });
     
+    const contextStr = [language, region, accent].filter(Boolean).join('+');
+    
     // Chinese language preference: Qwen > ElevenLabs > OpenAI
     if (isChineseLanguage && voiceCounts.qwen >= minVoices) {
-      console.log(`✅ Selected qwen for Chinese (${voiceCounts.qwen} >= ${minVoices})`);
+      console.log(`✅ Selected qwen for ${contextStr} (${voiceCounts.qwen} >= ${minVoices})`);
       return "qwen";
     }
     
     // Check providers in quality order (Lovo disabled)
     if (voiceCounts.elevenlabs >= minVoices) {
-      console.log(`✅ Selected elevenlabs (${voiceCounts.elevenlabs} >= ${minVoices})`);
+      console.log(`✅ Selected elevenlabs for ${contextStr} (${voiceCounts.elevenlabs} >= ${minVoices})`);
       return "elevenlabs";
     }
     
@@ -46,7 +52,7 @@ export class ProviderSelector {
     // }
     
     // OpenAI fallback
-    console.log(`✅ Fallback to openai (elevenlabs: ${voiceCounts.elevenlabs} < ${minVoices})`);
+    console.log(`✅ Fallback to openai for ${contextStr} (elevenlabs: ${voiceCounts.elevenlabs} < ${minVoices})`);
     return "openai";
   }
   
@@ -89,9 +95,12 @@ export class ProviderSelector {
   static shouldSuggestSwitch(
     currentProvider: Provider,
     format: CampaignFormat,
-    voiceCounts: VoiceCounts
+    voiceCounts: VoiceCounts,
+    language?: string,
+    region?: string,
+    accent?: string
   ): { suggest: boolean; reason?: string; suggestedProvider?: Provider } {
-    const optimal = this.selectDefault(format, voiceCounts);
+    const optimal = this.selectDefault(format, voiceCounts, language, region, accent);
     
     if (currentProvider === optimal) {
       return { suggest: false };

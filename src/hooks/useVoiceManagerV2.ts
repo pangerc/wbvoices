@@ -208,9 +208,15 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
 
         setAvailableAccents(accents);
 
-        // Let project restoration and user choice control accent selection
+        // 🔥 NEW: Reset accent if it's no longer valid for the new language
+        const currentAccentIsValid = accents.some(accent => accent.code === selectedAccent);
+        if (!currentAccentIsValid) {
+          console.log(`🔄 Current accent "${selectedAccent}" is invalid for ${selectedLanguage}, resetting to "neutral"`);
+          setSelectedAccent("neutral");
+        }
+
         console.log(
-          `✅ Accents updated for ${selectedLanguage}/${selectedRegion}, current accent: ${selectedAccent}`
+          `✅ Accents updated for ${selectedLanguage}/${selectedRegion}, current accent: ${selectedAccent}${currentAccentIsValid ? '' : ' → neutral'}`
         );
       } catch (error) {
         console.error("Failed to update accents:", error);
@@ -240,6 +246,10 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
         // Only send region if it's not "all"
         if (selectedRegion && selectedRegion !== "all") {
           url.searchParams.set("region", selectedRegion);
+        }
+        // Include accent for accurate provider counts
+        if (selectedAccent && selectedAccent !== "neutral") {
+          url.searchParams.set("accent", selectedAccent);
         }
         url.searchParams.set("exclude", "lovo"); // Lovo disabled due to poor voice quality
 

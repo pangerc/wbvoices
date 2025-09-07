@@ -20,7 +20,6 @@ type ScripterPanelProps = {
   campaignFormat: string;
   resetForm: () => void;
   overrideVoices?: Voice[] | null;
-  setSelectedProvider: (provider: Provider) => void;
 };
 
 export function ScripterPanel({
@@ -35,7 +34,6 @@ export function ScripterPanel({
   campaignFormat,
   resetForm,
   overrideVoices,
-  setSelectedProvider,
 }: ScripterPanelProps) {
   // 🔥 Clean server-side voice loading (matching BriefPanel architecture)
   const [serverVoices, setServerVoices] = useState<Voice[]>([]);
@@ -73,13 +71,6 @@ export function ScripterPanel({
         } else {
           console.log(`✅ ScripterPanel loaded ${data.count} voices for ${selectedLanguage}/${selectedProvider}`);
           setServerVoices(data.voices || []);
-          
-          // 🔥 FIXED: Update voice manager state when server resolves "any" provider
-          // This ensures ScripterPanel and BriefPanel stay in sync
-          if (selectedProvider === "any" && data.selectedProvider) {
-            console.log(`🎯 ScripterPanel: Server resolved "any" to "${data.selectedProvider}"`);
-            setSelectedProvider(data.selectedProvider);
-          }
         }
       } catch (error) {
         console.error("ScripterPanel voice loading error:", error);
@@ -92,25 +83,6 @@ export function ScripterPanel({
     loadVoices();
   }, [selectedLanguage, selectedProvider, campaignFormat, overrideVoices]);
   
-  // Debug logging to see which voices are being used
-  console.log('🎯 ScripterPanel voices:', {
-    useOverride: !!overrideVoices,
-    voiceCount: voices.length,
-    firstVoice: voices[0]?.name,
-    firstVoiceLanguage: voices[0]?.language
-  });
-
-  // Debug logging to see voice track data
-  console.log('🎭 ScripterPanel voice tracks:', voiceTracks.map((track, i) => ({
-    index: i,
-    voiceId: track.voice?.id,
-    voiceName: track.voice?.name,
-    text: track.text?.substring(0, 30) + '...',
-    style: track.style,
-    useCase: track.useCase,
-    voiceInstructions: track.voiceInstructions,
-    hasVoiceInstructions: !!track.voiceInstructions
-  })));
 
   // Create unique options with a counter to ensure uniqueness
   const createUniqueOptions = (index: number) => {

@@ -20,7 +20,6 @@ const qwen = new OpenAI({
   baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
 });
 
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -51,10 +50,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const aiProvider = aiModel === "moonshot" ? "Moonshot KIMI" 
-                     : aiModel === "qwen" ? "Qwen-Max" 
-                     : "OpenAI";
-    console.log(`Generating creative copy with ${aiModel} (${aiProvider}) for ${provider}...`);
+    const aiProvider =
+      aiModel === "moonshot"
+        ? "Moonshot KIMI"
+        : aiModel === "qwen"
+        ? "Qwen-Max"
+        : "OpenAI";
+    console.log(
+      `Generating creative copy with ${aiModel} (${aiProvider}) for ${provider}...`
+    );
     console.log(
       `🗣️ Received ${filteredVoices.length} voices from SINGLE provider: ${provider}`
     );
@@ -67,17 +71,22 @@ export async function POST(req: NextRequest) {
         styleInstructions = `Lovo voices have styles built into the voice selection (e.g., "Ava (Cheerful)" vs "Ava (Serious)"). The emotional style is already encoded in the voice ID you choose - no additional style parameter is needed or used by the API.`;
         break;
       case "openai":
-        styleInstructions = `OpenAI voices support advanced voice control through detailed instructions. You can control:
-- Emotional range (cheerful, confident, dramatic, authoritative, warm, whispering, etc.)
-- Accent and pronunciation (specify regional accents, clear articulation)
-- Intonation and tone (professional, conversational, promotional, serious)
-- Speaking pace and emphasis (energetic delivery, measured pace, emphasis on key words)
-- Special techniques (whispering for intimacy, authoritative for credibility)
+        styleInstructions = `For OpenAI TTS, provide a concise, labeled "voiceInstructions" string for each voice using this structure:
+Affect/personality: <brief description>
+Tone: <brief description>
+Pronunciation: <brief description>
+Pauses: <brief description>
+Emotion: <brief description>
 
-For each voice in your response, include a "voiceInstructions" field with detailed guidance like:
-"Speak in a confident, promotional tone with slight excitement. Use clear articulation and a professional pace suitable for radio advertising. Emphasize key product benefits with warmth and credibility."
+Example: "Affect/personality: a cheerful guide; Tone: friendly, clear, and reassuring; Pronunciation: clear, articulate, and steady; Pauses: brief pauses after key instructions; Emotion: warm and supportive."
 
-${accent && accent !== 'neutral' ? `IMPORTANT: Include accent guidance in voice instructions. The user has selected ${accent} accent${region ? ` from ${region}` : ''}. Add instructions like "Speak with a ${accent} accent" or "${accent} pronunciation" to the voiceInstructions field.` : ''}`;
+Keep it short and practical for a voice actor/tts engine to follow.${
+          accent && accent !== "neutral"
+            ? ` Include accent guidance (e.g., "Pronunciation: ${accent}${
+                region ? ` (${region})` : ""
+              }; clear, articulate").`
+            : ""
+        }`;
         break;
       case "elevenlabs":
         styleInstructions = `For each voice, you MUST choose ONE tone from this complete list:
@@ -108,8 +117,13 @@ Include this as "description" field (REQUIRED).`;
         if (voice.accent && voice.accent !== "general") {
           voiceDescription += `\n  Accent: ${voice.accent}`;
         }
-        if (voice.style && voice.style !== "Default") {
-          voiceDescription += `\n  Available styles: ${voice.style}`;
+        // For Lovo/ElevenLabs, include concrete style (single), not availableStyles
+        if (
+          (provider === "lovo" || provider === "elevenlabs") &&
+          voice.style &&
+          voice.style !== "Default"
+        ) {
+          voiceDescription += `\n  Style: ${voice.style}`;
         }
 
         return voiceDescription;
@@ -133,10 +147,10 @@ You excel at matching voice characteristics to brand personality and target audi
 
     // Convert language code to readable name for LLM
     const languageName = getLanguageName(language);
-    
+
     // Build dialect instructions if region/accent specified
-    let dialectInstructions = '';
-    if (accent && accent !== 'neutral') {
+    let dialectInstructions = "";
+    if (accent && accent !== "neutral") {
       dialectInstructions = ` using ${accent} dialect/accent`;
       if (region) {
         dialectInstructions += ` from ${region}`;
@@ -186,23 +200,27 @@ You MUST respond with a valid JSON object with this structure:
       "speaker": "Voice Name (id: exact_voice_id)",
       "text": "What the voice says"${
         provider === "openai"
-          ? ',\n      "voiceInstructions": "Detailed voice delivery instructions"'
+          ? ',\n      "voiceInstructions": "Provide labeled instructions: Affect/personality; Tone; Pronunciation; Pauses; Emotion. Keep it concise."'
           : provider === "elevenlabs"
           ? ',\n      "description": "cheerful"'
           : ""
       }
-    }${campaignFormat === "dialog" ? `,
+    }${
+      campaignFormat === "dialog"
+        ? `,
     {
       "type": "voice", 
       "speaker": "Different Voice Name (id: different_voice_id)",
       "text": "What this voice says"${
         provider === "openai"
-          ? ',\n      "voiceInstructions": "Different voice instructions"'
+          ? ',\n      "voiceInstructions": "Provide labeled instructions: Affect/personality; Tone; Pronunciation; Pauses; Emotion. Keep it concise."'
           : provider === "elevenlabs"
           ? ',\n      "description": "serious"'
           : ""
       }
-    }` : ""}
+    }`
+        : ""
+    }
   ],
   "music": {
     "description": "Background music description (in English)",
@@ -259,9 +277,12 @@ Sound effect examples by theme (keep the description as short and concise, don't
           { status: 500 }
         );
       }
-      
-      console.log("Using Moonshot with API key:", process.env.MOONSHOT_API_KEY?.substring(0, 10) + "...");
-      
+
+      console.log(
+        "Using Moonshot with API key:",
+        process.env.MOONSHOT_API_KEY?.substring(0, 10) + "..."
+      );
+
       client = moonshot;
       model = "kimi-latest"; // Use the latest stable model
       temperature = 0.7;
@@ -281,9 +302,12 @@ Sound effect examples by theme (keep the description as short and concise, don't
           { status: 500 }
         );
       }
-      
-      console.log("Using Qwen with API key:", process.env.QWEN_API_KEY?.substring(0, 10) + "...");
-      
+
+      console.log(
+        "Using Qwen with API key:",
+        process.env.QWEN_API_KEY?.substring(0, 10) + "..."
+      );
+
       client = qwen;
       model = "qwen-max"; // Use Qwen-Max model
       temperature = 0.7;
@@ -301,7 +325,7 @@ Sound effect examples by theme (keep the description as short and concise, don't
       client = openai;
       model = aiModel === "gpt5" ? "gpt-5" : "gpt-4.1";
       temperature = aiModel === "gpt5" ? 1 : 0.7;
-      
+
       const baseParams = {
         model,
         messages: [
@@ -312,18 +336,19 @@ Sound effect examples by theme (keep the description as short and concise, don't
       };
 
       // Use max_completion_tokens for GPT-5, max_tokens for other models
-      completionParams = aiModel === "gpt5" 
-        ? { ...baseParams, max_completion_tokens: 10000 }
-        : { ...baseParams, max_tokens: 2000 };
+      completionParams =
+        aiModel === "gpt5"
+          ? { ...baseParams, max_completion_tokens: 10000 }
+          : { ...baseParams, max_tokens: 2000 };
     }
 
     console.log(`Attempting ${aiProvider} API call with model: ${model}`);
-    
+
     const response = await client.chat.completions.create(completionParams);
 
     console.log(`${aiProvider} response status:`, response);
     console.log("Response choices:", response.choices?.length);
-    
+
     const content = response.choices[0]?.message?.content || "";
     console.log(`Raw ${aiProvider} response content:`, JSON.stringify(content));
     console.log("Content length:", content.length);
@@ -350,7 +375,13 @@ Sound effect examples by theme (keep the description as short and concise, don't
     } catch (jsonError) {
       console.error("Invalid JSON response:", cleanedContent);
       console.error("JSON parse error:", jsonError);
-      throw new Error(`AI returned invalid JSON format: ${jsonError instanceof Error ? jsonError.message : 'Unknown parsing error'}`);
+      throw new Error(
+        `AI returned invalid JSON format: ${
+          jsonError instanceof Error
+            ? jsonError.message
+            : "Unknown parsing error"
+        }`
+      );
     }
 
     return NextResponse.json({ content: cleanedContent });

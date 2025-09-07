@@ -44,10 +44,10 @@ export const areSameLanguageFamily = (
 /**
  * Normalizes a language code for unified voice database
  * Converts provider-specific codes to unified base languages while preserving accents
- * 
+ *
  * Examples:
  * - Lovo: "es-AR" → "es" (Argentinian preserved in accent)
- * - ElevenLabs: "es-ES" → "es" (Castilian preserved in accent) 
+ * - ElevenLabs: "es-ES" → "es" (Castilian preserved in accent)
  * - OpenAI: "es" → "es" (neutral preserved in accent)
  */
 export const normalizeLanguageCode = (locale: string): string => {
@@ -70,17 +70,17 @@ export const normalizeLanguageCode = (locale: string): string => {
 
   // For unified voice database, we normalize to base language only
   // The region/country info is preserved in the accent field instead
-  
+
   // Special cases for languages with complex variations
   const languageMapping: Record<string, string> = {
     // Chinese variants all normalize to "zh"
     "zh-CN": "zh",
-    "zh-TW": "zh", 
+    "zh-TW": "zh",
     "zh-HK": "zh",
     "yue-CN": "zh", // Cantonese → Chinese
     "wuu-CN": "zh", // Wu → Chinese
-    
-    // Arabic variants all normalize to "ar"  
+
+    // Arabic variants all normalize to "ar"
     "ar-SA": "ar",
     "ar-EG": "ar",
     "ar-DZ": "ar",
@@ -91,7 +91,7 @@ export const normalizeLanguageCode = (locale: string): string => {
     "ar-IQ": "ar",
     "ar-KW": "ar",
     "ar-LB": "ar",
-    
+
     // Spanish variants all normalize to "es"
     "es-ES": "es",
     "es-MX": "es",
@@ -115,7 +115,7 @@ export const normalizeLanguageCode = (locale: string): string => {
     "es-CU": "es",
     "es-GQ": "es",
     "es-PR": "es",
-    
+
     // English variants all normalize to "en"
     "en-US": "en",
     "en-GB": "en",
@@ -132,22 +132,22 @@ export const normalizeLanguageCode = (locale: string): string => {
     "en-NG": "en",
     "en-GH": "en",
     "en-TZ": "en",
-    
+
     // French variants all normalize to "fr"
     "fr-FR": "fr",
     "fr-CA": "fr",
     "fr-BE": "fr",
     "fr-CH": "fr",
-    
+
     // Portuguese variants all normalize to "pt"
     "pt-PT": "pt",
     "pt-BR": "pt",
-    
+
     // German variants all normalize to "de"
     "de-DE": "de",
     "de-AT": "de",
     "de-CH": "de",
-    
+
     // Special cases
     "multi-LINGUAL": "multi",
     "nb-NO": "no", // Norwegian Bokmål → Norwegian
@@ -157,13 +157,15 @@ export const normalizeLanguageCode = (locale: string): string => {
   if (languageMapping[locale]) {
     return languageMapping[locale];
   }
-  
+
   // If we have a region, check if there's a mapping for the full code
-  const fullCode = region ? `${lang.toLowerCase()}-${region.toUpperCase()}` : locale;
+  const fullCode = region
+    ? `${lang.toLowerCase()}-${region.toUpperCase()}`
+    : locale;
   if (languageMapping[fullCode]) {
     return languageMapping[fullCode];
   }
-  
+
   // Otherwise, just return the base language code
   return lang.toLowerCase();
 };
@@ -188,7 +190,7 @@ export const getLanguageName = (code: string): string => {
   // For display purposes, we sometimes want the original code's region info
   // but for the voice system, we work with normalized codes
   const [lang, region] = code.split("-");
-  
+
   // Base language names according to ISO standards
   const baseLanguageNames: Record<string, string> = {
     en: "English",
@@ -290,12 +292,12 @@ export const getLanguageName = (code: string): string => {
   if (code === "multi-LINGUAL" || code === "multi") {
     return "Multilingual";
   }
-  
+
   // For normalized codes (no region), return base language name
   if (!region) {
     return baseLanguageNames[lang.toLowerCase()] || lang;
   }
-  
+
   // For unified display languages, show base name only (region info in accent)
   if (unifiedDisplayLanguages.includes(lang)) {
     return baseLanguageNames[lang.toLowerCase()] || lang;
@@ -304,7 +306,7 @@ export const getLanguageName = (code: string): string => {
   // Region names for non-unified languages that still show regions
   const regionNames: Record<string, string> = {
     US: "US",
-    GB: "UK", 
+    GB: "UK",
     AU: "Australia",
     CA: "Canada",
     IE: "Ireland",
@@ -323,7 +325,7 @@ export const getLanguageName = (code: string): string => {
     BR: "Brazil",
     RU: "Russia",
     CN: "China",
-    TW: "Taiwan", 
+    TW: "Taiwan",
     HK: "Hong Kong",
     JP: "Japan",
     KR: "Korea",
@@ -379,7 +381,7 @@ export const getLanguageName = (code: string): string => {
     AL: "Albania",
     MT: "Malta",
     BY: "Belarus",
-    NZ: "New Zealand"
+    NZ: "New Zealand",
   };
 
   // Get base language name
@@ -398,111 +400,111 @@ export const getFlagCode = (languageCode: string): string => {
   // For normalized language codes (no region), use representative flags
   const flagMapping: Record<string, string> = {
     // Major languages
-    "en": "us", // English → US flag (most common)
-    "es": "es", // Spanish → Spain flag
-    "fr": "fr", // French → France flag
-    "de": "de", // German → Germany flag
-    "it": "it", // Italian → Italy flag
-    "pt": "pt", // Portuguese → Portugal flag
-    "ar": "sa", // Arabic → Saudi Arabia flag (most common)
-    "zh": "cn", // Chinese → China flag
-    "ja": "jp", // Japanese → Japan flag
-    "ko": "kr", // Korean → South Korea flag
-    "ru": "ru", // Russian → Russia flag
-    "multi": "un", // Multilingual → UN flag
+    en: "us", // English → US flag (most common)
+    es: "es", // Spanish → Spain flag
+    fr: "fr", // French → France flag
+    de: "de", // German → Germany flag
+    it: "it", // Italian → Italy flag
+    pt: "pt", // Portuguese → Portugal flag
+    ar: "sa", // Arabic → Saudi Arabia flag (most common)
+    zh: "cn", // Chinese → China flag
+    ja: "jp", // Japanese → Japan flag
+    ko: "kr", // Korean → South Korea flag
+    ru: "ru", // Russian → Russia flag
+    multi: "un", // Multilingual → UN flag
     "multi-LINGUAL": "un", // Alternative multilingual → UN flag
-    
+
     // European languages
-    "sl": "si", // Slovenian → Slovenia flag
-    "hr": "hr", // Croatian → Croatia flag
-    "cs": "cz", // Czech → Czech Republic flag
-    "sk": "sk", // Slovak → Slovakia flag
-    "pl": "pl", // Polish → Poland flag
-    "hu": "hu", // Hungarian → Hungary flag
-    "ro": "ro", // Romanian → Romania flag
-    "bg": "bg", // Bulgarian → Bulgaria flag
-    "sr": "rs", // Serbian → Serbia flag
-    "bs": "ba", // Bosnian → Bosnia and Herzegovina flag
-    "mk": "mk", // Macedonian → North Macedonia flag
-    "sq": "al", // Albanian → Albania flag
-    "et": "ee", // Estonian → Estonia flag
-    "lv": "lv", // Latvian → Latvia flag
-    "lt": "lt", // Lithuanian → Lithuania flag
-    "fi": "fi", // Finnish → Finland flag
-    "sv": "se", // Swedish → Sweden flag
-    "no": "no", // Norwegian → Norway flag
-    "da": "dk", // Danish → Denmark flag
-    "is": "is", // Icelandic → Iceland flag
-    "nl": "nl", // Dutch → Netherlands flag
-    "el": "gr", // Greek → Greece flag
-    "mt": "mt", // Maltese → Malta flag
-    "ga": "ie", // Irish → Ireland flag
-    "cy": "gb", // Welsh → Great Britain flag (Wales part of UK)
-    "uk": "ua", // Ukrainian → Ukraine flag
-    "be": "by", // Belarusian → Belarus flag
-    
+    sl: "si", // Slovenian → Slovenia flag
+    hr: "hr", // Croatian → Croatia flag
+    cs: "cz", // Czech → Czech Republic flag
+    sk: "sk", // Slovak → Slovakia flag
+    pl: "pl", // Polish → Poland flag
+    hu: "hu", // Hungarian → Hungary flag
+    ro: "ro", // Romanian → Romania flag
+    bg: "bg", // Bulgarian → Bulgaria flag
+    sr: "rs", // Serbian → Serbia flag
+    bs: "ba", // Bosnian → Bosnia and Herzegovina flag
+    mk: "mk", // Macedonian → North Macedonia flag
+    sq: "al", // Albanian → Albania flag
+    et: "ee", // Estonian → Estonia flag
+    lv: "lv", // Latvian → Latvia flag
+    lt: "lt", // Lithuanian → Lithuania flag
+    fi: "fi", // Finnish → Finland flag
+    sv: "se", // Swedish → Sweden flag
+    no: "no", // Norwegian → Norway flag
+    da: "dk", // Danish → Denmark flag
+    is: "is", // Icelandic → Iceland flag
+    nl: "nl", // Dutch → Netherlands flag
+    el: "gr", // Greek → Greece flag
+    mt: "mt", // Maltese → Malta flag
+    ga: "ie", // Irish → Ireland flag
+    cy: "gb", // Welsh → Great Britain flag (Wales part of UK)
+    uk: "ua", // Ukrainian → Ukraine flag
+    be: "by", // Belarusian → Belarus flag
+
     // Asian languages
-    "hi": "in", // Hindi → India flag
-    "bn": "bd", // Bengali → Bangladesh flag (most speakers)
-    "ur": "pk", // Urdu → Pakistan flag
-    "ta": "in", // Tamil → India flag (most speakers)
-    "te": "in", // Telugu → India flag
-    "mr": "in", // Marathi → India flag
-    "gu": "in", // Gujarati → India flag
-    "kn": "in", // Kannada → India flag
-    "ml": "in", // Malayalam → India flag
-    "pa": "in", // Punjabi → India flag (most speakers)
-    "ne": "np", // Nepali → Nepal flag
-    "si": "lk", // Sinhala → Sri Lanka flag
-    "my": "mm", // Myanmar → Myanmar flag
-    "km": "kh", // Khmer → Cambodia flag
-    "lo": "la", // Lao → Laos flag
-    "th": "th", // Thai → Thailand flag
-    "vi": "vn", // Vietnamese → Vietnam flag
-    "id": "id", // Indonesian → Indonesia flag
-    "ms": "my", // Malay → Malaysia flag
-    "tl": "ph", // Filipino/Tagalog → Philippines flag
-    "jv": "id", // Javanese → Indonesia flag
-    "su": "id", // Sundanese → Indonesia flag
-    
-    // Middle Eastern and African languages  
-    "he": "il", // Hebrew → Israel flag
-    "fa": "ir", // Persian → Iran flag
-    "tr": "tr", // Turkish → Turkey flag
-    "az": "az", // Azerbaijani → Azerbaijan flag
-    "ka": "ge", // Georgian → Georgia flag
-    "hy": "am", // Armenian → Armenia flag
-    "kk": "kz", // Kazakh → Kazakhstan flag
-    "ky": "kg", // Kyrgyz → Kyrgyzstan flag
-    "uz": "uz", // Uzbek → Uzbekistan flag
-    "mn": "mn", // Mongolian → Mongolia flag
-    "af": "za", // Afrikaans → South Africa flag
-    "zu": "za", // Zulu → South Africa flag
-    "sw": "ke", // Swahili → Kenya flag (major usage)
-    "so": "so", // Somali → Somalia flag
-    "am": "et", // Amharic → Ethiopia flag
-    "ha": "ng", // Hausa → Nigeria flag
-    "yo": "ng", // Yoruba → Nigeria flag
-    "ig": "ng", // Igbo → Nigeria flag
-    
+    hi: "in", // Hindi → India flag
+    bn: "bd", // Bengali → Bangladesh flag (most speakers)
+    ur: "pk", // Urdu → Pakistan flag
+    ta: "in", // Tamil → India flag (most speakers)
+    te: "in", // Telugu → India flag
+    mr: "in", // Marathi → India flag
+    gu: "in", // Gujarati → India flag
+    kn: "in", // Kannada → India flag
+    ml: "in", // Malayalam → India flag
+    pa: "in", // Punjabi → India flag (most speakers)
+    ne: "np", // Nepali → Nepal flag
+    si: "lk", // Sinhala → Sri Lanka flag
+    my: "mm", // Myanmar → Myanmar flag
+    km: "kh", // Khmer → Cambodia flag
+    lo: "la", // Lao → Laos flag
+    th: "th", // Thai → Thailand flag
+    vi: "vn", // Vietnamese → Vietnam flag
+    id: "id", // Indonesian → Indonesia flag
+    ms: "my", // Malay → Malaysia flag
+    tl: "ph", // Filipino/Tagalog → Philippines flag
+    jv: "id", // Javanese → Indonesia flag
+    su: "id", // Sundanese → Indonesia flag
+
+    // Middle Eastern and African languages
+    he: "il", // Hebrew → Israel flag
+    fa: "ir", // Persian → Iran flag
+    tr: "tr", // Turkish → Turkey flag
+    az: "az", // Azerbaijani → Azerbaijan flag
+    ka: "ge", // Georgian → Georgia flag
+    hy: "am", // Armenian → Armenia flag
+    kk: "kz", // Kazakh → Kazakhstan flag
+    ky: "kg", // Kyrgyz → Kyrgyzstan flag
+    uz: "uz", // Uzbek → Uzbekistan flag
+    mn: "mn", // Mongolian → Mongolia flag
+    af: "za", // Afrikaans → South Africa flag
+    zu: "za", // Zulu → South Africa flag
+    sw: "ke", // Swahili → Kenya flag (major usage)
+    so: "so", // Somali → Somalia flag
+    am: "et", // Amharic → Ethiopia flag
+    ha: "ng", // Hausa → Nigeria flag
+    yo: "ng", // Yoruba → Nigeria flag
+    ig: "ng", // Igbo → Nigeria flag
+
     // Other languages
-    "eu": "es", // Basque → Spain flag (largest population)
-    "ca": "es", // Catalan → Spain flag (largest population)  
-    "gl": "es", // Galician → Spain flag
-    "br": "fr", // Breton → France flag
-    "co": "fr", // Corsican → France flag
-    "rm": "ch", // Romansh → Switzerland flag
-    "lb": "lu", // Luxembourgish → Luxembourg flag
+    eu: "es", // Basque → Spain flag (largest population)
+    ca: "es", // Catalan → Spain flag (largest population)
+    gl: "es", // Galician → Spain flag
+    br: "fr", // Breton → France flag
+    co: "fr", // Corsican → France flag
+    rm: "ch", // Romansh → Switzerland flag
+    lb: "lu", // Luxembourgish → Luxembourg flag
   };
-  
+
   // Handle special cases first
   if (flagMapping[languageCode]) {
     return flagMapping[languageCode];
   }
-  
+
   // For codes with regions, extract region
   const [lang, region] = languageCode.split("-");
-  
+
   if (region) {
     // Special region mappings
     const specialCases: Record<string, string> = {
@@ -510,15 +512,15 @@ export const getFlagCode = (languageCode: string): string => {
       "zh-TW": "tw", // Traditional Chinese
       "zh-HK": "hk", // Hong Kong Chinese
     };
-    
+
     if (specialCases[languageCode]) {
       return specialCases[languageCode];
     }
-    
+
     // Convert region code to lowercase for flag icons
     return region.toLowerCase();
   }
-  
+
   // For base language codes, use the mapping or default to the language code
   return flagMapping[lang] || lang;
 };
@@ -526,49 +528,70 @@ export const getFlagCode = (languageCode: string): string => {
 // Regional groupings for accents - groups accents by geographic regions
 export const accentRegions: Record<string, Record<string, string[]>> = {
   en: {
-    "north_america": ["american", "canadian"],
-    "europe": ["british", "irish", "scottish"],
-    "oceania": ["australian"],
-    "asia": ["indian"]
+    north_america: ["american", "canadian"],
+    europe: ["british", "irish", "scottish"],
+    oceania: ["australian"],
+    asia: ["indian"],
   },
   es: {
-    "europe": ["castilian", "peninsular", "spanish"],
-    "latin_america": ["latin_american", "mexican", "argentinian", "colombian", "chilean", "peruvian", "venezuelan", "ecuadorian", "cuban", "puerto_rican"],
-    "africa": ["equatorial_guinean"]
+    europe: ["castilian", "peninsular", "spanish"],
+    latin_america: [
+      "latin_american",
+      "mexican",
+      "argentinian",
+      "colombian",
+      "chilean",
+      "peruvian",
+      "venezuelan",
+      "ecuadorian",
+      "cuban",
+      "puerto_rican",
+    ],
+    africa: ["equatorial_guinean"],
   },
   ar: {
-    "middle_east": ["saudi", "gulf", "kuwaiti", "bahraini", "jordanian", "lebanese", "iraqi"],
-    "africa": ["egyptian", "maghrebi"]
+    middle_east: [
+      "saudi",
+      "gulf",
+      "kuwaiti",
+      "bahraini",
+      "jordanian",
+      "lebanese",
+      "iraqi",
+    ],
+    africa: ["egyptian", "maghrebi"],
   },
   fr: {
-    "europe": ["parisian", "belgian", "swiss"],
-    "north_america": ["canadian"],
-    "africa": ["southern"]
+    europe: ["parisian", "belgian", "swiss"],
+    north_america: ["canadian"],
+    africa: ["southern"],
   },
   pt: {
-    "europe": ["european"],
-    "south_america": ["brazilian"]
+    europe: ["european"],
+    south_america: ["brazilian"],
   },
   zh: {
-    "mainland": ["neutral", "beijing"],
-    "regional_dialects": ["shanghai", "sichuan"],
-    "greater_china": ["cantonese", "taiwanese"]
-  }
+    mainland: ["neutral", "mandarin", "beijing"],
+    regional_dialects: ["shanghai", "sichuan"],
+    hong_kong: ["cantonese"],
+    taiwan: ["taiwanese"],
+  },
 };
 
 // Region display names
 export const regionDisplayNames: Record<string, string> = {
-  "north_america": "North America",
-  "south_america": "South America", 
-  "latin_america": "Latin America",
-  "europe": "Europe",
-  "africa": "Africa",
-  "asia": "Asia",
-  "oceania": "Oceania",
-  "middle_east": "Middle East",
-  "mainland": "Mainland China",
-  "regional_dialects": "Regional Dialects",
-  "greater_china": "Greater China"
+  north_america: "North America",
+  south_america: "South America",
+  latin_america: "Latin America",
+  europe: "Europe",
+  africa: "Africa",
+  asia: "Asia",
+  oceania: "Oceania",
+  middle_east: "Middle East",
+  mainland: "Mainland China",
+  regional_dialects: "Regional Dialects",
+  hong_kong: "Hong Kong",
+  taiwan: "Taiwan",
 };
 
 /**
@@ -583,29 +606,34 @@ export const hasRegionalAccents = (languageCode: string): boolean => {
 /**
  * Get available regions for a language
  */
-export const getLanguageRegions = (languageCode: string): Array<{code: string, displayName: string}> => {
+export const getLanguageRegions = (
+  languageCode: string
+): Array<{ code: string; displayName: string }> => {
   const normalizedCode = normalizeLanguageCode(languageCode);
   const [lang] = normalizedCode.split("-");
-  
+
   if (!accentRegions[lang]) return [];
-  
-  return Object.keys(accentRegions[lang]).map(regionCode => ({
+
+  return Object.keys(accentRegions[lang]).map((regionCode) => ({
     code: regionCode,
-    displayName: regionDisplayNames[regionCode] || regionCode
+    displayName: regionDisplayNames[regionCode] || regionCode,
   }));
 };
 
 /**
  * Get accents for a specific language and region
  */
-export const getRegionalAccents = (languageCode: string, regionCode: string): string[] => {
+export const getRegionalAccents = (
+  languageCode: string,
+  regionCode: string
+): string[] => {
   const normalizedCode = normalizeLanguageCode(languageCode);
   const [lang] = normalizedCode.split("-");
-  
+
   if (!accentRegions[lang] || !accentRegions[lang][regionCode]) {
     return ["standard"];
   }
-  
+
   return ["none", ...accentRegions[lang][regionCode]];
 };
 
@@ -747,7 +775,7 @@ export const formatAccentName = (accent: string): string => {
 // This matches the normalized codes from normalizeLanguageCode()
 export type Language =
   | "af" // Afrikaans
-  | "am" // Amharic  
+  | "am" // Amharic
   | "ar" // Arabic (unified)
   | "az" // Azerbaijani
   | "bg" // Bulgarian
@@ -796,7 +824,7 @@ export type Language =
   | "mt" // Maltese
   | "multi" // Multilingual
   | "my" // Burmese
-  | "nb" // Norwegian Bokmål 
+  | "nb" // Norwegian Bokmål
   | "ne" // Nepali
   | "nl" // Dutch
   | "no" // Norwegian (normalized from nb)

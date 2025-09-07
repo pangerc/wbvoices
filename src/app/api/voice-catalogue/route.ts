@@ -129,6 +129,7 @@ export async function GET(req: NextRequest) {
         const options = await voiceCatalogue.getProviderOptions({
           language: language as Language,
           region: region || undefined,
+          accent: accent || undefined,
           excludeProviders
         });
         return NextResponse.json(options);
@@ -238,11 +239,13 @@ export async function GET(req: NextRequest) {
               }))
             });
 
-            // Auto-select provider based on campaign format, language, and ACTUAL filtered counts
+            // Auto-select provider based on campaign format, language, region, accent, and ACTUAL filtered counts
             selectedProvider = ProviderSelector.selectDefault(
               campaignFormat as CampaignFormat || 'ad_read',
               voiceCounts,
-              language // Pass language for smart Chinese defaults
+              language, // Pass language for smart Chinese defaults
+              region || undefined, // Pass region for context-aware selection
+              accent || undefined // Pass accent for context-aware selection
             );
 
             console.log(`🎯 Auto-selected provider: ${selectedProvider} for ${campaignFormat}`);
