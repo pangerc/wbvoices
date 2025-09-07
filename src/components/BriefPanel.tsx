@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   CampaignFormat,
   AIModel,
@@ -295,15 +295,18 @@ export function BriefPanel({
   ]);
 
   // 🔥 Provider reset on language change - enables server auto-selection
+  const previousLanguageRef = useRef(selectedLanguage);
   useEffect(() => {
     console.count('🔥 brief:provider-reset'); // 🧪 DEMON DIAGNOSTIC
-    // Reset provider to "any" when language changes to trigger server auto-selection
-    // Only reset if provider isn't already "any" to avoid unnecessary re-renders
-    if (selectedProvider !== "any") {
-      console.log(`🔄 Language changed to ${selectedLanguage}, resetting provider to "any" for auto-selection`);
-      setSelectedProvider("any");
+    // Only reset provider when language ACTUALLY changes, not on initial mount
+    if (previousLanguageRef.current !== selectedLanguage) {
+      console.log(`🔄 Language actually changed from ${previousLanguageRef.current} to ${selectedLanguage}, resetting provider to "any"`);
+      previousLanguageRef.current = selectedLanguage;
+      if (selectedProvider !== "any") {
+        setSelectedProvider("any");
+      }
     }
-  }, [selectedLanguage, setSelectedProvider]); // FIXED: Removed selectedProvider from dependencies to prevent loop
+  }, [selectedLanguage, selectedProvider, setSelectedProvider]);
 
   // 🗡️ REMOVED: Client-side getFilteredVoices() - now using server-side filtering!
 

@@ -671,25 +671,50 @@ export default function ProjectWorkspace() {
     try {
       let providerToUse = provider;
       
-      // If no provider specified, get from Redis or voice manager
+      // 🔥 CLEAN: If no provider specified, use current voice manager state (server-updated)
       if (!providerToUse) {
-        const project = await loadProjectFromRedis(projectId);
-        const redisProvider = project?.brief?.selectedProvider;
+        // Voice manager state is already updated by server auto-selection in BriefPanel
+        providerToUse = voiceManager.selectedProvider as Provider;
+        console.log(`📚 Manual mode: Using current provider: ${providerToUse}`);
         
-        // 🔥 FIXED: Ensure we get a string, not an object
-        if (redisProvider && typeof redisProvider === 'string') {
-          providerToUse = redisProvider as Provider;
-          console.log(`📚 Manual mode: Using provider from Redis: ${providerToUse}`);
-        } else {
-          // Fallback to voice manager's current selection
-          providerToUse = voiceManager.selectedProvider as Provider;
-          console.log(`📚 Manual mode: Fallback to voice manager provider: ${providerToUse}`);
+        // 🔥 DEFENSIVE: Ensure valid provider before audio generation
+        // This should not happen after ScripterPanel fix, but prevents crashes if it does
+        if (providerToUse === "any") {
+          console.warn(`⚠️ Provider still "any" in manual mode - this should not happen after ScripterPanel provider resolution fix`);
+          
+          // 🛡️ SMART FALLBACK: Detect provider from voice IDs instead of blindly defaulting to openai
+          // This prevents voice ID mismatches between providers
+          const voiceTracksToUse = voiceTracks || formManager.voiceTracks;
+          const firstVoiceWithProvider = voiceTracksToUse.find(track => track.voice);
+          
+          if (firstVoiceWithProvider?.voice) {
+            // Try to detect provider from voice ID patterns
+            const voiceId = firstVoiceWithProvider.voice.id;
+            if (voiceId.startsWith('11_')) {
+              providerToUse = "elevenlabs";
+              console.log(`🔍 Detected ElevenLabs voice ID: ${voiceId}, using elevenlabs provider`);
+            } else if (voiceId.includes('openai') || ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'].includes(voiceId)) {
+              providerToUse = "openai";
+              console.log(`🔍 Detected OpenAI voice ID: ${voiceId}, using openai provider`);
+            } else if (voiceId.includes('qwen') || voiceId.startsWith('zh')) {
+              providerToUse = "qwen";
+              console.log(`🔍 Detected Qwen voice ID: ${voiceId}, using qwen provider`);
+            } else {
+              // Ultimate fallback
+              providerToUse = "openai";
+              console.log(`🛡️ Could not detect provider from voice ID: ${voiceId}, defaulting to openai`);
+            }
+          } else {
+            providerToUse = "openai";
+            console.log(`🛡️ No voices found, defaulting to openai`);
+          }
         }
         
-        // Final fallback to openai if still no valid provider
-        if (!providerToUse || providerToUse === "any") {
+        // Extra validation: ensure provider is a valid string
+        if (!providerToUse || typeof providerToUse !== 'string' || providerToUse.trim() === '') {
+          console.error(`❌ Invalid provider detected: ${JSON.stringify(providerToUse)}`);
           providerToUse = "openai";
-          console.warn("⚠️ No valid provider found, defaulting to openai");
+          console.log(`🛡️ Fallback to openai due to invalid provider`);
         }
       }
       
@@ -905,9 +930,10 @@ export default function ProjectWorkspace() {
               isGenerating={formManager.isGenerating}
               statusMessage={formManager.statusMessage}
               selectedLanguage={voiceManager.selectedLanguage}
-              getFilteredVoices={voiceManager.getFilteredVoices}
-              isVoicesLoading={voiceManager.isLoading}
+              selectedProvider={voiceManager.selectedProvider}
+              campaignFormat={campaignFormat}
               resetForm={formManager.resetVoiceTracks}
+              setSelectedProvider={voiceManager.setSelectedProvider}
               overrideVoices={restoredVoices}
             />
           )}

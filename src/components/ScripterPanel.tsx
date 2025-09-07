@@ -1,5 +1,5 @@
-import React from "react";
-import { Voice, VoiceTrack } from "@/types";
+import React, { useState, useEffect } from "react";
+import { Voice, VoiceTrack, Provider } from "@/types";
 import { getFlagCode } from "@/utils/language";
 import {
   GlassyListbox,
@@ -12,14 +12,15 @@ type ScripterPanelProps = {
   voiceTracks: VoiceTrack[];
   updateVoiceTrack: (index: number, updates: Partial<VoiceTrack>) => void;
   addVoiceTrack: () => void;
-  generateAudio: () => void;
+  generateAudio: (provider?: Provider, voiceTracks?: VoiceTrack[]) => void;
   isGenerating: boolean;
   statusMessage?: string;
   selectedLanguage: string;
-  getFilteredVoices: () => Voice[];
-  isVoicesLoading: boolean;
+  selectedProvider: string;
+  campaignFormat: string;
   resetForm: () => void;
   overrideVoices?: Voice[] | null;
+  setSelectedProvider: (provider: Provider) => void;
 };
 
 export function ScripterPanel({
@@ -30,13 +31,66 @@ export function ScripterPanel({
   isGenerating,
   statusMessage,
   selectedLanguage,
-  getFilteredVoices,
-  isVoicesLoading,
+  selectedProvider,
+  campaignFormat,
   resetForm,
   overrideVoices,
+  setSelectedProvider,
 }: ScripterPanelProps) {
-  // 🎯 Use overrideVoices if provided (project restoration), otherwise use voice manager
-  const voices = overrideVoices || getFilteredVoices();
+  // 🔥 Clean server-side voice loading (matching BriefPanel architecture)
+  const [serverVoices, setServerVoices] = useState<Voice[]>([]);
+  const [isLoadingVoices, setIsLoadingVoices] = useState(false);
+
+  // 🎯 Use overrideVoices if provided (project restoration), otherwise use server voices
+  const voices = overrideVoices || serverVoices;
+
+  // 🔥 Load voices from server when language/provider changes
+  useEffect(() => {
+    // If we have overrideVoices (project restoration), skip server loading
+    if (overrideVoices) {
+      console.log('🎯 ScripterPanel using overrideVoices, skipping server load');
+      return;
+    }
+
+    const loadVoices = async () => {
+      setIsLoadingVoices(true);
+      try {
+        console.log(`🔄 ScripterPanel loading voices: ${selectedLanguage}/${selectedProvider}/${campaignFormat}`);
+        
+        const url = new URL("/api/voice-catalogue", window.location.origin);
+        url.searchParams.set("operation", "filtered-voices");
+        url.searchParams.set("language", selectedLanguage);
+        url.searchParams.set("provider", selectedProvider);
+        url.searchParams.set("campaignFormat", campaignFormat);
+        url.searchParams.set("exclude", "lovo"); // Exclude Lovo (poor quality)
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.error) {
+          console.error("❌ ScripterPanel failed to load voices:", data.error);
+          setServerVoices([]);
+        } else {
+          console.log(`✅ ScripterPanel loaded ${data.count} voices for ${selectedLanguage}/${selectedProvider}`);
+          setServerVoices(data.voices || []);
+          
+          // 🔥 FIXED: Update voice manager state when server resolves "any" provider
+          // This ensures ScripterPanel and BriefPanel stay in sync
+          if (selectedProvider === "any" && data.selectedProvider) {
+            console.log(`🎯 ScripterPanel: Server resolved "any" to "${data.selectedProvider}"`);
+            setSelectedProvider(data.selectedProvider);
+          }
+        }
+      } catch (error) {
+        console.error("ScripterPanel voice loading error:", error);
+        setServerVoices([]);
+      } finally {
+        setIsLoadingVoices(false);
+      }
+    };
+
+    loadVoices();
+  }, [selectedLanguage, selectedProvider, campaignFormat, overrideVoices]);
   
   // Debug logging to see which voices are being used
   console.log('🎯 ScripterPanel voices:', {
@@ -102,8 +156,8 @@ export function ScripterPanel({
         <div className="flex items-center gap-2">
           <ResetButton onClick={handleReset} />
           <GenerateButton
-            onClick={generateAudio}
-            disabled={!voiceTracks.some((t) => t.voice && t.text) || isVoicesLoading}
+            onClick={() => generateAudio(selectedProvider as Provider, voiceTracks)}
+            disabled={!voiceTracks.some((t) => t.voice && t.text) || isLoadingVoices}
             isGenerating={isGenerating}
             text="Generate Voices"
             generatingText="Generating Voices..."
@@ -150,9 +204,9 @@ export function ScripterPanel({
                     label: opt.label,
                     flag: opt.flag,
                   }))}
-                  disabled={isVoicesLoading}
+                  disabled={isLoadingVoices}
                 />
-                {isVoicesLoading && (
+                {isLoadingVoices && (
                   <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
                     <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
                     <span>Loading voices...</span>
