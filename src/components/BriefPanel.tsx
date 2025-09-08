@@ -166,7 +166,7 @@ export function BriefPanel({
   const [error, setError] = useState<string | null>(null);
   const [languageQuery, setLanguageQuery] = useState("");
 
-  // 🚀 AUTO Mode state - enabled by default for B2B users
+  // 🚀 AUTO Mode state - tracks which mode was last used (for button display)
   const [autoModeEnabled, setAutoModeEnabled] = useState(true);
 
   // 🔥 NEW: Server-filtered voices to replace client-side getFilteredVoices()
@@ -479,22 +479,26 @@ export function BriefPanel({
     }
   };
 
-  const handleGenerateCreative = async () => {
+  // 🚀 Validation helper for both generation modes
+  const validateInputs = () => {
     if (!clientDescription.trim() || !creativeBrief.trim()) {
       setError("Please fill in both the client description and creative brief");
-      return;
+      return false;
     }
+    return true;
+  };
 
-    // 🚀 AUTO MODE: Choose between auto and manual generation
-    if (autoModeEnabled) {
-      return handleGenerateCreativeAutoMode();
-    }
-
-    // MANUAL MODE: Original behavior - just generate creative
-    return handleGenerateCreativeManual();
+  const handleGenerateCreativeAuto = async () => {
+    if (!validateInputs()) return;
+    return handleGenerateCreativeAutoMode();
   };
 
   const handleGenerateCreativeManual = async () => {
+    if (!validateInputs()) return;
+    return handleGenerateCreativeManualMode();
+  };
+
+  const handleGenerateCreativeManualMode = async () => {
     setIsGenerating(true);
     setError(null);
 
@@ -617,7 +621,8 @@ export function BriefPanel({
           </p>
         </div>
         <SplitGenerateButton
-          onClick={handleGenerateCreative}
+          onAutoGenerate={handleGenerateCreativeAuto}
+          onManualGenerate={handleGenerateCreativeManual}
           disabled={
             !clientDescription ||
             !creativeBrief ||

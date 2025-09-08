@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 
 interface SplitGenerateButtonProps {
-  onClick: () => void;
+  onAutoGenerate: () => void;
+  onManualGenerate: () => void;
   disabled: boolean;
   isGenerating: boolean;
   autoMode: boolean;
@@ -9,7 +10,8 @@ interface SplitGenerateButtonProps {
 }
 
 export function SplitGenerateButton({
-  onClick,
+  onAutoGenerate,
+  onManualGenerate,
   disabled,
   isGenerating,
   autoMode,
@@ -39,8 +41,15 @@ export function SplitGenerateButton({
     }
   }, [isDropdownOpen]);
 
-  const handleModeSelect = (mode: boolean) => {
-    onAutoModeChange(mode);
+  const handleAutoGenerate = () => {
+    onAutoModeChange(true);
+    onAutoGenerate();
+    setIsDropdownOpen(false);
+  };
+
+  const handleManualGenerate = () => {
+    onAutoModeChange(false);
+    onManualGenerate();
     setIsDropdownOpen(false);
   };
 
@@ -51,7 +60,7 @@ export function SplitGenerateButton({
     <div className="relative flex items-center gap-1">
       {/* Main generate button - organic curve on right */}
       <button
-        onClick={onClick}
+        onClick={handleAutoGenerate}
         disabled={disabled || isGenerating}
         className="group relative font-medium pl-5 pr-3 py-3 text-white border border-white/40 hover:border-white/70 focus:outline-none focus:ring-1 focus:ring-wb-blue/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all duration-500 ease-out"
         style={{
@@ -183,7 +192,7 @@ export function SplitGenerateButton({
         >
           <div className="py-2">
             <button
-              onClick={() => handleModeSelect(true)}
+              onClick={handleAutoGenerate}
               className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between ${
                 autoMode
                   ? "bg-wb-blue/20 text-wb-blue"
@@ -206,7 +215,7 @@ export function SplitGenerateButton({
               )}
             </button>
             <button
-              onClick={() => handleModeSelect(false)}
+              onClick={handleManualGenerate}
               className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between ${
                 !autoMode
                   ? "bg-wb-blue/20 text-wb-blue"
