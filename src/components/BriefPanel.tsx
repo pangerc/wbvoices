@@ -108,6 +108,9 @@ export type BriefPanelProps = {
     musicPrompt: string,
     soundFxPrompt?: string | string[] | SoundFxPrompt[]
   ) => void;
+
+  // New: shared creative generation state
+  setIsGeneratingCreative: (generating: boolean) => void;
 };
 
 const campaignFormatOptions = [
@@ -161,6 +164,7 @@ export function BriefPanel({
   voiceManager,
   onGenerateCreative,
   onGenerateCreativeAuto,
+  setIsGeneratingCreative,
 }: BriefPanelProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -205,13 +209,13 @@ export function BriefPanel({
 
   // 🧪 DEMON DIAGNOSTIC: Component lifecycle tracking
   useEffect(() => {
-    console.log('🏁 BRIEF PANEL MOUNTED');
-    return () => console.log('💀 BRIEF PANEL UNMOUNTED');
+    console.log("🏁 BRIEF PANEL MOUNTED");
+    return () => console.log("💀 BRIEF PANEL UNMOUNTED");
   }, []);
 
   // 🔥 NEW: Load server-filtered voices when filter criteria change
   useEffect(() => {
-    console.count('🔥 brief:filtered-voices'); // 🧪 DEMON DIAGNOSTIC
+    console.count("🔥 brief:filtered-voices"); // 🧪 DEMON DIAGNOSTIC
     const loadFilteredVoices = async () => {
       // Don't load if basic data isn't ready yet
       if (!selectedLanguage || availableLanguages.length === 0) {
@@ -271,7 +275,9 @@ export function BriefPanel({
           // 🔥 Only update provider when user selected "any" (auto-selection)
           // Respect explicit user choice by not overriding it
           if (selectedProvider === "any" && data.selectedProvider) {
-            console.log(`🎯 Server selected provider: ${data.selectedProvider}`);
+            console.log(
+              `🎯 Server selected provider: ${data.selectedProvider}`
+            );
             setSelectedProvider(data.selectedProvider);
           }
         }
@@ -300,61 +306,80 @@ export function BriefPanel({
   const previousRegionRef = useRef(selectedRegion);
   const previousAccentRef = useRef(selectedAccent);
   useEffect(() => {
-    console.count('🔥 brief:provider-reset'); // 🧪 DEMON DIAGNOSTIC
-    
+    console.count("🔥 brief:provider-reset"); // 🧪 DEMON DIAGNOSTIC
+
     // Check what actually changed
     const languageChanged = previousLanguageRef.current !== selectedLanguage;
     const regionChanged = previousRegionRef.current !== selectedRegion;
     const accentChanged = previousAccentRef.current !== selectedAccent;
-    
+
     // Only reset provider when filters ACTUALLY change, not on initial mount
     if (languageChanged || regionChanged || accentChanged) {
-      console.log(`🔄 Filter changed: language(${previousLanguageRef.current} → ${selectedLanguage}) region(${previousRegionRef.current} → ${selectedRegion}) accent(${previousAccentRef.current} → ${selectedAccent}), resetting provider to "any"`);
-      
+      console.log(
+        `🔄 Filter changed: language(${previousLanguageRef.current} → ${selectedLanguage}) region(${previousRegionRef.current} → ${selectedRegion}) accent(${previousAccentRef.current} → ${selectedAccent}), resetting provider to "any"`
+      );
+
       // Update refs
       previousLanguageRef.current = selectedLanguage;
       previousRegionRef.current = selectedRegion;
       previousAccentRef.current = selectedAccent;
-      
+
       // Reset provider to trigger auto-selection
       if (selectedProvider !== "any") {
         setSelectedProvider("any");
       }
     }
-  }, [selectedLanguage, selectedRegion, selectedAccent, selectedProvider, setSelectedProvider]);
+  }, [
+    selectedLanguage,
+    selectedRegion,
+    selectedAccent,
+    selectedProvider,
+    setSelectedProvider,
+  ]);
 
-  // 🎯 AI Model auto-selection for Chinese language - intelligent model matching  
+  // 🎯 AI Model auto-selection for Chinese language - intelligent model matching
   useEffect(() => {
-    console.count('🔥 brief:ai-model-selection'); // 🧪 DEMON DIAGNOSTIC
-    
-    const isChineseLanguage = selectedLanguage === 'zh' || selectedLanguage.startsWith('zh-');
-    
+    console.count("🔥 brief:ai-model-selection"); // 🧪 DEMON DIAGNOSTIC
+
+    const isChineseLanguage =
+      selectedLanguage === "zh" || selectedLanguage.startsWith("zh-");
+
     // Check if we should auto-select for Chinese
     if (isChineseLanguage) {
       // Only switch if currently using a non-Chinese model
-      const chineseModels = ['moonshot', 'qwen'];
+      const chineseModels = ["moonshot", "qwen"];
       const isUsingChineseModel = chineseModels.includes(selectedAiModel);
-      
+
       if (!isUsingChineseModel) {
-        const availableModels = aiModelOptions.map(option => option.value);
-        const suggestedModel = selectAIModelForLanguage(selectedLanguage, availableModels);
-        
+        const availableModels = aiModelOptions.map((option) => option.value);
+        const suggestedModel = selectAIModelForLanguage(
+          selectedLanguage,
+          availableModels
+        );
+
         if (suggestedModel && suggestedModel !== selectedAiModel) {
-          console.log(`🎯 Auto-selecting AI model "${suggestedModel}" for Chinese language`);
+          console.log(
+            `🎯 Auto-selecting AI model "${suggestedModel}" for Chinese language`
+          );
           setSelectedAiModel(suggestedModel);
         }
       }
     } else {
       // For non-Chinese languages, switch away from Chinese models if needed
-      const chineseModels = ['moonshot', 'qwen'];
+      const chineseModels = ["moonshot", "qwen"];
       const isUsingChineseModel = chineseModels.includes(selectedAiModel);
-      
+
       if (isUsingChineseModel) {
-        const availableModels = aiModelOptions.map(option => option.value);
-        const suggestedModel = selectAIModelForLanguage(selectedLanguage, availableModels);
-        
+        const availableModels = aiModelOptions.map((option) => option.value);
+        const suggestedModel = selectAIModelForLanguage(
+          selectedLanguage,
+          availableModels
+        );
+
         if (suggestedModel && suggestedModel !== selectedAiModel) {
-          console.log(`🎯 Auto-selecting AI model "${suggestedModel}" for non-Chinese language`);
+          console.log(
+            `🎯 Auto-selecting AI model "${suggestedModel}" for non-Chinese language`
+          );
           setSelectedAiModel(suggestedModel);
         }
       }
@@ -365,7 +390,7 @@ export function BriefPanel({
 
   // 🔍 DEBUG: Voice count math investigation
   useEffect(() => {
-    console.count('🔥 brief:debug-counts'); // 🧪 DEMON DIAGNOSTIC
+    console.count("🔥 brief:debug-counts"); // 🧪 DEMON DIAGNOSTIC
     if (availableProviders.length > 0) {
       const totalCount = availableProviders.reduce(
         (sum, p) => sum + p.count,
@@ -500,6 +525,7 @@ export function BriefPanel({
 
   const handleGenerateCreativeManualMode = async () => {
     setIsGenerating(true);
+    setIsGeneratingCreative(true);
     setError(null);
 
     try {
@@ -547,12 +573,14 @@ export function BriefPanel({
       );
     } finally {
       setIsGenerating(false);
+      setIsGeneratingCreative(false);
     }
   };
 
   // 🚀 AUTO MODE: Generate creative + trigger parallel voice/music/soundfx generation
   const handleGenerateCreativeAutoMode = async () => {
     setIsGenerating(true);
+    setIsGeneratingCreative(true);
     setError(null);
 
     try {
@@ -606,6 +634,7 @@ export function BriefPanel({
       );
     } finally {
       setIsGenerating(false);
+      setIsGeneratingCreative(false);
     }
   };
 

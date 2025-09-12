@@ -4,32 +4,34 @@ import { VoiceTrack, SoundFxPrompt } from "@/types";
 export interface FormManagerState {
   // Voice editing state
   voiceTracks: VoiceTrack[];
-  
+
   // Generation states
+  isGeneratingCreative: boolean; // For LLM creative generation
   isGenerating: boolean;
   isGeneratingMusic: boolean;
   isGeneratingSoundFx: boolean;
   statusMessage: string;
-  
+
   // Prompt state
   musicPrompt: string;
   soundFxPrompt: SoundFxPrompt | null;
-  
+
   // Voice track actions
   setVoiceTracks: (tracks: VoiceTrack[]) => void;
   updateVoiceTrack: (index: number, updates: Partial<VoiceTrack>) => void;
   addVoiceTrack: () => void;
-  
+
   // Generation state actions
+  setIsGeneratingCreative: (generating: boolean) => void;
   setIsGenerating: (generating: boolean) => void;
   setIsGeneratingMusic: (generating: boolean) => void;
   setIsGeneratingSoundFx: (generating: boolean) => void;
   setStatusMessage: (message: string) => void;
-  
+
   // Prompt actions
   setMusicPrompt: (prompt: string) => void;
   setSoundFxPrompt: (prompt: SoundFxPrompt | null) => void;
-  
+
   // Reset functions
   resetVoiceTracks: () => void;
   resetMusicPrompt: () => void;
@@ -42,16 +44,19 @@ export function useFormManager(): FormManagerState {
   const [voiceTracks, setVoiceTracks] = useState<VoiceTrack[]>([
     { voice: null, text: "" },
   ]);
-  
+
   // Generation states
+  const [isGeneratingCreative, setIsGeneratingCreative] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
   const [isGeneratingSoundFx, setIsGeneratingSoundFx] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
-  
+
   // Prompt state
   const [musicPrompt, setMusicPrompt] = useState("");
-  const [soundFxPrompt, setSoundFxPrompt] = useState<SoundFxPrompt | null>(null);
+  const [soundFxPrompt, setSoundFxPrompt] = useState<SoundFxPrompt | null>(
+    null
+  );
 
   // Voice track actions
   const updateVoiceTrack = (index: number, updates: Partial<VoiceTrack>) => {
@@ -90,6 +95,7 @@ export function useFormManager(): FormManagerState {
 
   return {
     voiceTracks,
+    isGeneratingCreative,
     isGenerating,
     isGeneratingMusic,
     isGeneratingSoundFx,
@@ -99,6 +105,7 @@ export function useFormManager(): FormManagerState {
     setVoiceTracks,
     updateVoiceTrack,
     addVoiceTrack,
+    setIsGeneratingCreative,
     setIsGenerating,
     setIsGeneratingMusic,
     setIsGeneratingSoundFx,

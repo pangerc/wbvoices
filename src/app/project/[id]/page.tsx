@@ -27,6 +27,7 @@ import {
   MusicPanel,
   SoundFxPanel,
   PreviewPanel,
+  MatrixBackground,
 } from "@/components";
 import { BriefPanel } from "@/components/BriefPanel";
 import { Header } from "@/components/Header";
@@ -670,9 +671,10 @@ export default function ProjectWorkspace() {
   ) => {
     try {
       // Simple: use provided provider or fall back to voice manager state
-      const providerToUse = provider || voiceManager.selectedProvider as Provider;
+      const providerToUse =
+        provider || (voiceManager.selectedProvider as Provider);
       const tracksToUse = voiceTracks || formManager.voiceTracks;
-      
+
       await generateVoiceAudio(tracksToUse, providerToUse);
       setSelectedTab(4); // Navigation
 
@@ -802,7 +804,19 @@ export default function ProjectWorkspace() {
       console.log(`🚀 Starting ${promises.length} parallel processes...`);
 
       // PHASE 4: Wait for all parallel processes to complete
+      console.log("🎯 Before Promise.all - checking states:", {
+        isGenerating: formManager.isGenerating,
+        isGeneratingMusic: formManager.isGeneratingMusic,
+        isGeneratingSoundFx: formManager.isGeneratingSoundFx,
+      });
+
       await Promise.all(promises);
+
+      console.log("🎯 After Promise.all - checking states:", {
+        isGenerating: formManager.isGenerating,
+        isGeneratingMusic: formManager.isGeneratingMusic,
+        isGeneratingSoundFx: formManager.isGeneratingSoundFx,
+      });
 
       formManager.setStatusMessage("🚀 AUTO MODE: Complete! Ready for mixing.");
       setSelectedTab(4);
@@ -841,19 +855,15 @@ export default function ProjectWorkspace() {
       />
 
       <div className="flex flex-col flex-1 bg-black relative">
-        {/* Background image */}
-        <div
-          className="absolute inset-y-0 left-0 pointer-events-none"
-          style={{
-            backgroundImage: "url(/bg-pixels.svg)",
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "left top",
-            backgroundSize: "auto 100%",
-            width: "100%",
-            height: "100%",
-            zIndex: 0,
-          }}
-        ></div>
+        {/* Dynamic Matrix Background */}
+        <MatrixBackground
+          isAnimating={
+            formManager.isGeneratingCreative ||
+            formManager.isGenerating ||
+            formManager.isGeneratingMusic ||
+            formManager.isGeneratingSoundFx
+          }
+        />
 
         {/* Tab panels */}
         <div className="flex-1 overflow-hidden container mx-auto relative z-10">
@@ -872,6 +882,7 @@ export default function ProjectWorkspace() {
               voiceManager={voiceManager}
               onGenerateCreative={handleGenerateCreative}
               onGenerateCreativeAuto={handleGenerateCreativeAuto}
+              setIsGeneratingCreative={formManager.setIsGeneratingCreative}
             />
           )}
 
@@ -924,11 +935,7 @@ export default function ProjectWorkspace() {
             />
           )}
 
-          {selectedTab === 5 && (
-            <PreviewPanel
-              projectId={projectId}
-            />
-          )}
+          {selectedTab === 5 && <PreviewPanel projectId={projectId} />}
         </div>
       </div>
     </div>
