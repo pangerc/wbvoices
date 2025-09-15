@@ -101,12 +101,14 @@ export type BriefPanelProps = {
   onGenerateCreative: (
     segments: Array<{ voiceId: string; text: string }>,
     musicPrompt: string,
-    soundFxPrompt?: string | string[] | SoundFxPrompt[]
+    soundFxPrompt?: string | string[] | SoundFxPrompt[],
+    resolvedVoices?: Voice[] // Pass the actual voices used for generation
   ) => void;
   onGenerateCreativeAuto: (
     segments: Array<{ voiceId: string; text: string }>,
     musicPrompt: string,
-    soundFxPrompt?: string | string[] | SoundFxPrompt[]
+    soundFxPrompt?: string | string[] | SoundFxPrompt[],
+    resolvedVoices?: Voice[] // Pass the actual voices used for generation
   ) => void;
 
   // New: shared creative generation state
@@ -565,7 +567,7 @@ export function BriefPanel({
         voiceInstructions: segment.voiceInstructions,
       }));
 
-      onGenerateCreative(segments, musicPrompt || "", soundFxPrompts);
+      onGenerateCreative(segments, musicPrompt || "", soundFxPrompts, voicesToUse);
     } catch (error) {
       console.error("Error generating creative:", error);
       setError(
@@ -624,7 +626,7 @@ export function BriefPanel({
       console.log(
         "🚀 AUTO MODE: Triggering parallel voice + music + soundfx generation"
       );
-      onGenerateCreativeAuto(segments, musicPrompt || "", soundFxPrompts);
+      onGenerateCreativeAuto(segments, musicPrompt || "", soundFxPrompts, voicesToUse);
     } catch (error) {
       console.error("Error in AUTO mode generation:", error);
       setError(

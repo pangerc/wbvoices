@@ -493,12 +493,14 @@ export default function ProjectWorkspace() {
   const handleGenerateCreative = async (
     segments: Array<{ voiceId: string; text: string }>,
     prompt: string,
-    soundFxPrompts?: string | string[] | SoundFxPrompt[]
+    soundFxPrompts?: string | string[] | SoundFxPrompt[],
+    resolvedVoices?: Voice[] // Voices actually used for generation
   ) => {
     const llmResponseData = await generateCreativeContent(
       segments,
       prompt,
-      soundFxPrompts
+      soundFxPrompts,
+      resolvedVoices
     ); // Pure generation function
     setSelectedTab(1); // Navigation
     await saveProject("after generate creative", llmResponseData); // Save with explicit data
@@ -508,20 +510,23 @@ export default function ProjectWorkspace() {
   const generateCreativeContent = async (
     segments: Array<{ voiceId: string; text: string }>,
     musicPrompt: string,
-    soundFxPrompts?: string | string[] | SoundFxPrompt[]
+    soundFxPrompts?: string | string[] | SoundFxPrompt[],
+    resolvedVoices?: Voice[] // Voices actually used for generation
   ): Promise<LLMResponseData> => {
     console.log("🎯 generateCreativeContent called with:", {
       segments: segments.length,
       musicPrompt: !!musicPrompt,
       soundFxPrompts: !!soundFxPrompts,
+      resolvedVoices: resolvedVoices?.length,
     });
     console.log("🎯 Segments details:", segments);
     console.log("🎯 Music prompt:", musicPrompt);
 
     // Map voice segments to tracks FIRST
-    const filteredVoices = voiceManager.currentVoices;
-    const allVoices = voiceManager.currentVoices;
-    console.log("🎯 Available voices:", filteredVoices.length);
+    // Use resolved voices if provided (from LLM generation), otherwise fall back to current voices
+    const filteredVoices = resolvedVoices || voiceManager.currentVoices;
+    const allVoices = resolvedVoices || voiceManager.currentVoices;
+    console.log("🎯 Available voices:", filteredVoices.length, "(resolved:", !!resolvedVoices, ")");
 
     const newVoiceTracks = AudioService.mapVoiceSegmentsToTracks(
       segments,
@@ -741,7 +746,8 @@ export default function ProjectWorkspace() {
   const handleGenerateCreativeAuto = async (
     segments: Array<{ voiceId: string; text: string }>,
     musicPrompt: string,
-    soundFxPrompts?: string | string[] | SoundFxPrompt[]
+    soundFxPrompts?: string | string[] | SoundFxPrompt[],
+    resolvedVoices?: Voice[] // Voices actually used for generation
   ) => {
     console.log("🚀 AUTO MODE: Starting sequential→parallel generation");
 
@@ -753,7 +759,8 @@ export default function ProjectWorkspace() {
       const llmResponseData = await generateCreativeContent(
         segments,
         musicPrompt,
-        soundFxPrompts
+        soundFxPrompts,
+        resolvedVoices
       );
 
       console.log(
