@@ -185,7 +185,7 @@ export function ScripterPanel({
                   </div>
                 )}
 
-                {/* Two neutral gray lines: speaker metadata + creative direction */}
+                {/* Three neutral gray lines: speaker metadata + description + creative direction */}
                 {track.voice && (
                   <div className="mt-2 text-xs text-gray-400 space-y-1">
                     <p>
@@ -205,6 +205,14 @@ export function ScripterPanel({
                         .filter(Boolean)
                         .join(" · ")}
                     </p>
+                    {track.voice.description && selectedProvider === 'elevenlabs' && (
+                      <p>
+                        <span className="font-medium text-gray-300">
+                          Description:
+                        </span>{" "}
+                        <span className="text-gray-300">{track.voice.description}</span>
+                      </p>
+                    )}
                     {(track.style ||
                       track.useCase ||
                       track.voiceInstructions) && (

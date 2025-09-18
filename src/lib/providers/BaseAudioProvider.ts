@@ -172,10 +172,11 @@ export abstract class BaseAudioProvider {
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         const errorData = await response.json();
-        errorMessage = errorData.message || errorData.error || errorMessage;
+        console.error(`${this.providerName} detailed error response:`, JSON.stringify(errorData, null, 2));
+        errorMessage = errorData.message || errorData.error || errorData.detail || errorMessage;
       } else {
         const text = await response.text();
-        console.error(`${this.providerName} non-JSON error response:`, text.substring(0, 200));
+        console.error(`${this.providerName} non-JSON error response:`, text.substring(0, 500));
         errorMessage = text.length > 0 ? text.substring(0, 200) : errorMessage;
       }
     } catch (parseError) {

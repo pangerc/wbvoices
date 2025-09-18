@@ -93,6 +93,8 @@ export type BriefPanelProps = {
   setAdDuration: (duration: number) => void;
   selectedAiModel: AIModel;
   setSelectedAiModel: (model: AIModel) => void;
+  selectedCTA: string | null;
+  setSelectedCTA: (cta: string | null) => void;
 
   // Voice manager (new interface!)
   voiceManager: VoiceManagerV2State;
@@ -163,6 +165,8 @@ export function BriefPanel({
   setAdDuration,
   selectedAiModel,
   setSelectedAiModel,
+  selectedCTA,
+  setSelectedCTA,
   voiceManager,
   onGenerateCreative,
   onGenerateCreativeAuto,
@@ -549,7 +553,8 @@ export function BriefPanel({
         adDuration,
         providerToUse,
         selectedRegion || undefined,
-        selectedAccent || undefined
+        selectedAccent || undefined,
+        selectedCTA
       );
 
       const { voiceSegments, musicPrompt, soundFxPrompts } =
@@ -604,7 +609,8 @@ export function BriefPanel({
         adDuration,
         providerToUse,
         selectedRegion || undefined,
-        selectedAccent || undefined
+        selectedAccent || undefined,
+        selectedCTA
       );
 
       const { voiceSegments, musicPrompt, soundFxPrompts } =
@@ -774,7 +780,7 @@ export function BriefPanel({
           <RefreshVoiceCache />
         </div>
 
-        {/* Column 2: Ad Format + Duration */}
+        {/* Column 2: Ad Format */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -791,39 +797,90 @@ export function BriefPanel({
               </p>
             )}
           </div>
+        </div>
+      </div>
 
-          {/* Duration slider */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Ad Duration{" "}
-              <span className="text-sm text-gray-400">
-                {adDuration} seconds
+      {/* Row 3: CTA and Duration */}
+      <div className="grid grid-cols-2 gap-8 mb-8">
+        {/* Column 1: Call to Action */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Call to Action (CTA)
+          </label>
+          <GlassyListbox
+            value={selectedCTA || "none"}
+            onChange={(value) => setSelectedCTA(value === "none" ? null : value)}
+            options={[
+              { value: "none", label: "No specific CTA" },
+              { value: "apply-now", label: "Apply now" },
+              { value: "book-now", label: "Book now" },
+              { value: "buy-now", label: "Buy now" },
+              { value: "buy-tickets", label: "Buy tickets" },
+              { value: "click-now", label: "Click now" },
+              { value: "download", label: "Download" },
+              { value: "find-stores", label: "Find stores" },
+              { value: "get-coupon", label: "Get coupon" },
+              { value: "get-info", label: "Get info" },
+              { value: "learn-more", label: "Learn more" },
+              { value: "listen-now", label: "Listen now" },
+              { value: "more-info", label: "More info" },
+              { value: "order-now", label: "Order now" },
+              { value: "pre-save", label: "Pre-save" },
+              { value: "save-now", label: "Save now" },
+              { value: "share", label: "Share" },
+              { value: "shop-now", label: "Shop now" },
+              { value: "sign-up", label: "Sign up" },
+              { value: "visit-profile", label: "Visit profile" },
+              { value: "visit-site", label: "Visit site" },
+              { value: "watch-now", label: "Watch now" },
+            ]}
+            disabled={isLoading}
+          />
+        </div>
+
+        {/* Column 2: Duration */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Ad Duration{" "}
+            <span className="text-sm text-gray-400">
+              {adDuration} seconds
+            </span>
+          </label>
+          <GlassySlider
+            label={null}
+            value={adDuration}
+            onChange={setAdDuration}
+            min={10}
+            max={60}
+            step={5}
+            tickMarks={[
+              { value: 10, label: "10s" },
+              { value: 15, label: "15s" },
+              { value: 20, label: "20s" },
+              { value: 25, label: "25s" },
+              { value: 30, label: "30s" },
+              { value: 35, label: "35s" },
+              { value: 40, label: "40s" },
+              { value: 45, label: "45s" },
+              { value: 50, label: "50s" },
+              { value: 55, label: "55s" },
+              { value: 60, label: "60s" },
+            ]}
+          />
+
+          {/* Spotify Compliance Warning */}
+          <div className="mt-3 text-xs text-gray-500">
+            Spotify: Standard ads max 30s. Long-form (60s) in select markets only.
+            {adDuration > 30 && (
+              <span className="text-red-900 ml-1">
+                Duration exceeds 30s standard.
               </span>
-            </label>
-            <GlassySlider
-              label={null}
-              value={adDuration}
-              onChange={setAdDuration}
-              min={10}
-              max={90}
-              step={5}
-              tickMarks={[
-                { value: 10, label: "10s" },
-                { value: 20, label: "20s" },
-                { value: 30, label: "30s" },
-                { value: 40, label: "40s" },
-                { value: 50, label: "50s" },
-                { value: 60, label: "60s" },
-                { value: 70, label: "70s" },
-                { value: 80, label: "80s" },
-                { value: 90, label: "90s" },
-              ]}
-            />
+            )}
           </div>
         </div>
       </div>
 
-      {/* Row 3: Voice Provider and AI Model */}
+      {/* Row 4: Voice Provider and AI Model */}
       <div className="grid grid-cols-2 gap-8 mb-8">
         {/* Column 1: Voice Provider */}
         <div>

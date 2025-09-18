@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
       provider,
       region,
       accent,
+      cta,
     } = body;
 
     // Validate required fields
@@ -71,20 +72,22 @@ export async function POST(req: NextRequest) {
         styleInstructions = `Lovo voices have styles built into the voice selection (e.g., "Ava (Cheerful)" vs "Ava (Serious)"). The emotional style is already encoded in the voice ID you choose - no additional style parameter is needed or used by the API.`;
         break;
       case "openai":
-        styleInstructions = `For OpenAI TTS, provide a concise, labeled "voiceInstructions" string for each voice using this structure:
-Affect/personality: <brief description>
-Tone: <brief description>
-Pronunciation: <brief description>
-Pauses: <brief description>
-Emotion: <brief description>
+        styleInstructions = `For OpenAI TTS, provide detailed "voiceInstructions" string for each voice using this structure (this part remains in English):
+Voice Affect: <brief description of overall voice character>
+Tone: <brief description of emotional tone>
+Pacing: <specify speed - slow/moderate/fast/rapid, with any tempo changes>
+Emotion: <emotional delivery style>
+Emphasis: <what words/phrases to highlight and how>
+Pronunciation: <articulation style and clarity>
+Pauses: <where to pause and for how long>
 
-Example: "Affect/personality: a cheerful guide; Tone: friendly, clear, and reassuring; Pronunciation: clear, articulate, and steady; Pauses: brief pauses after key instructions; Emotion: warm and supportive."
+Example: "Voice Affect: Energetic spokesperson with confident authority; Tone: Enthusiastic and persuasive; Pacing: Fast-paced with quick delivery, slowing slightly for key product benefits; Emotion: Excited and compelling; Emphasis: Strong emphasis on brand name and call-to-action; Pronunciation: Clear, crisp articulation; Pauses: Brief pause before call-to-action for impact."
 
-Keep it short and practical for a voice actor/tts engine to follow.${
+Consider commercial pacing needs - fast for urgency, moderate for clarity, slow for luxury/premium brands.${
           accent && accent !== "neutral"
-            ? ` Include accent guidance (e.g., "Pronunciation: ${accent}${
+            ? ` Include accent guidance in Pronunciation (e.g., "Pronunciation: ${accent}${
                 region ? ` (${region})` : ""
-              }; clear, articulate").`
+              } accent; clear, articulate").`
             : ""
         }`;
         break;
@@ -176,11 +179,35 @@ ${voiceOptions}
 Create a script that:
 1. Captures attention in the first 3 seconds
 2. Clearly communicates the key message
-3. Includes a call-to-action
+3. Includes a call-to-action${
+      cta
+        ? ` - MUST end with "${cta.replace(
+            /-/g,
+            " "
+          )}" translated to ${languageName}`
+        : ""
+    }
 4. Fits within ${duration} seconds when read at a natural pace
 5. Uses culturally appropriate language and expressions
 6. If dialogue format, creates natural conversation flow between two voices
 7. Leverages the personality traits of selected voices
+
+${
+  cta
+    ? `CALL-TO-ACTION REQUIREMENT:
+The script MUST end with a clear call-to-action: "${cta.replace(/-/g, " ")}"
+IMPORTANT: Translate the call-to-action to ${languageName} - do NOT use English.
+Incorporate this naturally and idiomatically into the final lines of the script in ${languageName}.
+Make it prominent and compelling while sounding natural in the target language.
+
+`
+    : ""
+}SCRIPT LENGTH GUIDANCE (from anglosaxon perspective, adapt to target language):
+- For 30-second ads: Target approximately 65 words maximum 
+- For 60-second ads: Target approximately 100 words maximum
+- Scale proportionally for other durations (roughly 2 words per second)
+- These guidelines are based on English; adapt for target language density
+- Prioritize clarity and impact over hitting exact word counts
 
 IMPORTANT: Music and sound effects descriptions must be written in ENGLISH only, regardless of the target language of the ad script.
 

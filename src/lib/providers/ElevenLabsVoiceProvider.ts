@@ -62,9 +62,12 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
     const { text, voiceId, style, useCase } = params;
     const { apiKey } = credentials;
 
+    // Strip language suffix from voice ID if present (e.g., "zzBTsLBFM6AOJtkr1e9b-pl" -> "zzBTsLBFM6AOJtkr1e9b")
+    const cleanVoiceId = (voiceId as string).replace(/-[a-z]{2}(-[A-Z]{2})?$/, '');
+
     console.log(`🎭 ElevenLabs API Call:`);
     console.log(`  Text: "${(text as string).substring(0, 50)}..."`);
-    console.log(`  Voice ID: ${voiceId}`);
+    console.log(`  Voice ID: ${voiceId} (cleaned: ${cleanVoiceId})`);
     console.log(`  Style: ${style || "none"}`);
     console.log(`  Use Case: ${useCase || "none"}`);
 
@@ -242,10 +245,24 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
         ` use_speaker_boost=${voiceSettings.use_speaker_boost}`
     );
 
+    // Check text length - ElevenLabs has a limit of around 500 characters per request
+    const textStr = text as string;
+    if (textStr.length > 500) {
+      console.warn(`⚠️ Text length (${textStr.length}) exceeds recommended limit of 500 characters`);
+    }
+
+    // Remove speed parameter as it's not supported in current ElevenLabs API
+    const apiVoiceSettings = {
+      stability: voiceSettings.stability,
+      similarity_boost: voiceSettings.similarity_boost,
+      style: voiceSettings.style,
+      use_speaker_boost: voiceSettings.use_speaker_boost,
+    };
+
     const requestBody = {
-      text: text as string,
+      text: textStr,
       model_id: "eleven_multilingual_v2",
-      voice_settings: voiceSettings,
+      voice_settings: apiVoiceSettings,
     };
 
     console.log(
@@ -253,20 +270,24 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       JSON.stringify(requestBody, null, 2)
     );
 
-    const response = await this.makeFetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
-      {
-        method: "POST",
-        headers: {
-          "xi-api-key": apiKey as string,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      }
-    );
+    const apiUrl = `https://api.elevenlabs.io/v1/text-to-speech/${cleanVoiceId}?output_format=mp3_44100_128`;
+    console.log(`  🌐 ElevenLabs API URL: ${apiUrl}`);
+    console.log(`  🔑 Using API key: ${(apiKey as string).substring(0, 10)}...`);
+
+    const response = await this.makeFetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey as string,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    console.log(`elevenlabs API response status: ${response.status}`);
 
     if (!response.ok) {
       const errorText = await this.handleApiError(response);
+      console.error(`elevenlabs error: ${errorText}`);
       return {
         success: false,
         error: errorText,

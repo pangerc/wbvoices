@@ -10,7 +10,8 @@ export async function generateCreativeCopy(
   duration: number = 60,
   provider?: string,
   region?: string,
-  accent?: string
+  accent?: string,
+  cta?: string | null
 ): Promise<string> {
   try {
     const response = await fetch("/api/ai/generate", {
@@ -29,6 +30,7 @@ export async function generateCreativeCopy(
         provider,
         region,
         accent,
+        cta,
       }),
     });
 

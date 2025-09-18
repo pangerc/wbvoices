@@ -233,18 +233,19 @@ export function MixerPanel({
   const uploadAndUpdateProject = async (blob: Blob, localPreviewUrl: string) => {
     if (!projectId) {
       console.warn('No project ID available for mixed audio upload');
-      return localPreviewUrl;
+      return { permanentUrl: localPreviewUrl, downloadUrl: localPreviewUrl };
     }
 
     try {
       console.log('📤 Uploading mixed audio to Vercel blob storage...');
-      const { url: permanentUrl } = await uploadMixedAudioToBlob(blob, projectId);
+      const { url: permanentUrl, downloadUrl } = await uploadMixedAudioToBlob(blob, projectId);
       console.log('✅ Mixed audio uploaded to blob:', permanentUrl);
+      console.log('✅ Download URL generated:', downloadUrl);
 
       // Load current project to get existing preview data
       const { loadProjectFromRedis } = useProjectHistoryStore.getState();
       const currentProject = await loadProjectFromRedis(projectId);
-      
+
       if (currentProject) {
         // Update project with the permanent mixed audio URL
         await updateProject(projectId, {
@@ -267,11 +268,11 @@ export function MixerPanel({
         });
       }
 
-      return permanentUrl;
+      return { permanentUrl, downloadUrl };
     } catch (error) {
       console.error('❌ Failed to upload mixed audio or update project:', error);
       // Return the local preview URL as fallback
-      return localPreviewUrl;
+      return { permanentUrl: localPreviewUrl, downloadUrl: localPreviewUrl };
     }
   };
 
@@ -351,18 +352,21 @@ export function MixerPanel({
 
       // Upload to blob storage and update project
       const localPreviewUrl = URL.createObjectURL(blob);
-      const permanentUrl = await uploadAndUpdateProject(blob, localPreviewUrl);
+      const { permanentUrl, downloadUrl } = await uploadAndUpdateProject(blob, localPreviewUrl);
 
-      // Create download link using the permanent URL if available
+      // Create download link using Vercel's downloadUrl for forced download
       const a = document.createElement("a");
-      a.href = permanentUrl;
-      a.download = "mixed-audio.wav";
+      a.href = downloadUrl;
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      
+
       // Clean up local URL
       URL.revokeObjectURL(localPreviewUrl);
+
+      console.log(`✅ Audio exported successfully`);
+      console.log(`📊 Audio specs: 44.1kHz, 16-bit, Stereo WAV, -16 LUFS, -2.0 dBTP peak limit`);
     } catch (error) {
       console.error("Failed to export mix:", error);
     } finally {

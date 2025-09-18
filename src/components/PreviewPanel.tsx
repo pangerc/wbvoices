@@ -117,15 +117,31 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
         if (loadedProject) {
           setProject(loadedProject);
 
-          // Initialize preview data from project
-          if (loadedProject.preview) {
-            setPreviewData({
-              brandName: loadedProject.preview.brandName,
-              slogan: loadedProject.preview.slogan,
-              destinationUrl: loadedProject.preview.destinationUrl,
-              cta: loadedProject.preview.cta,
-            });
-          }
+          // Initialize preview data from project (preview data takes precedence, fallback to brief data)
+          const briefCTA = loadedProject.brief?.selectedCTA?.replace(/-/g, ' ') || '';
+          // Extract brand name from client description (first few words, up to punctuation)
+          const briefBrandName = loadedProject.brief?.clientDescription
+            ?.split(/[.,]|(\s+is\s+)|(\s+offers\s+)|(\s+provides\s+)|(\s+sells\s+)/)[0] // Split on punctuation or common separators
+            ?.trim()
+            || '';
+
+          // Helper function to capitalize text (for both CTA and brand names)
+          const capitalizeText = (text: string) => {
+            return text.split(' ').map(word =>
+              word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            ).join(' ');
+          };
+
+          const finalCTA = (loadedProject.preview?.cta && loadedProject.preview.cta !== 'Learn More')
+            ? loadedProject.preview.cta
+            : briefCTA || 'Learn More';
+
+          setPreviewData({
+            brandName: loadedProject.preview?.brandName || (briefBrandName ? capitalizeText(briefBrandName) : ''),
+            slogan: loadedProject.preview?.slogan || '',
+            destinationUrl: loadedProject.preview?.destinationUrl || '',
+            cta: capitalizeText(finalCTA),
+          });
         }
       } catch (error) {
         console.error("Failed to load project:", error);

@@ -57,9 +57,10 @@ export default function ProjectWorkspace() {
   const [creativeBrief, setCreativeBrief] = useState("");
   const [campaignFormat, setCampaignFormat] =
     useState<CampaignFormat>("dialog");
-  const [adDuration, setAdDuration] = useState(20);
+  const [adDuration, setAdDuration] = useState(25);
   const [selectedAiModel, setSelectedAiModel] = useState<AIModel>("gpt4");
   const [musicProvider, setMusicProvider] = useState<MusicProvider>("loudly");
+  const [selectedCTA, setSelectedCTA] = useState<string | null>(null);
 
   // Custom hooks for complex logic
   // 🧪 DEMON HUNTING: THE MOMENT OF TRUTH - Re-enabling prime suspect!
@@ -110,6 +111,7 @@ export default function ProjectWorkspace() {
           setAdDuration(project.brief.adDuration);
           setSelectedAiModel(project.brief.selectedAiModel || "gpt4");
           setMusicProvider(project.brief.musicProvider || "loudly");
+          setSelectedCTA(project.brief.selectedCTA || null);
 
           // IMPORTANT: Restore voice manager state
           // Redis-powered voice system restoration
@@ -365,6 +367,7 @@ export default function ProjectWorkspace() {
           selectedAccent: voiceManager.selectedAccent,
           selectedAiModel,
           musicProvider,
+          selectedCTA,
         },
         voiceTracks: dataToSave.voiceTracks,
         musicPrompt: dataToSave.musicPrompt,
@@ -593,6 +596,7 @@ export default function ProjectWorkspace() {
         selectedAccent: voiceManager.selectedAccent,
         selectedAiModel,
         musicProvider,
+        selectedCTA,
       };
 
       try {
@@ -886,6 +890,8 @@ export default function ProjectWorkspace() {
               setAdDuration={setAdDuration}
               selectedAiModel={selectedAiModel}
               setSelectedAiModel={setSelectedAiModel}
+              selectedCTA={selectedCTA}
+              setSelectedCTA={setSelectedCTA}
               voiceManager={voiceManager}
               onGenerateCreative={handleGenerateCreative}
               onGenerateCreativeAuto={handleGenerateCreativeAuto}

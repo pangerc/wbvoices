@@ -112,6 +112,7 @@ const getVoiceLanguage = (
     accent = voice.labels.accent;
   }
 
+
   // Process accent information to determine most likely language
   const accentLower = accent ? accent.toLowerCase() : "";
 
@@ -164,6 +165,10 @@ const getVoiceLanguage = (
       mandarin: "zh-CN",
       cantonese: "zh-HK",
       japanese: "ja-JP",
+      // Polish mappings
+      polish: "pl-PL",
+      mazovian: "pl-PL",
+      warsaw: "pl-PL",
     };
 
     // Check for specific accent matches
@@ -561,13 +566,33 @@ export async function GET(req: NextRequest) {
       await saveJsonToFile(data, `elevenlabs-raw-${timestamp}.json`);
     }
 
-    const voices = data.voices.map((voice: ElevenLabsVoice): Voice => {
-      const { language, isMultilingual, accent } = getVoiceLanguage(voice);
+    const voices = data.voices.flatMap((voice: ElevenLabsVoice): Voice[] => {
 
-      // Normalize language codes for consistency
+      // For voices with verified_languages, create multiple entries (one per language)
+      if (voice.verified_languages && voice.verified_languages.length > 0) {
+        return voice.verified_languages.map((langString) => {
+          const normalizedLanguage = normalizeLanguageCode(langString);
+
+          return {
+            id: `${voice.voice_id}-${langString}`,
+            name: voice.name,
+            gender: voice.labels?.gender || null,
+            sampleUrl: voice.preview_url || null,
+            language: normalizedLanguage,
+            isMultilingual: voice.verified_languages!.length > 1,
+            accent: voice.labels?.accent || undefined,
+            age: voice.labels?.age || undefined,
+            description: voice.labels?.description || undefined,
+            use_case: voice.labels?.use_case || undefined,
+          };
+        });
+      }
+
+      // Fallback for voices without verified_languages (use original logic)
+      const { language, isMultilingual, accent } = getVoiceLanguage(voice);
       const normalizedLanguage = normalizeLanguageCode(language);
 
-      return {
+      return [{
         id: voice.voice_id,
         name: voice.name,
         gender: voice.labels?.gender || null,
@@ -578,7 +603,7 @@ export async function GET(req: NextRequest) {
         age: voice.labels?.age || undefined,
         description: voice.labels?.description || undefined,
         use_case: voice.labels?.use_case || undefined,
-      };
+      }];
     });
 
     // Save processed ElevenLabs data if requested

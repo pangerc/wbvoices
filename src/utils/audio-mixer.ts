@@ -5,6 +5,8 @@ declare global {
   }
 }
 
+import { normalizeToSpotifySpec } from './audio-processing';
+
 export type TrackTiming = {
   id: string;
   type: "voice" | "music" | "soundfx";
@@ -198,8 +200,12 @@ export async function createMix(
   console.log(`Rendering final mix with duration up to ${maxEndTime}s`);
   const renderedBuffer = await offlineCtx.startRendering();
 
-  // Convert AudioBuffer to WAV
-  const wavBlob = await audioBufferToWav(renderedBuffer, maxEndTime);
+  // Apply loudness normalization to meet Spotify specifications
+  console.log('Applying loudness normalization to -16 LUFS with -2.0 dBTP peak limit...');
+  const normalizedBuffer = normalizeToSpotifySpec(renderedBuffer);
+
+  // Convert normalized AudioBuffer to WAV
+  const wavBlob = await audioBufferToWav(normalizedBuffer, maxEndTime);
 
   return { blob: wavBlob };
 }

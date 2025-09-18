@@ -74,6 +74,7 @@ export type ProjectBrief = {
   selectedAccent: string | null;
   selectedAiModel: AIModel;
   musicProvider?: MusicProvider; // Optional for backwards compatibility
+  selectedCTA?: string | null; // Optional for backwards compatibility
 };
 
 export type ProjectMetadata = {
