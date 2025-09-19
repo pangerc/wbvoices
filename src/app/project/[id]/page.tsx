@@ -706,6 +706,9 @@ export default function ProjectWorkspace() {
     duration: number
   ) => {
     try {
+      // Update formManager with the new prompt so it gets saved to Redis
+      formManager.setMusicPrompt(prompt);
+
       setMusicProvider(provider);
       await generateMusicAudio(prompt, duration);
       setSelectedTab(4); // Navigation

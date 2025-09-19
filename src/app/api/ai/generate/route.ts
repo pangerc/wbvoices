@@ -178,19 +178,20 @@ ${voiceOptions}
 
 Create a script that:
 1. Captures attention in the first 3 seconds
-2. Clearly communicates the key message
-3. Includes a call-to-action${
+2. Clearly communicates the key message${
       cta
-        ? ` - MUST end with "${cta.replace(
+        ? `\n3. Includes a call-to-action - MUST end with "${cta.replace(
             /-/g,
             " "
           )}" translated to ${languageName}`
         : ""
     }
-4. Fits within ${duration} seconds when read at a natural pace
-5. Uses culturally appropriate language and expressions
-6. If dialogue format, creates natural conversation flow between two voices
-7. Leverages the personality traits of selected voices
+${cta ? "4" : "3"}. Fits within ${duration} seconds when read at a natural pace
+${cta ? "5" : "4"}. Uses culturally appropriate language and expressions
+${
+  cta ? "6" : "5"
+}. If dialogue format, creates natural conversation flow between two voices
+${cta ? "7" : "6"}. Leverages the personality traits of selected voices
 
 ${
   cta
@@ -210,6 +211,15 @@ Make it prominent and compelling while sounding natural in the target language.
 - Prioritize clarity and impact over hitting exact word counts
 
 IMPORTANT: Music and sound effects descriptions must be written in ENGLISH only, regardless of the target language of the ad script.
+
+$
+MUSIC PROMPT GUIDELINES (for the "music.description" field):
+- Keep it short and plain-English (about 6–12 words)
+- Combine mood + one concrete sonic cue (e.g., intro riff, simple beat)
+- Set general pace with everyday words: slow / steady / upbeat (no BPM)
+- Avoid genre-only labels (e.g., "rock anthem", "upbeat pop")
+- Avoid vague fillers (e.g., "ethereal", "nice") and avoid technical jargon
+- Favor hook-first intros suitable for short ads; no long build-up
 
 ${
   styleInstructions
@@ -273,11 +283,11 @@ Remember:
 - soundFxPrompts array can be empty [] if no sound effects are needed
 - Do not add any text before or after the JSON
 
-Music examples by theme (keep the description as short and concise, don't overdo it):
-- Baby/parenting products: "soft soothing lullaby", "peaceful piano"
-- Automotive: "driving rock anthem", "energetic electronic beat"
-- Food/beverage: "upbeat pop music", "cheerful acoustic melody"
-- Technology: "modern electronic synthwave", "futuristic ambient sounds"
+Music examples by theme (don't parrot the examples, use your own words):
+- Baby/parenting products: "gentle lullaby feel", "warm soft piano"
+- Automotive: "bold guitar intro", "confident driving beat"
+- Food/beverage: "fresh crisp rhythm", "light bubbly melody"
+- Technology: "clean modern synth motif", "sleek minimal pulse"
 
 Sound effect examples by theme (keep the description as short and concise, don't overdo it):
 - Baby products: "baby giggling" (1-2s), "baby crying" (2-3s)
