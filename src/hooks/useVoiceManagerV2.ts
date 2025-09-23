@@ -85,6 +85,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
     lovo: 0,
     openai: 0,
     qwen: 0,
+    bytedance: 0,
     any: 0,
   });
 
@@ -280,6 +281,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
           lovo: 0, // Excluded
           openai: providers.find((p) => p.provider === "openai")?.count || 0,
           qwen: providers.find((p) => p.provider === "qwen")?.count || 0,
+          bytedance: providers.find((p) => p.provider === "bytedance")?.count || 0,
           any: providers.find((p) => p.provider === "any")?.count || 0,
         };
         setVoiceCounts(counts);

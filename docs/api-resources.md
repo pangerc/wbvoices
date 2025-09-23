@@ -25,3 +25,7 @@ https://docs.genny.lovo.ai/reference/async-tts
 ## Music
 
 https://www.loudly.com/developers/apps
+
+## Bytedance
+
+https://docs.byteplus.com/en/docs/byteplusvoice/unidirectional_tts_http

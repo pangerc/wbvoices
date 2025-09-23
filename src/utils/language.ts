@@ -51,7 +51,10 @@ export const areSameLanguageFamily = (
  * - OpenAI: "es" → "es" (neutral preserved in accent)
  */
 export const normalizeLanguageCode = (locale: string): string => {
-  if (!locale) return "es"; // Default fallback changed to Spanish for global coverage
+  // Type guard: ensure locale is a string
+  if (typeof locale !== 'string' || !locale) {
+    return "en"; // Default fallback for non-string or empty values
+  }
 
   // Handle completely malformed codes with regex
   if (!locale.match(/^[a-zA-Z]{2,3}(-[a-zA-Z]{2,3})?/)) {

@@ -570,7 +570,9 @@ export async function GET(req: NextRequest) {
 
       // For voices with verified_languages, create multiple entries (one per language)
       if (voice.verified_languages && voice.verified_languages.length > 0) {
-        return voice.verified_languages.map((langString) => {
+        return voice.verified_languages
+          .filter((lang) => typeof lang === 'string' && lang) // Filter out non-string values
+          .map((langString) => {
           const normalizedLanguage = normalizeLanguageCode(langString);
 
           return {
@@ -893,6 +895,185 @@ export async function GET(req: NextRequest) {
     });
 
     // For language filter
+    if (language) {
+      const filteredVoices = voicesByLanguage[language] || [];
+      return NextResponse.json({ voices: filteredVoices });
+    }
+
+    return NextResponse.json({ voicesByLanguage });
+  } else if (provider === "bytedance") {
+    // ByteDance TTS voices - hardcoded since they don't have a voice list API
+    const bytedanceVoices = [
+      // Standard Chinese Mandarin voices
+      {
+        id: "zh_male_baqiqingshu_mars_bigtts",
+        name: "Edward",
+        gender: "male",
+        language: "zh",
+        accent: "neutral",
+        description: "Deep, audiobook style",
+        age: "middle_aged",
+        use_case: "narration",
+      },
+      {
+        id: "zh_female_wenroushunv_mars_bigtts",
+        name: "Emma",
+        gender: "female",
+        language: "zh",
+        accent: "neutral",
+        description: "Soft and gentle",
+        age: "young",
+        use_case: "narration",
+      },
+      {
+        id: "zh_female_gaolengyujie_moon_bigtts",
+        name: "Charlotte",
+        gender: "female",
+        language: "zh",
+        accent: "neutral",
+        description: "Clear and professional",
+        age: "middle_aged",
+        use_case: "general",
+      },
+      {
+        id: "zh_female_linjianvhai_moon_bigtts",
+        name: "Lila",
+        gender: "female",
+        language: "zh",
+        accent: "neutral",
+        description: "Clear and youthful",
+        age: "young",
+        use_case: "general",
+      },
+      {
+        id: "zh_male_yuanboxiaoshu_moon_bigtts",
+        name: "Joseph",
+        gender: "male",
+        language: "zh",
+        accent: "neutral",
+        description: "Deep and articulate",
+        age: "middle_aged",
+        use_case: "general",
+      },
+      {
+        id: "zh_male_yangguangqingnian_moon_bigtts",
+        name: "George",
+        gender: "male",
+        language: "zh",
+        accent: "neutral",
+        description: "Clear and energetic",
+        age: "young",
+        use_case: "general",
+      },
+      // Cantonese voices
+      {
+        id: "zh_male_guozhoudege_moon_bigtts",
+        name: "Andrew",
+        gender: "male",
+        language: "zh", // All Chinese use "zh" language
+        accent: "cantonese",
+        description: "Clear Cantonese speaker",
+        age: "middle_aged",
+        use_case: "regional",
+      },
+      {
+        id: "zh_female_wanqudashu_moon_bigtts",
+        name: "Robert",
+        gender: "male",
+        language: "zh", // All Chinese use "zh" language
+        accent: "cantonese",
+        description: "Fun Cantonese style",
+        age: "middle_aged",
+        use_case: "regional",
+      },
+      // Sichuan dialect voice
+      {
+        id: "zh_female_daimengchuanmei_moon_bigtts",
+        name: "Elena",
+        gender: "female",
+        language: "zh",
+        accent: "sichuan",
+        description: "Sichuan dialect speaker",
+        age: "young",
+        use_case: "regional",
+      },
+      // Taiwanese voice
+      {
+        id: "zh_female_wanwanxiaohe_moon_bigtts",
+        name: "Isabella",
+        gender: "female",
+        language: "zh",
+        accent: "taiwanese",
+        description: "Vivid Taiwanese speaker",
+        age: "young",
+        use_case: "regional",
+      },
+      // Japanese voices
+      {
+        id: "multi_male_jingqiangkanye_moon_bigtts",
+        name: "かずね",
+        gender: "male",
+        language: "ja-JP",
+        accent: "neutral",
+        description: "Fun Japanese speaker",
+        age: "young",
+        use_case: "general",
+      },
+      {
+        id: "multi_female_shuangkuaisisi_moon_bigtts",
+        name: "はるこ",
+        gender: "female",
+        language: "ja-JP",
+        accent: "neutral",
+        description: "Vivid Japanese speaker",
+        age: "young",
+        use_case: "general",
+      },
+      {
+        id: "multi_male_wanqudashu_moon_bigtts",
+        name: "ひろし",
+        gender: "male",
+        language: "ja-JP",
+        accent: "neutral",
+        description: "Fun Japanese speaker",
+        age: "middle_aged",
+        use_case: "general",
+      },
+      {
+        id: "multi_female_gaolengvujie_moon_bigtts",
+        name: "あけみ",
+        gender: "female",
+        language: "ja-JP",
+        accent: "neutral",
+        description: "Clear Japanese speaker",
+        age: "young",
+        use_case: "general",
+      },
+    ];
+
+    // Group by language for consistency with other providers
+    const voicesByLanguage: { [key: string]: Voice[] } = {};
+
+    for (const voice of bytedanceVoices) {
+      if (!voicesByLanguage[voice.language]) {
+        voicesByLanguage[voice.language] = [];
+      }
+
+      voicesByLanguage[voice.language].push({
+        id: voice.id,
+        name: voice.name,
+        gender: voice.gender as "male" | "female",
+        sampleUrl: null, // ByteDance doesn't provide sample URLs
+        language: voice.language,
+        isMultilingual: false, // ByteDance voices are language-specific
+        accent: voice.accent,
+        age: voice.age,
+        description: voice.description,
+        use_case: voice.use_case,
+      } as Voice);
+    }
+
+    // If language is specified, filter voices
     if (language) {
       const filteredVoices = voicesByLanguage[language] || [];
       return NextResponse.json({ voices: filteredVoices });

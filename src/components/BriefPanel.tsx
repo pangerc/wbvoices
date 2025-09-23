@@ -930,6 +930,10 @@ export function BriefPanel({
                 value: "qwen",
                 label: "Qwen - Chinese AI voices optimized for Mandarin",
               },
+              {
+                value: "bytedance",
+                label: "ByteDance - Chinese TTS with Cantonese support",
+              },
             ]
               .filter((option) =>
                 availableProviders.some((p) => p.provider === option.value)

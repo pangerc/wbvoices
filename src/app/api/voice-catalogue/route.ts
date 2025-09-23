@@ -161,7 +161,7 @@ export async function GET(req: NextRequest) {
           const allVoices: unknown[] = [];
 
           // Load from non-excluded providers
-          const availableProviders = ['elevenlabs', 'openai', 'qwen'] as const;
+          const availableProviders = ['elevenlabs', 'lovo', 'openai', 'qwen', 'bytedance'] as const;
           const providersToLoad = availableProviders.filter(p => !excludeProviders.includes(p));
 
           for (const providerName of providersToLoad) {
@@ -221,6 +221,7 @@ export async function GET(req: NextRequest) {
               lovo: allVoices.filter(voice => (voice as { provider?: string }).provider === 'lovo').length,
               openai: allVoices.filter(voice => (voice as { provider?: string }).provider === 'openai').length,
               qwen: allVoices.filter(voice => (voice as { provider?: string }).provider === 'qwen').length,
+              bytedance: allVoices.filter(voice => (voice as { provider?: string }).provider === 'bytedance').length,
               any: 0 // Not used in selection
             };
 

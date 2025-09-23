@@ -7,7 +7,7 @@ export class ProviderSelector {
   /**
    * Dragon-slaying simple provider selection
    * Language-aware quality hierarchy:
-   * - Chinese: Qwen > ElevenLabs > OpenAI
+   * - Chinese: Qwen > ByteDance > ElevenLabs > OpenAI
    * - Other languages: ElevenLabs > OpenAI (Lovo disabled)
    * Dialog needs 2+ voices, ad_read needs 1+ voice
    */
@@ -34,10 +34,15 @@ export class ProviderSelector {
     
     const contextStr = [language, region, accent].filter(Boolean).join('+');
     
-    // Chinese language preference: Qwen > ElevenLabs > OpenAI
+    // Chinese language preference: Qwen > ByteDance > ElevenLabs > OpenAI
     if (isChineseLanguage && voiceCounts.qwen >= minVoices) {
       console.log(`✅ Selected qwen for ${contextStr} (${voiceCounts.qwen} >= ${minVoices})`);
       return "qwen";
+    }
+
+    if (isChineseLanguage && voiceCounts.bytedance >= minVoices) {
+      console.log(`✅ Selected bytedance for ${contextStr} (${voiceCounts.bytedance} >= ${minVoices})`);
+      return "bytedance";
     }
     
     // Check providers in quality order (Lovo disabled)
@@ -78,6 +83,12 @@ export class ProviderSelector {
         value: "qwen",
         label: `Qwen (${voiceCounts.qwen})`,
         disabled: voiceCounts.qwen === 0,
+        quality: "chinese-specialist" as const
+      },
+      {
+        value: "bytedance",
+        label: `ByteDance (${voiceCounts.bytedance})`,
+        disabled: voiceCounts.bytedance === 0,
         quality: "chinese-specialist" as const
       },
       {

@@ -78,19 +78,19 @@ export class VoiceCatalogueService {
   private getRegionForAccent(language: string, accent: string): string {
     const lang = normalizeLanguageCode(language).split('-')[0];
     const regions = accentRegions[lang];
-    
+
     if (!regions) {
       return 'global'; // Default region for languages without regional grouping
     }
-    
+
     // Find which region contains this accent
     for (const [regionCode, accents] of Object.entries(regions)) {
       if (accents.includes(accent)) {
         return regionCode;
       }
     }
-    
-    // If accent not found in any region, put it in 'other' 
+
+    // If accent not found in any region, put it in 'other'
     return 'other';
   }
   
@@ -150,7 +150,7 @@ export class VoiceCatalogueService {
     
     if (accent) {
       // Specific accent counts across all regions - but include all OpenAI voices for any accent
-      const totals: VoiceCounts = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, any: 0 };
+      const totals: VoiceCounts = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 };
       let openaiTotal = 0;
       
       const languageData = countsTower[language] || {};
@@ -163,6 +163,7 @@ export class VoiceCatalogueService {
           totals.elevenlabs += accentCounts.elevenlabs || 0;
           totals.lovo += accentCounts.lovo || 0;
           totals.qwen += accentCounts.qwen || 0;
+          totals.bytedance += accentCounts.bytedance || 0;
         }
         
         // For OpenAI, sum ALL accents in this region since they handle accents via instructions
@@ -172,12 +173,12 @@ export class VoiceCatalogueService {
       }
       
       totals.openai = openaiTotal;
-      totals.any = totals.elevenlabs + totals.lovo + totals.openai + totals.qwen;
+      totals.any = totals.elevenlabs + totals.lovo + totals.openai + totals.qwen + totals.bytedance;
       return totals;
     } else {
       // Sum all accents and regions for this language
       const languageData = countsTower[language] || {};
-      const totals: VoiceCounts = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, any: 0 };
+      const totals: VoiceCounts = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 };
       
       for (const region of Object.keys(languageData)) {
         const regionData = languageData[region] || {};
@@ -186,10 +187,11 @@ export class VoiceCatalogueService {
           totals.lovo += accentCounts.lovo || 0;
           totals.openai += accentCounts.openai || 0;
           totals.qwen += accentCounts.qwen || 0;
+          totals.bytedance += accentCounts.bytedance || 0;
         }
       }
       
-      totals.any = totals.elevenlabs + totals.lovo + totals.openai + totals.qwen;
+      totals.any = totals.elevenlabs + totals.lovo + totals.openai + totals.qwen + totals.bytedance;
       return totals;
     }
   }
@@ -208,7 +210,7 @@ export class VoiceCatalogueService {
     const allVoiceIds: string[] = [];
     
     // Collect voice IDs from all providers and accents for this language+region
-    for (const provider of ['elevenlabs', 'lovo', 'openai', 'qwen'] as ActualProvider[]) {
+    for (const provider of ['elevenlabs', 'lovo', 'openai', 'qwen', 'bytedance'] as ActualProvider[]) {
       const regionData = voiceTower[provider]?.[language]?.[region] || {};
       for (const accent of Object.keys(regionData)) {
         allVoiceIds.push(...regionData[accent]);
@@ -225,7 +227,7 @@ export class VoiceCatalogueService {
     const countsTower = await redis.get<CountsTower>(this.TOWER_KEYS.COUNTS) || {};
     const regionData = countsTower[language]?.[region] || {};
     
-    const totals: VoiceCounts = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, any: 0 };
+    const totals: VoiceCounts = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 };
     
     // Sum all accents in this region
     for (const accentCounts of Object.values(regionData)) {
@@ -233,9 +235,10 @@ export class VoiceCatalogueService {
       totals.lovo += accentCounts.lovo || 0;
       totals.openai += accentCounts.openai || 0;
       totals.qwen += accentCounts.qwen || 0;
+      totals.bytedance += accentCounts.bytedance || 0;
     }
     
-    totals.any = totals.elevenlabs + totals.lovo + totals.openai + totals.qwen;
+    totals.any = totals.elevenlabs + totals.lovo + totals.openai + totals.qwen + totals.bytedance;
     return totals;
   }
 
@@ -262,7 +265,7 @@ export class VoiceCatalogueService {
     }
     
     const excludeProviders = filters.excludeProviders || [];
-    const totalVoices = counts.elevenlabs + counts.openai + counts.qwen + 
+    const totalVoices = counts.elevenlabs + counts.openai + counts.qwen + counts.bytedance +
       (excludeProviders.includes('lovo') ? 0 : counts.lovo);
     
     const options = [
@@ -289,6 +292,12 @@ export class VoiceCatalogueService {
         count: counts.qwen,
         label: `Qwen (${counts.qwen} voices)`,
         disabled: counts.qwen === 0
+      },
+      {
+        provider: 'bytedance' as Provider,
+        count: counts.bytedance,
+        label: `ByteDance (${counts.bytedance} voices)`,
+        disabled: counts.bytedance === 0
       }
     ];
 
@@ -373,7 +382,8 @@ export class VoiceCatalogueService {
       elevenlabs: {},
       lovo: {},
       openai: {},
-      qwen: {}
+      qwen: {},
+      bytedance: {}
     } as VoiceTower;
     
     const dataTower: VoiceDataTower = {};
@@ -407,7 +417,7 @@ export class VoiceCatalogueService {
         countsTower[voice.language][region] = {};
       }
       if (!countsTower[voice.language][region][voice.accent]) {
-        countsTower[voice.language][region][voice.accent] = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, any: 0 };
+        countsTower[voice.language][region][voice.accent] = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 };
       }
       countsTower[voice.language][region][voice.accent][voice.provider]++;
     }
@@ -444,7 +454,7 @@ export class VoiceCatalogueService {
     const dataTower = await redis.get<VoiceDataTower>(this.TOWER_KEYS.DATA) || {};
     const voices = Object.values(dataTower);
     
-    const byProvider: VoiceCounts = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, any: 0 };
+    const byProvider: VoiceCounts = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 };
     
     for (const voice of voices) {
       byProvider[voice.provider]++;
