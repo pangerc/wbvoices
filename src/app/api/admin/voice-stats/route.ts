@@ -8,15 +8,23 @@ export async function GET() {
     const stats = await voiceCatalogue.getCacheStats();
 
     // Get the counts tower for detailed language breakdown
-    const countsTower = await redis.get('counts_tower') as any || {};
+    const countsTower = await redis.get('counts_tower') as Record<string, Record<string, Record<string, { elevenlabs?: number; lovo?: number; openai?: number; qwen?: number; bytedance?: number }>>> || {};
     const languages = Object.keys(countsTower).sort();
 
-    const languageBreakdown: any[] = [];
-    let totalVoicesByLanguage = 0;
+    const languageBreakdown: Array<{
+      language: string;
+      total: number;
+      providers: { elevenlabs: number; lovo: number; openai: number; qwen: number; bytedance: number };
+      regionCount: number;
+      accentCount: number;
+      regions: string[];
+      accents: string[];
+    }> = [];
+    // let totalVoicesByLanguage = 0; // Removed - unused variable
 
     for (const language of languages) {
       const languageData = countsTower[language];
-      let providerTotals = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0 };
+      const providerTotals = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0 };
 
       // Sum across all regions and accents
       for (const region of Object.keys(languageData)) {
@@ -32,7 +40,7 @@ export async function GET() {
       }
 
       const languageTotal = providerTotals.elevenlabs + providerTotals.lovo + providerTotals.openai + providerTotals.qwen + providerTotals.bytedance;
-      totalVoicesByLanguage += languageTotal;
+      // totalVoicesByLanguage += languageTotal; // Removed - unused variable
 
       // Get unique accents and regions
       const regions = Object.keys(languageData);
@@ -53,13 +61,19 @@ export async function GET() {
     }
 
     // Get sample voices
-    const dataTower = await redis.get('voice_data_tower') as any || {};
-    const sampleVoices = Object.values(dataTower).slice(0, 5).map((voice: any) => ({
-      name: voice.displayName,
-      language: voice.language,
-      accent: voice.accent,
-      gender: voice.gender,
-      provider: voice.provider
+    const dataTower = await redis.get('voice_data_tower') as Record<string, {
+      displayName?: string;
+      language?: string;
+      accent?: string;
+      gender?: string;
+      provider?: string;
+    }> || {};
+    const sampleVoices = Object.values(dataTower).slice(0, 5).map((voice) => ({
+      name: voice.displayName || 'Unknown',
+      language: voice.language || 'Unknown',
+      accent: voice.accent || 'Unknown',
+      gender: voice.gender || 'Unknown',
+      provider: voice.provider || 'Unknown'
     }));
 
     return NextResponse.json({

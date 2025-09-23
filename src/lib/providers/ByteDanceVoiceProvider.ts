@@ -68,22 +68,8 @@ export class ByteDanceVoiceProvider extends BaseAudioProvider {
   }
 
   private async generateAuthHeaders(appId: string, accessToken: string, secretKey: string): Promise<Record<string, string>> {
-    // Generate timestamp
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-
-    // Generate nonce (random string) using Web Crypto API
-    const nonceArray = new Uint8Array(16);
-    crypto.getRandomValues(nonceArray);
-    const nonce = Array.from(nonceArray, byte => byte.toString(16).padStart(2, '0')).join('');
-
-    // Create signature string
-    const signatureString = `${appId}${timestamp}${nonce}${secretKey}`;
-
-    // Generate signature using SHA256 with Web Crypto API
-    const encoder = new TextEncoder();
-    const data = encoder.encode(signatureString);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const signature = Array.from(new Uint8Array(hashBuffer), byte => byte.toString(16).padStart(2, '0')).join('');
+    // ByteDance uses fixed authentication headers, not signature-based auth
+    // secretKey parameter kept for interface compatibility but not used
 
     return {
       'X-Api-App-Id': appId,
