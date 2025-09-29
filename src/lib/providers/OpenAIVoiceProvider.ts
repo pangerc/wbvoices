@@ -170,12 +170,70 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
     };
   }
 
+  /**
+   * Override makeFetch to ensure no proxy headers leak through to OpenAI
+   * This prevents OpenAI from detecting the original request origin (e.g., Hong Kong)
+   * when using the proxy architecture
+   */
+  protected async makeFetch(url: string, options: RequestInit): Promise<Response> {
+    // Create completely clean headers - don't inherit any proxy-related headers
+    const cleanHeaders = new Headers();
+
+    // Only add the headers we explicitly want for OpenAI
+    if (options.headers) {
+      const headers = options.headers as HeadersInit;
+
+      if (headers instanceof Headers) {
+        // Only copy specific, safe headers
+        const authHeader = headers.get('Authorization');
+        const contentType = headers.get('Content-Type');
+
+        if (authHeader) cleanHeaders.set('Authorization', authHeader);
+        if (contentType) cleanHeaders.set('Content-Type', contentType);
+      } else if (typeof headers === 'object' && headers !== null) {
+        // Handle object format
+        const headerObj = headers as Record<string, string>;
+
+        if (headerObj['Authorization']) {
+          cleanHeaders.set('Authorization', headerObj['Authorization']);
+        }
+        if (headerObj['Content-Type']) {
+          cleanHeaders.set('Content-Type', headerObj['Content-Type']);
+        }
+      }
+    }
+
+    // Always set Accept header for JSON responses
+    cleanHeaders.set('Accept', 'application/json');
+
+    // Log what headers we're sending (for debugging)
+    console.log('🔒 OpenAI request headers (proxy-safe):', {
+      Authorization: cleanHeaders.get('Authorization') ? 'Bearer ***' : 'none',
+      'Content-Type': cleanHeaders.get('Content-Type'),
+      Accept: cleanHeaders.get('Accept'),
+      // Log to confirm we're NOT sending proxy headers
+      'X-Forwarded-For': 'stripped',
+      'X-Real-IP': 'stripped',
+      'CF-Connecting-IP': 'stripped'
+    });
+
+    // Make the fetch with clean headers only
+    const response = await fetch(url, {
+      ...options,
+      headers: cleanHeaders
+    });
+
+    console.log(`${this.providerName} API response status: ${response.status}`);
+
+    return response;
+  }
+
   public async processSuccessfulResponse(data: Record<string, unknown>): Promise<NextResponse> {
     const { audioArrayBuffer, text, voiceId, style, useCase, projectId } = data;
-    
+
     try {
       console.log("OpenAI: Uploading voice to Vercel Blob...");
-      
+
       const audioBlob = new Blob([audioArrayBuffer as ArrayBuffer], { type: 'audio/mpeg' });
       const blobResult = await uploadVoiceToBlob(
         audioBlob,
@@ -183,9 +241,9 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
         'openai',
         projectId as string
       );
-      
+
       console.log(`OpenAI voice uploaded to blob: ${blobResult.url}`);
-      
+
       return NextResponse.json({
         audio_url: blobResult.url,
         original_text: text,
@@ -200,7 +258,7 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
       });
     } catch (blobError) {
       console.error('OpenAI: Failed to upload voice to blob:', blobError);
-      
+
       // Fallback: return raw audio (this shouldn't happen in practice)
       return NextResponse.json(
         { error: "Failed to upload audio to blob storage" },
