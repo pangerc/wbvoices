@@ -6,7 +6,12 @@ import {
   GlassyTextarea,
   ResetButton,
   GenerateButton,
+  GlassTabBar,
+  GlassTab,
 } from "./ui";
+import { PronunciationEditor } from "./PronunciationEditor";
+
+type ScripterMode = 'script' | 'pronunciation';
 
 type ScripterPanelProps = {
   voiceTracks: VoiceTrack[];
@@ -35,6 +40,8 @@ export function ScripterPanel({
   resetForm,
   overrideVoices,
 }: ScripterPanelProps) {
+  const [mode, setMode] = useState<ScripterMode>('script');
+
   // 🔥 Clean server-side voice loading (matching BriefPanel architecture)
   const [serverVoices, setServerVoices] = useState<Voice[]>([]);
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
@@ -109,6 +116,7 @@ export function ScripterPanel({
 
   // Handle local reset
   const handleReset = () => {
+    setMode('script');
     resetForm();
   };
 
@@ -117,28 +125,64 @@ export function ScripterPanel({
       <div className="flex items-start justify-between gap-2 my-8">
         <div>
           <h1 className="text-4xl font-black mb-2">
-            Your Message, in the Right Voice
+            {mode === 'script'
+              ? 'Your Message, in the Right Voice'
+              : 'Brand Pronunciations'
+            }
           </h1>
           <h2 className=" font-medium mb-12  ">
-            Pick a voice and review or edit your script. Make it sound exactly
-            how you want.
+            {mode === 'script'
+              ? 'Pick a voice and review or edit your script. Make it sound exactly how you want.'
+              : 'Customize how brand names and words are pronounced in ElevenLabs voices.'
+            }
           </h2>
         </div>
         {/* Button group */}
         <div className="flex items-center gap-2">
           <ResetButton onClick={handleReset} />
-          <GenerateButton
-            onClick={() => generateAudio(selectedProvider as Provider, voiceTracks)}
-            disabled={!voiceTracks.some((t) => t.voice && t.text) || isLoadingVoices}
-            isGenerating={isGenerating}
-            text="Generate Voices"
-            generatingText="Generating Voices..."
-          />
+          {mode === 'script' && (
+            <GenerateButton
+              onClick={() => generateAudio(selectedProvider as Provider, voiceTracks)}
+              disabled={!voiceTracks.some((t) => t.voice && t.text) || isLoadingVoices}
+              isGenerating={isGenerating}
+              text="Generate Voices"
+              generatingText="Generating Voices..."
+            />
+          )}
         </div>
       </div>
 
-      <div className="space-y-4 ">
-        {voiceTracks.map((track, index) => {
+      {/* Mode Toggle - only show for ElevenLabs */}
+      {selectedProvider === 'elevenlabs' && (
+        <div className="flex justify-center mb-8">
+          <GlassTabBar>
+            <GlassTab
+              isActive={mode === 'script'}
+              onClick={() => setMode('script')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 10" height="16" width="16">
+                <path stroke={mode === 'script' ? "#2F7DFA" : "#FFFFFF"} strokeLinecap="round" strokeLinejoin="round" d="M2.92356 2.83667h4.15287" strokeWidth="1"></path>
+                <path stroke={mode === 'script' ? "#2F7DFA" : "#FFFFFF"} strokeLinecap="round" strokeLinejoin="round" d="M2.92356 5.16333h2.76858" strokeWidth="1"></path>
+                <path stroke={mode === 'script' ? "#2F7DFA" : "#FFFFFF"} strokeLinecap="round" strokeLinejoin="round" d="M9.5 6.5c0 0.26522 -0.10536 0.51957 -0.29289 0.70711C9.01957 7.39464 8.76522 7.5 8.5 7.5H5l-2.5 2v-2h-1c-0.26522 0 -0.51957 -0.10536 -0.707107 -0.29289C0.605357 7.01957 0.5 6.76522 0.5 6.5v-5c0 -0.26522 0.105357 -0.51957 0.292893 -0.707107C0.98043 0.605357 1.23478 0.5 1.5 0.5h7c0.26522 0 0.51957 0.105357 0.70711 0.292893C9.39464 0.98043 9.5 1.23478 9.5 1.5z" strokeWidth="1"></path>
+              </svg>
+            </GlassTab>
+            <GlassTab
+              isActive={mode === 'pronunciation'}
+              onClick={() => setMode('pronunciation')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 10" height="16" width="16">
+                <path stroke={mode === 'pronunciation' ? "#2F7DFA" : "#FFFFFF"} strokeLinecap="round" strokeLinejoin="round" d="M0.5 9.5h2a1 1 0 0 0 1 -1V6.49l0.66 0.004c0.463 0.003 0.84 -0.37 0.84 -0.833v0a0.833 0.833 0 0 0 -0.06 -0.31C3.96 2.9 2.95 0.5 0.5 0.5" strokeWidth="1"></path>
+                <path stroke={mode === 'pronunciation' ? "#2F7DFA" : "#FFFFFF"} strokeLinecap="round" strokeLinejoin="round" d="M7.161 5.736a1.97 1.97 0 0 1 0 1.996" strokeWidth="1"></path>
+                <path stroke={mode === 'pronunciation' ? "#2F7DFA" : "#FFFFFF"} strokeLinecap="round" strokeLinejoin="round" d="M8.354 3.968a3.91 3.91 0 0 1 0 5.532" strokeWidth="1"></path>
+              </svg>
+            </GlassTab>
+          </GlassTabBar>
+        </div>
+      )}
+
+      {mode === 'script' ? (
+        <div className="space-y-4 ">
+          {voiceTracks.map((track, index) => {
           // Generate unique options for this track
           const uniqueOptions = createUniqueOptions(index);
 
@@ -380,16 +424,20 @@ export function ScripterPanel({
             </div>
           );
         })}
-        <button
-          onClick={addVoiceTrack}
-          className="mt-8 px-2.5 py-1.5 text-sm border-b border-sky-800 bg-gradient-to-t from-sky-900/50 to-transparent  w-full text-sky-700 hover:bg-gradient-to-t  hover:text-white "
-        >
-          + Add Voice Track
-        </button>
-      </div>
+          <button
+            onClick={addVoiceTrack}
+            className="mt-8 px-2.5 py-1.5 text-sm border-b border-sky-800 bg-gradient-to-t from-sky-900/50 to-transparent  w-full text-sky-700 hover:bg-gradient-to-t  hover:text-white "
+          >
+            + Add Voice Track
+          </button>
 
-      {statusMessage && (
-        <p className="text-center  text-gray-500 pt-8">{statusMessage}</p>
+          {statusMessage && (
+            <p className="text-center  text-gray-500 pt-8">{statusMessage}</p>
+          )}
+        </div>
+      ) : (
+        /* Pronunciation Mode */
+        <PronunciationEditor />
       )}
     </div>
   );
