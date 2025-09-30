@@ -4,6 +4,27 @@ export type Provider = "any" | "lovo" | "elevenlabs" | "openai" | "qwen" | "byte
 
 export type { Language };
 
+// Pronunciation Dictionary Types
+export type PronunciationRuleType = 'alias' | 'phoneme';
+export type PhoneticAlphabet = 'ipa' | 'cmu' | 'x-sampa';
+
+export type PronunciationRule = {
+  stringToReplace: string;
+  type: PronunciationRuleType;
+  alias?: string;
+  phoneme?: string;
+  alphabet?: PhoneticAlphabet;
+};
+
+export type PronunciationDictionary = {
+  id: string;
+  versionId: string;
+  name: string;
+  rules: PronunciationRule[];
+  description?: string;
+  createdAt: string;
+};
+
 export type AIModel = "gpt4" | "gpt5" | "gemini" | "moonshot" | "qwen";
 
 export type Voice = {

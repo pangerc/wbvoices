@@ -12,7 +12,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
   readonly providerType = "voice" as const;
 
   validateParams(body: Record<string, unknown>): ValidationResult {
-    const { text, voiceId, style, useCase, projectId } = body;
+    const { text, voiceId, style, useCase, projectId, pronunciationDictionaryId, pronunciationVersionId } = body;
 
     if (!text || typeof text !== "string") {
       return {
@@ -36,6 +36,8 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
         style: typeof style === "string" ? style : undefined,
         useCase: typeof useCase === "string" ? useCase : undefined,
         projectId: typeof projectId === "string" ? projectId : undefined,
+        pronunciationDictionaryId: typeof pronunciationDictionaryId === "string" ? pronunciationDictionaryId : undefined,
+        pronunciationVersionId: typeof pronunciationVersionId === "string" ? pronunciationVersionId : undefined,
       },
     };
   }
@@ -59,7 +61,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
     params: Record<string, unknown>,
     credentials: AuthCredentials
   ): Promise<ProviderResponse> {
-    const { text, voiceId, style, useCase } = params;
+    const { text, voiceId, style, useCase, pronunciationDictionaryId, pronunciationVersionId } = params;
     const { apiKey } = credentials;
 
     // Strip language suffix from voice ID if present (e.g., "zzBTsLBFM6AOJtkr1e9b-pl" -> "zzBTsLBFM6AOJtkr1e9b")
@@ -259,11 +261,32 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       use_speaker_boost: voiceSettings.use_speaker_boost,
     };
 
-    const requestBody = {
+    const requestBody: {
+      text: string;
+      model_id: string;
+      voice_settings: typeof apiVoiceSettings;
+      pronunciation_dictionary_locators?: Array<{
+        pronunciation_dictionary_id: string;
+        version_id?: string;
+      }>;
+    } = {
       text: textStr,
       model_id: "eleven_multilingual_v2",
       voice_settings: apiVoiceSettings,
     };
+
+    // Add pronunciation dictionary if provided
+    if (pronunciationDictionaryId && typeof pronunciationDictionaryId === 'string') {
+      requestBody.pronunciation_dictionary_locators = [
+        {
+          pronunciation_dictionary_id: pronunciationDictionaryId,
+          ...(pronunciationVersionId && typeof pronunciationVersionId === 'string' ? {
+            version_id: pronunciationVersionId
+          } : {}),
+        },
+      ];
+      console.log(`  📖 Using pronunciation dictionary: ${pronunciationDictionaryId}`);
+    }
 
     console.log(
       `  📡 ElevenLabs request body:`,
