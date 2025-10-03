@@ -802,7 +802,7 @@ export default function ProjectWorkspace() {
           handleGenerateMusic(
             llmResponseData.musicPrompt,
             musicProvider,
-            adDuration + 5
+            Math.max(30, adDuration + 5)
           )
         );
       }
@@ -907,6 +907,7 @@ export default function ProjectWorkspace() {
               voiceTracks={formManager.voiceTracks}
               updateVoiceTrack={handleVoiceTrackUpdate}
               addVoiceTrack={formManager.addVoiceTrack}
+              removeVoiceTrack={formManager.removeVoiceTrack}
               generateAudio={handleGenerateVoices}
               isGenerating={formManager.isGenerating}
               statusMessage={formManager.statusMessage}
@@ -928,6 +929,7 @@ export default function ProjectWorkspace() {
               musicProvider={musicProvider}
               setMusicProvider={setMusicProvider}
               resetForm={formManager.resetMusicPrompt}
+              onTrackSelected={() => setSelectedTab(4)}
             />
           )}
 

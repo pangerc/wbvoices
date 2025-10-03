@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       (await redis.get<string[]>(PROJECT_KEYS.userProjects(sessionId))) || [];
     const updatedProjectIds = existingProjectIds.includes(project.id)
       ? existingProjectIds
-      : [project.id, ...existingProjectIds].slice(0, 20); // Keep max 20 projects
+      : [project.id, ...existingProjectIds]; // No limit - multi-region pilot (HK, LATAM, Poland)
 
     await redis.set(PROJECT_KEYS.userProjects(sessionId), updatedProjectIds);
     console.log(

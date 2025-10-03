@@ -25,7 +25,12 @@ After exploring ElevenLabs' API constraints, we opted for a **single global dict
    - No complex sync logic
    - Fast, simple, reliable
 
-3. **Backend Auto-Application**: Zero user touchpoints
+3. **Integrated UI**: Embedded in ScripterPanel
+   - Contextual access when using ElevenLabs
+   - Tab toggle pattern (script ↔ pronunciation)
+   - No separate admin page needed
+
+4. **Backend Auto-Application**: Zero user touchpoints
    - No dictionary selection UI
    - No project-level storage
    - Just works™
@@ -49,9 +54,11 @@ After exploring ElevenLabs' API constraints, we opted for a **single global dict
 ### Flow
 
 ```
-Admin (/admin/pronunciations)
+ScripterPanel (when ElevenLabs is selected)
   ↓
-Add/edit rules in simple UI
+Switch to "Pronunciation" tab
+  ↓
+Add/edit rules in integrated UI
   ↓
 Save → localStorage + ElevenLabs API
   ↓
@@ -90,8 +97,9 @@ Correct pronunciation in output
 **Core utilities:**
 - `src/utils/elevenlabs-pronunciation.ts` - CRUD operations for dictionaries
 
-**Admin UI:**
-- `src/app/admin/pronunciations/page.tsx` - Simple rule editor
+**UI Components:**
+- `src/components/PronunciationEditor.tsx` - Pronunciation rule editor component
+- `src/components/ScripterPanel.tsx` - Integrates pronunciation editor via tab toggle (only visible when ElevenLabs provider is selected)
 
 **API routes:**
 - `src/app/api/pronunciation/route.ts` - GET (list), POST (create)
@@ -101,15 +109,16 @@ Correct pronunciation in output
 **Provider:**
 - `src/lib/providers/ElevenLabsVoiceProvider.ts` - Accepts dictionary ID, applies to TTS
 
-### Admin UI Flow
+### Editor UI Flow
 
-1. **Load**: Fetch rules from localStorage on mount
-2. **Edit**: Add/remove/update rules in state
-3. **Save**:
+1. **Access**: Available in ScripterPanel when ElevenLabs is selected as voice provider
+2. **Load**: Fetch rules from localStorage on mount
+3. **Edit**: Add/remove/update rules in state
+4. **Save**:
    - Delete old dictionary on ElevenLabs (if exists)
    - Create new dictionary with current rules
    - Save rules + dictionary ID to localStorage
-4. **Delete All**: Remove from both ElevenLabs and localStorage
+5. **Delete All**: Remove from both ElevenLabs and localStorage
 
 ### Backend Auto-Application
 
@@ -196,11 +205,15 @@ DELETE /api/pronunciation/{id}
 
 ### Adding a Brand Pronunciation
 
-1. Go to `/admin/pronunciations`
-2. Click "+ Add Rule"
-3. Enter: "YSL" → "igrek es el"
-4. Click "Save Rules"
-5. Done - applies to all future voice generation
+1. In any project, navigate to the "Scripter" step
+2. Select "ElevenLabs" as your voice provider
+3. Click the "Pronunciation" tab (speech icon)
+4. Click "+ Add Rule"
+5. Enter: "YSL" → "igrek es el"
+6. Click "Save Rules"
+7. Done - applies to all future voice generation
+
+**Note**: The pronunciation editor is only visible when ElevenLabs is selected as the voice provider, since it's ElevenLabs-specific functionality.
 
 ### Testing Pronunciation
 

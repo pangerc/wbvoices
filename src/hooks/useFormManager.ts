@@ -20,6 +20,7 @@ export interface FormManagerState {
   setVoiceTracks: (tracks: VoiceTrack[]) => void;
   updateVoiceTrack: (index: number, updates: Partial<VoiceTrack>) => void;
   addVoiceTrack: () => void;
+  removeVoiceTrack: (index: number) => void;
 
   // Generation state actions
   setIsGeneratingCreative: (generating: boolean) => void;
@@ -69,6 +70,16 @@ export function useFormManager(): FormManagerState {
     setVoiceTracks([...voiceTracks, { voice: null, text: "" }]);
   };
 
+  const removeVoiceTrack = (index: number) => {
+    const newTracks = voiceTracks.filter((_, i) => i !== index);
+    // Ensure we always have at least one track
+    if (newTracks.length === 0) {
+      setVoiceTracks([{ voice: null, text: "" }]);
+    } else {
+      setVoiceTracks(newTracks);
+    }
+  };
+
   // Reset functions
   const resetVoiceTracks = () => {
     setVoiceTracks([{ voice: null, text: "" }]);
@@ -105,6 +116,7 @@ export function useFormManager(): FormManagerState {
     setVoiceTracks,
     updateVoiceTrack,
     addVoiceTrack,
+    removeVoiceTrack,
     setIsGeneratingCreative,
     setIsGenerating,
     setIsGeneratingMusic,

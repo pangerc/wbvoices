@@ -15,3 +15,5 @@ export * from "./VolumeToggleButton";
 export * from "./GlassTabBar";
 export * from "./GlassTab";
 export * from "./FileUpload";
+export * from "./VoiceCombobox";
+export * from "./TestVoiceButton";

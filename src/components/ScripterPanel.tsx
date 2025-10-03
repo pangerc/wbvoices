@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Voice, VoiceTrack, Provider } from "@/types";
 import { getFlagCode } from "@/utils/language";
 import {
-  GlassyListbox,
   GlassyTextarea,
   ResetButton,
   GenerateButton,
   GlassTabBar,
   GlassTab,
+  VoiceCombobox,
+  TestVoiceButton,
 } from "./ui";
 import { PronunciationEditor } from "./PronunciationEditor";
 
@@ -17,6 +18,7 @@ type ScripterPanelProps = {
   voiceTracks: VoiceTrack[];
   updateVoiceTrack: (index: number, updates: Partial<VoiceTrack>) => void;
   addVoiceTrack: () => void;
+  removeVoiceTrack: (index: number) => void;
   generateAudio: (provider?: Provider, voiceTracks?: VoiceTrack[]) => void;
   isGenerating: boolean;
   statusMessage?: string;
@@ -31,6 +33,7 @@ export function ScripterPanel({
   voiceTracks,
   updateVoiceTrack,
   addVoiceTrack,
+  removeVoiceTrack,
   generateAudio,
   isGenerating,
   statusMessage,
@@ -89,30 +92,6 @@ export function ScripterPanel({
 
     loadVoices();
   }, [selectedLanguage, selectedProvider, campaignFormat, overrideVoices]);
-  
-
-  // Create unique options with a counter to ensure uniqueness
-  const createUniqueOptions = (index: number) => {
-    const uniqueOptions: Array<{
-      value: string;
-      label: string;
-      flag?: string;
-      originalVoiceId: string;
-    }> = [];
-
-    let counter = 0;
-    for (const voice of voices) {
-      uniqueOptions.push({
-        value: `track${index}-voice${counter}-${voice.id}`,
-        label: voice.name,
-        flag: getFlagCode(voice.language || selectedLanguage),
-        originalVoiceId: voice.id,
-      });
-      counter++;
-    }
-
-    return uniqueOptions;
-  };
 
   // Handle local reset
   const handleReset = () => {
@@ -183,51 +162,21 @@ export function ScripterPanel({
       {mode === 'script' ? (
         <div className="space-y-4 ">
           {voiceTracks.map((track, index) => {
-          // Generate unique options for this track
-          const uniqueOptions = createUniqueOptions(index);
-
-          // Find the current selected option
-          const selectedOption = track.voice
-            ? uniqueOptions.find(
-                (opt) => opt.originalVoiceId === track.voice?.id
-              )?.value
-            : "";
-
           return (
             <div
               key={`track-${index}`}
               className="space-y-4 md:grid md:grid-cols-3 md:gap-4 "
             >
               <div className="w-full">
-                <GlassyListbox
+                {/* Voice Combobox */}
+                <VoiceCombobox
                   label="Voice"
-                  value={selectedOption || ""}
-                  onChange={(uniqueValue) => {
-                    // Find the selected option by its unique value
-                    const option = uniqueOptions.find(
-                      (opt) => opt.value === uniqueValue
-                    );
-                    if (option) {
-                      // Find the original voice from the original voice ID
-                      const selectedVoice = voices.find(
-                        (v) => v.id === option.originalVoiceId
-                      );
-                      updateVoiceTrack(index, { voice: selectedVoice || null });
-                    }
-                  }}
-                  options={uniqueOptions.map((opt) => ({
-                    value: opt.value,
-                    label: opt.label,
-                    flag: opt.flag,
-                  }))}
+                  value={track.voice}
+                  onChange={(voice) => updateVoiceTrack(index, { voice })}
+                  voices={voices}
                   disabled={isLoadingVoices}
+                  loading={isLoadingVoices}
                 />
-                {isLoadingVoices && (
-                  <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-                    <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                    <span>Loading voices...</span>
-                  </div>
-                )}
 
                 {/* Three neutral gray lines: speaker metadata + description + creative direction */}
                 {track.voice && (
@@ -380,16 +329,58 @@ export function ScripterPanel({
               </div>
 
               <div className="col-span-2 ">
-                <GlassyTextarea
-                  label="Script"
-                  value={track.text}
-                  onChange={(e) =>
-                    updateVoiceTrack(index, { text: e.target.value })
-                  }
-                  placeholder="Enter the script for this voice..."
-                  className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
-                  minRows={3}
-                />
+                {/* Script + Preview + Remove Buttons */}
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <GlassyTextarea
+                      label="Script"
+                      value={track.text}
+                      onChange={(e) =>
+                        updateVoiceTrack(index, { text: e.target.value })
+                      }
+                      placeholder="Enter the script for this voice..."
+                      className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+                      minRows={3}
+                    />
+                  </div>
+                  {/* Action buttons aligned with label */}
+                  <div className="flex flex-col gap-2">
+                    <label className="block mb-2 text-white opacity-0 pointer-events-none">
+                      &nbsp;
+                    </label>
+                    <TestVoiceButton
+                      voice={track.voice}
+                      text={track.text}
+                      style={track.style}
+                      useCase={track.useCase}
+                      voiceInstructions={track.voiceInstructions}
+                      provider={selectedProvider as Provider}
+                      disabled={!track.voice || !track.text.trim()}
+                    />
+                    {/* Remove button - only show if more than 1 track */}
+                    {voiceTracks.length > 1 && (
+                      <button
+                        onClick={() => removeVoiceTrack(index)}
+                        className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+                        title="Remove this voice track"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
 
                 {/* Timing instructions for this voice track */}
                 {track.playAfter && (

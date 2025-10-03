@@ -83,6 +83,16 @@ export type SoundFxPrompt = {
   duration?: number;
 };
 
+export type LibraryMusicTrack = {
+  projectId: string;
+  projectTitle: string;
+  musicPrompt: string;
+  musicProvider: MusicProvider;
+  musicUrl: string;
+  createdAt: number;
+  duration?: number;
+};
+
 // Project History Types
 export type ProjectBrief = {
   clientDescription: string;
