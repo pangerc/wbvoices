@@ -352,7 +352,7 @@ export function MixerPanel({
 
       // Upload to blob storage and update project
       const localPreviewUrl = URL.createObjectURL(blob);
-      const { permanentUrl, downloadUrl } = await uploadAndUpdateProject(blob, localPreviewUrl);
+      const { downloadUrl } = await uploadAndUpdateProject(blob, localPreviewUrl);
 
       // Create download link using Vercel's downloadUrl for forced download
       const a = document.createElement("a");

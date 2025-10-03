@@ -67,9 +67,10 @@ export class ByteDanceVoiceProvider extends BaseAudioProvider {
     };
   }
 
-  private async generateAuthHeaders(appId: string, accessToken: string, secretKey: string): Promise<Record<string, string>> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async generateAuthHeaders(appId: string, accessToken: string, _secretKey: string): Promise<Record<string, string>> {
     // ByteDance uses fixed authentication headers, not signature-based auth
-    // secretKey parameter kept for interface compatibility but not used
+    // _secretKey parameter kept for interface compatibility but not used
 
     return {
       'X-Api-App-Id': appId,

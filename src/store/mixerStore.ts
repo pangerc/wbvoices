@@ -29,6 +29,9 @@ export type MixerTrack = {
     // Add support for explicit timing in metadata
     startTime?: number;
     endTime?: number;
+    // Track source for music/soundfx (e.g., 'library', 'upload', 'generated')
+    source?: string;
+    sourceProjectId?: string;
   };
   // UI state
   isLoading?: boolean;

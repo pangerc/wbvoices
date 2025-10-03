@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Provider, Voice, Language, CampaignFormat } from "@/types";
-import { ProviderSelector, VoiceCounts } from "@/utils/providerSelection";
+import { Provider, Voice, Language } from "@/types";
+import { VoiceCounts } from "@/utils/providerSelection";
 import {
   hasRegionalAccents,
   getLanguageRegions,
