@@ -67,11 +67,12 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
     // Strip language suffix from voice ID if present (e.g., "zzBTsLBFM6AOJtkr1e9b-pl" -> "zzBTsLBFM6AOJtkr1e9b")
     const cleanVoiceId = (voiceId as string).replace(/-[a-z]{2}(-[A-Z]{2})?$/, '');
 
-    console.log(`🎭 ElevenLabs API Call:`);
+    console.log(`🎭 ElevenLabs V3 API Call:`);
     console.log(`  Text: "${(text as string).substring(0, 50)}..."`);
     console.log(`  Voice ID: ${voiceId} (cleaned: ${cleanVoiceId})`);
     console.log(`  Style: ${style || "none"}`);
     console.log(`  Use Case: ${useCase || "none"}`);
+    console.log(`  Has emotional tags: ${/\[.*?\]/.test(text as string)}`);
 
     // Build voice settings based on emotional dimensions
     // ElevenLabs accepts: stability, similarity_boost, style (0-1), speed (double), use_speaker_boost (boolean)
@@ -93,103 +94,104 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
 
     const label = normalizeLabel(style);
 
-    // Compact preset table to translate qualitative labels into numeric controls
+    // V3 preset table - stability must be 0.0, 0.5, or 1.0
+    // 0.0 = Creative (high expressiveness), 0.5 = Natural (balanced), 1.0 = Robust (stable)
     const PRESETS: Record<string, Settings> = {
-      // upbeat and bright
+      // upbeat and bright - use Creative (0.0) for high expressiveness
       cheerful: {
-        stability: 0.3,
+        stability: 0.0,
         similarity_boost: 0.85,
         style: 0.5,
         speed: 1.08,
         use_speaker_boost: false,
       },
       happy: {
-        stability: 0.3,
+        stability: 0.0,
         similarity_boost: 0.85,
         style: 0.5,
         speed: 1.08,
         use_speaker_boost: false,
       },
       excited: {
-        stability: 0.28,
+        stability: 0.0,
         similarity_boost: 0.85,
         style: 0.55,
         speed: 1.1,
         use_speaker_boost: false,
       },
 
-      // high energy promo reads
+      // high energy promo reads - use Creative (0.0)
       energetic: {
-        stability: 0.25,
+        stability: 0.0,
         similarity_boost: 0.85,
         style: 0.6,
         speed: 1.12,
         use_speaker_boost: false,
       },
       dynamic: {
-        stability: 0.25,
+        stability: 0.0,
         similarity_boost: 0.85,
         style: 0.6,
         speed: 1.12,
         use_speaker_boost: false,
       },
 
-      // calm and intimate
+      // calm and intimate - use Robust (1.0) for stability
       calm: {
-        stability: 0.85,
+        stability: 1.0,
         similarity_boost: 0.65,
         style: 0.15,
         speed: 0.96,
         use_speaker_boost: false,
       },
       gentle: {
-        stability: 0.85,
+        stability: 1.0,
         similarity_boost: 0.65,
         style: 0.15,
         speed: 0.96,
         use_speaker_boost: false,
       },
       soothing: {
-        stability: 0.88,
+        stability: 1.0,
         similarity_boost: 0.65,
         style: 0.12,
         speed: 0.95,
         use_speaker_boost: false,
       },
 
-      // credible, brand-safe
+      // credible, brand-safe - use Robust (1.0)
       serious: {
-        stability: 0.75,
+        stability: 1.0,
         similarity_boost: 0.75,
         style: 0.2,
         speed: 0.99,
         use_speaker_boost: true,
       },
       professional: {
-        stability: 0.75,
+        stability: 1.0,
         similarity_boost: 0.75,
         style: 0.2,
         speed: 0.99,
         use_speaker_boost: true,
       },
       authoritative: {
-        stability: 0.78,
+        stability: 1.0,
         similarity_boost: 0.78,
         style: 0.22,
         speed: 0.98,
         use_speaker_boost: true,
       },
 
-      // warm human read
+      // warm human read - use Natural (0.5) for balance
       empathetic: {
-        stability: 0.55,
+        stability: 0.5,
         similarity_boost: 0.8,
         style: 0.4,
         speed: 1.0,
         use_speaker_boost: false,
       },
       warm: {
-        stability: 0.55,
+        stability: 0.5,
         similarity_boost: 0.8,
         style: 0.4,
         speed: 1.0,
@@ -198,21 +200,21 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
 
       // pacing controls
       fast_read: {
-        stability: 0.45,
+        stability: 0.0, // Creative for expressiveness
         similarity_boost: 0.8,
         style: 0.35,
         speed: 1.15,
         use_speaker_boost: false,
       },
       slow_read: {
-        stability: 0.75,
+        stability: 1.0, // Robust for stability
         similarity_boost: 0.7,
         style: 0.2,
         speed: 0.9,
         use_speaker_boost: false,
       },
 
-      // default/neutral
+      // default/neutral - use Natural (0.5)
       neutral: {
         stability: 0.5,
         similarity_boost: 0.75,
@@ -247,10 +249,10 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
         ` use_speaker_boost=${voiceSettings.use_speaker_boost}`
     );
 
-    // Check text length - ElevenLabs has a limit of around 500 characters per request
+    // Check text length - ElevenLabs V3 supports up to 3,000 characters per request
     const textStr = text as string;
-    if (textStr.length > 500) {
-      console.warn(`⚠️ Text length (${textStr.length}) exceeds recommended limit of 500 characters`);
+    if (textStr.length > 3000) {
+      console.warn(`⚠️ Text length (${textStr.length}) exceeds V3 limit of 3,000 characters`);
     }
 
     // Remove speed parameter as it's not supported in current ElevenLabs API
@@ -271,7 +273,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       }>;
     } = {
       text: textStr,
-      model_id: "eleven_multilingual_v2",
+      model_id: "eleven_v3",
       voice_settings: apiVoiceSettings,
     };
 

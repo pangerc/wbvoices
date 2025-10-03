@@ -17,3 +17,4 @@ export * from "./GlassTab";
 export * from "./FileUpload";
 export * from "./VoiceCombobox";
 export * from "./TestVoiceButton";
+export * from "./VoiceInstructionsDialog";

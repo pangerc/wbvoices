@@ -8,6 +8,7 @@ import {
   GlassTab,
   VoiceCombobox,
   TestVoiceButton,
+  VoiceInstructionsDialog,
 } from "./ui";
 import { PronunciationEditor } from "./PronunciationEditor";
 
@@ -43,6 +44,7 @@ export function ScripterPanel({
   overrideVoices,
 }: ScripterPanelProps) {
   const [mode, setMode] = useState<ScripterMode>('script');
+  const [editingInstructionsIndex, setEditingInstructionsIndex] = useState<number | null>(null);
 
   // 🔥 Clean server-side voice loading (matching BriefPanel architecture)
   const [serverVoices, setServerVoices] = useState<Voice[]>([]);
@@ -216,10 +218,23 @@ export function ScripterPanel({
                           track.style && `Tone=${track.style}`,
                           track.useCase && `Use=${track.useCase}`,
                           track.voiceInstructions &&
-                            `Instructions=${track.voiceInstructions}`,
+                            <span
+                              key="instructions"
+                              onClick={() => setEditingInstructionsIndex(index)}
+                              className="cursor-pointer hover:text-wb-blue transition-colors inline-flex items-center gap-1"
+                              title="Click to edit voice instructions"
+                            >
+                              Instructions={track.voiceInstructions}
+                              <svg className="w-3 h-3 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </span>,
                         ]
                           .filter(Boolean)
-                          .join(" · ")}
+                          .reduce((acc: React.ReactNode[], curr, i) =>
+                            i === 0 ? [curr] : [...acc, " · ", curr],
+                            []
+                          )}
                       </p>
                     )}
                   </div>
@@ -428,6 +443,20 @@ export function ScripterPanel({
       ) : (
         /* Pronunciation Mode */
         <PronunciationEditor />
+      )}
+
+      {/* Voice Instructions Dialog */}
+      {editingInstructionsIndex !== null && (
+        <VoiceInstructionsDialog
+          isOpen={true}
+          onClose={() => setEditingInstructionsIndex(null)}
+          voiceInstructions={voiceTracks[editingInstructionsIndex]?.voiceInstructions}
+          onSave={(instructions) => {
+            updateVoiceTrack(editingInstructionsIndex, {
+              voiceInstructions: instructions,
+            });
+          }}
+        />
       )}
     </div>
   );
