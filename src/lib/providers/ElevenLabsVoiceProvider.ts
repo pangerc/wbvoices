@@ -255,12 +255,13 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       console.warn(`⚠️ Text length (${textStr.length}) exceeds V3 limit of 3,000 characters`);
     }
 
-    // Remove speed parameter as it's not supported in current ElevenLabs API
+    // V3 supports speed parameter (empirically validated)
     const apiVoiceSettings = {
       stability: voiceSettings.stability,
       similarity_boost: voiceSettings.similarity_boost,
       style: voiceSettings.style,
       use_speaker_boost: voiceSettings.use_speaker_boost,
+      speed: voiceSettings.speed,
     };
 
     const requestBody: {

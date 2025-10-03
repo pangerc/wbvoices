@@ -13,8 +13,33 @@ import { Voice, CampaignFormat } from "@/types";
 export class ElevenLabsV3PromptStrategy extends BasePromptStrategy {
   readonly provider = "elevenlabs" as const;
 
-  buildStyleInstructions(_context: PromptContext): string {
+  buildStyleInstructions(context: PromptContext): string {
+    const { pacing } = context;
+
+    // Build pacing guidance if specified
+    let pacingGuidance = "";
+    if (pacing === "fast") {
+      pacingGuidance = `
+🐰 PACING REQUIREMENT: FAST-PACED DELIVERY
+Create a fast-paced, energetic delivery with urgency and excitement.
+RECOMMENDED baseline tones: fast_read, energetic, dynamic, excited
+AVOID slow presets: calm, soothing, gentle, slow_read
+Use shorter sentences and action-oriented language.
+The voice should feel urgent and compelling.
+`;
+    } else if (pacing === "slow") {
+      pacingGuidance = `
+🐢 PACING REQUIREMENT: SLOW-PACED DELIVERY
+Create a slow, deliberate delivery with thoughtful pauses and contemplative tone.
+RECOMMENDED baseline tones: slow_read, calm, gentle, soothing
+AVOID fast presets: energetic, dynamic, excited, fast_read
+Use longer sentences with ellipses (...) for natural pauses.
+The voice should feel relaxed and unhurried.
+`;
+    }
+
     return `ElevenLabs V3 Model - Dual Emotional Control System:
+${pacingGuidance ? pacingGuidance : ""}
 
 BASELINE TONE (description field):
 Choose ONE baseline tone to set the overall voice character:

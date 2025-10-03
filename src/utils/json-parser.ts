@@ -76,8 +76,17 @@ export type ParsedCreativeResponse = {
 
 // Add this helper function near the top of the file
 function cleanDescription(description: string): string {
-  // Remove duration indicators like (30s), (15s), etc.
-  return description.replace(/\s*\(\d+s\)\s*$/i, "");
+  // Remove various duration indicator patterns:
+  // - "(2s)", "(30s)" - simple seconds
+  // - "(1-2s)", "(2-3s)" - range in seconds
+  // - "(2 seconds)", "(30 seconds)" - spelled out
+  // - "(short, 2 seconds)" - descriptive with duration
+  // - "(short)" - just descriptive words
+  return description
+    .replace(/\s*\(\d+-?\d*\s*s(?:econds?)?\)\s*$/i, "") // (2s), (1-2s), (2 seconds)
+    .replace(/\s*\((?:short|long|brief),?\s*\d+\s*s(?:econds?)?\)\s*$/i, "") // (short, 2 seconds)
+    .replace(/\s*\((?:short|long|brief)\)\s*$/i, "") // (short)
+    .trim();
 }
 
 // Add this function to enforce different voices in dialogues

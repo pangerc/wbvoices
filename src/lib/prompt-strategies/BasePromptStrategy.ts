@@ -1,4 +1,4 @@
-import { Voice, Language, Provider, CampaignFormat } from "@/types";
+import { Voice, Language, Provider, CampaignFormat, Pacing } from "@/types";
 
 /**
  * Context object passed to prompt strategies for building prompts
@@ -16,6 +16,7 @@ export interface PromptContext {
   accent?: string;
   cta?: string;
   dialectInstructions: string;
+  pacing?: Pacing;
 }
 
 /**
@@ -224,9 +225,24 @@ Music examples by theme (don't parrot the examples, use your own words):
 - Technology: "clean modern synth motif", "sleek minimal pulse"
 
 Sound effect examples by theme (keep the description as short and concise, don't overdo it):
-- Baby products: "baby giggling" (1-2s), "baby crying" (2-3s)
-- Automotive: "car engine starting" (2s), "car door closing" (1s)
-- Food/beverage: "soda can opening" (1s), "sizzling pan" (2s)
-- Technology: "notification chime" (1s), "keyboard typing" (2s)`;
+- Baby products: "baby giggling", "baby crying softly"
+- Automotive: "car engine starting", "car door closing"
+- Food/beverage: "soda can opening", "sizzling pan"
+- Technology: "notification chime", "keyboard typing"
+
+IMPORTANT: Do NOT include duration info in sound effect descriptions (e.g., don't write "2s" or "short"). Use the separate "duration" field instead.
+
+Sound effect placement guidelines:
+- Use "playAfter": "start" for INTRO sounds that set the scene (e.g., car engine starting, door opening, notification chime)
+- Use "playAfter": "previous" for OUTRO sounds that follow the last voice (e.g., door closing, satisfying click)
+- Intro sounds create anticipation and context BEFORE the voice speaks
+- Outro sounds reinforce the message AFTER the voice finishes
+- Consider: Does this sound introduce the ad (start) or conclude it (previous)?
+
+Examples of intro (start) vs outro (previous) sounds:
+- Automotive: car engine starting (start) vs car door closing (previous)
+- Tech: notification arriving (start) vs keyboard confirm sound (previous)
+- Food: sizzle starting (start) vs satisfying bite sound (previous)
+- Retail: door chime (start) vs cash register (previous)`;
   }
 }

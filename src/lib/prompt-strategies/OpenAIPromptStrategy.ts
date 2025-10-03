@@ -8,7 +8,7 @@ export class OpenAIPromptStrategy extends BasePromptStrategy {
   readonly provider = "openai" as const;
 
   buildStyleInstructions(context: PromptContext): string {
-    const { accent, region } = context;
+    const { accent, region, pacing } = context;
 
     let instructions = `For OpenAI TTS, provide detailed "voiceInstructions" string for each voice using this structure (this part remains in English):
 Voice Affect: <brief description of overall voice character>
@@ -22,6 +22,19 @@ Pauses: <where to pause and for how long>
 Example: "Voice Affect: Energetic spokesperson with confident authority; Tone: Enthusiastic and persuasive; Pacing: Fast-paced with quick delivery, slowing slightly for key product benefits; Emotion: Excited and compelling; Emphasis: Strong emphasis on brand name and call-to-action; Pronunciation: Clear, crisp articulation; Pauses: Brief pause before call-to-action for impact."
 
 Consider commercial pacing needs - fast for urgency, moderate for clarity, slow for luxury/premium brands.`;
+
+    // Add pacing-specific guidance if specified
+    if (pacing === "fast") {
+      instructions += `\n\n🐰 PACING REQUIREMENT: FAST
+IMPORTANT: Include in voiceInstructions field: "Pacing: Rapid, energetic delivery with quick tempo and urgency"
+Use short, punchy sentences with dynamic rhythm.
+The overall delivery should feel exciting and time-sensitive.`;
+    } else if (pacing === "slow") {
+      instructions += `\n\n🐢 PACING REQUIREMENT: SLOW
+IMPORTANT: Include in voiceInstructions field: "Pacing: Slow, deliberate delivery with thoughtful pauses and relaxed tempo"
+Use longer sentences with natural pauses indicated by commas and periods.
+The overall delivery should feel unhurried and contemplative.`;
+    }
 
     if (accent && accent !== "neutral") {
       instructions += ` Include accent guidance in Pronunciation (e.g., "Pronunciation: ${accent}${

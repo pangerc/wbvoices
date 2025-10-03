@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
       region,
       accent,
       cta,
+      pacing,
     } = body;
 
     // Validate required fields
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
       accent,
       cta,
       dialectInstructions,
+      pacing: pacing || undefined, // Convert null to undefined for "normal" pacing
     };
 
     // Generate prompts using strategy (includes gender fix!)

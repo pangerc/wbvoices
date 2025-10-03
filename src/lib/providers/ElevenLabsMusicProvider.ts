@@ -76,7 +76,7 @@ export class ElevenLabsMusicProvider extends BaseAudioProvider {
         },
         body: JSON.stringify({
           prompt: `${prompt as string}. Instrumental only, no vocals or singing.`,
-          musicLengthMs: (duration as number) * 1000, // Convert seconds to milliseconds
+          music_length_ms: (duration as number) * 1000, // Convert seconds to milliseconds
         }),
       });
 

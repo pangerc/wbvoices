@@ -74,8 +74,9 @@ async function generateAudio(
   text: string,
   voiceId: string,
   modelId: 'eleven_multilingual_v2' | 'eleven_v3',
-  projectId: string
-): Promise<{ audio_url: string; model: string }> {
+  projectId: string,
+  speedTest?: 'fast' | 'slow' | null
+): Promise<{ audio_url: string; model: string; speed_tested?: number }> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
 
   if (!apiKey) {
@@ -88,16 +89,32 @@ async function generateAudio(
   console.log(`🎭 Generating audio with ${modelId}:`);
   console.log(`  Voice ID: ${cleanVoiceId}`);
   console.log(`  Text length: ${text.length} chars`);
+  if (speedTest) {
+    console.log(`  🧪 SPEED TEST: ${speedTest}`);
+  }
+
+  // Build voice settings - test if V3 accepts speed parameter
+  const voiceSettings: Record<string, unknown> = {
+    stability: 0.5,
+    similarity_boost: 0.75,
+    style: 0.3,
+    use_speaker_boost: false,
+  };
+
+  // Add speed parameter for testing
+  let speedValue: number | undefined;
+  if (speedTest === 'fast') {
+    speedValue = 1.15; // fast_read preset value
+    voiceSettings.speed = speedValue;
+  } else if (speedTest === 'slow') {
+    speedValue = 0.9; // slow_read preset value
+    voiceSettings.speed = speedValue;
+  }
 
   const requestBody = {
     text,
     model_id: modelId,
-    voice_settings: {
-      stability: 0.5,
-      similarity_boost: 0.75,
-      style: 0.3,
-      use_speaker_boost: false,
-    },
+    voice_settings: voiceSettings,
   };
 
   const apiUrl = `https://api.elevenlabs.io/v1/text-to-speech/${cleanVoiceId}?output_format=mp3_44100_128`;
@@ -136,6 +153,7 @@ async function generateAudio(
   return {
     audio_url: blobResult.url,
     model: modelId,
+    ...(speedValue ? { speed_tested: speedValue } : {}),
   };
 }
 
@@ -190,6 +208,42 @@ export async function POST(req: NextRequest) {
     );
     console.log(`✅ V3 audio generated: ${v3Result.audio_url}`);
 
+    // Step 5: 🧪 TEST FAST SPEED with V3
+    console.log('🧪 Testing V3 with FAST speed parameter (1.15)...');
+    let v3FastResult;
+    let fastSpeedError = null;
+    try {
+      v3FastResult = await generateAudio(
+        polishTextWithTags,
+        voiceId,
+        'eleven_v3',
+        `${projectId}-v3-fast`,
+        'fast'
+      );
+      console.log(`✅ V3 FAST audio generated: ${v3FastResult.audio_url}`);
+    } catch (error) {
+      fastSpeedError = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`❌ V3 FAST speed test failed: ${fastSpeedError}`);
+    }
+
+    // Step 6: 🧪 TEST SLOW SPEED with V3
+    console.log('🧪 Testing V3 with SLOW speed parameter (0.9)...');
+    let v3SlowResult;
+    let slowSpeedError = null;
+    try {
+      v3SlowResult = await generateAudio(
+        polishTextWithTags,
+        voiceId,
+        'eleven_v3',
+        `${projectId}-v3-slow`,
+        'slow'
+      );
+      console.log(`✅ V3 SLOW audio generated: ${v3SlowResult.audio_url}`);
+    } catch (error) {
+      slowSpeedError = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`❌ V3 SLOW speed test failed: ${slowSpeedError}`);
+    }
+
     // Return comparison results
     return NextResponse.json({
       success: true,
@@ -210,10 +264,29 @@ export async function POST(req: NextRequest) {
           text_used: polishTextWithTags,
           description: 'V3 model (with emotional tags)',
         },
+        v3_fast_speed: fastSpeedError ? {
+          error: fastSpeedError,
+          description: '🧪 V3 with speed=1.15 - FAILED (expected if V3 doesn\'t support speed parameter)',
+        } : {
+          audio_url: v3FastResult?.audio_url,
+          model: 'eleven_v3',
+          speed_tested: v3FastResult?.speed_tested,
+          description: '🧪 V3 with speed=1.15 - SUCCESS (unexpected! V3 accepts speed parameter)',
+        },
+        v3_slow_speed: slowSpeedError ? {
+          error: slowSpeedError,
+          description: '🧪 V3 with speed=0.9 - FAILED (expected if V3 doesn\'t support speed parameter)',
+        } : {
+          audio_url: v3SlowResult?.audio_url,
+          model: 'eleven_v3',
+          speed_tested: v3SlowResult?.speed_tested,
+          description: '🧪 V3 with speed=0.9 - SUCCESS (unexpected! V3 accepts speed parameter)',
+        },
       },
       instructions: {
-        message: 'Listen to both audio samples to compare emotional expressiveness',
-        expected_difference: 'V3 should have better emotional range and more natural intonation with emotional tags',
+        message: 'Listen to all audio samples to compare emotional expressiveness AND pacing',
+        expected_difference: 'V3 should have better emotional range. Speed parameter tests show if V3 supports pacing control.',
+        speed_test_explanation: 'If speed tests FAIL, V3 requires LLM-based pacing control (text/punctuation). If SUCCESS, we can use speed parameter.',
       },
     });
 

@@ -1,4 +1,4 @@
-import { Voice, AIModel } from "@/types";
+import { Voice, AIModel, Pacing } from "@/types";
 
 export async function generateCreativeCopy(
   aiModel: AIModel,
@@ -11,7 +11,8 @@ export async function generateCreativeCopy(
   provider?: string,
   region?: string,
   accent?: string,
-  cta?: string | null
+  cta?: string | null,
+  pacing?: Pacing | null
 ): Promise<string> {
   try {
     const response = await fetch("/api/ai/generate", {
@@ -31,6 +32,7 @@ export async function generateCreativeCopy(
         region,
         accent,
         cta,
+        pacing,
       }),
     });
 

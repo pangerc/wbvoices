@@ -4,6 +4,9 @@ import { MixerTrack } from "@/store/mixerStore";
 // This contains the original 472-line heuristic-based timeline calculation logic
 // Kept as a fallback for when AI Timeline Orchestrator fails or is disabled
 
+// Natural overlap between sequential voice tracks for more organic pacing
+const NATURAL_VOICE_OVERLAP = 0.15; // seconds
+
 export type LegacyCalculatedTrack = MixerTrack & {
   actualStartTime: number;
   actualDuration: number;
@@ -256,13 +259,32 @@ export class LegacyTimelineCalculator {
             prevTrack.actualStartTime + prevTrack.actualDuration;
           let startTime = Math.round(prevEndTime * 100) / 100; // Round to 2 decimal places
 
-          // Apply overlap if specified
-          if (voiceTrack.overlap && voiceTrack.overlap > 0) {
+          // Apply overlap if specified, or use natural overlap for organic pacing
+          if (voiceTrack.overlap !== undefined && voiceTrack.overlap > 0) {
+            // Explicit overlap specified - use it
             startTime = Math.max(
               prevTrack.actualStartTime,
               prevEndTime - voiceTrack.overlap
             );
             startTime = Math.round(startTime * 100) / 100; // Round again after calculation
+            console.log(
+              `Applying explicit overlap of ${voiceTrack.overlap}s between tracks`
+            );
+          } else if (voiceTrack.overlap === undefined) {
+            // No explicit overlap - apply natural overlap for more organic pacing
+            startTime = Math.round((prevEndTime - NATURAL_VOICE_OVERLAP) * 100) / 100;
+            // Safety check: ensure minimum gap between tracks (at least 0.5s of actual content)
+            const minStartTime = prevTrack.actualStartTime + 0.5;
+            if (startTime < minStartTime) {
+              startTime = minStartTime;
+              console.log(
+                `Natural overlap would be too aggressive, using minimum gap instead`
+              );
+            } else {
+              console.log(
+                `Applying natural overlap of ${NATURAL_VOICE_OVERLAP}s for organic pacing`
+              );
+            }
           }
 
           console.log(
@@ -286,6 +308,58 @@ export class LegacyTimelineCalculator {
     // Calculate the total voice duration for determining music length
     const voiceEndTime = lastVoiceEndTime > 0 ? lastVoiceEndTime : 3; // Default to at least 3 seconds
 
+    // Check if there are sound effects that play after voices end
+    // We need to know this before positioning music to decide on fade-out extension
+    let maxSoundFxEndTime = 0;
+
+    // Check intro sound effects (already processed)
+    introSoundFxTracks.forEach((track) => {
+      const startTime = trackStartTimes.get(track.id) || 0;
+      const duration = getTrackDuration(track);
+      maxSoundFxEndTime = Math.max(maxSoundFxEndTime, startTime + duration);
+    });
+
+    // Estimate when other sound effects will end
+    soundFxTracks.forEach((track) => {
+      // Skip already processed intro tracks
+      if (trackStartTimes.has(track.id)) return;
+
+      // Estimate based on playAfter relationships
+      if (track.playAfter === "start" || track.playAfter === "previous") {
+        // These are positioned relative to start or previous SFX
+        // They'll likely be near the beginning, not affecting music fade
+        const duration = getTrackDuration(track);
+        maxSoundFxEndTime = Math.max(maxSoundFxEndTime, duration);
+      } else if (track.playAfter) {
+        // Sound effect plays after a specific track (likely a voice track)
+        const refTrack = result.find((t) => t.id === track.playAfter);
+        if (refTrack) {
+          const refEndTime = refTrack.actualStartTime + refTrack.actualDuration;
+          const sfxDuration = getTrackDuration(track);
+          const sfxEndTime = refEndTime + sfxDuration - (track.overlap || 0);
+          maxSoundFxEndTime = Math.max(maxSoundFxEndTime, sfxEndTime);
+        }
+      } else if (track.startTime !== undefined && track.startTime >= 0) {
+        // Explicit start time
+        const sfxDuration = getTrackDuration(track);
+        const sfxEndTime = track.startTime + sfxDuration;
+        maxSoundFxEndTime = Math.max(maxSoundFxEndTime, sfxEndTime);
+      } else {
+        // Default placement at end of voices
+        const sfxDuration = getTrackDuration(track);
+        maxSoundFxEndTime = Math.max(maxSoundFxEndTime, lastVoiceEndTime + sfxDuration);
+      }
+    });
+
+    // Determine content end time and whether to extend music for fade-out
+    const MUSIC_FADEOUT_EXTENSION = 2.0; // seconds
+    const contentEndTime = Math.max(voiceEndTime, maxSoundFxEndTime);
+    const hasSoundFxAfterVoices = maxSoundFxEndTime > voiceEndTime + 0.1; // Small tolerance
+
+    console.log(
+      `Content timing: voices end at ${voiceEndTime}s, sound effects end at ${maxSoundFxEndTime}s`
+    );
+
     // Position music tracks - typically at the beginning with full timeline duration
     if (musicTracks.length > 0) {
       // We'll use just the first music track
@@ -294,16 +368,25 @@ export class LegacyTimelineCalculator {
         // Use the actual music duration from the audio element if available
         const actualDuration = getTrackDuration(musicTrack);
 
-        // For visualization in the timeline, limit music to match voice content
-        // This prevents the timeline from being stretched too far by very long music tracks
-        // We'll make music stop about 0.5s before the last voice track ends
-        const visualDuration =
-          voiceEndTime > 0
-            ? Math.min(actualDuration, voiceEndTime)
-            : Math.min(actualDuration, 30); // Reasonable default if no voice tracks
+        // Calculate music duration based on content
+        let targetMusicEndTime = contentEndTime;
+
+        // If no sound effects play after voices, extend music for smooth fade-out
+        if (!hasSoundFxAfterVoices) {
+          targetMusicEndTime = voiceEndTime + MUSIC_FADEOUT_EXTENSION;
+          console.log(
+            `No ending sound effects detected - extending music ${MUSIC_FADEOUT_EXTENSION}s for fade-out`
+          );
+        } else {
+          console.log(
+            `Sound effects play after voices - music will end around voice end time`
+          );
+        }
+
+        const visualDuration = Math.min(actualDuration, targetMusicEndTime);
 
         console.log(
-          `Positioning music track ${musicTrack.label} with display duration ${visualDuration}s (actual: ${actualDuration}s, voice end: ${voiceEndTime}s)`
+          `Positioning music track ${musicTrack.label} with duration ${visualDuration}s (actual: ${actualDuration}s, target end: ${targetMusicEndTime}s)`
         );
 
         result.push({

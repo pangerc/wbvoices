@@ -186,6 +186,23 @@ export async function createMix(
     const gainNode = offlineCtx.createGain();
     gainNode.gain.value = timing.gain;
 
+    // Apply fade-out for music tracks
+    if (timing.type === "music") {
+      const FADEOUT_DURATION = 2.0; // seconds
+      const fadeOutStartTime = timing.end - FADEOUT_DURATION;
+
+      // Set the gain to stay constant until fade-out starts
+      gainNode.gain.setValueAtTime(timing.gain, timing.start);
+      gainNode.gain.setValueAtTime(timing.gain, fadeOutStartTime);
+
+      // Apply exponential fade-out from full gain to near-zero
+      gainNode.gain.exponentialRampToValueAtTime(0.001, timing.end);
+
+      console.log(
+        `Applied fade-out to music track from ${fadeOutStartTime}s to ${timing.end}s`
+      );
+    }
+
     source.connect(gainNode);
     gainNode.connect(offlineCtx.destination);
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 
 interface SplitGenerateButtonProps {
   onAutoGenerate: () => void;
@@ -19,27 +19,7 @@ export function SplitGenerateButton({
 }: SplitGenerateButtonProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(event.target as Node)
-      ) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    if (isDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isDropdownOpen]);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleAutoGenerate = () => {
     onAutoModeChange(true);
@@ -57,7 +37,10 @@ export function SplitGenerateButton({
   const generatingText = autoMode ? "Auto Generating..." : "Generating...";
 
   return (
-    <div className="relative flex items-center gap-1">
+    <div
+      ref={containerRef}
+      className="relative flex items-center gap-1"
+    >
       {/* Main generate button - organic curve on right */}
       <button
         onClick={handleAutoGenerate}
@@ -131,7 +114,6 @@ export function SplitGenerateButton({
 
       {/* Dropdown toggle button - organic curve on left, larger size */}
       <button
-        ref={buttonRef}
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
         disabled={disabled || isGenerating}
         className="group relative px-2 py-3 text-white border border-white/40 hover:border-white/70 focus:outline-none focus:ring-1 focus:ring-wb-blue/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-all duration-500 ease-out"
@@ -143,7 +125,7 @@ export function SplitGenerateButton({
           boxShadow:
             "0 0 20px rgba(255,255,255,0.1), inset 0 1px 3px rgba(255,255,255,0.25), inset 0 -1px 2px rgba(0,0,0,0.1)",
           width: "2.8rem",
-          height: "2.8rem",
+          height: "3rem",
         }}
       >
         {/* Crystalline highlights */}
