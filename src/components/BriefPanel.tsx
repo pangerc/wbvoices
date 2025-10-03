@@ -96,6 +96,8 @@ export type BriefPanelProps = {
   setSelectedAiModel: (model: AIModel) => void;
   selectedCTA: string | null;
   setSelectedCTA: (cta: string | null) => void;
+  selectedPacing: Pacing | null;
+  setSelectedPacing: (pacing: Pacing | null) => void;
 
   // Voice manager (new interface!)
   voiceManager: VoiceManagerV2State;
@@ -194,6 +196,8 @@ export function BriefPanel({
   setSelectedAiModel,
   selectedCTA,
   setSelectedCTA,
+  selectedPacing,
+  setSelectedPacing,
   voiceManager,
   onGenerateCreative,
   onGenerateCreativeAuto,
@@ -202,7 +206,6 @@ export function BriefPanel({
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [languageQuery, setLanguageQuery] = useState("");
-  const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(null);
 
   // 🚀 AUTO Mode state - tracks which mode was last used (for button display)
   const [autoModeEnabled, setAutoModeEnabled] = useState(true);

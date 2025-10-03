@@ -108,6 +108,7 @@ export type ProjectBrief = {
   selectedAiModel: AIModel;
   musicProvider?: MusicProvider; // Optional for backwards compatibility
   selectedCTA?: string | null; // Optional for backwards compatibility
+  selectedPacing?: Pacing | null; // Optional for backwards compatibility
 };
 
 export type ProjectMetadata = {

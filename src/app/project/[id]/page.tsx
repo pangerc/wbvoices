@@ -12,6 +12,7 @@ import {
   Language,
   Voice,
   Provider,
+  Pacing,
 } from "@/types";
 
 // Type for LLM response data that needs to be saved
@@ -61,6 +62,7 @@ export default function ProjectWorkspace() {
   const [selectedAiModel, setSelectedAiModel] = useState<AIModel>("gpt4");
   const [musicProvider, setMusicProvider] = useState<MusicProvider>("loudly");
   const [selectedCTA, setSelectedCTA] = useState<string | null>(null);
+  const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(null);
 
   // Custom hooks for complex logic
   // 🧪 DEMON HUNTING: THE MOMENT OF TRUTH - Re-enabling prime suspect!
@@ -112,6 +114,7 @@ export default function ProjectWorkspace() {
           setSelectedAiModel(project.brief.selectedAiModel || "gpt4");
           setMusicProvider(project.brief.musicProvider || "loudly");
           setSelectedCTA(project.brief.selectedCTA || null);
+          setSelectedPacing(project.brief.selectedPacing || null);
 
           // IMPORTANT: Restore voice manager state
           // Redis-powered voice system restoration
@@ -368,6 +371,7 @@ export default function ProjectWorkspace() {
           selectedAiModel,
           musicProvider,
           selectedCTA,
+          selectedPacing,
         },
         voiceTracks: dataToSave.voiceTracks,
         musicPrompt: dataToSave.musicPrompt,
@@ -597,6 +601,7 @@ export default function ProjectWorkspace() {
         selectedAiModel,
         musicProvider,
         selectedCTA,
+        selectedPacing,
       };
 
       try {
@@ -895,6 +900,8 @@ export default function ProjectWorkspace() {
               setSelectedAiModel={setSelectedAiModel}
               selectedCTA={selectedCTA}
               setSelectedCTA={setSelectedCTA}
+              selectedPacing={selectedPacing}
+              setSelectedPacing={setSelectedPacing}
               voiceManager={voiceManager}
               onGenerateCreative={handleGenerateCreative}
               onGenerateCreativeAuto={handleGenerateCreativeAuto}
