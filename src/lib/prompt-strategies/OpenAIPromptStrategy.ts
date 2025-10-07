@@ -10,31 +10,28 @@ export class OpenAIPromptStrategy extends BasePromptStrategy {
   buildStyleInstructions(context: PromptContext): string {
     const { accent, region, pacing } = context;
 
-    let instructions = `For OpenAI TTS, provide detailed "voiceInstructions" string for each voice using this structure (this part remains in English):
-Voice Affect: <brief description of overall voice character>
-Tone: <brief description of emotional tone>
-Pacing: <specify speed - slow/moderate/fast/rapid, with any tempo changes>
-Emotion: <emotional delivery style>
-Emphasis: <what words/phrases to highlight and how>
-Pronunciation: <articulation style and clarity>
-Pauses: <where to pause and for how long>
+    // Build pacing-specific guidance
+    let pacingGuidance = "";
+    if (pacing === "fast") {
+      pacingGuidance =
+        " REQUIRED (client specified it for this ad): Use FAST pacing - rapid, energetic delivery with quick tempo and urgency.";
+    } else if (pacing === "slow") {
+      pacingGuidance =
+        " REQUIRED (client specified it for this ad): Use SLOW pacing - deliberate delivery with thoughtful pauses and relaxed tempo.";
+    }
 
-Example: "Voice Affect: Energetic spokesperson with confident authority; Tone: Enthusiastic and persuasive; Pacing: Fast-paced with quick delivery, slowing slightly for key product benefits; Emotion: Excited and compelling; Emphasis: Strong emphasis on brand name and call-to-action; Pronunciation: Clear, crisp articulation; Pauses: Brief pause before call-to-action for impact."
+    let instructions = `For OpenAI TTS, provide detailed "voiceInstructions" string for each voice using this structure (IMPORTANT: this part remains in English):
+Voice Affect: <detailed description of overall voice character and personality>
+Tone: <specific emotional tone with context and nuance>
+Pacing: <precise speed description with tempo changes and rhythm details>${pacingGuidance}
+Emotion: <emotional delivery style with specific feelings and expressions>
+Emphasis: <specific words/phrases to highlight and exact delivery method>
+Pronunciation: <articulation style, clarity level, and speech characteristics>
+Pauses: <exact placement and duration of pauses with purpose>
+
+Example: "Voice Affect: Calm, composed, and reassuring; Tone: Sincere, empathetic, and gently authoritative; Pacing: Steady and moderate; unhurried yet professional; Emotion: Genuine empathy and understanding; Emphasis: Clear emphasis on key reassurances and benefits; Pronunciation: Clear and precise, emphasizing important words; Pauses: Brief pauses after offering assistance, highlighting willingness to listen."
 
 Consider commercial pacing needs - fast for urgency, moderate for clarity, slow for luxury/premium brands.`;
-
-    // Add pacing-specific guidance if specified
-    if (pacing === "fast") {
-      instructions += `\n\n🐰 PACING REQUIREMENT: FAST
-IMPORTANT: Include in voiceInstructions field: "Pacing: Rapid, energetic delivery with quick tempo and urgency"
-Use short, punchy sentences with dynamic rhythm.
-The overall delivery should feel exciting and time-sensitive.`;
-    } else if (pacing === "slow") {
-      instructions += `\n\n🐢 PACING REQUIREMENT: SLOW
-IMPORTANT: Include in voiceInstructions field: "Pacing: Slow, deliberate delivery with thoughtful pauses and relaxed tempo"
-Use longer sentences with natural pauses indicated by commas and periods.
-The overall delivery should feel unhurried and contemplative.`;
-    }
 
     if (accent && accent !== "neutral") {
       instructions += ` Include accent guidance in Pronunciation (e.g., "Pronunciation: ${accent}${

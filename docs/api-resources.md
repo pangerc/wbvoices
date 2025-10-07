@@ -5,6 +5,8 @@
 ### ElevenLabs
 
 https://elevenlabs.io/docs/api-reference/text-to-speech/convert
+https://elevenlabs.io/docs/best-practices/prompting/eleven-v3
+https://elevenlabs.io/docs/models#eleven-v3-alpha
 
 ### Lovo
 

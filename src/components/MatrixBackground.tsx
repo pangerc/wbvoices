@@ -127,7 +127,7 @@ export function MatrixBackground({
         if (opacity > 0) {
           const screenX = x * CELL_SIZE;
           const screenY = y * CELL_SIZE;
-          ctx.fillStyle = `rgba(178, 211, 255, ${opacity})`; // #B2D3FF in RGBA
+          ctx.fillStyle = `rgba(178, 211, 255, ${opacity * 0.5})`; // #B2D3FF in RGBA
           ctx.fillRect(screenX, screenY, DOT_SIZE, DOT_SIZE);
         }
       }

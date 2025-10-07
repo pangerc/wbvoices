@@ -50,10 +50,15 @@ Include this as "description" field (REQUIRED) - this provides consistent voice 
 EMOTIONAL TAGS (inline in text):
 Layer emotional moments using inline tags for fine-grained control:
 
-Available tags:
-- Laughter: [laughs], [chuckles], [giggles], [laughs harder], [starts laughing], [wheezing]
-- Vocal effects: [whispers], [sighs], [exhales], [gasps], [pauses], [snorts], [coughs]
-- Emotions: [sarcastic], [excited], [curious], [crying], [mischievously]
+Available audio tags (use these as a guide - you can infer similar, contextually appropriate tags):
+
+**Emotional/Delivery Directions:**
+[happy], [sad], [excited], [angry], [whisper], [annoyed], [appalled], [thoughtful], [surprised], [sarcastic], [curious], [crying], [mischievously]
+
+**Non-verbal Sounds:**
+[laughing], [chuckles], [sighs], [clears throat], [short pause], [long pause], [exhales sharply], [inhales deeply], [laughs], [laughs harder], [starts laughing], [wheezing], [whispers], [exhales], [snorts]
+
+**Note:** You can create similar emotional/delivery directions and non-verbal sounds as needed for the context.
 
 Punctuation controls:
 - Ellipses (...) - Creates pauses and thoughtful delivery
