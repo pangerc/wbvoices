@@ -24,7 +24,10 @@ type ScripterPanelProps = {
   statusMessage?: string;
   selectedLanguage: string;
   selectedProvider: string;
+  selectedRegion: string | null;
+  selectedAccent: string;
   campaignFormat: string;
+  hasRegions: boolean;
   resetForm: () => void;
   overrideVoices?: Voice[] | null;
 };
@@ -39,7 +42,10 @@ export function ScripterPanel({
   statusMessage,
   selectedLanguage,
   selectedProvider,
+  selectedRegion,
+  selectedAccent,
   campaignFormat,
+  hasRegions,
   resetForm,
   overrideVoices,
 }: ScripterPanelProps) {
@@ -69,6 +75,17 @@ export function ScripterPanel({
         const url = new URL("/api/voice-catalogue", window.location.origin);
         url.searchParams.set("operation", "filtered-voices");
         url.searchParams.set("language", selectedLanguage);
+
+        // Only set region if it's not "all" and has regions
+        if (selectedRegion && selectedRegion !== "all" && hasRegions) {
+          url.searchParams.set("region", selectedRegion);
+        }
+
+        // Set accent if not neutral
+        if (selectedAccent && selectedAccent !== "neutral") {
+          url.searchParams.set("accent", selectedAccent);
+        }
+
         url.searchParams.set("provider", selectedProvider);
         url.searchParams.set("campaignFormat", campaignFormat);
         url.searchParams.set("exclude", "lovo"); // Exclude Lovo (poor quality)
@@ -92,7 +109,7 @@ export function ScripterPanel({
     };
 
     loadVoices();
-  }, [selectedLanguage, selectedProvider, campaignFormat, overrideVoices]);
+  }, [selectedLanguage, selectedProvider, selectedRegion, selectedAccent, campaignFormat, hasRegions, overrideVoices]);
 
   // Handle local reset
   const handleReset = () => {

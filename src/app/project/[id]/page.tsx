@@ -920,7 +920,10 @@ export default function ProjectWorkspace() {
               statusMessage={formManager.statusMessage}
               selectedLanguage={voiceManager.selectedLanguage}
               selectedProvider={voiceManager.selectedProvider}
+              selectedRegion={voiceManager.selectedRegion}
+              selectedAccent={voiceManager.selectedAccent}
               campaignFormat={campaignFormat}
+              hasRegions={voiceManager.hasRegions}
               resetForm={formManager.resetVoiceTracks}
               overrideVoices={restoredVoices}
             />
