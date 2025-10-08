@@ -769,6 +769,7 @@ export function normalizeAccent(
     mx: "mexican",
     mexican: "mexican",
     argentina: "argentinian",
+    argentine: "argentinian", // 🔥 ADDED: ElevenLabs uses "argentine" not "argentinian"
     ar: regionHint === "ar" ? "argentinian" : "saudi", // Context-sensitive
 
     // 🗡️ EXPLICIT REGION CODE MAPPINGS (for URL extraction)
