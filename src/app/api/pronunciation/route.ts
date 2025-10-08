@@ -10,12 +10,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   createDictionary,
   listDictionaries,
-  PronunciationRule,
+  PronunciationRule as ApiPronunciationRule,
   PronunciationRuleType,
   PhoneticAlphabet,
   validateRules,
 } from '@/utils/elevenlabs-pronunciation';
-import { PronunciationDictionary } from '@/types';
+import { PronunciationDictionary, PronunciationRule } from '@/types';
 import { getRedis } from '@/lib/redis';
 
 export const runtime = 'edge';
@@ -35,7 +35,7 @@ export async function GET() {
     // Fetch rules from Redis
     console.log('📖 Fetching pronunciation rules from Redis...');
     const redis = getRedis();
-    const rulesData = await redis.get<{ rules: unknown[]; dictionaryId: string }>(PRONUNCIATION_RULES_KEY);
+    const rulesData = await redis.get<{ rules: PronunciationRule[]; dictionaryId: string }>(PRONUNCIATION_RULES_KEY);
 
     // Transform API response to match our type structure
     const transformedDictionaries: PronunciationDictionary[] = dictionaries.map((dict) => ({
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Transform our camelCase rules to ElevenLabs snake_case format
-    const apiRules: PronunciationRule[] = rules.map((rule: { stringToReplace?: string; string_to_replace?: string; type: string; alias?: string; phoneme?: string; alphabet?: string }) => ({
+    const apiRules: ApiPronunciationRule[] = rules.map((rule: { stringToReplace?: string; string_to_replace?: string; type: string; alias?: string; phoneme?: string; alphabet?: string }) => ({
       string_to_replace: (rule.stringToReplace || rule.string_to_replace) as string,
       type: rule.type as PronunciationRuleType,
       ...(rule.alias && { alias: rule.alias }),

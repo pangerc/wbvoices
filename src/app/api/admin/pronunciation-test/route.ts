@@ -13,7 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createDictionary, PronunciationRule, deleteDictionary } from '@/utils/elevenlabs-pronunciation';
+import { createDictionary, PronunciationRule, removeRules } from '@/utils/elevenlabs-pronunciation';
 import { createProvider } from '@/lib/providers';
 
 export const runtime = 'edge';
@@ -111,9 +111,10 @@ export async function POST(req: NextRequest) {
 
     // Step 4: Cleanup (optional)
     if (cleanup) {
-      console.log('🧹 Cleaning up test dictionary...');
-      await deleteDictionary(dictionary.id);
-      console.log('✅ Test dictionary deleted');
+      console.log('🧹 Cleaning up test dictionary (removing all rules)...');
+      const ruleStrings = TEST_RULES.map(r => r.string_to_replace);
+      await removeRules(dictionary.id, ruleStrings);
+      console.log('✅ Test dictionary rules removed');
     }
 
     // Return comparison results
@@ -187,7 +188,7 @@ export async function GET() {
         type: 'boolean',
         required: false,
         default: false,
-        description: 'Whether to delete test dictionary after use',
+        description: 'Whether to remove all rules from test dictionary after use',
       },
     },
     test_rules: TEST_RULES,

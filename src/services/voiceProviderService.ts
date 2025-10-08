@@ -390,9 +390,11 @@ function getVoiceLanguage(voice: ElevenLabsVoice): {
     }
   }
 
+  // Note: verified_languages is now an array of objects, handled in fetchElevenLabsVoices()
+  // This fallback is for voices without verified_languages
   if (voice.verified_languages && voice.verified_languages.length > 0) {
-    const langRaw = voice.verified_languages[0];
-    const lang = typeof langRaw === "string" ? langRaw.toLowerCase() : "en-US";
+    const firstVerified = voice.verified_languages[0];
+    const lang = firstVerified.language.toLowerCase();
 
     if (lang.length === 2) {
       return { language: normalizeLanguageCode(lang), isMultilingual, accent };
