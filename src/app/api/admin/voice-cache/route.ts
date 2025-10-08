@@ -3,233 +3,174 @@ import { voiceCatalogue, UnifiedVoice } from "@/services/voiceCatalogueService";
 import { normalizeLanguageCode } from "@/utils/language";
 import { normalizeAccent } from "@/utils/accents";
 import { Language } from "@/types";
+import {
+  fetchElevenLabsVoices,
+  fetchLovoVoices,
+  getOpenAIVoices,
+  ProviderVoice,
+} from "@/services/voiceProviderService";
 
 // Use Node.js runtime for proper Redis access
 // export const runtime = 'edge'; // REMOVED - Edge Runtime causes env var issues
 
-// Type for voice data from providers
-type ProviderVoice = {
-  id: string;
-  name: string;
-  gender?: string;
-  language?: string;
-  accent?: string;
-  description?: string;
-  age?: string;
-  style?: string;
-  sampleUrl?: string;
-  use_case?: string;
-  isMultilingual?: boolean;
-};
-
 /**
  * 🔥 SECRET WEAPON: Admin endpoint to populate voice cache
  * This builds our fortress in the shadows while the dragon sleeps
+ *
+ * FIXED: Now calls provider APIs directly instead of internal HTTP
+ * This prevents cascading timeouts and empty database issues on Vercel
  */
-
-/**
- * Helper function to resolve the base URL for internal API calls
- * Tries multiple sources to work in both dev and production
- */
-function getBaseUrl(): string {
-  // 1. Try NEXTAUTH_URL (explicit configuration)
-  if (process.env.NEXTAUTH_URL) {
-    return process.env.NEXTAUTH_URL;
-  }
-
-  // 2. Try VERCEL_URL (automatic Vercel deployment URL)
-  if (process.env.VERCEL_URL) {
-    // VERCEL_URL doesn't include protocol, add https for production
-    return `https://${process.env.VERCEL_URL}`;
-  }
-
-  // 3. Fallback to localhost for local development
-  return "http://localhost:3000";
-}
 
 // Voice normalization from existing providers
 async function fetchAndNormalizeVoices() {
   const voices: UnifiedVoice[] = [];
   const timestamp = Date.now();
 
-  console.log("🔄 Fetching voices from all providers...");
+  console.log("🔄 Fetching voices from all providers (DIRECT CALLS)...");
 
   // ELEVENLABS - Best quality
   try {
-    const response = await fetch(
-      `${getBaseUrl()}/api/voice/list?provider=elevenlabs`
-    );
-    if (response.ok) {
-      const data = await response.json();
-      const elevenlabsVoices = data.voices || [];
+    console.log("📡 Fetching ElevenLabs voices directly from API...");
+    const elevenlabsVoices = await fetchElevenLabsVoices();
 
-      for (const voice of elevenlabsVoices as ProviderVoice[]) {
-        const normalizedLanguage = normalizeLanguageCode(
-          voice.language || "en"
-        );
-        const normalizedAccent = normalizeAccent(
-          voice.accent,
-          normalizedLanguage
-        );
+    for (const voice of elevenlabsVoices) {
+      const normalizedLanguage = normalizeLanguageCode(
+        voice.language || "en"
+      );
+      const normalizedAccent = normalizeAccent(
+        voice.accent,
+        normalizedLanguage
+      );
 
-        voices.push({
-          id: voice.id,
-          provider: "elevenlabs",
-          catalogueId: `voice:elevenlabs:${voice.id}`,
-          name: voice.name,
-          displayName: `${voice.name} (ElevenLabs)`,
-          gender:
-            voice.gender === "male" || voice.gender === "female"
-              ? voice.gender
-              : "neutral",
-          language: normalizedLanguage as Language,
-          accent: normalizedAccent,
-          personality: voice.description || undefined,
-          age: voice.age || undefined,
-          capabilities: {
-            supportsEmotional: false, // ElevenLabs uses voice selection for emotion
-            supportsWhispering: false,
-            isMultilingual: voice.isMultilingual || false,
-          },
-          sampleUrl: voice.sampleUrl,
-          useCase: voice.use_case,
-          lastUpdated: timestamp,
-        });
-      }
-
-      console.log(`✅ ElevenLabs: ${elevenlabsVoices.length} voices`);
+      voices.push({
+        id: voice.id,
+        provider: "elevenlabs",
+        catalogueId: `voice:elevenlabs:${voice.id}`,
+        name: voice.name,
+        displayName: `${voice.name} (ElevenLabs)`,
+        gender:
+          voice.gender === "male" || voice.gender === "female"
+            ? voice.gender
+            : "neutral",
+        language: normalizedLanguage as Language,
+        accent: normalizedAccent,
+        personality: voice.description || undefined,
+        age: voice.age || undefined,
+        capabilities: {
+          supportsEmotional: false,
+          supportsWhispering: false,
+          isMultilingual: voice.isMultilingual || false,
+        },
+        sampleUrl: voice.sampleUrl,
+        useCase: voice.use_case,
+        lastUpdated: timestamp,
+      });
     }
+
+    console.log(`✅ ElevenLabs: ${elevenlabsVoices.length} voices (direct API call)`);
   } catch (error) {
     console.error("❌ Failed to fetch ElevenLabs voices:", error);
   }
 
   // LOVO - Wide coverage
   try {
-    const response = await fetch(
-      `${getBaseUrl()}/api/voice/list?provider=lovo`
-    );
-    if (response.ok) {
-      const data = await response.json();
-      const voicesByLanguage = data.voicesByLanguage || {};
+    console.log("📡 Fetching Lovo voices directly from API...");
+    const lovoVoices = await fetchLovoVoices();
 
-      for (const [language, languageVoices] of Object.entries(
-        voicesByLanguage
-      )) {
-        const normalizedLanguage = normalizeLanguageCode(language);
+    for (const voice of lovoVoices) {
+      const normalizedLanguage = normalizeLanguageCode(voice.language || "en");
 
-        for (const voice of languageVoices as ProviderVoice[]) {
-          // 🗡️ EXTRACT REGIONAL ACCENT FROM LOVO'S SAMPLE URL!
-          let accentToNormalize = voice.accent;
+      // 🗡️ EXTRACT REGIONAL ACCENT FROM LOVO'S SAMPLE URL!
+      let accentToNormalize = voice.accent;
 
-          // Lovo hides regional info in sampleUrl - extract it!
-          if (
-            voice.sampleUrl &&
-            voice.sampleUrl.includes("speaker-tts-samples")
-          ) {
-            // 🗡️ DRAGON SLAYING REGEX: Extract ANY language-region code!
-            const urlMatch = voice.sampleUrl.match(/\/([a-z]{2}-[A-Z]{2})-/);
-            if (urlMatch) {
-              const originalLanguageCode = urlMatch[1]; // e.g., "es-AR", "ar-SA", "en-US"
-              const regionCode = originalLanguageCode.split("-")[1]; // Extract region (AR, SA, US)
-              console.log(
-                `🔥 RESCUED REGIONAL ACCENT: ${originalLanguageCode} → ${regionCode} for voice ${voice.name}`
-              );
-
-              // Use the region code for accent normalization
-              accentToNormalize = regionCode; // AR, MX, SA, etc.
-            }
-          }
-
-          const normalizedAccent = normalizeAccent(accentToNormalize, language);
-
-          voices.push({
-            id: voice.id,
-            provider: "lovo",
-            catalogueId: `voice:lovo:${voice.id}`,
-            name: voice.name,
-            displayName: `${voice.name} (Lovo)`,
-            gender:
-              voice.gender === "male"
-                ? "male"
-                : voice.gender === "female"
-                ? "female"
-                : "neutral",
-            language: normalizedLanguage as Language,
-            accent: normalizedAccent,
-            personality: voice.description || undefined,
-            age: voice.age || undefined,
-            styles: voice.style ? [voice.style] : undefined,
-            capabilities: {
-              supportsEmotional: true, // Lovo has style system
-              supportsWhispering:
-                voice.style?.toLowerCase().includes("whisper") || false,
-              isMultilingual: false,
-            },
-            sampleUrl: voice.sampleUrl,
-            useCase: voice.use_case,
-            lastUpdated: timestamp,
-          });
+      // Lovo hides regional info in sampleUrl - extract it!
+      if (
+        voice.sampleUrl &&
+        voice.sampleUrl.includes("speaker-tts-samples")
+      ) {
+        const urlMatch = voice.sampleUrl.match(/\/([a-z]{2}-[A-Z]{2})-/);
+        if (urlMatch) {
+          const originalLanguageCode = urlMatch[1];
+          const regionCode = originalLanguageCode.split("-")[1];
+          console.log(
+            `🔥 RESCUED REGIONAL ACCENT: ${originalLanguageCode} → ${regionCode} for voice ${voice.name}`
+          );
+          accentToNormalize = regionCode;
         }
       }
 
-      console.log(
-        `✅ Lovo: ${voices.filter((v) => v.provider === "lovo").length} voices`
-      );
+      const normalizedAccent = normalizeAccent(accentToNormalize, normalizedLanguage);
+
+      voices.push({
+        id: voice.id,
+        provider: "lovo",
+        catalogueId: `voice:lovo:${voice.id}`,
+        name: voice.name,
+        displayName: `${voice.name} (Lovo)`,
+        gender:
+          voice.gender === "male"
+            ? "male"
+            : voice.gender === "female"
+            ? "female"
+            : "neutral",
+        language: normalizedLanguage as Language,
+        accent: normalizedAccent,
+        personality: voice.description || undefined,
+        age: voice.age || undefined,
+        styles: voice.style ? [voice.style] : undefined,
+        capabilities: {
+          supportsEmotional: true,
+          supportsWhispering:
+            voice.style?.toLowerCase().includes("whisper") || false,
+          isMultilingual: false,
+        },
+        sampleUrl: voice.sampleUrl,
+        useCase: voice.use_case,
+        lastUpdated: timestamp,
+      });
     }
+
+    console.log(`✅ Lovo: ${lovoVoices.length} voices (direct API call)`);
   } catch (error) {
     console.error("❌ Failed to fetch Lovo voices:", error);
   }
 
-  // OPENAI - Fallback
+  // OPENAI - Fallback (hardcoded, no API needed)
   try {
-    const response = await fetch(
-      `${getBaseUrl()}/api/voice/list?provider=openai`
-    );
-    if (response.ok) {
-      const data = await response.json();
-      const voicesByLanguage = data.voicesByLanguage || {};
+    console.log("📋 Loading OpenAI voices (hardcoded)...");
+    const openAIVoices = getOpenAIVoices();
 
-      for (const [language, languageVoices] of Object.entries(
-        voicesByLanguage
-      )) {
-        const normalizedLanguage = normalizeLanguageCode(language);
+    for (const voice of openAIVoices) {
+      const normalizedLanguage = normalizeLanguageCode(voice.language || "en");
 
-        for (const voice of languageVoices as ProviderVoice[]) {
-          voices.push({
-            id: voice.id,
-            provider: "openai",
-            catalogueId: `voice:openai:${voice.id}`,
-            name: voice.name,
-            displayName: `${voice.name} (OpenAI)`,
-            gender:
-              voice.gender === "male" || voice.gender === "female"
-                ? voice.gender
-                : "neutral",
-            language: normalizedLanguage as Language,
-            accent: "neutral", // OpenAI doesn't have real accents
-            personality: voice.description || undefined,
-            age: voice.age || undefined,
-            styles: voice.style ? [voice.style] : undefined,
-            capabilities: {
-              supportsEmotional: true, // OpenAI has text modifiers
-              supportsWhispering: true,
-              isMultilingual: true,
-            },
-            sampleUrl: voice.sampleUrl,
-            useCase: voice.use_case,
-            lastUpdated: timestamp,
-          });
-        }
-      }
-
-      console.log(
-        `✅ OpenAI: ${
-          voices.filter((v) => v.provider === "openai").length
-        } voices`
-      );
+      voices.push({
+        id: voice.id,
+        provider: "openai",
+        catalogueId: `voice:openai:${voice.id}`,
+        name: voice.name,
+        displayName: `${voice.name} (OpenAI)`,
+        gender:
+          voice.gender === "male" || voice.gender === "female"
+            ? voice.gender
+            : "neutral",
+        language: normalizedLanguage as Language,
+        accent: "neutral",
+        personality: voice.description || undefined,
+        age: voice.age || undefined,
+        capabilities: {
+          supportsEmotional: true,
+          supportsWhispering: true,
+          isMultilingual: true,
+        },
+        sampleUrl: voice.sampleUrl,
+        useCase: voice.use_case,
+        lastUpdated: timestamp,
+      });
     }
+
+    console.log(`✅ OpenAI: ${openAIVoices.length} voices (hardcoded)`);
   } catch (error) {
-    console.error("❌ Failed to fetch OpenAI voices:", error);
+    console.error("❌ Failed to load OpenAI voices:", error);
   }
 
   // QWEN - Chinese TTS with dialect support

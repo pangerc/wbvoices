@@ -173,38 +173,36 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
       try {
         let accents: { code: string; displayName: string }[] = [];
 
-        // If we have a selected region (and it's not "all"), get regional accents
+        // Always use API for proper accent display names
+        const url = new URL(
+          "/api/voice-catalogue/accents",
+          window.location.origin
+        );
+        url.searchParams.set("language", selectedLanguage);
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.error) {
+          console.error("❌ Failed to load accents:", data.error);
+          accents = [{ code: "neutral", displayName: "Any Accent" }];
+        } else {
+          accents = data.accents || [
+            { code: "neutral", displayName: "Any Accent" },
+          ];
+        }
+
+        // If we have a selected region (and it's not "all"), filter accents by region
         if (selectedRegion && selectedRegion !== "all" && hasRegions) {
-          const regionalAccents = getRegionalAccents(
+          const regionalAccentCodes = getRegionalAccents(
             selectedLanguage,
             selectedRegion
-          );
-          accents = regionalAccents.map((accent) => ({
-            code: accent === "none" ? "neutral" : accent,
-            displayName:
-              accent === "none"
-                ? "Any Accent"
-                : accent.charAt(0).toUpperCase() + accent.slice(1),
-          }));
-        } else {
-          // Fall back to API for languages without regional mapping
-          const url = new URL(
-            "/api/voice-catalogue/accents",
-            window.location.origin
-          );
-          url.searchParams.set("language", selectedLanguage);
+          ).map((accent) => (accent === "none" ? "neutral" : accent));
 
-          const response = await fetch(url);
-          const data = await response.json();
-
-          if (data.error) {
-            console.error("❌ Failed to load accents:", data.error);
-            accents = [{ code: "neutral", displayName: "Any Accent" }];
-          } else {
-            accents = data.accents || [
-              { code: "neutral", displayName: "Any Accent" },
-            ];
-          }
+          // Filter the properly formatted accents to only include those in the selected region
+          accents = accents.filter((accent) =>
+            regionalAccentCodes.includes(accent.code)
+          );
         }
 
         setAvailableAccents(accents);

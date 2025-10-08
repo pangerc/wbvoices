@@ -167,14 +167,22 @@ export async function GET(req: NextRequest) {
           for (const providerName of providersToLoad) {
             try {
               let providerVoices: unknown[] = [];
-              
+
               // Apply region filtering if specified
               if (region && region !== 'all') {
+                console.log(`🔍 Region filtering: region=${region}, accent=${accent || 'none'}, provider=${providerName}`);
                 const regionVoices = await voiceCatalogue.getVoicesByRegion(
                   language as Language,
                   region
                 );
-                
+                console.log(`🔍 Found ${regionVoices.length} voices for region "${region}"`);
+                console.log(`🔍 Sample voices:`, regionVoices.slice(0, 3).map(v => ({
+                  provider: v.provider,
+                  accent: v.accent,
+                  language: v.language,
+                  name: v.name
+                })));
+
                 // For OpenAI, always include all voices regardless of region
                 if (providerName === 'openai') {
                   providerVoices = await voiceCatalogue.getVoicesForProvider(
@@ -183,8 +191,13 @@ export async function GET(req: NextRequest) {
                     accent || undefined
                   );
                 } else {
-                  // For other providers, filter by provider from region voices
-                  providerVoices = regionVoices.filter(voice => voice.provider === providerName);
+                  // For other providers, filter by provider AND accent from region voices
+                  providerVoices = regionVoices.filter(voice => {
+                    const matchesProvider = voice.provider === providerName;
+                    const matchesAccent = !accent || accent === 'neutral' || voice.accent === accent;
+                    return matchesProvider && matchesAccent;
+                  });
+                  console.log(`🔍 After filtering by provider (${providerName}) and accent (${accent || 'any'}): ${providerVoices.length} voices`);
                 }
               } else {
                 // No region filtering - get all voices for provider

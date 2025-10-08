@@ -157,31 +157,79 @@ export async function listDictionaries(): Promise<PronunciationDictionary[]> {
 }
 
 /**
- * Delete a pronunciation dictionary
- * @param dictionaryId Dictionary ID to delete
+ * Remove rules from a pronunciation dictionary
+ * @param dictionaryId Dictionary ID
+ * @param ruleStrings Array of rule strings to remove
+ * @returns Updated dictionary metadata
  */
-export async function deleteDictionary(dictionaryId: string): Promise<void> {
+export async function removeRules(
+  dictionaryId: string,
+  ruleStrings: string[]
+): Promise<{ id: string; version_id: string; version_rules_num: number }> {
   const apiKey = getApiKey();
 
-  console.log('📖 Deleting pronunciation dictionary:', dictionaryId);
+  console.log('📖 Removing rules from pronunciation dictionary:', { dictionaryId, count: ruleStrings.length });
 
   const response = await fetch(
-    `${ELEVENLABS_API_BASE}/pronunciation-dictionaries/${dictionaryId}`,
+    `${ELEVENLABS_API_BASE}/pronunciation-dictionaries/${dictionaryId}/remove-rules`,
     {
-      method: 'DELETE',
+      method: 'POST',
       headers: {
         'xi-api-key': apiKey,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ rule_strings: ruleStrings }),
     }
   );
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('❌ Failed to delete dictionary:', errorText);
-    throw new Error(`Failed to delete pronunciation dictionary: ${response.status} ${errorText}`);
+    console.error('❌ Failed to remove rules:', errorText);
+    throw new Error(`Failed to remove pronunciation rules: ${response.status} ${errorText}`);
   }
 
-  console.log('✅ Dictionary deleted');
+  const result = await response.json();
+  console.log('✅ Rules removed:', { version_id: result.version_id, rules_remaining: result.version_rules_num });
+
+  return result;
+}
+
+/**
+ * Add rules to a pronunciation dictionary
+ * @param dictionaryId Dictionary ID
+ * @param rules Array of pronunciation rules to add
+ * @returns Updated dictionary metadata
+ */
+export async function addRules(
+  dictionaryId: string,
+  rules: PronunciationRule[]
+): Promise<{ id: string; version_id: string; version_rules_num: number }> {
+  const apiKey = getApiKey();
+
+  console.log('📖 Adding rules to pronunciation dictionary:', { dictionaryId, count: rules.length });
+
+  const response = await fetch(
+    `${ELEVENLABS_API_BASE}/pronunciation-dictionaries/${dictionaryId}/add-rules`,
+    {
+      method: 'POST',
+      headers: {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ rules }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('❌ Failed to add rules:', errorText);
+    throw new Error(`Failed to add pronunciation rules: ${response.status} ${errorText}`);
+  }
+
+  const result = await response.json();
+  console.log('✅ Rules added:', { version_id: result.version_id, total_rules: result.version_rules_num });
+
+  return result;
 }
 
 /**

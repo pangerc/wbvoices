@@ -16,34 +16,47 @@ import {
   validateRules,
 } from '@/utils/elevenlabs-pronunciation';
 import { PronunciationDictionary } from '@/types';
+import { getRedis } from '@/lib/redis';
 
 export const runtime = 'edge';
 
+// Redis key for storing pronunciation rules
+const PRONUNCIATION_RULES_KEY = 'pronunciation:global_rules';
+
 /**
  * List all pronunciation dictionaries
- * Returns metadata only (rules stored in localStorage on client)
+ * Returns dictionaries with rules from Redis cache
  */
 export async function GET() {
   try {
-    console.log('📖 Fetching pronunciation dictionaries...');
+    console.log('📖 Fetching pronunciation dictionaries from ElevenLabs...');
     const dictionaries = await listDictionaries();
 
-    // Transform API response to match our type structure (metadata only)
+    // Fetch rules from Redis
+    console.log('📖 Fetching pronunciation rules from Redis...');
+    const redis = getRedis();
+    const rulesData = await redis.get<{ rules: unknown[]; dictionaryId: string }>(PRONUNCIATION_RULES_KEY);
+
+    // Transform API response to match our type structure
     const transformedDictionaries: PronunciationDictionary[] = dictionaries.map((dict) => ({
       id: dict.id,
       versionId: dict.version_id,
       name: dict.name,
-      rules: [], // Rules not fetched - client manages them in localStorage
+      rules: rulesData?.dictionaryId === dict.id ? rulesData.rules : [], // Include rules from Redis if they match
       description: dict.description,
       createdAt: dict.creation_time_unix
         ? new Date(dict.creation_time_unix * 1000).toISOString()
         : new Date().toISOString(),
     }));
 
+    console.log(`✅ Fetched ${transformedDictionaries.length} dictionaries with rules from Redis`);
+
     return NextResponse.json({
       success: true,
       dictionaries: transformedDictionaries,
       count: transformedDictionaries.length,
+      rules: rulesData?.rules || [], // Include global rules for convenience
+      dictionaryId: rulesData?.dictionaryId || null,
     });
   } catch (error) {
     console.error('❌ Failed to list dictionaries:', error);
@@ -114,6 +127,16 @@ export async function POST(req: NextRequest) {
 
     // Create dictionary in ElevenLabs
     const dictionary = await createDictionary(name, apiRules, description);
+
+    // Store rules in Redis for cross-environment sync
+    console.log('💾 Storing pronunciation rules in Redis...');
+    const redis = getRedis();
+    await redis.set(PRONUNCIATION_RULES_KEY, {
+      rules,
+      dictionaryId: dictionary.id,
+      timestamp: Date.now(),
+    });
+    console.log('✅ Pronunciation rules stored in Redis');
 
     // Transform response to match our type structure
     const result: PronunciationDictionary = {

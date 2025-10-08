@@ -249,18 +249,35 @@ export class VoiceCatalogueService {
     accent?: string;
     excludeProviders?: Provider[];
   }): Promise<Array<{ provider: Provider; count: number; label: string; disabled?: boolean }>> {
-    
+
     let counts: VoiceCounts;
-    
-    if (filters.region) {
-      // Get region-specific counts
+
+    if (filters.region && filters.accent) {
+      // 🔥 FIXED: When BOTH region and accent specified, filter by accent within region
+      const regionVoices = await this.getVoicesByRegion(filters.language, filters.region);
+      const accentVoices = regionVoices.filter(v => v.accent === filters.accent);
+
+      counts = {
+        elevenlabs: accentVoices.filter(v => v.provider === 'elevenlabs').length,
+        lovo: accentVoices.filter(v => v.provider === 'lovo').length,
+        openai: 0, // Will be set below
+        qwen: accentVoices.filter(v => v.provider === 'qwen').length,
+        bytedance: accentVoices.filter(v => v.provider === 'bytedance').length,
+        any: 0 // Calculated later
+      };
+
+      // OpenAI voices are global - get their actual count regardless of region
+      const openAIVoices = await this.getVoicesForProvider('openai', filters.language, filters.accent);
+      counts.openai = openAIVoices.length;
+    } else if (filters.region) {
+      // Only region specified (no accent) - get all accents in region
       counts = await this.getVoiceCountsByRegion(filters.language, filters.region);
-      
+
       // OpenAI voices are global - get their actual count regardless of region
       const openAIVoices = await this.getVoicesForProvider('openai', filters.language, filters.accent);
       counts.openai = openAIVoices.length;
     } else {
-      // Get all counts for language, optionally filtered by accent
+      // No region - get all counts for language, optionally filtered by accent
       counts = await this.getVoiceCounts(filters.language, filters.accent);
     }
     

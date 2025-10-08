@@ -20,18 +20,65 @@ export function PronunciationEditor({ className = '' }: PronunciationEditorProps
   const [success, setSuccess] = useState<string | null>(null);
   const [dictionaryId, setDictionaryId] = useState<string | null>(null);
 
-  // Load rules from localStorage on mount
+  // Load rules from API (Redis) on mount, with localStorage fallback
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
+    const loadRules = async () => {
       try {
-        const data = JSON.parse(stored);
-        setRules(data.rules || []);
-        setDictionaryId(data.dictionaryId || null);
-      } catch (err) {
-        console.error('Failed to parse stored rules:', err);
+        // Try to fetch from API (Redis-backed)
+        console.log('📖 Fetching pronunciation rules from API...');
+        const response = await fetch('/api/pronunciation');
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.rules && data.rules.length > 0) {
+            console.log(`✅ Loaded ${data.rules.length} rules from API`);
+            setRules(data.rules);
+            setDictionaryId(data.dictionaryId || null);
+
+            // Update localStorage cache
+            localStorage.setItem(
+              STORAGE_KEY,
+              JSON.stringify({
+                rules: data.rules,
+                dictionaryId: data.dictionaryId,
+                timestamp: Date.now(),
+              })
+            );
+            return;
+          }
+        }
+
+        // Fallback to localStorage if API fails or returns no rules
+        console.log('📖 Falling back to localStorage...');
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          try {
+            const data = JSON.parse(stored);
+            setRules(data.rules || []);
+            setDictionaryId(data.dictionaryId || null);
+            console.log(`✅ Loaded ${data.rules?.length || 0} rules from localStorage`);
+          } catch (err) {
+            console.error('Failed to parse stored rules:', err);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load rules from API:', error);
+
+        // Fallback to localStorage on error
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          try {
+            const data = JSON.parse(stored);
+            setRules(data.rules || []);
+            setDictionaryId(data.dictionaryId || null);
+          } catch (err) {
+            console.error('Failed to parse stored rules:', err);
+          }
+        }
       }
-    }
+    };
+
+    loadRules();
   }, []);
 
   const addRule = () => {
@@ -62,47 +109,69 @@ export function PronunciationEditor({ className = '' }: PronunciationEditorProps
     setSuccess(null);
 
     try {
-      // Delete old dictionary if exists
       if (dictionaryId) {
-        console.log('🗑️ Deleting old dictionary:', dictionaryId);
-        await fetch(`/api/pronunciation/${dictionaryId}`, {
-          method: 'DELETE',
+        // Update existing dictionary
+        console.log('📖 Updating existing dictionary:', dictionaryId, 'with', validRules.length, 'rules');
+        const response = await fetch(`/api/pronunciation/${dictionaryId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rules: validRules }),
         });
-      }
 
-      // Create new dictionary
-      console.log('📖 Creating global dictionary with', validRules.length, 'rules');
-      const response = await fetch('/api/pronunciation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: DICTIONARY_NAME,
-          language: 'en', // Dummy value, not used
-          rules: validRules,
-        }),
-      });
+        const data = await response.json();
 
-      const data = await response.json();
+        if (data.success) {
+          // Save to localStorage
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({
+              rules: validRules,
+              dictionaryId: dictionaryId,
+              timestamp: Date.now(),
+            })
+          );
 
-      if (data.success) {
-        const newId = data.dictionary.id;
-        setDictionaryId(newId);
-
-        // Save to localStorage
-        localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({
-            rules: validRules,
-            dictionaryId: newId,
-            timestamp: Date.now(),
-          })
-        );
-
-        setRules(validRules);
-        setSuccess(`Saved ${validRules.length} pronunciation rules`);
-        setTimeout(() => setSuccess(null), 3000);
+          setRules(validRules);
+          setSuccess(`Updated ${validRules.length} pronunciation rules`);
+          setTimeout(() => setSuccess(null), 3000);
+        } else {
+          setError(data.error || 'Failed to update dictionary');
+        }
       } else {
-        setError(data.error || 'Failed to save dictionary');
+        // Create new dictionary (first time)
+        console.log('📖 Creating new global dictionary with', validRules.length, 'rules');
+        const response = await fetch('/api/pronunciation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: DICTIONARY_NAME,
+            language: 'en', // Dummy value, not used
+            rules: validRules,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          const newId = data.dictionary.id;
+          setDictionaryId(newId);
+
+          // Save to localStorage
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({
+              rules: validRules,
+              dictionaryId: newId,
+              timestamp: Date.now(),
+            })
+          );
+
+          setRules(validRules);
+          setSuccess(`Created dictionary with ${validRules.length} pronunciation rules`);
+          setTimeout(() => setSuccess(null), 3000);
+        } else {
+          setError(data.error || 'Failed to create dictionary');
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save dictionary');

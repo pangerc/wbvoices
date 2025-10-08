@@ -123,13 +123,13 @@ function formatAccentDisplayName(
   // Map ACTUAL accent codes from providers to nice display names
   const accentDisplayNames: Record<string, Record<string, string>> = {
     es: {
-      castilian: "Castilian Spanish",
-      mexican: "Mexican Spanish",
-      standard: "Standard Spanish", // This is what Lovo actually uses
-      argentinian: "Argentinian Spanish",
-      colombian: "Colombian Spanish",
-      chilean: "Chilean Spanish",
-      peruvian: "Peruvian Spanish",
+      castilian: "Castilian",
+      mexican: "Mexican",
+      standard: "Standard Spanish", // Keep language for "Standard"
+      argentinian: "Argentinian",
+      colombian: "Colombian",
+      chilean: "Chilean",
+      peruvian: "Peruvian",
     },
     ar: {
       saudi: "Saudi Arabic",
