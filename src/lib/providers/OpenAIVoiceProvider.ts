@@ -1,5 +1,6 @@
 import { BaseAudioProvider, ValidationResult, AuthCredentials, ProviderResponse } from './BaseAudioProvider';
 import { uploadVoiceToBlob } from '@/utils/blob-storage';
+import { injectPronunciationRules } from '@/utils/pronunciationHelper';
 import { NextResponse } from 'next/server';
 
 export class OpenAIVoiceProvider extends BaseAudioProvider {
@@ -73,7 +74,8 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
     
     // Use provided voice instructions if available (from LLM)
     if (voiceInstructions && typeof voiceInstructions === 'string') {
-      instructions = voiceInstructions;
+      // Inject pronunciation rules for matched strings in the script
+      instructions = injectPronunciationRules(text as string, voiceInstructions) || voiceInstructions;
       console.log(`  🎛️ Using LLM voice instructions: "${instructions}"`);
     } else {
       // Fallback: build instructions from style/useCase (for backward compatibility)
@@ -114,6 +116,14 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
         instructions = accentInstructions;
       }
       console.log(`  🌍 Appended accent instructions: "${accentInstructions}"`);
+    }
+
+    // Inject pronunciation rules for matched strings (if not already injected via voiceInstructions)
+    if (!voiceInstructions) {
+      const withPronunciation = injectPronunciationRules(text as string, instructions || undefined);
+      if (withPronunciation) {
+        instructions = withPronunciation;
+      }
     }
 
     // Build API request body

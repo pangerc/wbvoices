@@ -149,8 +149,8 @@ export function ScripterPanel({
         </div>
       </div>
 
-      {/* Mode Toggle - only show for ElevenLabs */}
-      {selectedProvider === 'elevenlabs' && (
+      {/* Mode Toggle - show for ElevenLabs and OpenAI */}
+      {(selectedProvider === 'elevenlabs' || selectedProvider === 'openai') && (
         <div className="flex justify-center mb-8">
           <GlassTabBar>
             <GlassTab

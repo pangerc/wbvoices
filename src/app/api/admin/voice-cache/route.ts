@@ -27,6 +27,26 @@ type ProviderVoice = {
  * This builds our fortress in the shadows while the dragon sleeps
  */
 
+/**
+ * Helper function to resolve the base URL for internal API calls
+ * Tries multiple sources to work in both dev and production
+ */
+function getBaseUrl(): string {
+  // 1. Try NEXTAUTH_URL (explicit configuration)
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL;
+  }
+
+  // 2. Try VERCEL_URL (automatic Vercel deployment URL)
+  if (process.env.VERCEL_URL) {
+    // VERCEL_URL doesn't include protocol, add https for production
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  // 3. Fallback to localhost for local development
+  return "http://localhost:3000";
+}
+
 // Voice normalization from existing providers
 async function fetchAndNormalizeVoices() {
   const voices: UnifiedVoice[] = [];
@@ -37,9 +57,7 @@ async function fetchAndNormalizeVoices() {
   // ELEVENLABS - Best quality
   try {
     const response = await fetch(
-      `${
-        process.env.NEXTAUTH_URL || "http://localhost:3000"
-      }/api/voice/list?provider=elevenlabs`
+      `${getBaseUrl()}/api/voice/list?provider=elevenlabs`
     );
     if (response.ok) {
       const data = await response.json();
@@ -88,9 +106,7 @@ async function fetchAndNormalizeVoices() {
   // LOVO - Wide coverage
   try {
     const response = await fetch(
-      `${
-        process.env.NEXTAUTH_URL || "http://localhost:3000"
-      }/api/voice/list?provider=lovo`
+      `${getBaseUrl()}/api/voice/list?provider=lovo`
     );
     if (response.ok) {
       const data = await response.json();
@@ -167,9 +183,7 @@ async function fetchAndNormalizeVoices() {
   // OPENAI - Fallback
   try {
     const response = await fetch(
-      `${
-        process.env.NEXTAUTH_URL || "http://localhost:3000"
-      }/api/voice/list?provider=openai`
+      `${getBaseUrl()}/api/voice/list?provider=openai`
     );
     if (response.ok) {
       const data = await response.json();
