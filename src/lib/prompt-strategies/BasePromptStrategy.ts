@@ -218,11 +218,43 @@ Remember:
 - soundFxPrompts array can be empty [] if no sound effects are needed
 - Do not add any text before or after the JSON
 
-Music examples by theme (don't parrot the examples, use your own words):
-- Baby/parenting products: "gentle lullaby feel", "warm soft piano"
-- Automotive: "bold guitar intro", "confident driving beat"
-- Food/beverage: "fresh crisp rhythm", "light bubbly melody"
-- Technology: "clean modern synth motif", "sleek minimal pulse"
+MUSIC GENERATION GUIDANCE - CRITICAL FOR QUALITY:
+
+Music generators are LITERAL - they understand instruments, tempo, and playing techniques.
+They DON'T understand brand associations, social contexts, or experiential feelings.
+
+Describe the MUSIC (instruments/tempo/technique), not the experience of listening to it.
+
+PROVIDER CONSTRAINTS:
+- Loudly: NO CHARACTER LIMIT. Use full descriptions. Band/artist references ALLOWED.
+- ElevenLabs Music: NO BAND/ARTIST NAMES. Use instrumental descriptions only.
+- Mubert: 250 CHARACTER LIMIT. Condense carefully - keep core musical descriptors.
+
+EXAMPLES - WHAT WORKS VS WHAT DOESN'T:
+
+⚠️ These examples are TEMPLATES - adapt them creatively to your specific brief.
+Do not copy the vocabulary or phrasing verbatim. Use them as a style guide only.
+
+❌ BAD (produces generic muzak - uses abstract/experiential language):
+"Bright, upbeat indie pop track with sparkling acoustic guitar strums, crisp handclaps, and light, bouncy drums. The melody is playful and sunny, evoking the feeling of a lively Spanish terrace on a warm afternoon. Uplifting bass and breezy tambourine add energy and freshness, perfect for youthful gatherings and spontaneous moments. The music is cheerful and dynamic, creating a sense of fun, friendship, and effortless cool, matching the Coca-Cola vibe."
+^ Problems: "evoking the feeling", "Spanish terrace", "youthful gatherings", "fun, friendship, effortless cool", "Coca-Cola vibe" - music generators don't understand these!
+
+✅ GOOD (produces quality music - uses concrete musical descriptions):
+"Uplifting indie pop song with bright, jangly electric guitars inspired by Vampire Weekend, fast rhythmic strumming, and light, bouncy drums similar to 'Young Folks' by Peter Bjorn and John. Catchy, summery vibe perfect for hanging out with friends, energetic but laid-back, with a carefree mood. Make it upbeat and energetic, but relaxed."
+^ Why it works: Describes instruments, playing style, tempo, references specific artists. Minimal scene-setting.
+
+✅ GOOD (for ElevenLabs - no band names):
+"Uplifting indie pop song with bright, jangly electric guitars, fast rhythmic strumming, and light, bouncy drums. Catchy, summery vibe, energetic but laid-back, with a carefree mood. Make it upbeat and energetic, but relaxed."
+
+✅ GOOD (for Mubert - condensed, 247 chars):
+"Uplifting indie pop, bright jangly guitars, fast strumming, bouncy drums, summery and carefree. Energetic but laid-back. Upbeat and relaxed mood."
+
+KEY PRINCIPLES:
+1. Use 100-200 words for Loudly/ElevenLabs - focus on concrete musical details
+2. Music generators understand: instruments, tempo, playing techniques, genres, band references (Loudly only)
+3. Music generators DON'T understand: brand associations, social contexts, experiential feelings
+4. For Mubert: Condense to 250 chars - keep instruments/tempo/genre, drop abstract language
+5. If it's not something a musician would say about the music itself, don't include it
 
 Sound effect examples by theme (keep the description as short and concise, don't overdo it):
 - Baby products: "baby giggling", "baby crying softly"

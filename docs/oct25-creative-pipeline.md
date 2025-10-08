@@ -900,6 +900,157 @@ The result is a maintainable, extensible system that produces higher-quality voi
 
 **Key Achievement**: Delivered both architectural cleanup AND feature improvements simultaneously, proving that refactoring doesn't have to slow down feature development - it can accelerate it.
 
+## Voice Filtering: Region + Accent Deep Dive
+
+_Added October 2025_
+
+### The Problem
+
+Region + Accent filtering wasn't working:
+- Spanish + Argentinian → Shows voices ✅
+- Spanish + Latin America + Argentinian → 0 voices ❌
+
+### Root Causes Discovered
+
+**1. Generic vs Specific Accents**
+```json
+{
+  "labels": {
+    "accent": "latin american",  // ❌ Generic
+    "locale": "es-AR"             // ✅ Specific!
+  }
+}
+```
+
+**2. Type Mismatch**
+```typescript
+// Expected: verified_languages?: string[]
+// Actual: Array of objects with locale/language/accent
+```
+
+**3. Missing Accent Filter**
+When region was specified, code filtered by provider but **ignored accent parameter**.
+
+**4. Count Mismatch**
+Provider dropdown showed 26 voices (all LATAM) instead of 3 (just Argentinian).
+
+**5. Spelling Variants**
+ElevenLabs uses `"argentine"` not `"argentinian"`.
+
+### The Fixes
+
+**1. Extract Locale from verified_languages** (voiceProviderService.ts)
+```typescript
+for (const verifiedLang of voice.verified_languages) {
+  let accent = verifiedLang.accent;
+  if (verifiedLang.locale) {
+    const [, region] = verifiedLang.locale.split('-');
+    accent = region; // "AR" → normalizeAccent → "argentinian"
+  }
+}
+```
+
+**2. Apply Accent Filter in Region Query** (voice-catalogue/route.ts)
+```typescript
+providerVoices = regionVoices.filter(voice => {
+  const matchesProvider = voice.provider === providerName;
+  const matchesAccent = !accent || voice.accent === accent;
+  return matchesProvider && matchesAccent;
+});
+```
+
+**3. Fix Provider Counts** (voiceCatalogueService.ts)
+```typescript
+if (filters.region && filters.accent) {
+  // Filter by BOTH region AND accent
+  const regionVoices = await this.getVoicesByRegion(language, region);
+  const accentVoices = regionVoices.filter(v => v.accent === accent);
+  // Count per provider from filtered set
+}
+```
+
+**4. Add Spelling Variant** (accents.ts)
+```typescript
+argentine: "argentinian", // ElevenLabs uses "argentine"
+```
+
+**5. Fix Accent Display Names** (useVoiceManagerV2.ts)
+Always use API for proper formatting instead of raw capitalization.
+
+### Impact
+
+- ✅ Region + Accent filtering works correctly
+- ✅ Voice counts accurate (3 not 26)
+- ✅ Accent display names properly formatted ("Argentinian" not "Latin_american")
+- ✅ All locale variants supported ("argentine", "argentinian", "AR")
+- ✅ Consistent behavior across all providers
+
+### Technical Debt Paid
+
+**Before**: Voice filtering had 3 separate bugs causing cascading failures.
+**After**: Clean data flow from API → normalization → storage → filtering.
+
+## Voice Cache Rebuild: Eliminating Self-Referential HTTP
+
+_Added October 2025_
+
+### The Problem
+
+Cache rebuild was **emptying the database** in production. Root cause: internal HTTP calls to own API.
+
+```typescript
+// ❌ BAD: Self-referential HTTP call
+const response = await fetch(`${getBaseUrl()}/api/voice/list?provider=elevenlabs`);
+// Network round-trip → timeout on Vercel → cache cleared but not repopulated
+```
+
+### The Fix
+
+**Created** `src/services/voiceProviderService.ts` - Direct provider API calls:
+- `fetchElevenLabsVoices()` - Direct ElevenLabs API
+- `fetchLovoVoices()` - Direct Lovo API
+- `getOpenAIVoices()` - Hardcoded (no API needed)
+
+**Updated** `src/app/api/admin/voice-cache/route.ts`:
+```typescript
+// ✅ GOOD: Direct external API call
+const elevenlabsVoices = await fetchElevenLabsVoices();
+// One network hop, reliable, no self-dependency
+```
+
+### Impact
+
+- ✅ Rebuild works reliably in production
+- ✅ No more empty database on deploy
+- ✅ Faster rebuild (eliminated double network hop)
+- ✅ Cleaner architecture (shared service)
+
+## Pronunciation Dictionary Updates: Remove-and-Add Pattern
+
+_Added October 2025_
+
+### The Problem
+
+Saving pronunciation rules created new dictionaries every time, accumulating orphans in ElevenLabs.
+
+### The Fix
+
+**Architecture**: ElevenLabs API doesn't support DELETE or return rules via GET, only metadata. Solution uses `remove-rules` + `add-rules` pattern:
+
+- **POST** `/api/pronunciation` → Create first dictionary, store ID in Redis
+- **PATCH** `/api/pronunciation/{id}` → Remove all old rules + add new rules (update-in-place)
+- **DELETE** `/api/pronunciation/{id}` → Remove all rules + clear Redis
+
+**Redis role**: Authoritative source for rules (ElevenLabs only stores for TTS, doesn't return them).
+
+**Files**: `elevenlabs-pronunciation.ts` (added `removeRules`/`addRules`), `pronunciation/[id]/route.ts` (added PATCH), `PronunciationEditor.tsx` (uses PATCH for updates).
+
+### Impact
+
+- ✅ Single global dictionary maintained across saves
+- ✅ No orphaned dictionaries
+- ✅ Proper separation: Redis = source of truth, ElevenLabs = TTS-time only
+
 ---
 
 **Related Documentation**:

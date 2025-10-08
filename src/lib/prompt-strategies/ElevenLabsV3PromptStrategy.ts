@@ -65,15 +65,78 @@ Punctuation controls:
 - CAPITALIZATION - Adds emphasis to specific words
 - Standard punctuation - Provides natural speech rhythm
 
-Tag placement guidelines:
-- Place tags naturally within text where emotion occurs
+TAG USAGE STRATEGY - CONTEXT-AWARE APPROACH:
+
+ElevenLabs V3 benefits from thoughtful tag usage. The density and types of tags should match your creative intent.
+
+${
+      pacing === "fast"
+        ? `
+🚀 [fast] TAG BOMBARDMENT MODE (pacing=fast):
+Since this ad requires FAST pacing, use [fast] tags aggressively:
+- Stack 2-3 [fast] tags together between clauses for urgent, rapid delivery
+- Target 5-7 tags total per sentence (including mood tags)
+- [fast] tags have MULTIPLICATIVE effect when stacked - use them liberally
+- Example: "[excited][fast][fast]Check this out! [fast][energetic]It's amazing! [fast][fast][happy]Don't wait!"`
+        : pacing === "slow"
+        ? `
+🐌 MINIMAL [fast] TAG MODE (pacing=slow):
+Since this ad requires SLOW pacing:
+- DO NOT use [fast] tags - they conflict with the slow delivery
+- Use sparse tags: 1-2 per sentence maximum
+- Focus on contemplative tags: [thoughtful], [gentle], [calm]
+- Example: "[gentle]Take a moment... [thoughtful]to discover something special."`
+        : `
+⚖️ MODERATE TAG MODE (pacing=normal):
+Use tags moderately for natural, balanced delivery:
+- Use [fast] tags sparingly (1-2 per sentence) only when natural urgency is needed
+- Target 2-4 tags total per sentence
+- Focus on mood and emotion rather than pace control
+- Example: "[laughs][happy]You'll love this! [excited]Our new product is here."`
+    }
+
+${
+      context.accent || context.region
+        ? `
+ACCENT TAG USAGE:
+This ad requires a specific accent/region: ${context.accent || ""}${context.region ? ` from ${context.region}` : ""}
+- Place accent tag ONCE at the start of each speaker's first line
+- Format: [${context.accent || "regional"} accent]
+- Example: "[${context.accent || "regional"} accent][happy]Hola! This is how we speak here."`
+        : `
+TAG STRUCTURE:
+Begin your text directly with emotional and delivery tags.
+Example: "[happy][excited]Your text starts here..." or "[laughs][curious]Opening line..."`
+    }
+
+TAG STACKING BEHAVIOR:
+- [fast] tags: Only stack when pacing=fast. Use 2-3 together for multiplicative effect.
+- Mood tags ([excited], [happy], [joyful]): Diminishing returns after 2. Use sparingly.
+
+General tag placement guidelines:
 - Match tags to voice personality (serious voice shouldn't use [giggles])
 - Tags must be in ENGLISH regardless of target language
-- Don't overuse - tags should punctuate, not dominate
+- More tags = more expressive delivery, but only when contextually appropriate
 
-Example combining baseline + tags:
+${
+      pacing === "fast"
+        ? `🌟 EXAMPLE (fast pacing${context.accent ? ", with accent" : ""}):
+"description": "excited",
+"text": "${context.accent ? `[${context.accent} accent]` : ""}[excited][fast][fast]Check this out! [fast][energetic]Our new product... [very excited]it's AMAZING! [fast][fast][happy]Get yours today!"`
+        : pacing === "slow"
+        ? `🌟 EXAMPLE (slow pacing${context.accent ? ", with accent" : ""}):
+"description": "calm",
+"text": "${context.accent ? `[${context.accent} accent]` : ""}[gentle]Take a moment... [thoughtful]to discover something [calm]truly special."`
+        : `🌟 EXAMPLE (normal pacing${context.accent ? ", with accent" : ""}):
 "description": "cheerful",
-"text": "[laughs] You won't believe this! Our new product... [excited] it's AMAZING! [whispers] And just between us, the price is unbeatable."
+"text": "${context.accent ? `[${context.accent} accent]` : ""}[laughs][happy]You won't believe this! [excited]Our new product is here. [whispers]And the price? [cheerful]Unbeatable."`
+    }
+
+KEY PRINCIPLES:
+1. Tag density follows pacing: fast=5-7 tags, normal=2-4 tags, slow=1-2 tags
+2. Only stack [fast] tags when pacing=fast (proven multiplicative effect)
+3. Limit mood tags to 2 per emotional beat
+4. Tags should enhance, not dominate, the natural delivery
 
 Stability settings (handled automatically via baseline tone):
 - Creative (0.0): High expressiveness - cheerful, excited, energetic, fast_read
