@@ -374,6 +374,96 @@ export function MixerPanel({
     }
   };
 
+  // Track fingerprint to detect meaningful changes (URL + timing, not volume)
+  const [lastFingerprint, setLastFingerprint] = React.useState<string>('');
+
+  // Auto-generate preview when all tracks are loaded and ready
+  useEffect(() => {
+    // Only auto-generate if we have tracks and they're all loaded
+    if (calculatedTracks.length === 0) return;
+    if (isGeneratingVoice || isGeneratingMusic || isGeneratingSoundFx) return;
+    if (isExporting) return;
+
+    // Create fingerprint of current tracks (URL + timing + type)
+    const currentFingerprint = JSON.stringify(
+      calculatedTracks.map(t => ({
+        url: t.url,
+        startTime: t.actualStartTime,
+        duration: t.actualDuration,
+        type: t.type
+      }))
+    );
+
+    // Skip if tracks haven't meaningfully changed (e.g., just volume adjustment)
+    if (currentFingerprint === lastFingerprint) {
+      console.log('⏭️ Tracks unchanged, skipping preview regeneration');
+      return;
+    }
+
+    // Check if all tracks are loaded (not in loading state)
+    const allTracksLoaded = tracks.every((track) => {
+      const audio = audioRefs.current[track.id];
+      return audio && audio.readyState >= 3; // HAVE_FUTURE_DATA or better
+    });
+
+    if (!allTracksLoaded) return;
+
+    // Auto-generate preview in background
+    const autoGeneratePreview = async () => {
+      try {
+        console.log('🔄 Auto-generating preview for updated tracks...');
+        const voiceUrls = voiceTracks.map((t) => t.url);
+        const musicUrl = musicTracks.length > 0 ? musicTracks[0].url : null;
+        const soundFxUrls = soundFxTracks.map((t) => t.url);
+
+        const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
+          const timing = {
+            id: track.id,
+            url: track.url,
+            type: track.type,
+            startTime: track.actualStartTime,
+            duration: track.actualDuration,
+            gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
+          };
+
+          if (track.type === "music" && track.metadata?.originalDuration) {
+            timing.duration = track.actualDuration;
+          }
+
+          return timing;
+        });
+
+        timingInfo.sort((a, b) => a.startTime - b.startTime);
+
+        const { blob } = await createMix(
+          voiceUrls,
+          musicUrl,
+          soundFxUrls,
+          timingInfo
+        );
+
+        const localPreviewUrl = URL.createObjectURL(blob);
+        setPreviewUrl(localPreviewUrl);
+
+        // Update fingerprint to reflect current state
+        setLastFingerprint(currentFingerprint);
+
+        // Upload to blob storage in background (don't await)
+        uploadAndUpdateProject(blob, localPreviewUrl).catch(error => {
+          console.error("Background preview upload failed:", error);
+        });
+
+        console.log('✅ Preview auto-generated successfully');
+      } catch (error) {
+        console.error("Auto-preview generation failed:", error);
+      }
+    };
+
+    // Debounce: only auto-generate 2 seconds after tracks stabilize
+    const timer = setTimeout(autoGeneratePreview, 2000);
+    return () => clearTimeout(timer);
+  }, [calculatedTracks, tracks, isGeneratingVoice, isGeneratingMusic, isGeneratingSoundFx, isExporting, lastFingerprint]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Add state for playback
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackPosition, setPlaybackPosition] = useState(0);
