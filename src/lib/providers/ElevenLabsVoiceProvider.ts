@@ -312,11 +312,12 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
     console.log(`elevenlabs API response status: ${response.status}`);
 
     if (!response.ok) {
-      const errorText = await this.handleApiError(response);
-      console.error(`elevenlabs error: ${errorText}`);
+      const errorInfo = await this.handleApiError(response);
+      console.error(`elevenlabs error: ${errorInfo.message}`);
       return {
         success: false,
-        error: errorText,
+        error: errorInfo.message,
+        errorDetails: errorInfo.details
       };
     }
 

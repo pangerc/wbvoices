@@ -1,4 +1,9 @@
 import { MusicTrack } from "@/types";
+import { ErrorDetails } from "@/lib/providers/BaseAudioProvider";
+
+interface ErrorWithDetails extends Error {
+  details?: ErrorDetails;
+}
 
 export async function generateMusicWithMubert(
   prompt: string,
@@ -22,9 +27,11 @@ export async function generateMusicWithMubert(
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Mubert API error:", errorText);
-      throw new Error(`Mubert API error: ${response.status} ${errorText}`);
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      console.error("Mubert API error:", errorData);
+      const error = new Error(errorData.error || `Mubert API error: ${response.status}`) as ErrorWithDetails;
+      error.details = errorData.errorDetails;  // Attach structured details (character limit, etc.)
+      throw error;
     }
 
     const data = await response.json();
@@ -129,10 +136,16 @@ export async function generateMusicWithMubert(
     throw new Error("No music URL returned from Mubert API");
   } catch (error) {
     console.error("Error generating music with Mubert:", error);
-    throw new Error(
+    const wrappedError = new Error(
       error instanceof Error
         ? `Mubert music generation failed: ${error.message}`
         : "Unknown error generating music with Mubert"
-    );
+    ) as ErrorWithDetails;
+    // Preserve details from original error (character limit, validation errors, etc.)
+    const originalError = error as ErrorWithDetails;
+    if (originalError.details) {
+      wrappedError.details = originalError.details;
+    }
+    throw wrappedError;
   }
 }

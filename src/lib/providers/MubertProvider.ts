@@ -69,8 +69,8 @@ export class MubertProvider extends BaseAudioProvider {
     });
 
     if (!response.ok) {
-      const errorText = await this.handleApiError(response);
-      throw new Error(`Customer registration failed: ${errorText}`);
+      const errorInfo = await this.handleApiError(response);
+      throw new Error(`Customer registration failed: ${errorInfo.message}`);
     }
 
     const customerData = await response.json();
@@ -110,7 +110,7 @@ export class MubertProvider extends BaseAudioProvider {
     }
 
     console.log(`💸 Mubert: Cache MISS - Generating NEW music ($$$ spent): "${prompt}" (${duration}s)`);
-    
+
     const response = await this.makeFetch(`${this.MUBERT_BASE_URL}/public/tracks`, {
       method: "POST",
       headers: {
@@ -129,10 +129,11 @@ export class MubertProvider extends BaseAudioProvider {
     });
 
     if (!response.ok) {
-      const errorText = await this.handleApiError(response);
+      const errorInfo = await this.handleApiError(response);
       return {
         success: false,
-        error: errorText
+        error: errorInfo.message,
+        errorDetails: errorInfo.details
       };
     }
 
@@ -191,9 +192,9 @@ export class MubertProvider extends BaseAudioProvider {
 
   async pollStatus(taskId: string, credentials: AuthCredentials): Promise<ProviderResponse> {
     const { customerId, accessToken } = credentials;
-    
+
     console.log(`Mubert: Checking status for track ${taskId}`);
-    
+
     const response = await this.makeFetch(`${this.MUBERT_BASE_URL}/public/tracks/${taskId}`, {
       method: "GET",
       headers: {
@@ -204,10 +205,11 @@ export class MubertProvider extends BaseAudioProvider {
     });
 
     if (!response.ok) {
-      const errorText = await this.handleApiError(response);
+      const errorInfo = await this.handleApiError(response);
       return {
         success: false,
-        error: errorText
+        error: errorInfo.message,
+        errorDetails: errorInfo.details
       };
     }
 

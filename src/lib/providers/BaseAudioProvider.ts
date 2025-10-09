@@ -11,10 +11,24 @@ export interface AuthCredentials {
   [key: string]: string | number | boolean;
 }
 
+// Error details structure for provider-specific errors
+export interface ErrorDetails {
+  message?: string;
+  status?: string;
+  data?: {
+    prompt_suggestion?: string;
+    [key: string]: unknown;
+  };
+  prompt?: string[];
+  errors?: Record<string, string[]>;
+  [key: string]: unknown;
+}
+
 export interface ProviderResponse {
   success: boolean;
   data?: Record<string, unknown>;
   error?: string;
+  errorDetails?: ErrorDetails;  // Structured error data (prompt suggestions, validation errors, etc.)
   needsPolling?: boolean;
   taskId?: string;
 }
@@ -105,9 +119,15 @@ export abstract class BaseAudioProvider {
 
       // 4. Make the actual provider request
       const response = await this.makeRequest(validation.data || {}, credentials);
-      
+
       if (!response.success) {
-        return this.createErrorResponse(response.error || `${this.providerName} request failed`, 500);
+        return NextResponse.json(
+          {
+            error: response.error || `${this.providerName} request failed`,
+            errorDetails: response.errorDetails
+          },
+          { status: 500 }
+        );
       }
 
       // 5. Handle async providers that need polling
@@ -164,16 +184,23 @@ export abstract class BaseAudioProvider {
 
   /**
    * Standardized error handling for API responses
+   * Returns structured error with both message and detailed data
    */
-  protected async handleApiError(response: Response): Promise<string> {
+  protected async handleApiError(response: Response): Promise<{ message: string; details?: ErrorDetails }> {
     let errorMessage = `API error: ${response.status} ${response.statusText}`;
+    let errorDetails: ErrorDetails | undefined = undefined;
 
     try {
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         const errorData = await response.json();
         console.error(`${this.providerName} detailed error response:`, JSON.stringify(errorData, null, 2));
-        errorMessage = errorData.message || errorData.error || errorData.detail || errorMessage;
+
+        // Extract message from various possible locations
+        errorMessage = errorData.message || errorData.error || errorData.detail?.message || errorMessage;
+
+        // Preserve structured details (prompt_suggestion, errors array, etc.)
+        errorDetails = errorData.detail || errorData.errors || errorData;
       } else {
         const text = await response.text();
         console.error(`${this.providerName} non-JSON error response:`, text.substring(0, 500));
@@ -183,7 +210,7 @@ export abstract class BaseAudioProvider {
       console.error(`Error parsing ${this.providerName} error response:`, parseError);
     }
 
-    return errorMessage;
+    return { message: errorMessage, details: errorDetails };
   }
 
   /**

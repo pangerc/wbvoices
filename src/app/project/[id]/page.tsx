@@ -39,6 +39,7 @@ import { useProjectHistoryStore } from "@/store/projectHistoryStore";
 import { AudioService } from "@/services/audioService";
 import { generateProjectId } from "@/utils/projectId";
 import { hasRegionalAccents, getLanguageRegions } from "@/utils/language";
+import { ErrorDetails } from "@/lib/providers/BaseAudioProvider";
 
 export default function ProjectWorkspace() {
   const params = useParams();
@@ -725,11 +726,30 @@ export default function ProjectWorkspace() {
       }
     } catch (error) {
       console.error("Failed to generate music:", error);
-      formManager.setStatusMessage(
-        `Failed to generate music: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
+
+      // Extract detailed error messages (prompt suggestions, character limits, etc.)
+      let errorMessage = `Failed to generate music: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`;
+
+      // Add helpful details if available
+      const details = (error as { details?: ErrorDetails })?.details;
+      if (details) {
+        // ElevenLabs: prompt_suggestion nested under 'data'
+        if (details.data?.prompt_suggestion) {
+          errorMessage += `\n\nSuggested prompt: ${details.data.prompt_suggestion}`;
+        }
+        // Mubert: validation errors at top level
+        else if (details.prompt && Array.isArray(details.prompt)) {
+          errorMessage += `\n\n${details.prompt.join('\n')}`;
+        }
+        // Fallback: show any error message from details
+        else if (details.message) {
+          errorMessage += `\n\n${details.message}`;
+        }
+      }
+
+      formManager.setStatusMessage(errorMessage);
     }
   };
 

@@ -105,10 +105,11 @@ export class QwenVoiceProvider extends BaseAudioProvider {
     });
 
     if (!response.ok) {
-      const errorText = await this.handleApiError(response);
+      const errorInfo = await this.handleApiError(response);
       return {
         success: false,
-        error: errorText
+        error: errorInfo.message,
+        errorDetails: errorInfo.details
       };
     }
 

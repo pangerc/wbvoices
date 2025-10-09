@@ -81,9 +81,9 @@ export function MusicPanel({
   }, [adDuration]);
 
   // Update local status message when parent status message changes
-  // but only if we're actually generating music
+  // Update during generation OR when there's an error message to show
   useEffect(() => {
-    if (isGenerating) {
+    if (isGenerating || parentStatusMessage) {
       setLocalStatusMessage(parentStatusMessage || "");
     }
   }, [isGenerating, parentStatusMessage]);
@@ -414,69 +414,71 @@ export function MusicPanel({
       </div>
 
       {mode === 'generate' ? (
-        <div className="space-y-12 md:grid md:grid-cols-2 md:gap-6">
-        <div>
-          <GlassyTextarea
-            label="Music Description"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
-            className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
-            minRows={3}
-          />
+        <>
+          <div className="space-y-12 md:grid md:grid-cols-2 md:gap-6">
+            <div>
+              <GlassyTextarea
+                label="Music Description"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
+                className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+                minRows={3}
+              />
 
-          {/* Timing instructions for music */}
-          <div className="mt-3 pl-4 text-xs text-gray-500 p-2 ">
-            <span className="font-medium ">Timing: </span>
-            <span>
-              Background music typically plays from the beginning of the ad
-            </span>
-            <div className="mt-1">
-              <span className="text-sky-300 ">Pro tip: </span>
-              Music will be automatically mixed with voice tracks at reduced
-              volume. For best results, choose music that complements the
-              emotion of your script.
+              {/* Timing instructions for music */}
+              <div className="mt-3 pl-4 text-xs text-gray-500 p-2 ">
+                <span className="font-medium ">Timing: </span>
+                <span>
+                  Background music typically plays from the beginning of the ad
+                </span>
+                <div className="mt-1">
+                  <span className="text-sky-300 ">Pro tip: </span>
+                  Music will be automatically mixed with voice tracks at reduced
+                  volume. For best results, choose music that complements the
+                  emotion of your script.
+                </div>
+              </div>
+            </div>
+            <div className="space-y-12">
+              <GlassyOptionPicker
+                label="AI Music Provider"
+                value={musicProvider}
+                onChange={setMusicProvider}
+                options={providerOptions}
+              />
+
+              <GlassySlider
+                label="Duration"
+                value={duration}
+                onChange={setDuration}
+                min={30}
+                max={90}
+                step={musicProvider === "loudly" ? 15 : 5}
+                formatLabel={(val) =>
+                  `${val} seconds${
+                    musicProvider === "loudly" && val % 15 !== 0
+                      ? " (will be rounded to nearest 15s)"
+                      : ""
+                  }${val === Math.max(30, adDuration + 5) ? " (recommended)" : ""}`
+                }
+                tickMarks={[
+                  { value: 30, label: "30s" },
+                  { value: 45, label: "45s" },
+                  { value: 60, label: "60s" },
+                  { value: 75, label: "75s" },
+                  { value: 90, label: "90s" },
+                ]}
+              />
             </div>
           </div>
-        </div>
-        <div className="space-y-12">
-          <GlassyOptionPicker
-            label="AI Music Provider"
-            value={musicProvider}
-            onChange={setMusicProvider}
-            options={providerOptions}
-          />
-
-          <GlassySlider
-            label="Duration"
-            value={duration}
-            onChange={setDuration}
-            min={30}
-            max={90}
-            step={musicProvider === "loudly" ? 15 : 5}
-            formatLabel={(val) =>
-              `${val} seconds${
-                musicProvider === "loudly" && val % 15 !== 0
-                  ? " (will be rounded to nearest 15s)"
-                  : ""
-              }${val === Math.max(30, adDuration + 5) ? " (recommended)" : ""}`
-            }
-            tickMarks={[
-              { value: 30, label: "30s" },
-              { value: 45, label: "45s" },
-              { value: 60, label: "60s" },
-              { value: 75, label: "75s" },
-              { value: 90, label: "90s" },
-            ]}
-          />
-        </div>
 
           {localStatusMessage && (
-            <p className="text-center text-sm text-gray-300">
+            <div className="mt-6 text-left text-sm text-gray-300 whitespace-pre-line">
               {localStatusMessage}
-            </p>
+            </div>
           )}
-        </div>
+        </>
       ) : mode === 'upload' ? (
         /* Upload Mode */
         <div className="max-w-2xl mx-auto">

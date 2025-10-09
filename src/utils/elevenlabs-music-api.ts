@@ -1,4 +1,9 @@
 import { MusicTrack } from "@/types";
+import { ErrorDetails } from "@/lib/providers/BaseAudioProvider";
+
+interface ErrorWithDetails extends Error {
+  details?: ErrorDetails;
+}
 
 export async function generateMusicWithElevenLabs(
   prompt: string,
@@ -22,9 +27,11 @@ export async function generateMusicWithElevenLabs(
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("ElevenLabs Music API error:", errorText);
-      throw new Error(`ElevenLabs Music API error: ${response.status} ${errorText}`);
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      console.error("ElevenLabs Music API error:", errorData);
+      const error = new Error(errorData.error || `ElevenLabs Music API error: ${response.status}`) as ErrorWithDetails;
+      error.details = errorData.errorDetails;  // Attach structured details (prompt_suggestion, etc.)
+      throw error;
     }
 
     // Check if response is JSON or audio data
@@ -58,10 +65,16 @@ export async function generateMusicWithElevenLabs(
 
   } catch (error) {
     console.error("ElevenLabs Music generation failed:", error);
-    throw new Error(
+    const wrappedError = new Error(
       `Failed to generate music with ElevenLabs: ${
         error instanceof Error ? error.message : "Unknown error"
       }`
-    );
+    ) as ErrorWithDetails;
+    // Preserve details from original error (prompt_suggestion, etc.)
+    const originalError = error as ErrorWithDetails;
+    if (originalError.details) {
+      wrappedError.details = originalError.details;
+    }
+    throw wrappedError;
   }
 }

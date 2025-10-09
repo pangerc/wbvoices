@@ -37,6 +37,26 @@ export default function PreviewPage({ params }: PreviewPageProps) {
     loadProject();
   }, [projectId, loadProjectFromRedis]);
 
+  // Refresh project when page becomes visible (e.g., switching back from another tab)
+  useEffect(() => {
+    if (!projectId) return;
+
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        console.log('🔄 Preview page visible, refreshing project data...');
+        try {
+          const loadedProject = await loadProjectFromRedis(projectId);
+          setProject(loadedProject);
+        } catch (error) {
+          console.error("Failed to refresh project:", error);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [projectId, loadProjectFromRedis]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
