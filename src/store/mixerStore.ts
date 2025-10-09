@@ -68,6 +68,8 @@ type MixerState = {
   audioErrors: { [key: string]: boolean };
   audioDurations: { [key: string]: number };
   isExporting: boolean;
+  isUploadingMix: boolean;
+  isPreviewValid: boolean;
   previewUrl: string | null;
   saveCallback: (() => Promise<void>) | null;
 
@@ -82,6 +84,8 @@ type MixerState = {
   calculateTimings: () => void;
   setPreviewUrl: (url: string | null) => void;
   setIsExporting: (isExporting: boolean) => void;
+  setIsUploadingMix: (isUploading: boolean) => void;
+  setIsPreviewValid: (isValid: boolean) => void;
   clearTracks: (type?: "voice" | "music" | "soundfx") => void;
   setSaveCallback: (callback: (() => Promise<void>) | null) => void;
 };
@@ -95,6 +99,8 @@ export const useMixerStore = create<MixerState>((set, get) => ({
   loadingStates: {},
   audioErrors: {},
   isExporting: false,
+  isUploadingMix: false,
+  isPreviewValid: false,
   previewUrl: null,
   audioDurations: {},
   saveCallback: null,
@@ -125,7 +131,11 @@ export const useMixerStore = create<MixerState>((set, get) => ({
       }));
     }
 
-    set({ tracks: [...tracks, newTrack] });
+    set({
+      tracks: [...tracks, newTrack],
+      // Invalidate preview when adding voice or music tracks (they affect the mix)
+      isPreviewValid: (newTrack.type === 'voice' || newTrack.type === 'music') ? false : get().isPreviewValid
+    });
 
     // Recalculate timings
     get().calculateTimings();
@@ -274,6 +284,14 @@ export const useMixerStore = create<MixerState>((set, get) => ({
     set({ isExporting });
   },
 
+  setIsUploadingMix: (isUploading) => {
+    set({ isUploadingMix: isUploading });
+  },
+
+  setIsPreviewValid: (isValid) => {
+    set({ isPreviewValid: isValid });
+  },
+
   clearTracks: (type) => {
     const { tracks } = get();
 
@@ -281,6 +299,7 @@ export const useMixerStore = create<MixerState>((set, get) => ({
       // Remove only tracks of the specified type
       set({
         tracks: tracks.filter((track) => track.type !== type),
+        isPreviewValid: false, // Preview is now invalid since tracks changed
       });
     } else {
       // Remove all tracks and reset all related state
@@ -294,6 +313,7 @@ export const useMixerStore = create<MixerState>((set, get) => ({
         audioDurations: {},
         previewUrl: null,
         isExporting: false,
+        isPreviewValid: false, // Preview is now invalid
       });
     }
 

@@ -39,6 +39,7 @@ export function MixerPanel({
     audioErrors,
     loadingStates,
     isExporting,
+    isUploadingMix,
     previewUrl,
     // We'll use removeTrack later when implementing full error handling
     // removeTrack,
@@ -48,6 +49,8 @@ export function MixerPanel({
     setAudioDuration,
     setPreviewUrl,
     setIsExporting,
+    setIsUploadingMix,
+    setIsPreviewValid,
     clearTracks,
   } = useMixerStore();
 
@@ -247,7 +250,7 @@ export function MixerPanel({
       const currentProject = await loadProjectFromRedis(projectId);
 
       if (currentProject) {
-        // Update project with the permanent mixed audio URL
+        // Update project with the permanent mixed audio URL AND mixer state with volumes
         await updateProject(projectId, {
           preview: {
             brandName: currentProject.preview?.brandName || "",
@@ -258,9 +261,21 @@ export function MixerPanel({
             visualUrl: currentProject.preview?.visualUrl,
             mixedAudioUrl: permanentUrl,
           },
+          mixerState: {
+            tracks: calculatedTracks.map(track => ({
+              id: track.id,
+              url: track.url,
+              label: track.label,
+              type: track.type,
+              duration: track.actualDuration,
+              volume: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
+              startTime: track.actualStartTime,
+            })),
+            totalDuration,
+          },
           lastModified: Date.now(),
         });
-        console.log('✅ Project updated with permanent mixed audio URL');
+        console.log('✅ Project updated with permanent mixed audio URL and volume settings');
       } else {
         console.warn('⚠️ Could not load current project, only updating lastModified');
         await updateProject(projectId, {
@@ -374,95 +389,6 @@ export function MixerPanel({
     }
   };
 
-  // Track fingerprint to detect meaningful changes (URL + timing, not volume)
-  const [lastFingerprint, setLastFingerprint] = React.useState<string>('');
-
-  // Auto-generate preview when all tracks are loaded and ready
-  useEffect(() => {
-    // Only auto-generate if we have tracks and they're all loaded
-    if (calculatedTracks.length === 0) return;
-    if (isGeneratingVoice || isGeneratingMusic || isGeneratingSoundFx) return;
-    if (isExporting) return;
-
-    // Create fingerprint of current tracks (URL + timing + type)
-    const currentFingerprint = JSON.stringify(
-      calculatedTracks.map(t => ({
-        url: t.url,
-        startTime: t.actualStartTime,
-        duration: t.actualDuration,
-        type: t.type
-      }))
-    );
-
-    // Skip if tracks haven't meaningfully changed (e.g., just volume adjustment)
-    if (currentFingerprint === lastFingerprint) {
-      console.log('⏭️ Tracks unchanged, skipping preview regeneration');
-      return;
-    }
-
-    // Check if all tracks are loaded (not in loading state)
-    const allTracksLoaded = tracks.every((track) => {
-      const audio = audioRefs.current[track.id];
-      return audio && audio.readyState >= 3; // HAVE_FUTURE_DATA or better
-    });
-
-    if (!allTracksLoaded) return;
-
-    // Auto-generate preview in background
-    const autoGeneratePreview = async () => {
-      try {
-        console.log('🔄 Auto-generating preview for updated tracks...');
-        const voiceUrls = voiceTracks.map((t) => t.url);
-        const musicUrl = musicTracks.length > 0 ? musicTracks[0].url : null;
-        const soundFxUrls = soundFxTracks.map((t) => t.url);
-
-        const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
-          const timing = {
-            id: track.id,
-            url: track.url,
-            type: track.type,
-            startTime: track.actualStartTime,
-            duration: track.actualDuration,
-            gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
-          };
-
-          if (track.type === "music" && track.metadata?.originalDuration) {
-            timing.duration = track.actualDuration;
-          }
-
-          return timing;
-        });
-
-        timingInfo.sort((a, b) => a.startTime - b.startTime);
-
-        const { blob } = await createMix(
-          voiceUrls,
-          musicUrl,
-          soundFxUrls,
-          timingInfo
-        );
-
-        const localPreviewUrl = URL.createObjectURL(blob);
-        setPreviewUrl(localPreviewUrl);
-
-        // Update fingerprint to reflect current state
-        setLastFingerprint(currentFingerprint);
-
-        // Upload to blob storage in background (don't await)
-        uploadAndUpdateProject(blob, localPreviewUrl).catch(error => {
-          console.error("Background preview upload failed:", error);
-        });
-
-        console.log('✅ Preview auto-generated successfully');
-      } catch (error) {
-        console.error("Auto-preview generation failed:", error);
-      }
-    };
-
-    // Debounce: only auto-generate 2 seconds after tracks stabilize
-    const timer = setTimeout(autoGeneratePreview, 2000);
-    return () => clearTimeout(timer);
-  }, [calculatedTracks, tracks, isGeneratingVoice, isGeneratingMusic, isGeneratingSoundFx, isExporting, lastFingerprint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Add state for playback
   const [isPlaying, setIsPlaying] = useState(false);
@@ -470,56 +396,14 @@ export function MixerPanel({
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  // For tracking if volume has changed
-  const hasVolumeChangedRef = useRef(false);
-
-  // Effect to invalidate preview when volume changes
-  useEffect(() => {
-    // Skip this effect during initial render
-    if (!hasVolumeChangedRef.current) {
-      hasVolumeChangedRef.current = true;
-      return;
-    }
-
-    // Avoid regenerating preview when not playing
-    if (!previewUrl || !isPlaying) {
-      return;
-    }
-
-    // Use a debounce to prevent rapid regeneration
-    const debounceTime = 500; // ms
-    const debounceTimerId = setTimeout(() => {
-      console.log(
-        "Volume settings changed, regenerating preview on next play..."
-      );
-
-      // Instead of regenerating immediately, just invalidate the current preview
-      // so it will be regenerated on next play
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-        setPreviewUrl(null);
-      }
-
-      if (playbackAudioRef.current) {
-        playbackAudioRef.current.pause();
-        setIsPlaying(false);
-      }
-    }, debounceTime);
-
-    return () => clearTimeout(debounceTimerId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trackVolumes]);
-
   const handlePreview = async () => {
     try {
       // Always regenerate the preview regardless of existing URL
       setIsExporting(true);
       console.log("Generating preview mix...");
 
-      // Clean up previous preview URL
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
+      // Clear previous preview URL immediately so PreviewPanel knows mix is being regenerated
+      setPreviewUrl(null);
 
       // Make sure we have all valid URLs for tracks
       const voiceUrls = voiceTracks
@@ -609,15 +493,22 @@ export function MixerPanel({
 
       const localPreviewUrl = URL.createObjectURL(blob);
       console.log("Mixed audio blob created:", localPreviewUrl);
-      
-      // Upload to blob storage and update project (async, don't block preview)
-      uploadAndUpdateProject(blob, localPreviewUrl).catch(error => {
-        console.error("Background upload failed:", error);
-      });
-      
-      setPreviewUrl(localPreviewUrl);
 
-      // Set up the playback audio element if it doesn't exist yet
+      // Upload to blob storage and update Redis in background (don't block playback)
+      console.log("Uploading to blob storage and updating Redis...");
+      setIsUploadingMix(true);
+      uploadAndUpdateProject(blob, localPreviewUrl).then(({ permanentUrl }) => {
+        console.log("✅ Permanent URL saved to Redis:", permanentUrl);
+        // Store permanent URL for PreviewPanel and future sessions
+        setPreviewUrl(permanentUrl);
+        setIsPreviewValid(true); // Preview is now valid
+        setIsUploadingMix(false);
+      }).catch(error => {
+        console.error("Background upload failed:", error);
+        setIsUploadingMix(false);
+      });
+
+      // Set up the playback audio element with LOCAL blob URL (immediate playback)
       if (!playbackAudioRef.current) {
         console.log("Creating new Audio element");
         const audio = new Audio();
@@ -641,7 +532,7 @@ export function MixerPanel({
           }
         });
 
-        // Set the source AFTER adding all event listeners
+        // Set the source AFTER adding all event listeners - use LOCAL blob for immediate playback
         audio.src = localPreviewUrl;
         playbackAudioRef.current = audio;
       } else {
@@ -657,7 +548,7 @@ export function MixerPanel({
         // Reset audio to avoid carrying over state
         audio.currentTime = 0;
 
-        // Update source
+        // Update source - use LOCAL blob for immediate playback
         audio.src = localPreviewUrl;
       }
 
@@ -667,7 +558,7 @@ export function MixerPanel({
       }
 
       console.log("Preview generation completed");
-      return localPreviewUrl; // Return the URL for chaining
+      return localPreviewUrl; // Return the local URL for immediate playback
     } catch (error) {
       console.error("Failed to create preview:", error);
       return null;
@@ -692,12 +583,6 @@ export function MixerPanel({
         audio.currentTime = 0;
         setIsPlaying(false);
         setPlaybackPosition(0);
-
-        // Revoke old preview URL to force regeneration next time
-        if (previewUrl) {
-          URL.revokeObjectURL(previewUrl);
-          setPreviewUrl(null);
-        }
 
         // Stop the animation
         if (animationFrameRef.current) {

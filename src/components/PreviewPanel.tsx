@@ -29,7 +29,7 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
     handleUploadError,
   } = useFileUpload();
   const { loadProjectFromRedis, updateProject } = useProjectHistoryStore();
-  const { previewUrl } = useMixerStore();
+  const { previewUrl, isUploadingMix, isPreviewValid } = useMixerStore();
 
   const [previewData, setPreviewData] = useState<PreviewData>({
     brandName: "",
@@ -44,11 +44,23 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
   // Debug logging
   React.useEffect(() => {
     console.log("🎵 Preview audio sources:", {
+      isUploadingMix,
+      isPreviewValid,
       previewUrl,
+      redisPreviewUrl: project?.preview?.mixedAudioUrl,
       musicUrl: project?.generatedTracks?.musicUrl,
-      finalAudioSrc: previewUrl || project?.generatedTracks?.musicUrl,
+      finalAudioSrc:
+        (isPreviewValid && previewUrl) ||
+        project?.preview?.mixedAudioUrl ||
+        project?.generatedTracks?.musicUrl,
     });
-  }, [previewUrl, project?.generatedTracks?.musicUrl]);
+  }, [
+    isUploadingMix,
+    isPreviewValid,
+    previewUrl,
+    project?.preview?.mixedAudioUrl,
+    project?.generatedTracks?.musicUrl,
+  ]);
 
   // Custom upload handlers that auto-save to project
   const handleLogoUpload = (result: { url: string; filename: string }) => {
@@ -118,28 +130,39 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
           setProject(loadedProject);
 
           // Initialize preview data from project (preview data takes precedence, fallback to brief data)
-          const briefCTA = loadedProject.brief?.selectedCTA?.replace(/-/g, ' ') || '';
+          const briefCTA =
+            loadedProject.brief?.selectedCTA?.replace(/-/g, " ") || "";
           // Extract brand name from client description (first few words, up to punctuation)
-          const briefBrandName = loadedProject.brief?.clientDescription
-            ?.split(/[.,]|(\s+is\s+)|(\s+offers\s+)|(\s+provides\s+)|(\s+sells\s+)/)[0] // Split on punctuation or common separators
-            ?.trim()
-            || '';
+          const briefBrandName =
+            loadedProject.brief?.clientDescription
+              ?.split(
+                /[.,]|(\s+is\s+)|(\s+offers\s+)|(\s+provides\s+)|(\s+sells\s+)/
+              )[0] // Split on punctuation or common separators
+              ?.trim() || "";
 
           // Helper function to capitalize text (for both CTA and brand names)
           const capitalizeText = (text: string) => {
-            return text.split(' ').map(word =>
-              word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-            ).join(' ');
+            return text
+              .split(" ")
+              .map(
+                (word) =>
+                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+              )
+              .join(" ");
           };
 
-          const finalCTA = (loadedProject.preview?.cta && loadedProject.preview.cta !== 'Learn More')
-            ? loadedProject.preview.cta
-            : briefCTA || 'Learn More';
+          const finalCTA =
+            loadedProject.preview?.cta &&
+            loadedProject.preview.cta !== "Learn More"
+              ? loadedProject.preview.cta
+              : briefCTA || "Learn More";
 
           setPreviewData({
-            brandName: loadedProject.preview?.brandName || (briefBrandName ? capitalizeText(briefBrandName) : ''),
-            slogan: loadedProject.preview?.slogan || '',
-            destinationUrl: loadedProject.preview?.destinationUrl || '',
+            brandName:
+              loadedProject.preview?.brandName ||
+              (briefBrandName ? capitalizeText(briefBrandName) : ""),
+            slogan: loadedProject.preview?.slogan || "",
+            destinationUrl: loadedProject.preview?.destinationUrl || "",
             cta: capitalizeText(finalCTA),
           });
         }
@@ -174,7 +197,13 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
         lastModified: Date.now(),
       });
     },
-    [projectId, project, uploadedFiles.logo?.url, uploadedFiles.visual?.url, updateProject]
+    [
+      projectId,
+      project,
+      uploadedFiles.logo?.url,
+      uploadedFiles.visual?.url,
+      updateProject,
+    ]
   );
 
   const handleInputChange = (field: keyof PreviewData, value: string) => {
@@ -233,15 +262,13 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
             and customize the preview experience.
           </p>
         </div>
-        <div className="flex flex-col items-end gap-3">
-          <GenerateButton
-            onClick={() => window.open(generatePreviewUrl(), "_blank")}
-            disabled={!projectId || !previewData.brandName}
-            isGenerating={false}
-            text="Open Preview"
-            generatingText="Opening Preview"
-          />
-        </div>
+        <GenerateButton
+          onClick={() => window.open(generatePreviewUrl(), "_blank")}
+          disabled={!projectId || !previewData.brandName || isUploadingMix}
+          isGenerating={isUploadingMix}
+          text="Open Preview"
+          generatingText="Generating Preview"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-8">
@@ -384,9 +411,9 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
               logo={logoUrl}
               adImage={visualUrl}
               audioSrc={
-                previewUrl ||                        // Fresh mixed audio from mixer (immediate)
-                project?.preview?.mixedAudioUrl ||   // Permanent mixed audio from Redis (after upload)
-                project?.generatedTracks?.musicUrl   // Fallback to music-only
+                (isPreviewValid && previewUrl) || // Only use preview URL if it's valid
+                project?.preview?.mixedAudioUrl || // Permanent mixed audio from Redis (previous session)
+                project?.generatedTracks?.musicUrl // Fallback to music-only
               }
             />
           </div>
