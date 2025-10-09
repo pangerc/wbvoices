@@ -384,8 +384,9 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
               logo={logoUrl}
               adImage={visualUrl}
               audioSrc={
-                project?.preview?.mixedAudioUrl || // Use permanent mixed audio if available
-                project?.generatedTracks?.musicUrl // Fallback to music-only track
+                previewUrl ||                        // Fresh mixed audio from mixer (immediate)
+                project?.preview?.mixedAudioUrl ||   // Permanent mixed audio from Redis (after upload)
+                project?.generatedTracks?.musicUrl   // Fallback to music-only
               }
             />
           </div>
