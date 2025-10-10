@@ -88,7 +88,7 @@ export default function PreviewPage({ params }: PreviewPageProps) {
           alt="Aleph Creative Audio"
           width={114}
           height={31}
-          className="h-12 -mb-3 w-auto "
+          className="h-10 -mb-3 w-auto "
         />
       </div>
 
