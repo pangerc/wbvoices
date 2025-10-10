@@ -43,7 +43,7 @@ export default function PreviewPage({ params }: PreviewPageProps) {
 
     const handleVisibilityChange = async () => {
       if (!document.hidden) {
-        console.log('🔄 Preview page visible, refreshing project data...');
+        console.log("🔄 Preview page visible, refreshing project data...");
         try {
           const loadedProject = await loadProjectFromRedis(projectId);
           setProject(loadedProject);
@@ -53,8 +53,9 @@ export default function PreviewPage({ params }: PreviewPageProps) {
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [projectId, loadProjectFromRedis]);
 
   if (loading) {
@@ -70,7 +71,9 @@ export default function PreviewPage({ params }: PreviewPageProps) {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center text-white">
           <h1 className="text-2xl mb-2">Project not found</h1>
-          <p className="text-gray-400">The preview you&apos;re looking for doesn&apos;t exist.</p>
+          <p className="text-gray-400">
+            The preview you&apos;re looking for doesn&apos;t exist.
+          </p>
         </div>
       </div>
     );
@@ -81,11 +84,11 @@ export default function PreviewPage({ params }: PreviewPageProps) {
       {/* WiseBlue Studio Logo */}
       <div className="absolute top-8 left-8">
         <Image
-          src="/wbs-logo.svg"
-          alt="WiseBlue Studio"
-          width={180}
-          height={37}
-          className="h-8 w-auto"
+          src="/aca.svg"
+          alt="Aleph Creative Audio"
+          width={114}
+          height={31}
+          className="h-12 -mb-3 w-auto "
         />
       </div>
 

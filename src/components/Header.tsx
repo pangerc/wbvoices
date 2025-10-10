@@ -283,7 +283,7 @@ export function Header({
         <div className="flex-shrink-0 ">
           <Image
             src="/aca.svg"
-            alt="Wise.blue"
+            alt="Aleph Creative Audio"
             width={114}
             height={31}
             className="h-12 -mb-3 w-auto "
