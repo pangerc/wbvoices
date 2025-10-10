@@ -63,56 +63,66 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
   ]);
 
   // Custom upload handlers that auto-save to project
-  const handleLogoUpload = (result: { url: string; filename: string }) => {
+  const handleLogoUpload = async (result: { url: string; filename: string }) => {
     handleUploadComplete("logo")(result);
 
     // Auto-save logo URL to project
-    if (projectId && project) {
+    if (projectId) {
+      // Load fresh project from Redis to avoid race conditions
+      const currentProject = await loadProjectFromRedis(projectId);
+      if (!currentProject) return;
+
       const updatedPreview = {
-        ...project.preview,
+        ...currentProject.preview, // Use fresh data, not stale local state
         brandName: previewData.brandName,
         slogan: previewData.slogan,
         destinationUrl: previewData.destinationUrl,
         cta: previewData.cta,
         logoUrl: result.url,
-        visualUrl: project.preview?.visualUrl || uploadedFiles.visual?.url,
+        visualUrl: currentProject.preview?.visualUrl || uploadedFiles.visual?.url,
       };
 
-      updateProject(projectId, {
+      await updateProject(projectId, {
         preview: updatedPreview,
         lastModified: Date.now(),
       });
 
+      // Update local state with fresh merged data
       setProject({
-        ...project,
+        ...currentProject,
         preview: updatedPreview,
         lastModified: Date.now(),
       });
     }
   };
 
-  const handleVisualUpload = (result: { url: string; filename: string }) => {
+  const handleVisualUpload = async (result: { url: string; filename: string }) => {
     handleUploadComplete("visual")(result);
 
     // Auto-save visual URL to project
-    if (projectId && project) {
+    if (projectId) {
+      // Load fresh project from Redis to avoid race conditions
+      const currentProject = await loadProjectFromRedis(projectId);
+      if (!currentProject) return;
+
       const updatedPreview = {
-        ...project.preview,
+        ...currentProject.preview, // Use fresh data, not stale local state
         brandName: previewData.brandName,
         slogan: previewData.slogan,
         destinationUrl: previewData.destinationUrl,
         cta: previewData.cta,
-        logoUrl: project.preview?.logoUrl || uploadedFiles.logo?.url,
+        logoUrl: currentProject.preview?.logoUrl || uploadedFiles.logo?.url,
         visualUrl: result.url,
       };
 
-      updateProject(projectId, {
+      await updateProject(projectId, {
         preview: updatedPreview,
         lastModified: Date.now(),
       });
 
+      // Update local state with fresh merged data
       setProject({
-        ...project,
+        ...currentProject,
         preview: updatedPreview,
         lastModified: Date.now(),
       });
@@ -176,32 +186,37 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
 
   // Debounced update function
   const debouncedUpdateProject = useCallback(
-    (updatedPreviewData: PreviewData) => {
-      if (!projectId || !project) return;
+    async (updatedPreviewData: PreviewData) => {
+      if (!projectId) return;
+
+      // Load fresh project from Redis to avoid race conditions
+      const currentProject = await loadProjectFromRedis(projectId);
+      if (!currentProject) return;
 
       const updatedPreview = {
-        ...project.preview,
+        ...currentProject.preview, // Use fresh data, not stale local state
         ...updatedPreviewData,
-        logoUrl: uploadedFiles.logo?.url || project.preview?.logoUrl,
-        visualUrl: uploadedFiles.visual?.url || project.preview?.visualUrl,
+        logoUrl: uploadedFiles.logo?.url || currentProject.preview?.logoUrl,
+        visualUrl: uploadedFiles.visual?.url || currentProject.preview?.visualUrl,
       };
 
-      updateProject(projectId, {
+      await updateProject(projectId, {
         preview: updatedPreview,
         lastModified: Date.now(),
       });
 
+      // Update local state with fresh merged data
       setProject({
-        ...project,
+        ...currentProject,
         preview: updatedPreview,
         lastModified: Date.now(),
       });
     },
     [
       projectId,
-      project,
       uploadedFiles.logo?.url,
       uploadedFiles.visual?.url,
+      loadProjectFromRedis,
       updateProject,
     ]
   );
@@ -415,6 +430,8 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
                 project?.preview?.mixedAudioUrl || // Permanent mixed audio from Redis (previous session)
                 project?.generatedTracks?.musicUrl // Fallback to music-only
               }
+              isGenerating={isUploadingMix}
+              isInvalid={!isPreviewValid && !isUploadingMix}
             />
           </div>
         </div>

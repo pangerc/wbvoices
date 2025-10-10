@@ -41,36 +41,41 @@ export async function GET(req: NextRequest) {
         if (!provider || !language) {
           return NextResponse.json({ error: 'Provider and language required' }, { status: 400 });
         }
-        
+
+        // Check if approval filtering is required
+        const requireApproval = url.searchParams.get('requireApproval') === 'true';
+
         // If region is specified, get region-filtered voices for the provider
         if (region) {
           const regionVoices = await voiceCatalogue.getVoicesByRegion(
             language as Language,
             region
           );
-          
+
           // For OpenAI, always include all voices regardless of region
           if (provider === 'openai') {
             const allOpenAIVoices = await voiceCatalogue.getVoicesForProvider(
               'openai',
               language as Language,
-              accent || undefined
+              accent || undefined,
+              requireApproval
             );
             return NextResponse.json(allOpenAIVoices);
           }
-          
+
           // For other providers, filter by provider
-          const providerVoices = regionVoices.filter(voice => 
+          const providerVoices = regionVoices.filter(voice =>
             voice.provider === provider || provider === 'any'
           );
           return NextResponse.json(providerVoices);
         }
-        
+
         // Default: get all voices for provider
         const voices = await voiceCatalogue.getVoicesForProvider(
           provider as Provider,
           language as Language,
-          accent || undefined
+          accent || undefined,
+          requireApproval
         );
         return NextResponse.json(voices);
       }
@@ -168,6 +173,9 @@ export async function GET(req: NextRequest) {
             try {
               let providerVoices: unknown[] = [];
 
+              // Check if approval filtering is required
+              const requireApproval = url.searchParams.get('requireApproval') === 'true';
+
               // Apply region filtering if specified
               if (region && region !== 'all') {
                 console.log(`🔍 Region filtering: region=${region}, accent=${accent || 'none'}, provider=${providerName}`);
@@ -188,7 +196,8 @@ export async function GET(req: NextRequest) {
                   providerVoices = await voiceCatalogue.getVoicesForProvider(
                     providerName,
                     language as Language,
-                    accent || undefined
+                    accent || undefined,
+                    requireApproval
                   );
                 } else {
                   // For other providers, filter by provider AND accent from region voices
@@ -205,7 +214,8 @@ export async function GET(req: NextRequest) {
                 providerVoices = await voiceCatalogue.getVoicesForProvider(
                   providerName,
                   language as Language,
-                  accent || undefined
+                  accent || undefined,
+                  requireApproval
                 );
                 console.log(`🔍 Loaded ${providerVoices.length} ${providerName} voices for ${language}`);
               }

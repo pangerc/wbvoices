@@ -1,6 +1,7 @@
 import { redis } from '@/lib/redis';
 import { Provider, Language } from '@/types';
 import { accentRegions, normalizeLanguageCode } from '@/utils/language';
+import { voiceMetadataService } from './voiceMetadataService';
 
 // Actual provider types (excluding "any")
 type ActualProvider = Exclude<Provider, 'any'>;
@@ -332,9 +333,10 @@ export class VoiceCatalogueService {
   }
   
   async getVoicesForProvider(
-    provider: Provider, 
-    language: Language, 
-    accent?: string
+    provider: Provider,
+    language: Language,
+    accent?: string,
+    requireApproval?: boolean
   ): Promise<UnifiedVoice[]> {
     const voiceTower = await redis.get<VoiceTower>(this.TOWER_KEYS.VOICES) || {} as VoiceTower;
     const dataTower = await redis.get<VoiceDataTower>(this.TOWER_KEYS.DATA) || {};
@@ -385,9 +387,49 @@ export class VoiceCatalogueService {
     }
     
     // Fetch voice data
-    return voiceIds
+    let voices = voiceIds
       .map(id => dataTower[id])
       .filter(voice => voice !== undefined);
+
+    // Apply blacklist filtering if required
+    if (requireApproval && accent) {
+      voices = await this.filterByBlacklist(voices, language, accent);
+    }
+
+    return voices;
+  }
+
+  /**
+   * Filter OUT blacklisted voices for a language/accent combination
+   * BLACKLIST LOGIC: Voices are visible by default, only hide if blacklisted
+   */
+  private async filterByBlacklist(
+    voices: UnifiedVoice[],
+    language: Language,
+    accent: string
+  ): Promise<UnifiedVoice[]> {
+    if (voices.length === 0) return [];
+
+    // Get voice keys
+    const voiceKeys = voices.map(v => `${v.provider}:${v.id}`);
+
+    // Bulk fetch blacklist entries
+    const blacklistMap = await voiceMetadataService.bulkGetBlacklisted(voiceKeys);
+
+    // Filter OUT blacklisted voices
+    return voices.filter(voice => {
+      const voiceKey = `${voice.provider}:${voice.id}`;
+      const blacklistEntries = blacklistMap[voiceKey] || [];
+
+      // Keep voice if NOT blacklisted for this language/accent
+      const isBlacklisted = blacklistEntries.some(
+        entry =>
+          entry.language === language &&
+          entry.accent === accent
+      );
+
+      return !isBlacklisted;
+    });
   }
   
   // 🏗️ TOWER BUILDING OPERATIONS 🏗️

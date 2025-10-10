@@ -3,7 +3,8 @@ import { voiceCatalogue } from "@/services/voiceCatalogueService";
 import { Language, Voice } from "@/types";
 import { normalizeLanguageCode } from "@/utils/language";
 
-export const runtime = "edge";
+// Note: Using Node.js runtime (not Edge) because voiceCatalogueService now depends on postgres
+export const runtime = "nodejs";
 
 /**
  * 🗡️ ACCENT API: Get available accents for a language based on actual voice data
