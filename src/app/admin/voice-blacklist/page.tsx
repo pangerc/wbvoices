@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { GlassyCombobox, GlassyListbox, GlassyTextarea } from "@/components/ui";
 import { getFlagCode } from "@/utils/language";
 import type { Language, Provider, Voice } from "@/types";
@@ -37,6 +37,7 @@ export default function VoiceBlacklistPage() {
   const [selectedLanguage, setSelectedLanguage] = useState<Language>("es");
   const [selectedAccent, setSelectedAccent] = useState<string>("neutral");
   const [selectedProvider, setSelectedProvider] = useState<Provider>("elevenlabs");
+  const [languageQuery, setLanguageQuery] = useState("");
 
   // Available options
   const [availableLanguages, setAvailableLanguages] = useState<
@@ -244,6 +245,18 @@ export default function VoiceBlacklistPage() {
     // Accents and providers will be loaded by useEffect hooks
   }
 
+  // Filter languages based on search (must be before early return)
+  const filteredLanguages = useMemo(() => {
+    if (!availableLanguages || availableLanguages.length === 0) return [];
+    if (languageQuery === "") return availableLanguages;
+    return availableLanguages.filter(
+      (lang) =>
+        lang &&
+        lang.name &&
+        lang.name.toLowerCase().includes(languageQuery.toLowerCase())
+    );
+  }, [languageQuery, availableLanguages]);
+
   if (loading && availableLanguages.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black text-white">
@@ -255,8 +268,8 @@ export default function VoiceBlacklistPage() {
   const visibleCount = voices.length - blacklist.size;
 
   return (
-    <div className="min-h-screen bg-black text-white p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="h-screen bg-black text-white p-8 overflow-hidden">
+      <div className="max-w-7xl mx-auto h-full flex flex-col">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Voice Blacklist</h1>
@@ -265,19 +278,8 @@ export default function VoiceBlacklistPage() {
           </p>
         </div>
 
-        {/* Sample Text */}
-        <div className="mb-8">
-          <GlassyTextarea
-            label="Sample Text (for voice preview)"
-            value={sampleText}
-            onChange={(e) => setSampleText(e.target.value)}
-            placeholder="Enter sample text to test voices..."
-            rows={2}
-          />
-        </div>
-
         {/* Main Content */}
-        <div className="grid grid-cols-3 gap-8">
+        <div className="grid grid-cols-3 gap-8 flex-1 overflow-hidden">
           {/* Left Column: Filters (1/3) */}
           <div className="space-y-4">
             <h2 className="text-lg font-semibold mb-4">Filters</h2>
@@ -303,11 +305,12 @@ export default function VoiceBlacklistPage() {
                 onChange={(item) =>
                   item && handleLanguageChange(item.value as Language)
                 }
-                options={availableLanguages.map((lang) => ({
+                options={filteredLanguages.map((lang) => ({
                   value: lang.code,
                   label: lang.name,
                   flag: getFlagCode(lang.code),
                 }))}
+                onQueryChange={setLanguageQuery}
               />
             </div>
 
@@ -342,10 +345,21 @@ export default function VoiceBlacklistPage() {
                 }))}
               />
             </div>
+
+            {/* Sample Text */}
+            <div>
+              <GlassyTextarea
+                label="Sample Text (for voice preview)"
+                value={sampleText}
+                onChange={(e) => setSampleText(e.target.value)}
+                placeholder="Enter sample text to test voices..."
+                rows={2}
+              />
+            </div>
           </div>
 
           {/* Right Column: Voice List (2/3) */}
-          <div className="col-span-2">
+          <div className="col-span-2 flex flex-col overflow-hidden">
             <h2 className="text-lg font-semibold mb-4">
               Voices ({voices.length})
             </h2>
@@ -355,7 +369,13 @@ export default function VoiceBlacklistPage() {
                 <div className="animate-spin w-8 h-8 border-2 border-white/20 border-t-white rounded-full"></div>
               </div>
             ) : (
-              <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+              <div
+                className="space-y-2 flex-1 overflow-y-auto pr-4"
+                style={{
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#374151 #111827'
+                }}
+              >
                 {voices.map((voice) => (
                   <VoiceCard
                     key={`${voice.provider}:${voice.id}`}

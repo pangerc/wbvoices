@@ -1,6 +1,6 @@
 import { BaseAudioProvider, ValidationResult, AuthCredentials, ProviderResponse } from './BaseAudioProvider';
 import { uploadVoiceToBlob } from '@/utils/blob-storage';
-import { injectPronunciationRules } from '@/utils/pronunciationHelper';
+import { getServerPronunciationRules, injectPronunciationRules } from '@/utils/server-pronunciation-helper';
 import { NextResponse } from 'next/server';
 
 export class OpenAIVoiceProvider extends BaseAudioProvider {
@@ -65,17 +65,20 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
     console.log(`  Voice Instructions: ${voiceInstructions || 'none'}`);
     console.log(`  Region: ${region || 'none'}`);
     console.log(`  Accent: ${accent || 'none'}`);
-    
+
     // Extract base voice from our ID format
     const openAIVoice = (voiceId as string).split('-')[0];
-    
+
+    // Fetch pronunciation rules from Redis (server-side safe)
+    const pronunciationRules = await getServerPronunciationRules();
+
     // Build voice instructions (separate from text input)
     let instructions = '';
-    
+
     // Use provided voice instructions if available (from LLM)
     if (voiceInstructions && typeof voiceInstructions === 'string') {
       // Inject pronunciation rules for matched strings in the script
-      instructions = injectPronunciationRules(text as string, voiceInstructions) || voiceInstructions;
+      instructions = injectPronunciationRules(text as string, voiceInstructions, pronunciationRules) || voiceInstructions;
       console.log(`  🎛️ Using LLM voice instructions: "${instructions}"`);
     } else {
       // Fallback: build instructions from style/useCase (for backward compatibility)
@@ -120,7 +123,7 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
 
     // Inject pronunciation rules for matched strings (if not already injected via voiceInstructions)
     if (!voiceInstructions) {
-      const withPronunciation = injectPronunciationRules(text as string, instructions || undefined);
+      const withPronunciation = injectPronunciationRules(text as string, instructions || undefined, pronunciationRules);
       if (withPronunciation) {
         instructions = withPronunciation;
       }

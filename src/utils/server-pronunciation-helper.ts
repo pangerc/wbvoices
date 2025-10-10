@@ -1,28 +1,43 @@
+import { getRedis } from '@/lib/redis';
 import { PronunciationRule } from '@/types';
 
-const STORAGE_KEY = 'pronunciation_rules';
+const PRONUNCIATION_RULES_KEY = 'pronunciation:global_rules';
+
+/**
+ * Fetch pronunciation rules from Redis (server-side)
+ * This is safe to use in API routes and Edge runtime
+ */
+export async function getServerPronunciationRules(): Promise<PronunciationRule[]> {
+  try {
+    const redis = getRedis();
+    const data = await redis.get<{ rules: PronunciationRule[]; dictionaryId: string; timestamp: number }>(
+      PRONUNCIATION_RULES_KEY
+    );
+
+    if (!data || !data.rules) {
+      console.log('🔍 No pronunciation rules found in Redis');
+      return [];
+    }
+
+    console.log(`📖 Loaded ${data.rules.length} pronunciation rule(s) from Redis`);
+    return data.rules;
+  } catch (error) {
+    console.error('❌ Failed to fetch pronunciation rules from Redis:', error);
+    return [];
+  }
+}
 
 /**
  * Inject pronunciation rules into voice instructions for matched strings
  * Only includes rules where stringToReplace is found in the script text
+ *
+ * This is a pure function (no side effects) that can be used anywhere
  */
 export function injectPronunciationRules(
   scriptText: string,
-  existingInstructions: string | undefined
+  existingInstructions: string | undefined,
+  rules: PronunciationRule[]
 ): string | undefined {
-  // Load rules from localStorage (same key as PronunciationEditor)
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) return existingInstructions;
-
-  let rules: PronunciationRule[] = [];
-  try {
-    const data = JSON.parse(stored);
-    rules = data.rules || [];
-  } catch (error) {
-    console.error('Failed to parse pronunciation rules:', error);
-    return existingInstructions;
-  }
-
   if (rules.length === 0) return existingInstructions;
 
   // Find rules where stringToReplace exists in scriptText

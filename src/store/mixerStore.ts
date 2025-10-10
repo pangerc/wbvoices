@@ -71,6 +71,7 @@ type MixerState = {
   isUploadingMix: boolean;
   isPreviewValid: boolean;
   previewUrl: string | null;
+  uploadError: string | null;
   saveCallback: (() => Promise<void>) | null;
 
   // Actions
@@ -86,6 +87,7 @@ type MixerState = {
   setIsExporting: (isExporting: boolean) => void;
   setIsUploadingMix: (isUploading: boolean) => void;
   setIsPreviewValid: (isValid: boolean) => void;
+  setUploadError: (error: string | null) => void;
   clearTracks: (type?: "voice" | "music" | "soundfx") => void;
   setSaveCallback: (callback: (() => Promise<void>) | null) => void;
 };
@@ -102,6 +104,7 @@ export const useMixerStore = create<MixerState>((set, get) => ({
   isUploadingMix: false,
   isPreviewValid: false,
   previewUrl: null,
+  uploadError: null,
   audioDurations: {},
   saveCallback: null,
 
@@ -290,6 +293,10 @@ export const useMixerStore = create<MixerState>((set, get) => ({
 
   setIsPreviewValid: (isValid) => {
     set({ isPreviewValid: isValid });
+  },
+
+  setUploadError: (error) => {
+    set({ uploadError: error });
   },
 
   clearTracks: (type) => {

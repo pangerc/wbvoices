@@ -51,6 +51,7 @@ export function MixerPanel({
     setIsExporting,
     setIsUploadingMix,
     setIsPreviewValid,
+    setUploadError,
     clearTracks,
   } = useMixerStore();
 
@@ -402,8 +403,10 @@ export function MixerPanel({
       setIsExporting(true);
       console.log("Generating preview mix...");
 
-      // Clear previous preview URL immediately so PreviewPanel knows mix is being regenerated
+      // Clear previous preview state immediately so PreviewPanel knows mix is being regenerated
       setPreviewUrl(null);
+      setIsPreviewValid(false);
+      setUploadError(null);
 
       // Make sure we have all valid URLs for tracks
       const voiceUrls = voiceTracks
@@ -497,15 +500,29 @@ export function MixerPanel({
       // Upload to blob storage and update Redis in background (don't block playback)
       console.log("Uploading to blob storage and updating Redis...");
       setIsUploadingMix(true);
+
+      // Set timeout for stuck uploads (30 seconds)
+      const uploadTimeout = setTimeout(() => {
+        console.error("❌ Upload timeout after 30 seconds");
+        setIsUploadingMix(false);
+        setIsPreviewValid(false);
+        setUploadError("Upload timeout. Please try again.");
+      }, 30000);
+
       uploadAndUpdateProject(blob, localPreviewUrl).then(({ permanentUrl }) => {
+        clearTimeout(uploadTimeout);
         console.log("✅ Permanent URL saved to Redis:", permanentUrl);
         // Store permanent URL for PreviewPanel and future sessions
         setPreviewUrl(permanentUrl);
-        setIsPreviewValid(true); // Preview is now valid
+        setIsPreviewValid(true);
+        setUploadError(null);
         setIsUploadingMix(false);
       }).catch(error => {
-        console.error("Background upload failed:", error);
+        clearTimeout(uploadTimeout);
+        console.error("❌ Background upload failed:", error);
         setIsUploadingMix(false);
+        setIsPreviewValid(false); // ✅ Mark preview as invalid on upload failure
+        setUploadError(error instanceof Error ? error.message : "Upload failed. Please try again.");
       });
 
       // Set up the playback audio element with LOCAL blob URL (immediate playback)

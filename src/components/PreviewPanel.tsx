@@ -29,7 +29,7 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
     handleUploadError,
   } = useFileUpload();
   const { loadProjectFromRedis, updateProject } = useProjectHistoryStore();
-  const { previewUrl, isUploadingMix, isPreviewValid } = useMixerStore();
+  const { previewUrl, isUploadingMix, isPreviewValid, uploadError, setIsPreviewValid } = useMixerStore();
 
   const [previewData, setPreviewData] = useState<PreviewData>({
     brandName: "",
@@ -139,6 +139,14 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
         if (loadedProject) {
           setProject(loadedProject);
 
+          // Initialize preview validity if project has existing mixed audio
+          if (loadedProject.preview?.mixedAudioUrl) {
+            console.log('✅ Project has existing mixedAudioUrl, setting preview as valid');
+            setIsPreviewValid(true);
+          } else {
+            console.log('⚠️ Project has no mixedAudioUrl, preview is invalid');
+          }
+
           // Initialize preview data from project (preview data takes precedence, fallback to brief data)
           const briefCTA =
             loadedProject.brief?.selectedCTA?.replace(/-/g, " ") || "";
@@ -182,7 +190,7 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
     };
 
     loadProject();
-  }, [projectId, loadProjectFromRedis]);
+  }, [projectId, loadProjectFromRedis, setIsPreviewValid]);
 
   // Debounced update function
   const debouncedUpdateProject = useCallback(
@@ -432,6 +440,7 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
               }
               isGenerating={isUploadingMix}
               isInvalid={!isPreviewValid && !isUploadingMix}
+              uploadError={uploadError}
             />
           </div>
         </div>

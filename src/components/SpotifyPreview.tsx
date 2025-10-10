@@ -11,6 +11,7 @@ export interface SpotifyPreviewProps {
   audioSrc?: string;
   isGenerating?: boolean;
   isInvalid?: boolean;
+  uploadError?: string | null;
 }
 
 type Rgb = { r: number; g: number; b: number };
@@ -207,6 +208,7 @@ export function SpotifyPreview({
   audioSrc,
   isGenerating = false,
   isInvalid = false,
+  uploadError = null,
 }: SpotifyPreviewProps) {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
@@ -357,8 +359,8 @@ export function SpotifyPreview({
   return (
     <div className="w-full max-w-[390px] mx-auto">
       <div className="rounded-[28px] overflow-hidden ring ring-white/20 relative">
-        {/* Overlay when generating or invalid */}
-        {(isGenerating || isInvalid) && (
+        {/* Overlay when generating, invalid, or error */}
+        {(isGenerating || isInvalid || uploadError) && (
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-50 rounded-[28px] flex items-center justify-center">
             <div className="text-center text-white px-6">
               {isGenerating && (
@@ -391,7 +393,33 @@ export function SpotifyPreview({
                   </p>
                 </>
               )}
-              {!isGenerating && isInvalid && (
+              {!isGenerating && uploadError && (
+                <>
+                  <div className="mb-4">
+                    <svg
+                      className="h-12 w-12 mx-auto text-red-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  <p className="text-lg font-semibold text-red-400">Upload Failed</p>
+                  <p className="text-sm text-gray-300 mt-2">
+                    {uploadError}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-3">
+                    Go to Mixer and click PLAY to retry
+                  </p>
+                </>
+              )}
+              {!isGenerating && !uploadError && isInvalid && (
                 <>
                   <div className="mb-4">
                     <svg
