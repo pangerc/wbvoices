@@ -136,27 +136,121 @@ const campaignFormatOptions = [
 
 // SVG Icons for pacing control
 const TurtleIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="20" width="20">
-    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M14.881 18h0.869c1.1935 0 2.3381 -0.4741 3.182 -1.318 0.8439 -0.8439 1.318 -1.9885 1.318 -3.182V9h1.5c0.3978 0 0.7794 -0.15804 1.0607 -0.43934S23.25 7.89782 23.25 7.5v-3c0 -0.79565 -0.3161 -1.55871 -0.8787 -2.12132C21.8087 1.81607 21.0457 1.5 20.25 1.5H16.5c-0.6501 0.18758 -1.2214 0.58188 -1.6274 1.12319 -0.406 0.54131 -0.6245 1.20017 -0.6226 1.87681V6" strokeWidth="1.5"></path>
-    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M12.945 9.15101c-1.3302 -1.07096 -2.98726 -1.65367 -4.695 -1.651 -4.142 0 -6 3.35799 -6 7.49999v1.5" strokeWidth="1.5"></path>
-    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M2.25 16.5c-0.39782 0 -0.77936 0.158 -1.06066 0.4393C0.908035 17.2206 0.75 17.6022 0.75 18c0 0.3978 0.158035 0.7793 0.43934 1.0607 0.2813 0.2813 0.66284 0.4393 1.06066 0.4393H12c3 0 3.75 -3 3.75 -4.5 0.0016 -1.1226 -0.2492 -2.2312 -0.7339 -3.2438S13.8253 9.85288 12.95 9.14999c0.3663 0.90541 0.5531 1.87331 0.55 2.85001 0 1.5 -0.75 4.5 -3.75 4.5h-7.5Z" strokeWidth="1.5"></path>
-    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M11.518 8.24701 3.26501 16.5" strokeWidth="1.5"></path>
-    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M5.75098 8.00101 12.678 14.928" strokeWidth="1.5"></path>
-    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="m3.13599 10.636 5.863 5.863" strokeWidth="1.5"></path>
-    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M6.74998 19.5V21c0 0.3978 -0.15804 0.7794 -0.43934 1.0607 -0.28131 0.2813 -0.66284 0.4393 -1.06066 0.4393h-2.362c-0.15546 0 -0.30706 -0.0483 -0.43385 -0.1383 -0.12679 -0.0899 -0.2225 -0.217 -0.2739 -0.3637 -0.05139 -0.1468 -0.05592 -0.3058 -0.01297 -0.4552 0.04294 -0.1494 0.13126 -0.2818 0.25272 -0.3788l2.08 -1.664h2.25Z" strokeWidth="1.5"></path>
-    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M11.25 19.5V21c0 0.3978 0.158 0.7793 0.4393 1.0606 0.2813 0.2814 0.6629 0.4394 1.0607 0.4394h2.362c0.1555 0 0.3071 -0.0483 0.4338 -0.1383 0.1268 -0.0899 0.2225 -0.217 0.2739 -0.3638 0.0514 -0.1467 0.056 -0.3057 0.013 -0.4551 -0.0429 -0.1494 -0.1312 -0.2818 -0.2527 -0.3788L13.253 19.3" strokeWidth="1.5"></path>
-    <path stroke="currentColor" d="M18.75 4.875c-0.2071 0 -0.375 -0.16789 -0.375 -0.375s0.1679 -0.375 0.375 -0.375" strokeWidth="1.5"></path>
-    <path stroke="currentColor" d="M18.75 4.875c0.2071 0 0.375 -0.16789 0.375 -0.375s-0.1679 -0.375 -0.375 -0.375" strokeWidth="1.5"></path>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    height="20"
+    width="20"
+  >
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M14.881 18h0.869c1.1935 0 2.3381 -0.4741 3.182 -1.318 0.8439 -0.8439 1.318 -1.9885 1.318 -3.182V9h1.5c0.3978 0 0.7794 -0.15804 1.0607 -0.43934S23.25 7.89782 23.25 7.5v-3c0 -0.79565 -0.3161 -1.55871 -0.8787 -2.12132C21.8087 1.81607 21.0457 1.5 20.25 1.5H16.5c-0.6501 0.18758 -1.2214 0.58188 -1.6274 1.12319 -0.406 0.54131 -0.6245 1.20017 -0.6226 1.87681V6"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M12.945 9.15101c-1.3302 -1.07096 -2.98726 -1.65367 -4.695 -1.651 -4.142 0 -6 3.35799 -6 7.49999v1.5"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M2.25 16.5c-0.39782 0 -0.77936 0.158 -1.06066 0.4393C0.908035 17.2206 0.75 17.6022 0.75 18c0 0.3978 0.158035 0.7793 0.43934 1.0607 0.2813 0.2813 0.66284 0.4393 1.06066 0.4393H12c3 0 3.75 -3 3.75 -4.5 0.0016 -1.1226 -0.2492 -2.2312 -0.7339 -3.2438S13.8253 9.85288 12.95 9.14999c0.3663 0.90541 0.5531 1.87331 0.55 2.85001 0 1.5 -0.75 4.5 -3.75 4.5h-7.5Z"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M11.518 8.24701 3.26501 16.5"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M5.75098 8.00101 12.678 14.928"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m3.13599 10.636 5.863 5.863"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M6.74998 19.5V21c0 0.3978 -0.15804 0.7794 -0.43934 1.0607 -0.28131 0.2813 -0.66284 0.4393 -1.06066 0.4393h-2.362c-0.15546 0 -0.30706 -0.0483 -0.43385 -0.1383 -0.12679 -0.0899 -0.2225 -0.217 -0.2739 -0.3637 -0.05139 -0.1468 -0.05592 -0.3058 -0.01297 -0.4552 0.04294 -0.1494 0.13126 -0.2818 0.25272 -0.3788l2.08 -1.664h2.25Z"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M11.25 19.5V21c0 0.3978 0.158 0.7793 0.4393 1.0606 0.2813 0.2814 0.6629 0.4394 1.0607 0.4394h2.362c0.1555 0 0.3071 -0.0483 0.4338 -0.1383 0.1268 -0.0899 0.2225 -0.217 0.2739 -0.3638 0.0514 -0.1467 0.056 -0.3057 0.013 -0.4551 -0.0429 -0.1494 -0.1312 -0.2818 -0.2527 -0.3788L13.253 19.3"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      d="M18.75 4.875c-0.2071 0 -0.375 -0.16789 -0.375 -0.375s0.1679 -0.375 0.375 -0.375"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      d="M18.75 4.875c0.2071 0 0.375 -0.16789 0.375 -0.375s-0.1679 -0.375 -0.375 -0.375"
+      strokeWidth="1.5"
+    ></path>
   </svg>
 );
 
 const RabbitIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="20" width="20">
-    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M7.51172 12.036c0.69627 -0.0353 1.39194 0.0805 2.03924 0.3394 0.64734 0.2589 1.23094 0.6548 1.71074 1.1606 1.4293 1.9422 2.4675 4.1437 3.057 6.482" strokeWidth="1.5"></path>
-    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M18.7342 23.25h-5.8826c-0.2507 0.0002 -0.4973 -0.0624 -0.7175 -0.1823 -0.2201 -0.1198 -0.4067 -0.293 -0.5425 -0.5036 -1.0113 -1.6024 -2.42199 -2.9143 -4.09347 -3.8069 -2.99522 -1.4976 -5.99044 -2.9953 -5.99044 -6.7393 0 -5.24162 3.74403 -5.99042 5.99044 -5.99042 3.74407 0 7.48807 3.74403 9.73447 4.49282 -1.4976 -2.2464 -4.5687 -9.2702 -2.2464 -9.734457C18.7302 0.0370377 20.9766 11.2691 20.9766 11.2691c0.7198 0.3097 1.324 0.8378 1.7271 1.5097s0.5848 1.4535 0.5193 2.2343c0 2.2465 -1.4976 2.2465 -3.744 2.2465 -2.2464 0 -2.9952 0.7488 -2.9952 0.7488" strokeWidth="1.5"></path>
-    <path stroke="currentColor" d="M19.8867 14.2859c-0.2071 0 -0.375 -0.1679 -0.375 -0.375s0.1679 -0.375 0.375 -0.375" strokeWidth="1.5"></path>
-    <path stroke="currentColor" d="M19.8867 14.2859c0.2071 0 0.375 -0.1679 0.375 -0.375s-0.1679 -0.375 -0.375 -0.375" strokeWidth="1.5"></path>
-    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M2.51173 8.22998c-0.42497 -0.0973 -0.81252 -0.31598 -1.11553 -0.62943 -0.30301 -0.31346 -0.508427 -0.70819 -0.591279 -1.13621 -0.082852 -0.42803 -0.03957 -0.8709 0.124583 -1.27478 0.164156 -0.40389 0.442106 -0.75138 0.800076 -1.00024 0.35796 -0.24886 0.78051 -0.38836 1.21628 -0.40155 0.43577 -0.01318 0.86598 0.10051 1.23834 0.32727 0.37236 0.22676 0.67081 0.55681 0.85909 0.95003 0.18827 0.39322 0.25826 0.83266 0.20144 1.26491" strokeWidth="1.5"></path>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    height="20"
+    width="20"
+  >
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M7.51172 12.036c0.69627 -0.0353 1.39194 0.0805 2.03924 0.3394 0.64734 0.2589 1.23094 0.6548 1.71074 1.1606 1.4293 1.9422 2.4675 4.1437 3.057 6.482"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M18.7342 23.25h-5.8826c-0.2507 0.0002 -0.4973 -0.0624 -0.7175 -0.1823 -0.2201 -0.1198 -0.4067 -0.293 -0.5425 -0.5036 -1.0113 -1.6024 -2.42199 -2.9143 -4.09347 -3.8069 -2.99522 -1.4976 -5.99044 -2.9953 -5.99044 -6.7393 0 -5.24162 3.74403 -5.99042 5.99044 -5.99042 3.74407 0 7.48807 3.74403 9.73447 4.49282 -1.4976 -2.2464 -4.5687 -9.2702 -2.2464 -9.734457C18.7302 0.0370377 20.9766 11.2691 20.9766 11.2691c0.7198 0.3097 1.324 0.8378 1.7271 1.5097s0.5848 1.4535 0.5193 2.2343c0 2.2465 -1.4976 2.2465 -3.744 2.2465 -2.2464 0 -2.9952 0.7488 -2.9952 0.7488"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      d="M19.8867 14.2859c-0.2071 0 -0.375 -0.1679 -0.375 -0.375s0.1679 -0.375 0.375 -0.375"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      d="M19.8867 14.2859c0.2071 0 0.375 -0.1679 0.375 -0.375s-0.1679 -0.375 -0.375 -0.375"
+      strokeWidth="1.5"
+    ></path>
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M2.51173 8.22998c-0.42497 -0.0973 -0.81252 -0.31598 -1.11553 -0.62943 -0.30301 -0.31346 -0.508427 -0.70819 -0.591279 -1.13621 -0.082852 -0.42803 -0.03957 -0.8709 0.124583 -1.27478 0.164156 -0.40389 0.442106 -0.75138 0.800076 -1.00024 0.35796 -0.24886 0.78051 -0.38836 1.21628 -0.40155 0.43577 -0.01318 0.86598 0.10051 1.23834 0.32727 0.37236 0.22676 0.67081 0.55681 0.85909 0.95003 0.18827 0.39322 0.25826 0.83266 0.20144 1.26491"
+      strokeWidth="1.5"
+    ></path>
   </svg>
 );
 
@@ -604,7 +698,12 @@ export function BriefPanel({
         voiceInstructions: segment.voiceInstructions,
       }));
 
-      onGenerateCreative(segments, musicPrompt || "", soundFxPrompts, voicesToUse);
+      onGenerateCreative(
+        segments,
+        musicPrompt || "",
+        soundFxPrompts,
+        voicesToUse
+      );
     } catch (error) {
       console.error("Error generating creative:", error);
       setError(
@@ -665,7 +764,12 @@ export function BriefPanel({
       console.log(
         "🚀 AUTO MODE: Triggering parallel voice + music + soundfx generation"
       );
-      onGenerateCreativeAuto(segments, musicPrompt || "", soundFxPrompts, voicesToUse);
+      onGenerateCreativeAuto(
+        segments,
+        musicPrompt || "",
+        soundFxPrompts,
+        voicesToUse
+      );
     } catch (error) {
       console.error("Error in AUTO mode generation:", error);
       setError(
@@ -684,10 +788,10 @@ export function BriefPanel({
       {/* Header with Generate button */}
       <div className="flex justify-between items-start mt-8 mb-16">
         <div>
-          <h1 className="text-4xl font-black mb-2">Let&apos;s Start Cooking</h1>
+          <h1 className="text-4xl font-black mb-2">Create Your Campaign</h1>
           <p>
             Describe your client, audience, and message. This helps us craft the
-            perfect voice for your campaign.
+            perfect voice for your ads.
           </p>
         </div>
         <SplitGenerateButton
@@ -842,7 +946,9 @@ export function BriefPanel({
           </label>
           <GlassyListbox
             value={selectedCTA || "none"}
-            onChange={(value) => setSelectedCTA(value === "none" ? null : value)}
+            onChange={(value) =>
+              setSelectedCTA(value === "none" ? null : value)
+            }
             options={[
               { value: "none", label: "No specific CTA" },
               { value: "apply-now", label: "Apply now" },
@@ -905,7 +1011,8 @@ export function BriefPanel({
 
             {/* Spotify Compliance Warning */}
             <div className="mt-3 text-xs text-gray-500">
-              Spotify: Standard ads max 30s. Long-form (60s) in select markets only.
+              Spotify: Standard ads max 30s. Long-form (60s) in select markets
+              only.
               {adDuration > 30 && (
                 <span className="text-red-900 ml-1">
                   Duration exceeds 30s standard.
@@ -922,7 +1029,9 @@ export function BriefPanel({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setSelectedPacing(selectedPacing === "slow" ? null : "slow")}
+                onClick={() =>
+                  setSelectedPacing(selectedPacing === "slow" ? null : "slow")
+                }
                 className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border transition-all ${
                   selectedPacing === "slow"
                     ? "bg-white/10 border-white/30 text-white"
@@ -934,7 +1043,9 @@ export function BriefPanel({
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedPacing(selectedPacing === "fast" ? null : "fast")}
+                onClick={() =>
+                  setSelectedPacing(selectedPacing === "fast" ? null : "fast")
+                }
                 className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border transition-all ${
                   selectedPacing === "fast"
                     ? "bg-white/10 border-white/30 text-white"

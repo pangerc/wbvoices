@@ -260,6 +260,7 @@ export function Header({
 }: HeaderProps) {
   const { isOpen, toggle, close } = useHistoryDrawer();
   const { recentProjects, loadProjects } = useProjectHistoryStore();
+
   const router = useRouter();
 
   // Load projects when component mounts to ensure count is available
@@ -281,11 +282,11 @@ export function Header({
       <div className="container mx-auto px-4 flex justify-between items-center">
         <div className="flex-shrink-0 ">
           <Image
-            src="/wbs-logo.svg"
+            src="/aca.svg"
             alt="Wise.blue"
-            width={225}
-            height={46}
-            className="h-10 -mb-3 w-auto "
+            width={114}
+            height={31}
+            className="h-12 -mb-3 w-auto "
           />
         </div>
 
