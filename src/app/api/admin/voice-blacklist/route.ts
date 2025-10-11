@@ -8,9 +8,13 @@ import { Language } from '@/types';
  * BLACKLIST LOGIC: Voices are visible by default.
  * POST adds to blacklist (hides voice), DELETE removes from blacklist (shows voice).
  *
+ * TWO-LEVEL BLACKLISTING:
+ * - scope="language": Blacklist for all accents (uses accent="*" internally)
+ * - scope="accent": Blacklist for specific accent only
+ *
  * GET    ?voiceKey=provider:voiceId              - Get blacklist entries for a voice
  * GET    ?language=es&accent=mexican             - Get all blacklisted voices for language/accent
- * POST   { voiceKey, language, accent, reason }  - Add voice to blacklist
+ * POST   { voiceKey, language, accent, reason, scope }  - Add voice to blacklist
  * DELETE ?voiceKey=...&language=...&accent=...   - Remove voice from blacklist
  */
 
@@ -24,7 +28,13 @@ export async function GET(req: NextRequest) {
     // Get blacklist entries for a specific voice
     if (voiceKey) {
       const entries = await voiceMetadataService.getBlacklistEntries(voiceKey);
-      return NextResponse.json({ voiceKey, blacklist: entries });
+      // Enhance with scope information
+      const enhanced = entries.map(entry => ({
+        ...entry,
+        scope: entry.accent === '*' ? 'language' : 'accent',
+        effectiveAccents: entry.accent === '*' ? 'all' : entry.accent
+      }));
+      return NextResponse.json({ voiceKey, blacklist: enhanced });
     }
 
     // Get all blacklisted voices for a language/accent combination
@@ -52,27 +62,52 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { voiceKey, language, accent, reason, batch } = body;
+    const { voiceKey, language, accent, reason, batch, scope = 'accent' } = body;
 
     // Validate required fields
-    if (!language || !accent) {
+    if (!language) {
       return NextResponse.json(
-        { error: 'language and accent are required' },
+        { error: 'language is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate scope
+    if (scope !== 'language' && scope !== 'accent') {
+      return NextResponse.json(
+        { error: 'scope must be "language" or "accent"' },
+        { status: 400 }
+      );
+    }
+
+    // For accent-specific scope, accent is required
+    if (scope === 'accent' && !accent) {
+      return NextResponse.json(
+        { error: 'accent is required when scope is "accent"' },
         { status: 400 }
       );
     }
 
     // Batch blacklist
     if (batch && Array.isArray(voiceKey)) {
-      await voiceMetadataService.batchBlacklist(
-        voiceKey,
-        language as Language,
-        accent,
-        reason
-      );
+      for (const key of voiceKey) {
+        await voiceMetadataService.addToBlacklistWithScope(
+          key,
+          language as Language,
+          accent || '',
+          scope as 'language' | 'accent',
+          reason
+        );
+      }
+
+      const scopeDesc = scope === 'language'
+        ? `all ${language} accents`
+        : `${language}/${accent}`;
+
       return NextResponse.json({
         success: true,
-        message: `Blacklisted ${voiceKey.length} voices for ${language}/${accent}`,
+        message: `Blacklisted ${voiceKey.length} voices for ${scopeDesc}`,
+        scope,
         count: voiceKey.length,
       });
     }
@@ -85,16 +120,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await voiceMetadataService.addToBlacklist(
+    await voiceMetadataService.addToBlacklistWithScope(
       voiceKey,
       language as Language,
-      accent,
+      accent || '',
+      scope as 'language' | 'accent',
       reason
     );
 
+    const scopeDesc = scope === 'language'
+      ? `all ${language} accents`
+      : `${language}/${accent}`;
+
     return NextResponse.json({
       success: true,
-      message: `Blacklisted ${voiceKey} for ${language}/${accent}`,
+      message: `Blacklisted ${voiceKey} for ${scopeDesc}`,
+      scope,
     });
   } catch (error) {
     console.error('Error blacklisting voice:', error);

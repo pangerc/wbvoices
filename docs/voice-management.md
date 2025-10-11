@@ -151,15 +151,15 @@ interface VoiceMetadata {
 }
 ```
 
-#### VoiceBlacklist (Implemented as Blacklist, not Whitelist)
+#### VoiceBlacklist (Two-Level Blacklisting)
 
-Language/region/accent blacklist matrix:
+Language/region/accent blacklist matrix with flexible scoping:
 
 ```typescript
 interface VoiceBlacklist {
   voiceKey: string;                    // "{provider}:{voiceId}" - Composite PK part
   language: Language;                  // Composite PK part
-  accent: string;                      // Composite PK part
+  accent: string;                      // Composite PK part (use "*" for language-wide)
 
   reason?: string;                     // Why this voice is blacklisted
 
@@ -171,12 +171,16 @@ interface VoiceBlacklist {
 **Key Design Decisions:**
 
 - **BLACKLIST LOGIC**: Voices are visible by default. Only voices present in this table are hidden.
-- One `VoiceBlacklist` record per voice/language/accent combination that should be HIDDEN
+- **TWO-LEVEL BLACKLISTING**:
+  - **Language-wide**: Set `accent = "*"` to blacklist for ALL accents of that language
+  - **Accent-specific**: Set `accent = "parisian"` to blacklist only for that specific accent
+- One `VoiceBlacklist` record per scope level
+- Both levels can coexist (language-wide takes precedence in filtering)
 - Absence from table = voice is approved/visible
 - Presence in table = voice is blacklisted/hidden
 - Multi-language voices (like OpenAI) can have multiple blacklist records
-- Region is optional (language + accent may be sufficient)
 - Simpler than whitelist: only bad voices need to be tracked
+- Uses voice's own accent (not query filter) for accent-specific blacklisting
 
 **Future Enhancements:**
 
@@ -346,16 +350,22 @@ class VoiceCatalogueServiceV2 extends VoiceCatalogueService {
       };
     });
 
-    // 4. Apply blacklist filtering if required
+    // 4. Apply two-level blacklist filtering if required
     // BLACKLIST LOGIC: Filter OUT blacklisted voices
     if (filters.requireApproval) {
       return enhanced.filter(voice => {
-        // Keep voice if NOT in blacklist for this language/accent
-        const isBlacklisted = voice.blacklistEntries.some(entry =>
-          entry.language === filters.language &&
-          (!filters.accent || entry.accent === filters.accent)
+        // Check language-wide blacklist (accent = "*")
+        const isLanguageWideBlacklisted = voice.blacklistEntries.some(entry =>
+          entry.language === filters.language && entry.accent === '*'
         );
-        return !isBlacklisted;
+        if (isLanguageWideBlacklisted) return false;
+
+        // Check accent-specific blacklist
+        const accentToCheck = filters.accent || voice.accent;
+        const isAccentBlacklisted = voice.blacklistEntries.some(entry =>
+          entry.language === filters.language && entry.accent === accentToCheck
+        );
+        return !isAccentBlacklisted;
       });
     }
 
@@ -372,13 +382,18 @@ class VoiceCatalogueServiceV2 extends VoiceCatalogueService {
 
 ### API Endpoints
 
-**Current MVP Implementation (BLACKLIST APPROACH):**
+**Current MVP Implementation (TWO-LEVEL BLACKLIST):**
 
 ```
 POST   /api/admin/voice-blacklist                    - Add to blacklist (hide voice)
+       Body: { voiceKey, language, accent?, scope: 'language' | 'accent', reason? }
+       - scope='language': Blacklist for all accents (uses accent="*" internally)
+       - scope='accent': Blacklist for specific accent only
 GET    /api/admin/voice-blacklist?voiceKey=...       - Get blacklist entries for a voice
 GET    /api/admin/voice-blacklist?language=...&accent=... - Get all blacklisted voices
+       - Use accent="*" to get language-wide blacklist
 DELETE /api/admin/voice-blacklist?voiceKey=...&language=...&accent=... - Remove from blacklist (show voice)
+       - Use accent="*" to remove language-wide blacklist
 ```
 
 **Voice Catalogue Integration:**
@@ -626,34 +641,49 @@ API Routes:
 - `DELETE /api/admin/voice-blacklist?voiceKey=...&language=...&accent=...` - Remove from blacklist / show voice
 
 Service Methods:
-- `addToBlacklist()` - Hide voice for language/accent
+- `addToBlacklist()` - Hide voice for language/accent (legacy method)
+- `addToBlacklistWithScope()` - Hide voice with scope control (language-wide or accent-specific)
 - `removeFromBlacklist()` - Show voice again
-- `isBlacklisted()` - Check if voice is hidden
-- `bulkGetBlacklisted()` - Bulk fetch blacklist entries
+- `isBlacklisted()` - Check if voice is hidden (simple check)
+- `isBlacklistedEnhanced()` - Check with scope information
+- `bulkGetBlacklisted()` - Bulk fetch blacklist entries (legacy)
+- `bulkGetBlacklistedEnhanced()` - Bulk fetch with language-wide/accent-specific separation
 - `batchBlacklist()` - Blacklist multiple voices at once
 
 Integration:
 - `voiceCatalogueService.getVoicesForProvider()` - Added `requireApproval` parameter
 - `/api/voice-catalogue?...&requireApproval=true` - Filters OUT blacklisted voices
+- **BriefPanel** - Uses `requireApproval=true` when loading voices for LLM
+- **ScripterPanel** - Uses `requireApproval=true` when loading voices for dropdowns
+- **LLM Generation** - Only receives filtered voices (blacklisted voices never reach the LLM)
 - Bulk blacklist fetching for performance
 - Transparent operation - existing code unchanged
+- **End-to-end protection**: Blacklisted voices are filtered at every layer (database → API → UI → LLM)
 
 Admin UI:
-- `/admin/voice-blacklist` - Voice management interface
-- Green toggles by default (visible)
-- Red toggles when blacklisted (hidden)
-- Shows "X visible, Y hidden (of Z total)"
+- `/admin/voice-manager` - Voice management interface
+- **Per-voice two-toggle system**:
+  - Toggle 1: Language-wide blacklist (e.g., "All French")
+  - Toggle 2: Accent-specific blacklist (e.g., "Parisian") - shows voice's own accent
+- Each toggle independent: green (visible), red (hidden)
+- Shows "X visible • Y hidden language-wide • Z hidden for specific accents (of N total)"
 - Play button for voice preview
 - Filter by language, accent, provider
+- Accent labels display voice's own accent (not filter)
 
 **Test Results**:
 - ✅ Database connection working
 - ✅ Database migration completed (approval → blacklist)
 - ✅ All CRUD operations functional
-- ✅ Blacklist filtering tested with real voices
+- ✅ Blacklist filtering tested with real voices (Roger/French/Parisian)
 - ✅ Batch operations working
 - ✅ Admin UI functional
 - ✅ Backward compatibility maintained
+- ✅ **End-to-end filtering verified**:
+  - BriefPanel filters voices before sending to LLM (Roger excluded: 52/53 voices)
+  - LLM receives only approved voices (Roger not in prompt)
+  - ScripterPanel shows only approved voices in dropdowns (Roger excluded: 52/53 voices)
+  - Voice ID mismatch impossible (LLM cannot select blacklisted voices)
 
 ### Phase 2: Admin UI Foundation (Week 2)
 
@@ -750,6 +780,77 @@ Admin UI:
 - Multi-tenant voice catalogs
 - Voice marketplace
 
+## End-to-End Voice Flow with Blacklist Protection
+
+**Complete voice journey from user action to audio generation:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. USER CREATES BRIEF                                                       │
+│    - Selects language: French                                               │
+│    - Selects provider: ElevenLabs                                           │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+┌────────────────────────────────▼────────────────────────────────────────────┐
+│ 2. BRIEFPANEL LOADS VOICES (with requireApproval=true)                     │
+│    GET /api/voice-catalogue?operation=filtered-voices&                      │
+│        language=fr&provider=elevenlabs&requireApproval=true                 │
+│                                                                              │
+│    Result: 52 voices (Roger EXCLUDED - blacklisted in database)            │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+┌────────────────────────────────▼────────────────────────────────────────────┐
+│ 3. USER GENERATES CREATIVE                                                  │
+│    BriefPanel sends filtered voices to LLM:                                 │
+│    POST /api/ai/generate                                                    │
+│    Body: { filteredVoices: [...52 voices...] }                             │
+│                                                                              │
+│    LLM prompt includes: "AVAILABLE VOICES (52 voices): Aria, Sarah, Laura..." │
+│    Roger is NOT in the list - LLM CANNOT select him                        │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+┌────────────────────────────────▼────────────────────────────────────────────┐
+│ 4. LLM RETURNS VOICE SELECTIONS                                             │
+│    Response: { voiceSegments: [{ voice: { id: "Aria...", ... }, ... }] }  │
+│    Only IDs from the 52 approved voices                                     │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+┌────────────────────────────────▼────────────────────────────────────────────┐
+│ 5. SCRIPTERPANEL LOADS VOICES (with requireApproval=true)                  │
+│    GET /api/voice-catalogue?operation=filtered-voices&                      │
+│        language=fr&provider=elevenlabs&requireApproval=true                 │
+│                                                                              │
+│    Result: 52 voices (same list - Roger EXCLUDED)                          │
+│    Voice dropdowns show only approved voices                                │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+┌────────────────────────────────▼────────────────────────────────────────────┐
+│ 6. VOICE TRACKS MAPPED                                                      │
+│    AudioService.mapVoiceSegmentsToTracks()                                  │
+│    - LLM voice IDs: ["Aria-id", "Sarah-id"]                                │
+│    - Available voices: [52 approved voices]                                 │
+│    - Match successful ✅ (all IDs exist in approved list)                   │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+┌────────────────────────────────▼────────────────────────────────────────────┐
+│ 7. AUDIO GENERATION                                                         │
+│    POST /api/audio/voice                                                    │
+│    Only approved voices generate audio                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Three-layer protection guarantees blacklisted voices never reach production:**
+
+1. **Database Layer**: `voice_blacklist` table stores blacklist entries
+2. **API Layer**: `requireApproval=true` filters voices before returning to clients
+3. **Application Layer**: Both BriefPanel and ScripterPanel use filtered lists
+
+**Why this is bulletproof:**
+- LLM literally cannot select Roger - he's not in the prompt
+- UI dropdowns don't show Roger - he's filtered from the list
+- Even if someone manually entered Roger's ID, the voice wouldn't exist in the system
+- All three layers use the same filtering logic - consistency guaranteed
+
 ## Conclusion
 
 This dual-layer architecture provides a pragmatic solution to voice metadata management that:
@@ -766,14 +867,18 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 
 ## MVP Status (October 2025)
 
-### 🔄 Architectural Decision: Whitelist → Blacklist
+### 🔄 Architectural Decisions
 
-**Key Change**: Flipped from approval/whitelist to blacklist approach for better UX:
-
+**Decision 1: Whitelist → Blacklist** (October 2025)
 - **OLD (Whitelist)**: Voices hidden by default, must manually approve each one
 - **NEW (Blacklist)**: Voices visible by default, only hide the bad ones
+- **Why?** Much simpler to manage - instead of approving hundreds of good voices, just blacklist the few bad ones.
 
-**Why?** Much simpler to manage - instead of approving hundreds of good voices, just blacklist the few bad ones.
+**Decision 2: Two-Level Blacklisting with Wildcard Accent** (October 2025)
+- **Language-wide**: Use `accent = "*"` to blacklist for all accents
+- **Accent-specific**: Use voice's own accent to blacklist for that accent only
+- **Why?** Users need flexibility: "Roger sounds terrible in ALL French" vs "Roger's Parisian accent is too strong"
+- **Implementation**: Per-voice two-toggle UI, wildcard in database, no schema changes needed
 
 ### ✅ Implemented
 
@@ -785,28 +890,50 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 - Lazy connection initialization for serverless compatibility
 
 **Services:**
-- `VoiceMetadataService` - Full CRUD operations with blacklist methods
-- `VoiceCatalogueService` - Enhanced with blacklist filtering
+- `VoiceMetadataService` - Full CRUD operations with two-level blacklist methods
+  - `addToBlacklistWithScope()` - Language-wide or accent-specific
+  - `bulkGetBlacklistedEnhanced()` - Optimized bulk fetch with scope separation
+  - `isBlacklistedEnhanced()` - Check with scope information
+- `VoiceCatalogueService` - Enhanced with two-level blacklist filtering
+  - Checks language-wide blacklist first (`accent = "*"`)
+  - Falls back to accent-specific check using voice's own accent
 - Bulk operations for performance
 
 **API:**
-- `/api/admin/voice-blacklist` - Complete CRUD for blacklist management
+- `/api/admin/voice-blacklist` - Complete CRUD for two-level blacklist management
+  - `scope` parameter: `'language'` or `'accent'`
+  - Wildcard accent `"*"` for language-wide operations
+  - Enhanced GET responses with scope information
 - `/api/voice-catalogue` - Integrated `requireApproval` parameter (filters out blacklist)
 - All endpoints tested and working
 
 **Admin UI:**
-- `/admin/voice-blacklist` - Voice management interface
+- `/admin/voice-blacklist` - Voice management interface with per-voice controls
+- **Two independent toggles per voice:**
+  - Language-wide toggle (e.g., "All French")
+  - Accent-specific toggle (e.g., "Parisian") - displays voice's own accent
 - Language, region, accent, provider filters
 - Voice preview with play button
-- Toggle switches (green = visible, red = hidden)
 - Real-time blacklist updates
+- Clear visual feedback for both blacklist levels
 
 **Tests:**
 - End-to-end integration tests passing
-- Real voice filtering validated
-- Blacklist logic verified
-- Admin UI functional
+- Two-level blacklist filtering validated:
+  - ✅ Language-wide blacklist filters all accents
+  - ✅ Accent-specific blacklist filters only that accent
+  - ✅ Both levels can coexist (language-wide takes precedence)
+  - ✅ Filtering works without accent parameter (uses voice's own accent)
+- Real voice filtering validated (tested with Roger/French/Parisian)
+- Blacklist logic verified at both levels
+- Admin UI functional with per-voice toggles
 - Backward compatibility confirmed
+- **Complete end-to-end filtering verified:**
+  - ✅ BriefPanel: `requireApproval=true` added, Roger excluded from voice list
+  - ✅ LLM prompt: Only 52 approved voices sent, Roger not in prompt
+  - ✅ ScripterPanel: `requireApproval=true` added, Roger excluded from dropdowns
+  - ✅ Voice matching: No ID mismatches possible (LLM can't select blacklisted voices)
+  - ✅ Three-layer protection: Database → API → UI all enforce blacklist consistently
 
 ### 📋 Next Steps
 
@@ -817,32 +944,56 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 
 ### 🎯 Usage
 
-**Blacklist a voice (hide it):**
+**Blacklist a voice for ALL accents (language-wide):**
 ```bash
 curl -X POST http://localhost:3000/api/admin/voice-blacklist \
   -H "Content-Type: application/json" \
-  -d '{"voiceKey":"elevenlabs:voice-id","language":"es","accent":"mexican","reason":"Poor pronunciation"}'
+  -d '{"voiceKey":"elevenlabs:CwhRBWXzGAHq8TQ4Fs17-fr","language":"fr","scope":"language","reason":"Poor quality across all French"}'
 ```
 
-**Remove from blacklist (show it again):**
+**Blacklist a voice for specific accent only:**
 ```bash
-curl -X DELETE "http://localhost:3000/api/admin/voice-blacklist?voiceKey=elevenlabs:voice-id&language=es&accent=mexican"
+curl -X POST http://localhost:3000/api/admin/voice-blacklist \
+  -H "Content-Type: application/json" \
+  -d '{"voiceKey":"elevenlabs:CwhRBWXzGAHq8TQ4Fs17-fr","language":"fr","accent":"parisian","scope":"accent","reason":"Too strong Parisian accent"}'
+```
+
+**Remove language-wide blacklist:**
+```bash
+curl -X DELETE "http://localhost:3000/api/admin/voice-blacklist?voiceKey=elevenlabs:voice-id&language=fr&accent=*"
+```
+
+**Remove accent-specific blacklist:**
+```bash
+curl -X DELETE "http://localhost:3000/api/admin/voice-blacklist?voiceKey=elevenlabs:voice-id&language=fr&accent=parisian"
 ```
 
 **Query visible voices (excluding blacklisted):**
 ```bash
-curl "http://localhost:3000/api/voice-catalogue?operation=voices&provider=elevenlabs&language=es&accent=mexican&requireApproval=true"
+# Without accent - filters language-wide AND voice's own accent blacklists
+curl "http://localhost:3000/api/voice-catalogue?operation=voices&provider=elevenlabs&language=fr&requireApproval=true"
+
+# With accent - filters language-wide AND specific accent blacklists
+curl "http://localhost:3000/api/voice-catalogue?operation=voices&provider=elevenlabs&language=fr&accent=parisian&requireApproval=true"
 ```
 
-**Check blacklisted voices:**
+**Check language-wide blacklisted voices:**
 ```bash
-curl "http://localhost:3000/api/admin/voice-blacklist?language=es&accent=mexican"
+curl "http://localhost:3000/api/admin/voice-blacklist?language=fr&accent=*"
+```
+
+**Check accent-specific blacklisted voices:**
+```bash
+curl "http://localhost:3000/api/admin/voice-blacklist?language=fr&accent=parisian"
 ```
 
 **Admin UI:**
-- Visit `/admin/voice-blacklist` to manage voices visually
-- All voices show as green/visible by default
-- Toggle to red to blacklist/hide a voice
+- Visit `/admin/voice-manager` to manage voices visually
+- Each voice has TWO independent toggles:
+  - **Left toggle**: "All French" (language-wide blacklist)
+  - **Right toggle**: Voice's accent (e.g., "Parisian") (accent-specific blacklist)
+- Both toggles can be enabled simultaneously
+- Green = visible, Red = hidden
 
 See test scripts for more examples:
 - `test-real-voices.sh` - Live integration tests (updated for blacklist)

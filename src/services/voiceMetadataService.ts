@@ -9,8 +9,14 @@ import { Language } from '@/types';
  *
  * BLACKLIST LOGIC: Voices are visible by default.
  * Only voices present in the blacklist table are hidden.
+ *
+ * TWO-LEVEL BLACKLISTING:
+ * - Language-wide: accent = "*" (blacklisted for all accents of that language)
+ * - Accent-specific: accent = "parisian" (blacklisted only for that specific accent)
  */
 export class VoiceMetadataService {
+  /** Wildcard value for language-wide blacklisting */
+  private readonly ALL_ACCENTS = '*';
   /**
    * Get all blacklist entries for a voice
    */
@@ -158,6 +164,127 @@ export class VoiceMetadataService {
       });
 
     console.log(`🚫 Batch blacklisted ${voiceKeys.length} voices for ${language}/${accent}`);
+  }
+
+  /**
+   * Add voice to blacklist with scope control (language-wide or accent-specific)
+   * @param scope - 'language' for all accents, 'accent' for specific accent
+   */
+  async addToBlacklistWithScope(
+    voiceKey: string,
+    language: Language,
+    accent: string,
+    scope: 'language' | 'accent',
+    reason?: string
+  ): Promise<void> {
+    const targetAccent = scope === 'language' ? this.ALL_ACCENTS : accent;
+    const defaultReason = scope === 'language'
+      ? `Blacklisted for all ${language} accents`
+      : `Blacklisted for ${language}/${accent}`;
+
+    await db
+      .insert(voiceBlacklist)
+      .values({
+        voiceKey,
+        language,
+        accent: targetAccent,
+        reason: reason || defaultReason,
+      })
+      .onConflictDoUpdate({
+        target: [voiceBlacklist.voiceKey, voiceBlacklist.language, voiceBlacklist.accent],
+        set: {
+          reason: reason || defaultReason,
+          updatedAt: new Date(),
+        },
+      });
+
+    const scopeDesc = scope === 'language' ? `all ${language} accents` : `${language}/${accent}`;
+    console.log(`🚫 Blacklisted voice ${voiceKey} for ${scopeDesc}`);
+  }
+
+  /**
+   * Bulk fetch blacklist entries optimized for filtering
+   * Returns enhanced structure with language-wide and accent-specific info
+   */
+  async bulkGetBlacklistedEnhanced(
+    voiceKeys: string[],
+    language: Language
+  ): Promise<Record<string, { accents: Set<string>; hasLanguageWide: boolean }>> {
+    if (voiceKeys.length === 0) return {};
+
+    const results = await db
+      .select()
+      .from(voiceBlacklist)
+      .where(
+        and(
+          inArray(voiceBlacklist.voiceKey, voiceKeys),
+          eq(voiceBlacklist.language, language)
+        )
+      );
+
+    const grouped: Record<string, { accents: Set<string>; hasLanguageWide: boolean }> = {};
+
+    for (const entry of results) {
+      if (!grouped[entry.voiceKey]) {
+        grouped[entry.voiceKey] = {
+          accents: new Set<string>(),
+          hasLanguageWide: false,
+        };
+      }
+
+      if (entry.accent === this.ALL_ACCENTS) {
+        grouped[entry.voiceKey].hasLanguageWide = true;
+      } else {
+        grouped[entry.voiceKey].accents.add(entry.accent);
+      }
+    }
+
+    return grouped;
+  }
+
+  /**
+   * Check if voice is blacklisted with enhanced scope information
+   */
+  async isBlacklistedEnhanced(
+    voiceKey: string,
+    language: Language,
+    accent: string
+  ): Promise<{ isBlacklisted: boolean; scope?: 'language' | 'accent' }> {
+    // Check language-wide blacklist first
+    const languageWide = await db
+      .select()
+      .from(voiceBlacklist)
+      .where(
+        and(
+          eq(voiceBlacklist.voiceKey, voiceKey),
+          eq(voiceBlacklist.language, language),
+          eq(voiceBlacklist.accent, this.ALL_ACCENTS)
+        )
+      )
+      .limit(1);
+
+    if (languageWide.length > 0) {
+      return { isBlacklisted: true, scope: 'language' };
+    }
+
+    // Check accent-specific blacklist
+    const accentSpecific = await db
+      .select()
+      .from(voiceBlacklist)
+      .where(
+        and(
+          eq(voiceBlacklist.voiceKey, voiceKey),
+          eq(voiceBlacklist.language, language),
+          eq(voiceBlacklist.accent, accent)
+        )
+      )
+      .limit(1);
+
+    if (accentSpecific.length > 0) {
+      return { isBlacklisted: true, scope: 'accent' };
+    }
+
+    return { isBlacklisted: false };
   }
 
   /**

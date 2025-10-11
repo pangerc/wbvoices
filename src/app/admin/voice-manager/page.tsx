@@ -27,7 +27,7 @@ interface BlacklistEntry {
   accent: string;
 }
 
-export default function VoiceBlacklistPage() {
+export default function VoiceManagerPage() {
   // Sample text for testing voices
   const [sampleText, setSampleText] = useState(
     "Welcome to our service. We're here to help you achieve your goals."
@@ -52,7 +52,8 @@ export default function VoiceBlacklistPage() {
 
   // Voice data - BLACKLIST LOGIC
   const [voices, setVoices] = useState<VoiceWithProvider[]>([]);
-  const [blacklist, setBlacklist] = useState<Set<string>>(new Set()); // Changed from approvals
+  const [languageWideBlacklist, setLanguageWideBlacklist] = useState<Set<string>>(new Set());
+  const [accentSpecificBlacklist, setAccentSpecificBlacklist] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   // Flags
@@ -182,21 +183,53 @@ export default function VoiceBlacklistPage() {
 
       setVoices(uniqueVoices);
 
-      // Fetch current blacklist entries
-      const blacklistUrl = new URL(
+      // Fetch language-wide blacklist entries (accent = "*")
+      const languageWideUrl = new URL(
         "/api/admin/voice-blacklist",
         window.location.origin
       );
-      blacklistUrl.searchParams.set("language", selectedLanguage);
-      blacklistUrl.searchParams.set("accent", selectedAccent);
+      languageWideUrl.searchParams.set("language", selectedLanguage);
+      languageWideUrl.searchParams.set("accent", "*");
 
-      const blacklistRes = await fetch(blacklistUrl);
-      const blacklistData = await blacklistRes.json();
+      const languageWideRes = await fetch(languageWideUrl);
+      const languageWideData = await languageWideRes.json();
 
-      const blacklistedSet = new Set<string>(
-        blacklistData.blacklist?.map((b: BlacklistEntry) => b.voiceKey) || []
+      const languageWideSet = new Set<string>(
+        languageWideData.blacklist?.map((b: BlacklistEntry) => b.voiceKey) || []
       );
-      setBlacklist(blacklistedSet);
+      setLanguageWideBlacklist(languageWideSet);
+
+      // Fetch ALL accent-specific blacklist entries for this language
+      // We need all accents because each voice has its own accent
+      const allAccentSpecificSet = new Set<string>();
+
+      // Get unique accents from loaded voices (filter out undefined)
+      const voiceAccents = new Set(
+        uniqueVoices.map(v => v.accent).filter((accent): accent is string => Boolean(accent))
+      );
+
+      // Fetch blacklist for each accent
+      for (const accent of voiceAccents) {
+        const accentUrl = new URL(
+          "/api/admin/voice-blacklist",
+          window.location.origin
+        );
+        accentUrl.searchParams.set("language", selectedLanguage);
+        accentUrl.searchParams.set("accent", accent);
+
+        try {
+          const accentRes = await fetch(accentUrl);
+          const accentData = await accentRes.json();
+
+          accentData.blacklist?.forEach((b: BlacklistEntry) => {
+            allAccentSpecificSet.add(b.voiceKey);
+          });
+        } catch (error) {
+          console.error(`Failed to fetch blacklist for ${accent}:`, error);
+        }
+      }
+
+      setAccentSpecificBlacklist(allAccentSpecificSet);
     } catch (error) {
       console.error("Failed to load voices:", error);
     } finally {
@@ -204,9 +237,11 @@ export default function VoiceBlacklistPage() {
     }
   }
 
-  async function toggleBlacklist(voiceId: string, provider: Provider) {
+  async function toggleBlacklist(voiceId: string, provider: Provider, scope: 'language' | 'accent', voiceAccent: string) {
     const voiceKey = `${provider}:${voiceId}`;
-    const isCurrentlyBlacklisted = blacklist.has(voiceKey);
+    const targetAccent = scope === 'language' ? '*' : voiceAccent;
+    const currentBlacklist = scope === 'language' ? languageWideBlacklist : accentSpecificBlacklist;
+    const isCurrentlyBlacklisted = currentBlacklist.has(voiceKey);
 
     try {
       if (isCurrentlyBlacklisted) {
@@ -214,14 +249,23 @@ export default function VoiceBlacklistPage() {
         await fetch(
           `/api/admin/voice-blacklist?voiceKey=${encodeURIComponent(
             voiceKey
-          )}&language=${selectedLanguage}&accent=${selectedAccent}`,
+          )}&language=${selectedLanguage}&accent=${targetAccent}`,
           { method: "DELETE" }
         );
-        setBlacklist((prev) => {
-          const next = new Set(prev);
-          next.delete(voiceKey);
-          return next;
-        });
+
+        if (scope === 'language') {
+          setLanguageWideBlacklist((prev) => {
+            const next = new Set(prev);
+            next.delete(voiceKey);
+            return next;
+          });
+        } else {
+          setAccentSpecificBlacklist((prev) => {
+            const next = new Set(prev);
+            next.delete(voiceKey);
+            return next;
+          });
+        }
       } else {
         // Add to blacklist (hide)
         await fetch(`/api/admin/voice-blacklist`, {
@@ -230,10 +274,16 @@ export default function VoiceBlacklistPage() {
           body: JSON.stringify({
             voiceKey,
             language: selectedLanguage,
-            accent: selectedAccent,
+            accent: targetAccent === '*' ? '' : targetAccent,
+            scope,
           }),
         });
-        setBlacklist((prev) => new Set(prev).add(voiceKey));
+
+        if (scope === 'language') {
+          setLanguageWideBlacklist((prev) => new Set(prev).add(voiceKey));
+        } else {
+          setAccentSpecificBlacklist((prev) => new Set(prev).add(voiceKey));
+        }
       }
     } catch (error) {
       console.error("Failed to toggle blacklist:", error);
@@ -265,16 +315,17 @@ export default function VoiceBlacklistPage() {
     );
   }
 
-  const visibleCount = voices.length - blacklist.size;
+  // Calculate visible count (voices not in language-wide blacklist)
+  const visibleCount = voices.length - languageWideBlacklist.size;
 
   return (
     <div className="h-screen bg-black text-white p-8 overflow-hidden">
       <div className="max-w-7xl mx-auto h-full flex flex-col">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Voice Blacklist</h1>
+          <h1 className="text-3xl font-bold mb-2">Voice Manager</h1>
           <p className="text-gray-400">
-            {visibleCount} visible, {blacklist.size} hidden (of {voices.length} total)
+            {visibleCount} visible • {languageWideBlacklist.size} hidden language-wide • {accentSpecificBlacklist.size} hidden for specific accents (of {voices.length} total)
           </p>
         </div>
 
@@ -380,11 +431,17 @@ export default function VoiceBlacklistPage() {
                   <VoiceCard
                     key={`${voice.provider}:${voice.id}`}
                     voice={voice}
-                    isBlacklisted={blacklist.has(`${voice.provider}:${voice.id}`)}
-                    onToggle={() =>
-                      toggleBlacklist(voice.id, voice.provider)
+                    isLanguageWideBlacklisted={languageWideBlacklist.has(`${voice.provider}:${voice.id}`)}
+                    isAccentSpecificBlacklisted={accentSpecificBlacklist.has(`${voice.provider}:${voice.id}`)}
+                    onToggleLanguageWide={() =>
+                      toggleBlacklist(voice.id, voice.provider, 'language', voice.accent || 'neutral')
+                    }
+                    onToggleAccentSpecific={() =>
+                      toggleBlacklist(voice.id, voice.provider, 'accent', voice.accent || 'neutral')
                     }
                     sampleText={sampleText}
+                    selectedLanguage={selectedLanguage}
+                    availableLanguages={availableLanguages}
                   />
                 ))}
               </div>
@@ -399,14 +456,22 @@ export default function VoiceBlacklistPage() {
 // Voice Card Component
 function VoiceCard({
   voice,
-  isBlacklisted,
-  onToggle,
+  isLanguageWideBlacklisted,
+  isAccentSpecificBlacklisted,
+  onToggleLanguageWide,
+  onToggleAccentSpecific,
   sampleText,
+  selectedLanguage,
+  availableLanguages,
 }: {
   voice: VoiceWithProvider;
-  isBlacklisted: boolean;
-  onToggle: () => void;
+  isLanguageWideBlacklisted: boolean;
+  isAccentSpecificBlacklisted: boolean;
+  onToggleLanguageWide: () => void;
+  onToggleAccentSpecific: () => void;
   sampleText: string;
+  selectedLanguage: Language;
+  availableLanguages: Array<{ code: Language; name: string }>;
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -546,19 +611,45 @@ function VoiceCard({
           )}
         </button>
 
-        {/* Toggle Switch - FLIPPED LOGIC */}
-        <button
-          onClick={onToggle}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            isBlacklisted ? "bg-red-500/50" : "bg-wb-green"
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              isBlacklisted ? "translate-x-1" : "translate-x-6"
+        {/* Language-wide Toggle with Label */}
+        <div className="flex flex-col items-center gap-1">
+          <button
+            onClick={onToggleLanguageWide}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              isLanguageWideBlacklisted ? "bg-red-500/50" : "bg-wb-green"
             }`}
-          />
-        </button>
+            title={`${isLanguageWideBlacklisted ? 'Enable' : 'Disable'} for all ${availableLanguages.find(l => l.code === selectedLanguage)?.name || selectedLanguage}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isLanguageWideBlacklisted ? "translate-x-1" : "translate-x-6"
+              }`}
+            />
+          </button>
+          <span className="text-[10px] text-gray-400 whitespace-nowrap">
+            All {availableLanguages.find(l => l.code === selectedLanguage)?.name || selectedLanguage}
+          </span>
+        </div>
+
+        {/* Accent-specific Toggle with Label */}
+        <div className="flex flex-col items-center gap-1">
+          <button
+            onClick={onToggleAccentSpecific}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              isAccentSpecificBlacklisted ? "bg-red-500/50" : "bg-wb-green"
+            }`}
+            title={`${isAccentSpecificBlacklisted ? 'Enable' : 'Disable'} for ${voice.accent}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isAccentSpecificBlacklisted ? "translate-x-1" : "translate-x-6"
+              }`}
+            />
+          </button>
+          <span className="text-[10px] text-gray-400 whitespace-nowrap capitalize">
+            {voice.accent}
+          </span>
+        </div>
       </div>
     </div>
   );

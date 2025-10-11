@@ -89,6 +89,7 @@ export function ScripterPanel({
         url.searchParams.set("provider", selectedProvider);
         url.searchParams.set("campaignFormat", campaignFormat);
         url.searchParams.set("exclude", "lovo"); // Exclude Lovo (poor quality)
+        url.searchParams.set("requireApproval", "true"); // Filter out blacklisted voices
 
         const response = await fetch(url);
         const data = await response.json();

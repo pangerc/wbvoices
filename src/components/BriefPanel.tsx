@@ -379,6 +379,9 @@ export function BriefPanel({
         // Exclude Lovo (poor quality)
         url.searchParams.set("exclude", "lovo");
 
+        // Filter out blacklisted voices
+        url.searchParams.set("requireApproval", "true");
+
         const response = await fetch(url);
         const data = await response.json();
 
@@ -583,6 +586,7 @@ export function BriefPanel({
       url.searchParams.set("language", selectedLanguage);
       url.searchParams.set("provider", "any"); // Explicitly send "any"
       url.searchParams.set("campaignFormat", campaignFormat);
+      url.searchParams.set("requireApproval", "true"); // Filter out blacklisted voices
 
       // Add region/accent if specified
       if (

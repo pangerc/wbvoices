@@ -392,7 +392,7 @@ export class VoiceCatalogueService {
       .filter(voice => voice !== undefined);
 
     // Apply blacklist filtering if required
-    if (requireApproval && accent) {
+    if (requireApproval) {
       voices = await this.filterByBlacklist(voices, language, accent);
     }
 
@@ -402,33 +402,40 @@ export class VoiceCatalogueService {
   /**
    * Filter OUT blacklisted voices for a language/accent combination
    * BLACKLIST LOGIC: Voices are visible by default, only hide if blacklisted
+   *
+   * TWO-LEVEL FILTERING:
+   * 1. Language-wide blacklist (accent="*") - always filter out
+   * 2. Accent-specific blacklist - filter based on query accent or voice's own accent
    */
   private async filterByBlacklist(
     voices: UnifiedVoice[],
     language: Language,
-    accent: string
+    accent?: string
   ): Promise<UnifiedVoice[]> {
     if (voices.length === 0) return [];
 
     // Get voice keys
     const voiceKeys = voices.map(v => `${v.provider}:${v.id}`);
 
-    // Bulk fetch blacklist entries
-    const blacklistMap = await voiceMetadataService.bulkGetBlacklisted(voiceKeys);
+    // Bulk fetch blacklist entries with enhanced structure
+    const blacklistMap = await voiceMetadataService.bulkGetBlacklistedEnhanced(
+      voiceKeys,
+      language
+    );
 
     // Filter OUT blacklisted voices
     return voices.filter(voice => {
       const voiceKey = `${voice.provider}:${voice.id}`;
-      const blacklistEntries = blacklistMap[voiceKey] || [];
+      const blacklistInfo = blacklistMap[voiceKey];
 
-      // Keep voice if NOT blacklisted for this language/accent
-      const isBlacklisted = blacklistEntries.some(
-        entry =>
-          entry.language === language &&
-          entry.accent === accent
-      );
+      if (!blacklistInfo) return true; // Not blacklisted at all
 
-      return !isBlacklisted;
+      // If language-wide blacklist exists, always filter out
+      if (blacklistInfo.hasLanguageWide) return false;
+
+      // Check accent-specific blacklist
+      const accentToCheck = accent || voice.accent;
+      return !blacklistInfo.accents.has(accentToCheck);
     });
   }
   
