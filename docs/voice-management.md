@@ -908,7 +908,7 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 - All endpoints tested and working
 
 **Admin UI:**
-- `/admin/voice-blacklist` - Voice management interface with per-voice controls
+- `/admin/voice-manager` - Voice management interface with per-voice controls
 - **Two independent toggles per voice:**
   - Language-wide toggle (e.g., "All French")
   - Accent-specific toggle (e.g., "Parisian") - displays voice's own accent
@@ -937,10 +937,178 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 
 ### 📋 Next Steps
 
-1. **Admin UI** (Phase 2) - Build browser interface for voice management
-2. **Quality Ratings** - Add custom metadata fields to schema
-3. **Collections** - Voice organization and curation
-4. **Audit Logging** - Track all changes for compliance
+1. **Voice Descriptions** - Enhance LLM voice selection with rich personality descriptions
+2. **Admin UI** (Phase 2) - Build browser interface for voice management
+3. **Quality Ratings** - Add custom metadata fields to schema
+4. **Collections** - Voice organization and curation
+5. **Audit Logging** - Track all changes for compliance
+
+---
+
+## Planned Enhancement: Rich Voice Descriptions
+
+### Problem
+
+ElevenLabs provides detailed voice descriptions on their website that are NOT exposed via API. These descriptions significantly enhance voice understanding:
+
+**Current LLM metadata (limited):**
+```
+Roger (id: CwhRBWXzGAHq8TQ4Fs17-fr)
+  Gender: Male
+  Best for: conversational
+  Age: middle_aged
+  Accent: parisian
+```
+
+**With rich description:**
+```
+Roger (id: CwhRBWXzGAHq8TQ4Fs17-fr)
+  Gender: Male
+  Description: A warm, clear, and engaging French male voice with a smooth,
+               natural tone. Equally soothing and dynamic, it adapts seamlessly
+               to storytelling, audiobooks, scientific explanations, reports,
+               interviews, and promotional content. Its expressive yet balanced
+               delivery captivates listeners, making complex ideas accessible
+               while maintaining a professional and inviting presence.
+  Best for: conversational
+  Age: middle_aged
+  Accent: parisian
+```
+
+### Why This Matters
+
+**Evidence of need:**
+1. Gender bug fix showed basic metadata was insufficient for proper voice selection
+2. Blacklist system proves voice quality varies significantly by use case
+3. LLM needs semantic context to match voice personality to creative brief
+4. Current metadata provides ~50 chars/voice; descriptions add ~200 chars (4x improvement)
+
+**Impact on voice selection:**
+- LLM can match voice tone to brand personality (warm vs. professional vs. energetic)
+- Better understanding of voice versatility (storytelling vs. promotional)
+- Semantic matching between creative brief and voice capabilities
+- Reduces "wrong voice" selections that require manual correction
+
+### Proposed Solution: Hybrid Approach
+
+**Phase 1: Proof of Concept**
+- Manually add descriptions for top 10-20 most-used voices
+- A/B test: measure LLM selection quality with vs. without descriptions
+- Validate token cost impact (estimated 2,600 → 10,400 chars per query)
+
+**Phase 2: Bulk Import (if POC successful)**
+- One-time web scraping from ElevenLabs voice library
+- Bulk import to database with source tracking
+- Manual review/approval before production use
+
+**Phase 3: Ongoing Maintenance**
+- Manual updates via admin UI for new voices
+- Periodic re-scraping (quarterly) to catch provider changes
+- Quality tracking with `description_source` field
+
+### Schema Changes
+
+```typescript
+// Add to voice_metadata table
+export const voiceMetadata = pgTable('voice_metadata', {
+  // ... existing fields ...
+
+  customDescription: text('custom_description'), // Rich personality description
+  descriptionSource: text('description_source'), // 'manual' | 'elevenlabs_web' | 'ai_generated'
+  descriptionQuality: integer('description_quality'), // 1-5 rating for quality control
+  lastDescriptionUpdate: timestamp('last_description_update'), // Track freshness
+});
+```
+
+### Integration Points
+
+**1. VoiceMetadataService**
+```typescript
+async updateDescription(
+  voiceKey: string,
+  description: string,
+  source: 'manual' | 'elevenlabs_web' | 'ai_generated'
+) {
+  await db.update(voiceMetadata)
+    .set({
+      customDescription: description,
+      descriptionSource: source,
+      lastDescriptionUpdate: new Date()
+    })
+    .where(eq(voiceMetadata.voiceKey, voiceKey));
+}
+```
+
+**2. VoiceCatalogueService (merge logic)**
+```typescript
+// Extend existing merge logic
+return {
+  ...baseVoice,
+  description: metadata?.customDescription || baseVoice.description || baseVoice.personality,
+  // Fallback chain: custom > scraped > auto-generated > basic
+};
+```
+
+**3. BasePromptStrategy (LLM prompt)**
+```typescript
+formatVoiceMetadata(voice: Voice, context: PromptContext): string {
+  let desc = `${voice.name} (id: ${voice.id})`;
+
+  // Prefer rich description over basic personality
+  if (voice.customDescription) {
+    desc += `\n  Description: ${voice.customDescription}`;
+  } else if (voice.description) {
+    desc += `\n  Personality: ${voice.description}`;
+  }
+  // ... rest of metadata
+}
+```
+
+**4. Admin UI Enhancement**
+```typescript
+// Add to existing /admin/voice-manager page
+<div className="space-y-2">
+  <label>Custom Description (optional)</label>
+  <textarea
+    value={voice.customDescription || ''}
+    onChange={(e) => updateDescription(voice.voiceKey, e.target.value)}
+    placeholder="Paste ElevenLabs description or write custom..."
+    className="w-full h-32 p-2 border rounded"
+  />
+  <select value={voice.descriptionSource}>
+    <option value="manual">Manual Entry</option>
+    <option value="elevenlabs_web">ElevenLabs Website</option>
+  </select>
+</div>
+```
+
+### Trade-offs
+
+**Pros:**
+- 4x more context for LLM voice selection
+- Uses existing infrastructure (merge pattern, admin UI)
+- Gradual rollout (start with top voices)
+- Measurable impact via A/B testing
+- Graceful degradation (works without descriptions)
+
+**Cons:**
+- Token cost increase (~4x, but acceptable at ~$0.032 per creative brief)
+- Maintenance burden (~2-4 hours/month for updates)
+- Scraping ethics (one-time import, not continuous)
+- Description staleness (mitigated by tracking update dates)
+
+### Decision Criteria
+
+**Proceed with POC if:**
+- Current LLM selection quality is below acceptable threshold
+- Users frequently need to manually override voice selections
+- A/B testing shows measurable improvement
+
+**Skip or deprioritize if:**
+- Current voice selection is already satisfactory
+- No user complaints about voice matching
+- Token cost increase is prohibitive
+- Other features provide better ROI
 
 ### 🎯 Usage
 

@@ -40,11 +40,11 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-8 z-50">
-      {/* WiseBlue Studio Logo */}
+      {/* Aleph Creative Audio Logo */}
       <div className="absolute top-8 left-8">
         <Image
-          src="/wbs-logo.svg"
-          alt="WiseBlue Studio"
+          src="/aca.svg"
+          alt="Aleph Creative Audio"
           width={180}
           height={37}
           className="h-8 w-auto"
@@ -53,7 +53,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
       {/* Login Form */}
       <div className="w-full max-w-md">
-        <div 
+        <div
           className="relative p-8 bg-black/40 backdrop-blur-xl border border-white/20 rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.15),inset_0_-1px_0_rgba(0,0,0,0.2),0_0_32px_rgba(0,0,0,0.4),0_8px_32px_rgba(0,0,0,0.2)]"
           style={{
             backdropFilter: "blur(24px) saturate(1.8) brightness(1.1)",
@@ -81,11 +81,9 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           />
           <div className="relative text-center mb-8">
             <h1 className="text-2xl font-bold text-white mb-2">
-              Access WB Studio
+              Access Aleph Creative Audio
             </h1>
-            <p className="text-gray-400">
-              Enter the access code to continue
-            </p>
+            <p className="text-gray-400">Enter the access code to continue</p>
           </div>
 
           <form onSubmit={handleSubmit} className="relative space-y-6">
@@ -117,7 +115,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               disabled={isLoading || !password.trim()}
               className="w-full py-3 px-4 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 text-white rounded-xl font-medium transition-all duration-200 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? "Verifying..." : "Enter Studio"}
+              {isLoading ? "Verifying..." : "Enter"}
             </button>
           </form>
         </div>
@@ -125,7 +123,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
       <div className="absolute bottom-8 text-center">
         <p className="text-gray-500 text-sm">
-          WB Studio • Voice Ad Generation for Spotify Sales Teams
+          Aleph Creative Audio • Voice Ad Generation for Spotify Sales Teams
         </p>
       </div>
     </div>
