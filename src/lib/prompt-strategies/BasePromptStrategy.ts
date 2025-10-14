@@ -74,6 +74,7 @@ export abstract class BasePromptStrategy implements PromptStrategy {
    * Format voice metadata - default implementation includes ALL relevant fields
    * INCLUDING GENDER (critical fix)
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   formatVoiceMetadata(voice: Voice, _context: PromptContext): string {
     let desc = `${voice.name} (id: ${voice.id})`;
 
@@ -218,19 +219,22 @@ Remember:
 - soundFxPrompts array can be empty [] if no sound effects are needed
 - Do not add any text before or after the JSON
 
-MUSIC GENERATION GUIDANCE - CRITICAL FOR QUALITY:
+MUSIC GENERATION GUIDANCE - PROVIDER-SPECIFIC PROMPTS REQUIRED:
+
+You MUST generate FOUR optimized music prompts for different providers.
+Each has specific constraints that MUST be respected:
+
+1. "description": Base music concept (1 sentence, fallback for backwards compatibility)
+2. "elevenlabs": Detailed instrumental descriptions (100-200 words)
+3. "loudly": Short phrase structure (genre blend + energy + mood + tempo)
+4. "mubert": Keyword structure (250 character MAXIMUM)
+
+UNIVERSAL PRINCIPLES (base guidance for detailed prompts):
 
 Music generators are LITERAL - they understand instruments, tempo, and playing techniques.
 They DON'T understand brand associations, social contexts, or experiential feelings.
 
-Describe the MUSIC (instruments/tempo/technique), not the experience of listening to it.
-
-PROVIDER CONSTRAINTS:
-- Loudly: NO CHARACTER LIMIT. Use full descriptions. Band/artist references ALLOWED.
-- ElevenLabs Music: NO BAND/ARTIST NAMES. Use instrumental descriptions only.
-- Mubert: 250 CHARACTER LIMIT. Condense carefully - keep core musical descriptors.
-
-EXAMPLES - WHAT WORKS VS WHAT DOESN'T:
+Describe the MUSIC (what musicians play), not the experience of listening to it.
 
 ⚠️ These examples are TEMPLATES - adapt them creatively to your specific brief.
 Do not copy the vocabulary or phrasing verbatim. Use them as a style guide only.
@@ -239,22 +243,65 @@ Do not copy the vocabulary or phrasing verbatim. Use them as a style guide only.
 "Bright, upbeat indie pop track with sparkling acoustic guitar strums, crisp handclaps, and light, bouncy drums. The melody is playful and sunny, evoking the feeling of a lively Spanish terrace on a warm afternoon. Uplifting bass and breezy tambourine add energy and freshness, perfect for youthful gatherings and spontaneous moments. The music is cheerful and dynamic, creating a sense of fun, friendship, and effortless cool, matching the Coca-Cola vibe."
 ^ Problems: "evoking the feeling", "Spanish terrace", "youthful gatherings", "fun, friendship, effortless cool", "Coca-Cola vibe" - music generators don't understand these!
 
-✅ GOOD (produces quality music - uses concrete musical descriptions):
-"Uplifting indie pop song with bright, jangly electric guitars inspired by Vampire Weekend, fast rhythmic strumming, and light, bouncy drums similar to 'Young Folks' by Peter Bjorn and John. Catchy, summery vibe perfect for hanging out with friends, energetic but laid-back, with a carefree mood. Make it upbeat and energetic, but relaxed."
-^ Why it works: Describes instruments, playing style, tempo, references specific artists. Minimal scene-setting.
+✅ GOOD BASE EXAMPLE (detailed instrumental approach - works for ElevenLabs):
+"Uplifting indie pop song with bright, jangly electric guitars, fast rhythmic strumming, light bouncy drums. Catchy summery vibe, energetic but laid-back, with tambourine accents and walking bassline."
+→ Detailed (100-200 words), instrumental descriptions, concrete musical terms
 
-✅ GOOD (for ElevenLabs - no band names):
-"Uplifting indie pop song with bright, jangly electric guitars, fast rhythmic strumming, and light, bouncy drums. Catchy, summery vibe, energetic but laid-back, with a carefree mood. Make it upbeat and energetic, but relaxed."
+---
 
-✅ GOOD (for Mubert - condensed, 247 chars):
-"Uplifting indie pop, bright jangly guitars, fast strumming, bouncy drums, summery and carefree. Energetic but laid-back. Upbeat and relaxed mood."
+PROVIDER-SPECIFIC TRANSFORMATIONS:
+
+Starting from the base concept above, transform it for each provider:
+
+1. "elevenlabs": USE DETAILED INSTRUMENTAL APPROACH DIRECTLY
+   - 100-200 words with concrete musical descriptions
+   - NO artist/band names (only constraint)
+   - Focus on: instruments, tempo, playing techniques, genres
+   - Avoid: brand associations, social contexts, experiential feelings
+
+   Example: "Uplifting indie pop song with bright, jangly electric guitars, fast rhythmic strumming, light bouncy drums. Catchy summery vibe, energetic but laid-back, with tambourine accents and walking bassline."
+
+2. "loudly": CONDENSE TO SHORT PHRASE STRUCTURE
+   - Format: [genre blend] [energy level] [mood] [tempo]
+   - Can blend 2 genres maximum
+   - Energy types: high, low, original
+   - Add "fast" or "slow" for tempo
+   - Mood vocabulary: energetic, uplifting, happy, chill, relaxing, dark, moody, inspirational, dramatic, playful, tense, calm, aggressive, melancholic, hopeful, mysterious, romantic, funky, groovy, sad
+   - Band references optional but not required
+   - Keep it short and concise
+
+   Example from base: "Indie rock and indie pop blend, high energy, uplifting, fast"
+
+3. "mubert": CONDENSE TO KEYWORD STRUCTURE (250 CHAR MAXIMUM)
+   - Format: [genre] [mood] [activity] [optional instruments] [optional BPM]
+   - Use ONE WORD per element
+   - Moods must align with genre
+   - Band names rarely work - AVOID
+   - Shorter = better results
+   - Instruments are optional (don't always work well)
+   - COUNT CHARACTERS - must be ≤250
+
+   Example from base: "Indie rock energetic summer guitar drums upbeat"
+   Character count: 51 - well under 250 limit
+
+4. "description": FALLBACK (brief essence for backwards compatibility)
+   - One sentence capturing core concept
+   - Example: "Uplifting indie pop with bright guitars and energetic drums"
 
 KEY PRINCIPLES:
-1. Use 100-200 words for Loudly/ElevenLabs - focus on concrete musical details
-2. Music generators understand: instruments, tempo, playing techniques, genres, band references (Loudly only)
-3. Music generators DON'T understand: brand associations, social contexts, experiential feelings
-4. For Mubert: Condense to 250 chars - keep instruments/tempo/genre, drop abstract language
-5. If it's not something a musician would say about the music itself, don't include it
+1. ElevenLabs: 100-200 words, no artist names, detailed instrumental descriptions
+2. Loudly: Short phrase with genre blend + energy + mood + tempo structure
+3. Mubert: Keyword structure, one word per element, MUST be ≤250 characters
+4. Music generators understand: instruments, tempo, playing techniques, genres
+5. Music generators DON'T understand: brand associations, social contexts, experiential feelings
+6. If it's not something a musician would say about the music itself, don't include it
+
+VALIDATION CHECKLIST BEFORE SENDING:
+✓ ElevenLabs: 100-200 words, no artist names, detailed instrumental descriptions
+✓ Loudly: Short phrase with genre blend + energy + mood + tempo structure
+✓ Mubert: Keyword structure, count characters - MUST be ≤250
+✓ Description: One sentence essence
+✓ All: Concrete musical terms, avoid experiential language
 
 Sound effect examples by theme (keep the description as short and concise, don't overdo it):
 - Baby products: "baby giggling", "baby crying softly"

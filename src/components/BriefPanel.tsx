@@ -3,6 +3,7 @@ import {
   CampaignFormat,
   AIModel,
   SoundFxPrompt,
+  MusicPrompts,
   Language,
   Voice,
   Provider,
@@ -107,13 +108,15 @@ export type BriefPanelProps = {
     segments: Array<{ voiceId: string; text: string }>,
     musicPrompt: string,
     soundFxPrompt?: string | string[] | SoundFxPrompt[],
-    resolvedVoices?: Voice[] // Pass the actual voices used for generation
+    resolvedVoices?: Voice[], // Pass the actual voices used for generation
+    musicPrompts?: MusicPrompts | null // Provider-specific music prompts from LLM
   ) => void;
   onGenerateCreativeAuto: (
     segments: Array<{ voiceId: string; text: string }>,
     musicPrompt: string,
     soundFxPrompt?: string | string[] | SoundFxPrompt[],
-    resolvedVoices?: Voice[] // Pass the actual voices used for generation
+    resolvedVoices?: Voice[], // Pass the actual voices used for generation
+    musicPrompts?: MusicPrompts | null // Provider-specific music prompts from LLM
   ) => void;
 
   // New: shared creative generation state
@@ -424,6 +427,7 @@ export function BriefPanel({
     };
 
     loadFilteredVoices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     selectedLanguage,
     selectedRegion,
@@ -687,7 +691,7 @@ export function BriefPanel({
         selectedPacing
       );
 
-      const { voiceSegments, musicPrompt, soundFxPrompts } =
+      const { voiceSegments, musicPrompt, musicPrompts, soundFxPrompts } =
         parseCreativeJSON(jsonResponse);
 
       if (voiceSegments.length === 0) {
@@ -706,7 +710,8 @@ export function BriefPanel({
         segments,
         musicPrompt || "",
         soundFxPrompts,
-        voicesToUse
+        voicesToUse,
+        musicPrompts
       );
     } catch (error) {
       console.error("Error generating creative:", error);
@@ -749,7 +754,7 @@ export function BriefPanel({
         selectedPacing
       );
 
-      const { voiceSegments, musicPrompt, soundFxPrompts } =
+      const { voiceSegments, musicPrompt, musicPrompts, soundFxPrompts } =
         parseCreativeJSON(jsonResponse);
 
       if (voiceSegments.length === 0) {
@@ -772,7 +777,8 @@ export function BriefPanel({
         segments,
         musicPrompt || "",
         soundFxPrompts,
-        voicesToUse
+        voicesToUse,
+        musicPrompts
       );
     } catch (error) {
       console.error("Error in AUTO mode generation:", error);

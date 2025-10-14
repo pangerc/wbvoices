@@ -8,6 +8,7 @@ import { CampaignFormat } from "@/types";
 export class QwenPromptStrategy extends BasePromptStrategy {
   readonly provider = "qwen" as const;
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   buildStyleInstructions(_context: PromptContext): string {
     // No special style instructions - direct voice control
     return "";
@@ -35,7 +36,10 @@ You MUST respond with a valid JSON object with this structure:
     }${dialogExample}
   ],
   "music": {
-    "description": "Background music description (in English)",
+    "description": "Base music concept (in English)",
+    "loudly": "Full description with band/artist references (in English)",
+    "mubert": "Condensed version under 250 chars (in English)",
+    "elevenlabs": "Instrumental descriptions only, no artist names (in English)",
     "playAt": "start",
     "fadeIn": 1,
     "fadeOut": 2

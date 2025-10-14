@@ -58,6 +58,12 @@ export type CampaignFormat = "ad_read" | "dialog";
 
 export type MusicProvider = "loudly" | "mubert" | "elevenlabs";
 
+export type MusicPrompts = {
+  loudly: string;
+  mubert: string;
+  elevenlabs: string;
+};
+
 export type MusicTrack = {
   id: string;
   title: string;
@@ -127,7 +133,8 @@ export type Project = {
   lastModified: number; // Last update time
   brief: ProjectBrief; // Original brief settings
   voiceTracks: VoiceTrack[]; // Generated voice scripts
-  musicPrompt: string; // Music generation prompt
+  musicPrompt: string; // Music generation prompt (base/fallback)
+  musicPrompts?: MusicPrompts; // Provider-specific music prompts
   soundFxPrompt: SoundFxPrompt | null; // Sound effects prompt
   // Store actual generated audio URLs (now permanent with Vercel Blob)
   generatedTracks?: {

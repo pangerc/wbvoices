@@ -1,4 +1,4 @@
-import { VoiceTrack } from "@/types";
+import { VoiceTrack, MusicPrompts } from "@/types";
 import type { SoundFxPrompt } from "@/types";
 
 // Define interfaces for the JSON structure
@@ -47,13 +47,17 @@ interface CreativeResponse {
   script?: ScriptItem[];
   music?: {
     description: string;
+    loudly?: string;
+    mubert?: string;
+    elevenlabs?: string;
   };
   soundFxPrompts?: SoundFxPromptJson[];
 }
 
 export type ParsedCreativeResponse = {
   voiceSegments: VoiceTrack[];
-  musicPrompt: string | null;
+  musicPrompt: string | null; // Backwards compatibility - fallback to description
+  musicPrompts: MusicPrompts | null; // Provider-specific prompts
   soundFxPrompts: Array<{
     description: string;
     playAfter?: string;
@@ -134,6 +138,7 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
     return {
       voiceSegments: [],
       musicPrompt: null,
+      musicPrompts: null,
       soundFxPrompts: [],
       timing: { concurrent: [], voiceTimings: [] },
     };
@@ -149,6 +154,7 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
       return {
         voiceSegments: [],
         musicPrompt: null,
+        musicPrompts: null,
         soundFxPrompts: [],
         timing: { concurrent: [], voiceTimings: [] },
       };
@@ -169,6 +175,7 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
       startTime?: number;
     }> = [];
     let musicPrompt: string | null = null;
+    let musicPrompts: MusicPrompts | null = null;
 
     // Extract script elements
     if (jsonData.script && Array.isArray(jsonData.script)) {
@@ -343,14 +350,36 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
       });
     }
 
-    // Extract music prompt and clean the description
-    if (jsonData.music && jsonData.music.description) {
-      musicPrompt = cleanDescription(jsonData.music.description);
+    // Extract music prompts with smart fallbacks
+    if (jsonData.music) {
+      const music = jsonData.music;
+
+      // Always extract description for backwards compatibility
+      if (music.description) {
+        musicPrompt = cleanDescription(music.description);
+      }
+
+      // Extract provider-specific prompts if present
+      if (music.loudly || music.mubert || music.elevenlabs) {
+        musicPrompts = {
+          loudly: music.loudly ? cleanDescription(music.loudly) : musicPrompt || "",
+          mubert: music.mubert ? cleanDescription(music.mubert) : musicPrompt || "",
+          elevenlabs: music.elevenlabs ? cleanDescription(music.elevenlabs) : musicPrompt || "",
+        };
+
+        console.log("🎵 JSON Parser extracted music prompts:", {
+          description: musicPrompt,
+          loudly: musicPrompts.loudly.substring(0, 50) + "...",
+          mubert: musicPrompts.mubert,
+          elevenlabs: musicPrompts.elevenlabs.substring(0, 50) + "...",
+        });
+      }
     }
 
     return {
       voiceSegments,
       musicPrompt,
+      musicPrompts,
       soundFxPrompts,
       timing: {
         concurrent: concurrentGroups,
@@ -362,6 +391,7 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
     return {
       voiceSegments: [],
       musicPrompt: null,
+      musicPrompts: null,
       soundFxPrompts: [],
       timing: { concurrent: [], voiceTimings: [] },
     };

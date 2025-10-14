@@ -170,8 +170,9 @@ export function MatrixBackground({
         }
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [drawGrid]
-  ); // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   // Initialize the animation on mount
   useEffect(() => {

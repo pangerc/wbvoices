@@ -34,10 +34,12 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.0.8",
+    "@types/cheerio": "^1.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
+    "cheerio": "^1.1.2",
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.5",
     "eslint": "^9",

@@ -66,7 +66,10 @@ You MUST respond with a valid JSON object with this structure:
     }${dialogExample}
   ],
   "music": {
-    "description": "Background music description (in English)",
+    "description": "Base music concept (in English)",
+    "loudly": "Full description with band/artist references (in English)",
+    "mubert": "Condensed version under 250 chars (in English)",
+    "elevenlabs": "Instrumental descriptions only, no artist names (in English)",
     "playAt": "start",
     "fadeIn": 1,
     "fadeOut": 2

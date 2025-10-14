@@ -7,7 +7,6 @@ import {
   fetchElevenLabsVoices,
   fetchLovoVoices,
   getOpenAIVoices,
-  ProviderVoice,
 } from "@/services/voiceProviderService";
 
 // Use Node.js runtime for proper Redis access

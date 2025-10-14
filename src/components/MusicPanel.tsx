@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { MusicProvider, LibraryMusicTrack } from "@/types";
+import { MusicProvider, LibraryMusicTrack, MusicPrompts } from "@/types";
+import { migrateMusicPrompt } from "@/utils/music-prompt-validator";
 import {
   GlassyTextarea,
   GlassyOptionPicker,
@@ -25,7 +26,6 @@ type MusicPanelProps = {
   ) => Promise<void>;
   isGenerating: boolean;
   statusMessage?: string;
-  initialPrompt?: string;
   adDuration: number;
   musicProvider: MusicProvider;
   setMusicProvider: (provider: MusicProvider) => void;
@@ -37,7 +37,6 @@ export function MusicPanel({
   onGenerate,
   isGenerating,
   statusMessage: parentStatusMessage,
-  initialPrompt = "",
   adDuration,
   musicProvider,
   setMusicProvider,
@@ -59,9 +58,15 @@ export function MusicPanel({
   } = useFileUpload();
   
   const [mode, setMode] = useState<MusicMode>('generate');
-  const [prompt, setPrompt] = useState(initialPrompt);
   const [duration, setDuration] = useState(Math.max(30, adDuration + 5));
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
+
+  // Provider-specific prompts - one state per provider
+  const [providerPrompts, setProviderPrompts] = useState<MusicPrompts>({
+    loudly: "",
+    mubert: "",
+    elevenlabs: "",
+  });
 
   // Library state
   const [libraryTracks, setLibraryTracks] = useState<LibraryMusicTrack[]>([]);
@@ -70,10 +75,32 @@ export function MusicPanel({
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Update prompt when initialPrompt changes
+  // Load project musicPrompts on mount and when project changes
   useEffect(() => {
-    setPrompt(initialPrompt);
-  }, [initialPrompt]);
+    const loadMusicPrompts = async () => {
+      if (!projectId) return;
+
+      try {
+        const project = await loadProjectFromRedis(projectId);
+        if (!project) return;
+
+        // Load provider-specific prompts if they exist
+        if (project.musicPrompts) {
+          console.log("✅ Loaded provider-specific music prompts");
+          setProviderPrompts(project.musicPrompts);
+        } else if (project.musicPrompt) {
+          // Migrate old projects on-the-fly
+          console.log("🔄 Migrating old musicPrompt to provider-specific prompts");
+          const migrated = migrateMusicPrompt(project.musicPrompt);
+          setProviderPrompts(migrated);
+        }
+      } catch (error) {
+        console.error("Failed to load music prompts:", error);
+      }
+    };
+
+    loadMusicPrompts();
+  }, [projectId, loadProjectFromRedis]);
 
   // Update duration when adDuration changes - add 5 seconds for smoother fade, minimum 30s
   useEffect(() => {
@@ -298,14 +325,20 @@ export function MusicPanel({
   // Handle local reset
   const handleReset = () => {
     setMode('generate');
-    setPrompt("");
     setMusicProvider("loudly");
     setDuration(Math.max(30, adDuration + 5));
     setLocalStatusMessage("");
+    setProviderPrompts({
+      loudly: "",
+      mubert: "",
+      elevenlabs: "",
+    });
     resetForm();
   };
 
   const handleGenerate = () => {
+    const prompt = providerPrompts[musicProvider];
+
     // For Loudly, we need to round to the nearest 15 seconds
     if (musicProvider === "loudly") {
       const roundedDuration = Math.round(duration / 15) * 15;
@@ -355,7 +388,7 @@ export function MusicPanel({
           {mode === 'generate' && (
             <GenerateButton
               onClick={handleGenerate}
-              disabled={!prompt.trim()}
+              disabled={!providerPrompts[musicProvider].trim()}
               isGenerating={isGenerating}
               text="Generate Music"
               generatingText="Generating..."
@@ -417,14 +450,56 @@ export function MusicPanel({
         <>
           <div className="space-y-12 md:grid md:grid-cols-2 md:gap-6">
             <div>
-              <GlassyTextarea
-                label="Music Description"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
-                className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
-                minRows={3}
-              />
+              {/* Single static label for all textareas */}
+              <label className="block mb-2 text-white">Music Prompt</label>
+
+              {/* Loudly textarea */}
+              <div style={{ display: musicProvider === 'loudly' ? 'block' : 'none' }}>
+                <GlassyTextarea
+                  value={providerPrompts.loudly}
+                  onChange={(e) => {
+                    setProviderPrompts(prev => ({
+                      ...prev,
+                      loudly: e.target.value,
+                    }));
+                  }}
+                  placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
+                  className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+                  minRows={3}
+                />
+              </div>
+
+              {/* Mubert textarea */}
+              <div style={{ display: musicProvider === 'mubert' ? 'block' : 'none' }}>
+                <GlassyTextarea
+                  value={providerPrompts.mubert}
+                  onChange={(e) => {
+                    setProviderPrompts(prev => ({
+                      ...prev,
+                      mubert: e.target.value,
+                    }));
+                  }}
+                  placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
+                  className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+                  minRows={3}
+                />
+              </div>
+
+              {/* ElevenLabs textarea */}
+              <div style={{ display: musicProvider === 'elevenlabs' ? 'block' : 'none' }}>
+                <GlassyTextarea
+                  value={providerPrompts.elevenlabs}
+                  onChange={(e) => {
+                    setProviderPrompts(prev => ({
+                      ...prev,
+                      elevenlabs: e.target.value,
+                    }));
+                  }}
+                  placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
+                  className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+                  minRows={3}
+                />
+              </div>
 
               {/* Timing instructions for music */}
               <div className="mt-3 pl-4 text-xs text-gray-500 p-2 ">

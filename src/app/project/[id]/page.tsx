@@ -8,6 +8,7 @@ import {
   ProjectBrief,
   AIModel,
   MusicProvider,
+  MusicPrompts,
   VoiceTrack,
   Language,
   Voice,
@@ -19,6 +20,7 @@ import {
 type LLMResponseData = {
   voiceTracks: VoiceTrack[];
   musicPrompt: string;
+  musicPrompts: MusicPrompts | null; // Provider-specific music prompts
   soundFxPrompt: SoundFxPrompt | null;
   projectReady?: boolean; // Whether project is ready for saving
 };
@@ -182,6 +184,10 @@ export default function ProjectWorkspace() {
           if (project.musicPrompt) {
             formManager.setMusicPrompt(project.musicPrompt);
           }
+          if (project.musicPrompts) {
+            console.log("🎵 Restoring provider-specific music prompts:", project.musicPrompts);
+            formManager.setMusicPrompts(project.musicPrompts);
+          }
           if (project.soundFxPrompt) {
             console.log("🔊 Restoring sound FX prompt:", project.soundFxPrompt);
             formManager.setSoundFxPrompt(project.soundFxPrompt);
@@ -313,11 +319,19 @@ export default function ProjectWorkspace() {
       };
 
       // Use explicit LLM data if provided (AUTO mode), otherwise use formManager state (manual mode)
-      const dataToSave = explicitLLMData || {
-        voiceTracks: formManager.voiceTracks,
-        musicPrompt: formManager.musicPrompt,
-        soundFxPrompt: formManager.soundFxPrompt,
-      };
+      let dataToSave: LLMResponseData;
+      if (explicitLLMData) {
+        // LLM generation - use complete data including musicPrompts
+        dataToSave = explicitLLMData;
+      } else {
+        // Auto-save from user edit - use formManager state
+        dataToSave = {
+          voiceTracks: formManager.voiceTracks,
+          musicPrompt: formManager.musicPrompt,
+          musicPrompts: formManager.musicPrompts, // Use provider-specific prompts from formManager
+          soundFxPrompt: formManager.soundFxPrompt,
+        };
+      }
 
       // SAFEGUARD: Prevent saving empty voice tracks if we have mixer tracks with content
       // This prevents corruption where auto-save might clear valid voice tracks
@@ -358,6 +372,7 @@ export default function ProjectWorkspace() {
         }))
       );
       console.log("Sound FX prompt being saved:", dataToSave.soundFxPrompt);
+      console.log("🔍 CRITICAL: musicPrompts being saved:", dataToSave.musicPrompts);
 
       const projectUpdate = {
         brief: {
@@ -376,6 +391,7 @@ export default function ProjectWorkspace() {
         },
         voiceTracks: dataToSave.voiceTracks,
         musicPrompt: dataToSave.musicPrompt,
+        musicPrompts: dataToSave.musicPrompts ?? undefined, // Save provider-specific prompts, convert null to undefined
         soundFxPrompt: dataToSave.soundFxPrompt,
         generatedTracks: tracks.length > 0 ? generatedTracks : undefined,
         mixerState,
@@ -502,16 +518,22 @@ export default function ProjectWorkspace() {
     segments: Array<{ voiceId: string; text: string }>,
     prompt: string,
     soundFxPrompts?: string | string[] | SoundFxPrompt[],
-    resolvedVoices?: Voice[] // Voices actually used for generation
+    resolvedVoices?: Voice[], // Voices actually used for generation
+    musicPrompts?: MusicPrompts | null // Provider-specific music prompts from LLM
   ) => {
     const llmResponseData = await generateCreativeContent(
       segments,
       prompt,
       soundFxPrompts,
-      resolvedVoices
+      resolvedVoices,
+      musicPrompts
     ); // Pure generation function
     setSelectedTab(1); // Navigation
     await saveProject("after generate creative", llmResponseData); // Save with explicit data
+
+    // NOW update formManager after save completes - this triggers MusicPanel reload
+    // At this point, Redis has the correct musicPrompts, so loadMusicPrompts will work correctly
+    formManager.setMusicPrompt(llmResponseData.musicPrompt);
   };
 
   // 🎯 PURE GENERATION FUNCTIONS - No navigation, clean separation
@@ -519,16 +541,19 @@ export default function ProjectWorkspace() {
     segments: Array<{ voiceId: string; text: string }>,
     musicPrompt: string,
     soundFxPrompts?: string | string[] | SoundFxPrompt[],
-    resolvedVoices?: Voice[] // Voices actually used for generation
+    resolvedVoices?: Voice[], // Voices actually used for generation
+    musicPrompts?: MusicPrompts | null // Provider-specific music prompts from LLM
   ): Promise<LLMResponseData> => {
     console.log("🎯 generateCreativeContent called with:", {
       segments: segments.length,
       musicPrompt: !!musicPrompt,
       soundFxPrompts: !!soundFxPrompts,
       resolvedVoices: resolvedVoices?.length,
+      musicPrompts: musicPrompts, // LOG THE ACTUAL PROVIDER-SPECIFIC PROMPTS
     });
     console.log("🎯 Segments details:", segments);
-    console.log("🎯 Music prompt:", musicPrompt);
+    console.log("🎯 Music prompt (singular):", musicPrompt);
+    console.log("🎯 Music prompts (provider-specific):", musicPrompts);
 
     // Map voice segments to tracks FIRST
     // Use resolved voices if provided (from LLM generation), otherwise fall back to current voices
@@ -559,7 +584,8 @@ export default function ProjectWorkspace() {
 
     formManager.resetVoiceTracks();
     formManager.setVoiceTracks(newVoiceTracks);
-    formManager.setMusicPrompt(musicPrompt);
+    // DON'T set musicPrompt here - it will be set after saveProject completes
+    // This prevents race condition where MusicPanel reloads before Redis has new data
 
     // Handle sound FX prompts
     let processedSoundFxPrompt: SoundFxPrompt | null = null;
@@ -584,6 +610,12 @@ export default function ProjectWorkspace() {
         };
         formManager.setSoundFxPrompt(processedSoundFxPrompt);
       }
+    }
+
+    // Store provider-specific music prompts in formManager so they're available for auto-save
+    if (musicPrompts) {
+      console.log("🎵 Storing provider-specific music prompts in formManager");
+      formManager.setMusicPrompts(musicPrompts);
     }
 
     // Track if project creation was successful
@@ -627,9 +659,17 @@ export default function ProjectWorkspace() {
     }
 
     // Return the processed LLM data and project status for explicit saving
+    console.log("🔍 ABOUT TO RETURN from generateCreativeContent:");
+    console.log("  musicPrompts parameter value:", musicPrompts);
+    console.log("  typeof musicPrompts:", typeof musicPrompts);
+    console.log("  musicPrompts === null?:", musicPrompts === null);
+    console.log("  musicPrompts === undefined?:", musicPrompts === undefined);
+    console.log("  musicPrompts || null evaluates to:", musicPrompts || null);
+
     return {
       voiceTracks: newVoiceTracks,
       musicPrompt: musicPrompt,
+      musicPrompts: musicPrompts || null, // Include provider-specific prompts (5th parameter)
       soundFxPrompt: processedSoundFxPrompt,
       projectReady, // Include whether project is ready for saving
     };
@@ -779,9 +819,11 @@ export default function ProjectWorkspace() {
     segments: Array<{ voiceId: string; text: string }>,
     musicPrompt: string,
     soundFxPrompts?: string | string[] | SoundFxPrompt[],
-    resolvedVoices?: Voice[] // Voices actually used for generation
+    resolvedVoices?: Voice[], // Voices actually used for generation
+    musicPrompts?: MusicPrompts | null // Provider-specific music prompts from LLM
   ) => {
     console.log("🚀 AUTO MODE: Starting sequential→parallel generation");
+    console.log("🔍 AUTO MODE received musicPrompts:", musicPrompts);
 
     try {
       // PHASE 1: Generate creative content and WAIT for LLM prompts
@@ -792,7 +834,8 @@ export default function ProjectWorkspace() {
         segments,
         musicPrompt,
         soundFxPrompts,
-        resolvedVoices
+        resolvedVoices,
+        musicPrompts
       );
 
       console.log(
@@ -800,11 +843,16 @@ export default function ProjectWorkspace() {
           llmResponseData.voiceTracks.length
         } voice tracks, music: ${!!llmResponseData.musicPrompt}, soundfx: ${!!llmResponseData.soundFxPrompt}`
       );
+      console.log("🔍 LLM Response musicPrompts:", llmResponseData.musicPrompts);
 
       // Save LLM data immediately if project is ready
       if (llmResponseData.projectReady) {
         await saveProject("AUTO: after generate creative", llmResponseData);
         console.log("✅ LLM data saved successfully");
+
+        // NOW update formManager after save completes - this triggers MusicPanel reload
+        // At this point, Redis has the correct musicPrompts, so loadMusicPrompts will work correctly
+        formManager.setMusicPrompt(llmResponseData.musicPrompt);
       } else {
         console.warn(
           "⚠️ Skipping LLM data save - project creation failed or not ready"
@@ -954,7 +1002,6 @@ export default function ProjectWorkspace() {
               onGenerate={handleGenerateMusic}
               isGenerating={formManager.isGeneratingMusic}
               statusMessage={formManager.statusMessage}
-              initialPrompt={formManager.musicPrompt}
               adDuration={adDuration}
               musicProvider={musicProvider}
               setMusicProvider={setMusicProvider}

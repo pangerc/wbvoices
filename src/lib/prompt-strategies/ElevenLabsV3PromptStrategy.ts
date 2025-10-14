@@ -184,7 +184,10 @@ You MUST respond with a valid JSON object with this structure:
     }${dialogExample}
   ],
   "music": {
-    "description": "Background music description (in English)",
+    "description": "Base music concept (in English)",
+    "loudly": "Full description with band/artist references (in English)",
+    "mubert": "Condensed version under 250 chars (in English)",
+    "elevenlabs": "Instrumental descriptions only, no artist names (in English)",
     "playAt": "start",
     "fadeIn": 1,
     "fadeOut": 2
@@ -201,6 +204,7 @@ You MUST respond with a valid JSON object with this structure:
 REMEMBER:
 - "description" field sets baseline tone (cheerful, calm, etc.)
 - "text" field can include [emotional tags] inline for punctuated moments
-- Combine both for rich, expressive delivery`;
+- Combine both for rich, expressive delivery
+- Music object MUST include all four fields: description, loudly, mubert, elevenlabs`;
   }
 }

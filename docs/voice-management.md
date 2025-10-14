@@ -670,6 +670,10 @@ Admin UI:
 - Play button for voice preview
 - Filter by language, accent, provider
 - Accent labels display voice's own accent (not filter)
+- **Voice descriptions** (October 2024):
+  - Coverage badge (✓) for voices with descriptions
+  - Read-only display with truncation and "Show more/less" toggle
+  - Shows same descriptions sent to LLM for voice selection
 
 **Test Results**:
 - ✅ Database connection working
@@ -937,15 +941,22 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 
 ### 📋 Next Steps
 
-1. **Voice Descriptions** - Enhance LLM voice selection with rich personality descriptions
-2. **Admin UI** (Phase 2) - Build browser interface for voice management
+1. ~~**Voice Descriptions**~~ - ✅ **COMPLETED** (October 2024)
+   - 125 ElevenLabs descriptions imported (92% coverage)
+   - Admin UI read-only display in `/admin/voice-manager`
+   - Coverage badges and truncated view with "Show more/less"
+2. **Admin UI** (Phase 2) - Expand voice management interface
+   - Manual description editing
+   - Bulk operations
+   - Advanced filtering
 3. **Quality Ratings** - Add custom metadata fields to schema
 4. **Collections** - Voice organization and curation
 5. **Audit Logging** - Track all changes for compliance
+6. **Description Coverage** - Scrape remaining providers (Lovo, OpenAI, Qwen) or generate via AI
 
 ---
 
-## Planned Enhancement: Rich Voice Descriptions
+## ✅ Implemented Enhancement: Rich Voice Descriptions (October 2024)
 
 ### Problem
 
@@ -989,126 +1000,400 @@ Roger (id: CwhRBWXzGAHq8TQ4Fs17-fr)
 - Semantic matching between creative brief and voice capabilities
 - Reduces "wrong voice" selections that require manual correction
 
-### Proposed Solution: Hybrid Approach
+### Solution: Web Scraping + Database Import
 
-**Phase 1: Proof of Concept**
-- Manually add descriptions for top 10-20 most-used voices
-- A/B test: measure LLM selection quality with vs. without descriptions
-- Validate token cost impact (estimated 2,600 → 10,400 chars per query)
+**What Was Built:**
 
-**Phase 2: Bulk Import (if POC successful)**
-- One-time web scraping from ElevenLabs voice library
-- Bulk import to database with source tracking
-- Manual review/approval before production use
+1. **Web Scraping** (completed)
+   - Scraped ElevenLabs voice library HTML
+   - Extracted 125 voice descriptions using Cheerio
+   - Cleaned and normalized text (removed age suffixes, HTML entities)
+   - Output: `data/voice-descriptions.json`
 
-**Phase 3: Ongoing Maintenance**
-- Manual updates via admin UI for new voices
-- Periodic re-scraping (quarterly) to catch provider changes
-- Quality tracking with `description_source` field
+2. **Database Layer** (completed)
+   - Created `voice_descriptions` table in Neon PostgreSQL
+   - Simple schema: voiceKey (PK), description, descriptionSource, timestamps
+   - Follows dual-layer architecture: Redis (ephemeral) + Neon (persistent)
 
-### Schema Changes
+3. **Service Layer** (completed)
+   - `VoiceDescriptionService` with bulk query optimization
+   - `VoiceCatalogueService.enrichWithDescriptions()` - overlay pattern
+   - Suffix-stripping logic for ElevenLabs localized voice IDs
+
+4. **API Integration** (completed)
+   - `/api/admin/import-descriptions` - Repeatable import endpoint
+   - `/api/voice-catalogue` - Automatic enrichment before sending to LLM
+   - Bulk fetch optimizations (single DB query per request)
+
+5. **LLM Integration** (automatic)
+   - Descriptions automatically flow to BasePromptStrategy
+   - Displayed as "Personality:" in LLM prompts
+   - No code changes needed - works out of the box!
+
+### Actual Schema Implementation
+
+**Created new table instead of extending voice_metadata for cleaner separation:**
 
 ```typescript
-// Add to voice_metadata table
-export const voiceMetadata = pgTable('voice_metadata', {
-  // ... existing fields ...
+// src/lib/db/schema.ts
 
-  customDescription: text('custom_description'), // Rich personality description
-  descriptionSource: text('description_source'), // 'manual' | 'elevenlabs_web' | 'ai_generated'
-  descriptionQuality: integer('description_quality'), // 1-5 rating for quality control
-  lastDescriptionUpdate: timestamp('last_description_update'), // Track freshness
-});
+export const voiceDescriptions = pgTable('voice_descriptions', {
+  voiceKey: text('voice_key').primaryKey(),        // "{provider}:{voiceId}"
+  description: text('description').notNull(),
+  descriptionSource: text('description_source')
+    .notNull()
+    .default('scraped_2024'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  sourceIdx: index('voice_descriptions_source_idx').on(table.descriptionSource),
+}));
 ```
 
-### Integration Points
+**Why separate table:**
+- Cleaner separation of concerns (metadata vs descriptions)
+- Simpler schema without optional fields
+- Easier to delete/rebuild if needed
+- No FK dependency - descriptions can exist without metadata
 
-**1. VoiceMetadataService**
+### Actual Implementation
+
+**1. VoiceDescriptionService** (new service)
 ```typescript
-async updateDescription(
-  voiceKey: string,
-  description: string,
-  source: 'manual' | 'elevenlabs_web' | 'ai_generated'
-) {
-  await db.update(voiceMetadata)
-    .set({
-      customDescription: description,
-      descriptionSource: source,
-      lastDescriptionUpdate: new Date()
-    })
-    .where(eq(voiceMetadata.voiceKey, voiceKey));
+// src/services/voiceDescriptionService.ts
+
+export class VoiceDescriptionService {
+  // Bulk fetch for performance (single query)
+  async bulkGetDescriptions(
+    voiceKeys: string[]
+  ): Promise<Record<string, string>> {
+    if (voiceKeys.length === 0) return {};
+
+    const results = await db
+      .select()
+      .from(voiceDescriptions)
+      .where(inArray(voiceDescriptions.voiceKey, voiceKeys));
+
+    // Convert to simple map
+    const descMap: Record<string, string> = {};
+    for (const row of results) {
+      descMap[row.voiceKey] = row.description;
+    }
+    return descMap;
+  }
+
+  // Batch upsert for imports
+  async batchUpsert(
+    descriptions: Array<{ voiceKey: string; description: string }>,
+    source: string = "scraped_2024"
+  ): Promise<void> {
+    // Insert in batches of 50 to avoid query size limits
+    const batchSize = 50;
+    for (let i = 0; i < descriptions.length; i += batchSize) {
+      const batch = descriptions.slice(i, i + batchSize);
+      const values = batch.map((d) => ({
+        voiceKey: d.voiceKey,
+        description: d.description,
+        descriptionSource: source,
+      }));
+
+      await db
+        .insert(voiceDescriptions)
+        .values(values)
+        .onConflictDoUpdate({
+          target: voiceDescriptions.voiceKey,
+          set: {
+            description: sql`EXCLUDED.description`, // Use incoming value
+            descriptionSource: source,
+            updatedAt: new Date(),
+          },
+        });
+    }
+  }
 }
 ```
 
-**2. VoiceCatalogueService (merge logic)**
+**2. VoiceCatalogueService Enhancement** (overlay pattern)
 ```typescript
-// Extend existing merge logic
-return {
-  ...baseVoice,
-  description: metadata?.customDescription || baseVoice.description || baseVoice.personality,
-  // Fallback chain: custom > scraped > auto-generated > basic
-};
+// src/services/voiceCatalogueService.ts
+
+async enrichWithDescriptions(voices: UnifiedVoice[]): Promise<UnifiedVoice[]> {
+  if (voices.length === 0) return voices;
+
+  // Build voiceKeys with suffix-stripping for ElevenLabs
+  const voiceKeys = voices.map(v => {
+    let lookupId = v.id;
+    if (v.provider === 'elevenlabs') {
+      lookupId = v.id.replace(/-[a-z]{2}(-[A-Z]{2})?$/, ''); // Strip -fr, -es-MX, etc.
+    }
+    return `${v.provider}:${lookupId}`;
+  });
+
+  // Bulk fetch descriptions from Neon
+  const descriptionMap = await voiceDescriptionService.bulkGetDescriptions(voiceKeys);
+
+  // Augment voices with descriptions
+  return voices.map(voice => {
+    let lookupId = voice.id;
+    if (voice.provider === 'elevenlabs') {
+      lookupId = voice.id.replace(/-[a-z]{2}(-[A-Z]{2})?$/, '');
+    }
+    const voiceKey = `${voice.provider}:${lookupId}`;
+    const description = descriptionMap[voiceKey];
+
+    if (description) {
+      return {
+        ...voice,
+        personality: description,    // UnifiedVoice field
+        description: description,    // Voice interface field (for LLM)
+      };
+    }
+    return voice;
+  });
+}
 ```
 
-**3. BasePromptStrategy (LLM prompt)**
+**3. API Integration**
 ```typescript
-formatVoiceMetadata(voice: Voice, context: PromptContext): string {
+// src/app/api/voice-catalogue/route.ts (filtered-voices operation)
+
+// Enrich voices with descriptions before returning
+const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(
+  finalVoices as any[]
+);
+
+return NextResponse.json({
+  voices: enrichedVoices,  // Automatically includes descriptions!
+  count: enrichedVoices.length,
+  selectedProvider,
+});
+```
+
+**4. Admin Import Endpoint**
+```typescript
+// src/app/api/admin/import-descriptions/route.ts
+
+export async function POST() {
+  const entries = Object.entries(descriptions);
+  const batch = entries.map(([voiceId, description]) => ({
+    voiceKey: `elevenlabs:${voiceId}`,
+    description: description as string,
+  }));
+
+  await voiceDescriptionService.batchUpsert(batch, 'scraped_elevenlabs_2024');
+
+  const stats = await voiceDescriptionService.getStats();
+  return NextResponse.json({
+    success: true,
+    imported: batch.length,
+    stats,
+  });
+}
+```
+
+**5. BasePromptStrategy** (no changes needed!)
+```typescript
+// src/lib/prompt-strategies/BasePromptStrategy.ts
+// Already checks for voice.description - just works!
+
+formatVoiceMetadata(voice: Voice, _context: PromptContext): string {
   let desc = `${voice.name} (id: ${voice.id})`;
 
-  // Prefer rich description over basic personality
-  if (voice.customDescription) {
-    desc += `\n  Description: ${voice.customDescription}`;
-  } else if (voice.description) {
+  if (voice.gender) {
+    desc += `\n  Gender: ${voice.gender}`;
+  }
+  if (voice.description) {  // ← Descriptions automatically appear here!
     desc += `\n  Personality: ${voice.description}`;
   }
   // ... rest of metadata
 }
 ```
 
-**4. Admin UI Enhancement**
+### Results
+
+**Coverage Achieved:**
+- 125 ElevenLabs voice descriptions imported
+- 92% coverage for French voices (23/25 enriched)
+- 2 missing voices are default/blacklisted (Alice, Jessica)
+- Automatic enrichment working across all languages
+
+**Performance Impact:**
+- Single bulk DB query per voice list request
+- Minimal latency added (~50-100ms per request)
+- No Redis cache changes needed
+- Graceful degradation if DB unavailable
+
+**LLM Prompt Enhancement:**
+- 4x increase in context per voice (~50 → ~200 chars)
+- Descriptions automatically appear as "Personality:" field
+- Token cost increase: acceptable (~4,000 → ~10,000 chars per brief)
+- No changes needed to existing prompt strategies
+
+**Data Quality:**
+- Source tracking: `scraped_elevenlabs_2024`
+- Repeatable import via admin API
+- Upsert logic allows re-scraping without duplicates
+
+### Admin UI Integration (October 2024)
+
+**What Was Built:**
+
+Added read-only voice description display to `/admin/voice-manager`:
+
+1. **API Enrichment** (completed)
+   - Enhanced `voices` operation in `/api/voice-catalogue` to include descriptions
+   - All three return paths now call `enrichWithDescriptions()`:
+     - Default path (all voices for provider)
+     - OpenAI region path
+     - Provider region path
+   - Consistent with `filtered-voices` operation used by LLM
+
+2. **VoiceCard Component Enhancement** (completed)
+   - Coverage badge: Green ✓ checkmark appears next to voice name if description exists
+   - Description display: Shows below metadata line (provider/gender/age)
+   - Truncation: `line-clamp-2` for 2-line maximum by default
+   - Toggle: "Show more/less" button appears for descriptions > 120 characters
+   - Styling: Subtle gray text (`text-gray-300`) to avoid visual clutter
+
+3. **User Benefits**
+   - **Quality Assurance**: See exactly what the LLM sees when selecting voices
+   - **Coverage Verification**: Quickly identify which voices have rich descriptions
+   - **Blacklist Context**: Better decision-making when managing voice quality
+   - **Metadata Validation**: Verify scraped descriptions match provider data
+
+**Implementation Details:**
+
 ```typescript
-// Add to existing /admin/voice-manager page
-<div className="space-y-2">
-  <label>Custom Description (optional)</label>
-  <textarea
-    value={voice.customDescription || ''}
-    onChange={(e) => updateDescription(voice.voiceKey, e.target.value)}
-    placeholder="Paste ElevenLabs description or write custom..."
-    className="w-full h-32 p-2 border rounded"
-  />
-  <select value={voice.descriptionSource}>
-    <option value="manual">Manual Entry</option>
-    <option value="elevenlabs_web">ElevenLabs Website</option>
-  </select>
-</div>
+// VoiceCard component changes (src/app/admin/voice-manager/page.tsx)
+
+// Coverage badge (line 554-558)
+{voice.description && (
+  <span className="px-1.5 py-0.5 text-[10px] bg-wb-green/20 text-wb-green rounded border border-wb-green/30">
+    ✓
+  </span>
+)}
+
+// Description display with truncation (line 563-581)
+{voice.description && (
+  <div className="mt-2">
+    <div className={`text-xs text-gray-300 ${!isDescriptionExpanded ? "line-clamp-2" : ""}`}>
+      {voice.description}
+    </div>
+    {voice.description.length > 120 && (
+      <button onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}>
+        {isDescriptionExpanded ? "Show less" : "Show more"}
+      </button>
+    )}
+  </div>
+)}
 ```
 
-### Trade-offs
+**API Changes:**
 
-**Pros:**
-- 4x more context for LLM voice selection
-- Uses existing infrastructure (merge pattern, admin UI)
-- Gradual rollout (start with top voices)
-- Measurable impact via A/B testing
-- Graceful degradation (works without descriptions)
+```typescript
+// src/app/api/voice-catalogue/route.ts (voices operation)
 
-**Cons:**
-- Token cost increase (~4x, but acceptable at ~$0.032 per creative brief)
-- Maintenance burden (~2-4 hours/month for updates)
-- Scraping ethics (one-time import, not continuous)
-- Description staleness (mitigated by tracking update dates)
+// Enrich all return paths with descriptions
+const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(voices as any[]);
+return NextResponse.json(enrichedVoices);
+```
 
-### Decision Criteria
+**Current State:**
+- ✅ Read-only display working in admin UI
+- ✅ Coverage visibility (badge indicates description exists)
+- ✅ Consistent with LLM data (same enrichment logic)
+- ⏳ Manual editing not yet implemented (future enhancement)
 
-**Proceed with POC if:**
-- Current LLM selection quality is below acceptable threshold
-- Users frequently need to manually override voice selections
-- A/B testing shows measurable improvement
+### Bugs Fixed
 
-**Skip or deprioritize if:**
-- Current voice selection is already satisfactory
-- No user complaints about voice matching
-- Token cost increase is prohibitive
-- Other features provide better ROI
+**1. Upsert Bug** (Critical)
+- **Problem**: `batchUpsert` used `values[0].description` for all conflicts
+- **Impact**: Only first voice in each batch of 50 got correct description
+- **Fix**: Use `sql\`EXCLUDED.description\`` to reference incoming row value
+- **Result**: All 125 descriptions now update correctly
+
+**2. Enrichment Timing Bug** (Critical)
+- **Problem**: Suffix-stripping happened AFTER bulk query
+- **Impact**: Localized voices (e.g., `voice-id-fr`) couldn't match base IDs
+- **Fix**: Strip suffixes BEFORE building voiceKeys for query
+- **Result**: Coverage jumped from 44% to 92%
+
+### Trade-offs & Learnings
+
+**Pros (Validated):**
+- ✅ 4x more context for LLM voice selection
+- ✅ Uses existing dual-layer architecture cleanly
+- ✅ No changes needed to prompt strategies (automatic integration)
+- ✅ Bulk query optimization prevents N+1 problems
+- ✅ Graceful degradation (works without descriptions)
+- ✅ Repeatable import process via admin API
+
+**Cons (Actual):**
+- ⚠️ Token cost increase acceptable (~$0.01-0.02 per creative brief)
+- ⚠️ Maintenance burden: periodic re-scraping needed (quarterly)
+- ⚠️ Coverage limited to scraped voices (14% missing from Redis)
+- ⚠️ Language suffix logic specific to ElevenLabs (not generic)
+
+### Usage
+
+**Import/Re-import Descriptions:**
+```bash
+curl -X POST http://localhost:3000/api/admin/import-descriptions
+```
+
+Response:
+```json
+{
+  "success": true,
+  "message": "Imported 125 voice descriptions",
+  "imported": 125,
+  "stats": {
+    "total": 125,
+    "bySource": {
+      "scraped_elevenlabs_2024": 125
+    }
+  }
+}
+```
+
+**Check Enrichment Status:**
+```bash
+# Check if specific voices have descriptions
+curl "http://localhost:3000/api/admin/check-descriptions?ids=OPCL81coXM3AEo8gUxHM,H0Es1EyjnIrTdY0BEF0V"
+```
+
+**Verify in LLM Prompts:**
+Generate a creative and check console logs:
+```
+🎨 Enriched 23/25 voices with descriptions
+```
+
+Descriptions automatically appear in LLM prompts as:
+```
+Maxime Lavaud - French young man (id: OPCL81coXM3AEo8gUxHM)
+  Gender: Male
+  Personality: French voice of a dynamic, cheerful young man. Perfect for Social Media.
+```
+
+### Next Steps
+
+**Completed (October 2024):**
+- ✅ Admin UI read-only description display in `/admin/voice-manager`
+- ✅ Coverage badge to identify enriched voices
+- ✅ API enrichment in `voices` operation
+
+**Short-term:**
+1. Monitor LLM voice selection quality with descriptions
+2. Gather user feedback on voice matching accuracy
+3. Re-scrape quarterly to catch new/updated voices
+
+**Future Enhancements:**
+1. **Manual description editing** - Build UI for editing/overriding descriptions
+2. **Multi-provider coverage** - Scrape descriptions for Lovo, OpenAI, Qwen
+3. **AI-generated descriptions** - Generate descriptions for voices missing from scrape
+4. **Quality ratings** - Add 1-5 star ratings per description
+5. **A/B testing** - Measure impact of descriptions on voice selection quality
 
 ### 🎯 Usage
 

@@ -475,6 +475,7 @@ function VoiceCard({
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const stopAudio = () => {
@@ -548,10 +549,36 @@ function VoiceCard({
     <div className="flex items-center gap-4 p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10">
       {/* Voice Info */}
       <div className="flex-1">
-        <div className="font-medium">{voice.name}</div>
+        <div className="flex items-center gap-2">
+          <div className="font-medium">{voice.name}</div>
+          {voice.description && (
+            <span className="px-1.5 py-0.5 text-[10px] bg-wb-green/20 text-wb-green rounded border border-wb-green/30">
+              ✓
+            </span>
+          )}
+        </div>
         <div className="text-sm text-gray-400">
           {voice.provider} • {voice.gender || "unknown"} • {voice.age || "any age"}
         </div>
+        {voice.description && (
+          <div className="mt-2">
+            <div
+              className={`text-xs text-gray-300 ${
+                !isDescriptionExpanded ? "line-clamp-2" : ""
+              }`}
+            >
+              {voice.description}
+            </div>
+            {voice.description.length > 120 && (
+              <button
+                onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                className="text-[10px] text-wb-blue hover:text-wb-blue/80 mt-1"
+              >
+                {isDescriptionExpanded ? "Show less" : "Show more"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Actions */}

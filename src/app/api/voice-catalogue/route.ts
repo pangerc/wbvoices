@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { voiceCatalogue } from '@/services/voiceCatalogueService';
+import { voiceCatalogue, UnifiedVoice } from '@/services/voiceCatalogueService';
 import { Language, Provider, CampaignFormat } from '@/types';
 import { ProviderSelector } from '@/utils/providerSelection';
 
@@ -60,14 +60,18 @@ export async function GET(req: NextRequest) {
               accent || undefined,
               requireApproval
             );
-            return NextResponse.json(allOpenAIVoices);
+            // Enrich with descriptions before returning
+            const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(allOpenAIVoices);
+            return NextResponse.json(enrichedVoices);
           }
 
           // For other providers, filter by provider
           const providerVoices = regionVoices.filter(voice =>
             voice.provider === provider || provider === 'any'
           );
-          return NextResponse.json(providerVoices);
+          // Enrich with descriptions before returning
+          const enrichedProviderVoices = await voiceCatalogue.enrichWithDescriptions(providerVoices);
+          return NextResponse.json(enrichedProviderVoices);
         }
 
         // Default: get all voices for provider
@@ -77,7 +81,9 @@ export async function GET(req: NextRequest) {
           accent || undefined,
           requireApproval
         );
-        return NextResponse.json(voices);
+        // Enrich with descriptions before returning
+        const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(voices);
+        return NextResponse.json(enrichedVoices);
       }
       
       case 'by-accent': {
@@ -286,6 +292,12 @@ export async function GET(req: NextRequest) {
             selectedProvider = provider as Provider;
           }
 
+          // 🎨 ENRICH VOICES WITH DESCRIPTIONS from Neon database
+          // This follows the overlay pattern: Redis (ephemeral) + Neon (persistent metadata)
+          const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(
+            finalVoices as UnifiedVoice[]
+          );
+
           // Validation for dialog format based on final filtered voices
           const response: {
             voices: unknown[];
@@ -294,8 +306,8 @@ export async function GET(req: NextRequest) {
             dialogReady?: boolean;
             dialogWarning?: string;
           } = {
-            voices: finalVoices,
-            count: finalVoices.length,
+            voices: enrichedVoices,
+            count: enrichedVoices.length,
             ...(selectedProvider && { selectedProvider }) // Include selectedProvider if auto-selected
           };
 

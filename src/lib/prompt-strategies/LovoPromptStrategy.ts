@@ -7,6 +7,7 @@ import { Voice, CampaignFormat } from "@/types";
 export class LovoPromptStrategy extends BasePromptStrategy {
   readonly provider = "lovo" as const;
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   buildStyleInstructions(_context: PromptContext): string {
     return `Lovo voices have styles built into the voice selection (e.g., "Ava (Cheerful)" vs "Ava (Serious)"). The emotional style is already encoded in the voice ID you choose - no additional style parameter is needed or used by the API.`;
   }
@@ -45,7 +46,10 @@ You MUST respond with a valid JSON object with this structure:
     }${dialogExample}
   ],
   "music": {
-    "description": "Background music description (in English)",
+    "description": "Base music concept (in English)",
+    "loudly": "Full description with band/artist references (in English)",
+    "mubert": "Condensed version under 250 chars (in English)",
+    "elevenlabs": "Instrumental descriptions only, no artist names (in English)",
     "playAt": "start",
     "fadeIn": 1,
     "fadeOut": 2

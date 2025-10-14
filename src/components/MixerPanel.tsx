@@ -39,7 +39,6 @@ export function MixerPanel({
     audioErrors,
     loadingStates,
     isExporting,
-    isUploadingMix,
     previewUrl,
     // We'll use removeTrack later when implementing full error handling
     // removeTrack,

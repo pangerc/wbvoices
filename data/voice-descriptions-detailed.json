@@ -1,0 +1,627 @@
+[
+  {
+    "voiceId": "qlfxsYlCv09qu8y6PkmY",
+    "voiceName": "Eric",
+    "description": "A dynamic and impactful commercial voice. Perfect for punchy commercials, promotional announcements and radio messages that instantly captivate the audience. An assertive and energetic tone that gives weight to every word."
+  },
+  {
+    "voiceId": "6mBnRhL0dHfQ4ypWLcIi",
+    "voiceName": "Christian Brison",
+    "description": "Hello, I'm Christian Brison, a neutral, middle-aged voice. You can use my voice for News & Documentary."
+  },
+  {
+    "voiceId": "BewlJwjEWiFLWoXrbGMf",
+    "voiceName": "Sophie",
+    "description": "French woman with an engaging voice. Ideal for commercials and social media."
+  },
+  {
+    "voiceId": "oziFLKtaxVDHQAh7o45V",
+    "voiceName": "AlphaVox | Executive Leadership Voice",
+    "description": "A charismatic and articulate male voice with a clear and steady tone, perfect for official announcements, leadership speeches, and corporate narrations. Its timbre conveys confidence and professionalism, making it ideal for CEO speeches, town halls, and executive communications."
+  },
+  {
+    "voiceId": "OPCL81coXM3AEo8gUxHM",
+    "voiceName": "Maxime Lavaud",
+    "description": "French voice of a dynamic, cheerful young man. Perfect for Social Media."
+  },
+  {
+    "voiceId": "Pipj99NMS7t8dQEzyxgB",
+    "voiceName": "Marion F.",
+    "description": "A young French female voice with a warm, natural and friendly tone. Perfect for commercial and digital content. Clear, engaging and conversational — ideal for beauty, lifestyle, and social media campaigns."
+  },
+  {
+    "voiceId": "Da9VfudgKUvFOKayCiue",
+    "voiceName": "Camille",
+    "description": "Lively French female voice, ideal for commercials and social media content."
+  },
+  {
+    "voiceId": "DGTOOUoGpoP6UZ9uSWfA",
+    "voiceName": "Célian",
+    "description": "A warm, clear, and engaging French male voice with a smooth, natural tone. Equally soothing and dynamic, it adapts seamlessly to storytelling, audiobooks, scientific explanations, reports, interviews, and promotional content. Its expressive yet balanced delivery captivates listeners, making complex ideas accessible while maintaining a professional and inviting presence."
+  },
+  {
+    "voiceId": "FpvROcY4IGWevepmBWO2",
+    "voiceName": "Jessy",
+    "description": "I would be the perfect voice for all your journalistic projects. I have a clear voice with ideal pronunciation and a professional in the field of journalism."
+  },
+  {
+    "voiceId": "b6nVfb3l2zshrLZTvqbs",
+    "voiceName": "Miss Radio",
+    "description": "Ma voix jeune et énergique qui capte l'attention à chaque mot. Ma tonalité claire et dynamique en font le choix parfait pour tous vos projets radio, TV, media, réseaux sociaux, e-learning, messages téléphoniques. Que ce soit pour captiver un auditoire ou pour transmettre des informations de manière agréable et efficace, ma voix enrichit chaque projet avec professionnalisme, chaleur et succès. Faites moi confiance pour donner vie à vos contenus et laisser une impression lumineuse, divine."
+  },
+  {
+    "voiceId": "f5ChBqjF2YtYo8iKr4UV",
+    "voiceName": "Olivier Ritz",
+    "description": "Deep & warm adult male voice,"
+  },
+  {
+    "voiceId": "DbbNuBL7lf62XwY7arQb",
+    "voiceName": "Hugo from Paris",
+    "description": "Middle-aged french man, serious intonation. Great for Commercials."
+  },
+  {
+    "voiceId": "uyCFY7D8n0oaM5Smchqu",
+    "voiceName": "Chloe",
+    "description": "A voice crafted to captivate, sell, and make an impression. Both powerful and captivating, she transforms every word into emotion, every message into obsession."
+  },
+  {
+    "voiceId": "TnnHlREp9UyW7nQDycZx",
+    "voiceName": "Mister Radio",
+    "description": "Mister Radio has a young and modulated voice that will be perfect for all your projects. E-learning, phone answering systems, advertisements, audiobooks, video games."
+  },
+  {
+    "voiceId": "iKX6IXB415Hh5bn2eNhP",
+    "voiceName": "David Tyserre | Natural & Engaging Documentary Voice",
+    "description": "A warm, articulate male voice with a dynamic and engaging tone, ideal for narrating nature, science, and history documentaries. This voice offers a natural flow, precise intonation, and a captivating rhythm. Perfect for educational content, wildlife storytelling, and immersive documentaries."
+  },
+  {
+    "voiceId": "mvhJVdVoTWVUtL4keT7W",
+    "voiceName": "Simon",
+    "description": "A young male voice, brimming with energy and warmth. It is clear and well-articulated, with an intonation that immediately captures attention. The tone is both engaging and professional, ideal for hosting radio shows or podcasts. The voice exudes a natural vitality, making each word lively and expressive."
+  },
+  {
+    "voiceId": "xouqnknI7nCiPaJ9gwt8",
+    "voiceName": "Tom Magic",
+    "description": "Middle aged warm German deep male voice. Perfect for Narrations."
+  },
+  {
+    "voiceId": "cyD08lEy76q03ER1jZ7y",
+    "voiceName": "ScheilaSMTy",
+    "description": "Middle aged Brazilian female. Crisp, carefully articulated, flowing with a smooth, engaging cadence that envelops listeners in its enchanting melody."
+  },
+  {
+    "voiceId": "SZXidiHhq5QYe3jRboSZ",
+    "voiceName": "Anet",
+    "description": "A young Czech woman in her 20’s, quiet intensity, naturally low pitch, fast pace, great for conversations and informative videos"
+  },
+  {
+    "voiceId": "aTxZrSrp47xsP6Ot4Kgd",
+    "voiceName": "Kayla",
+    "description": "An urban American female voice, ideal for casual conversations, podcasts, and audiobooks."
+  },
+  {
+    "voiceId": "WzsP0bfiCpSDfNgLrUuN",
+    "voiceName": "Casey",
+    "description": "A clear British female voice with a non-specific southern accent. Perfect for eLearning, Social Media, Product Explainer Videos, and any form of Narration."
+  },
+  {
+    "voiceId": "3JDquces8E8bkmvbh6Bc",
+    "voiceName": "Otani",
+    "description": "Middle aged Japanese voice. Suitable for Narration & Storytelling."
+  },
+  {
+    "voiceId": "ANHrhmaFeVN0QJaa0PhL",
+    "voiceName": "Petra Vlaams",
+    "description": "Professional Flemish female voice in Dutch with a focus on variation in the voice. Suitable for Narrations."
+  },
+  {
+    "voiceId": "4SZMuFG3NOs5lWy1q5Wf",
+    "voiceName": "Luc",
+    "description": "Flemish male voice. Suitable for informative content."
+  },
+  {
+    "voiceId": "2zRM7PkgwBPiau2jvVXc",
+    "voiceName": "Monika Sogam",
+    "description": "Indian English accent voice for social media videos and audiobooks"
+  },
+  {
+    "voiceId": "jB2lPb5DhAX6l1TLkKXy",
+    "voiceName": "Sophia",
+    "description": "An upbeat female voice with a UK accent. Warm and reliable, making her perfect for audiobooks, e-learning courses, adverts, and much more!"
+  },
+  {
+    "voiceId": "MiueK1FXuZTCItgbQwPu",
+    "voiceName": "Maya",
+    "description": "A young Australian female voice. Perfect for narration and character voice over."
+  },
+  {
+    "voiceId": "v7QyOKVRzHDBpjhEZHqo",
+    "voiceName": "Elias",
+    "description": "Young German male with a soft and pleasant voice, perfect for Social Media, podcasts, discussions, conversations and talk programmes. Professional and confident voice with a high recognition value."
+  },
+  {
+    "voiceId": "H6QPv2pQZDcGqLwDTIJQ",
+    "voiceName": "Kanika",
+    "description": "Kanika is the pen name of one of the best voice-over artists you will ever hear. Everyone who regularly consumes content has definitely heard her voice. Give this voice a try, and you will find it very professional and soothing. It's the perfect voice to use for social media, ads, bots, and audiobooks."
+  },
+  {
+    "voiceId": "NDTYOmYEjbDIVCKB35i3",
+    "voiceName": "Paige – Engaging Narrator",
+    "description": "Perfect for long-form content and audiobooks. This professional US female voice is articulate, crisp, and emotionally versatile. Paige delivers engaging storytelling with a dynamic range – ideal for any production needing a clear, trustworthy voice."
+  },
+  {
+    "voiceId": "RGymW84CSmfVugnA5tvA",
+    "voiceName": "Roberta",
+    "description": "A young and friendly Brazilian Portuguese female voice, ideal for your conversation AI, social media, and podcasts, story narration, bringing warmth, a relaxed and explanatory vibe."
+  },
+  {
+    "voiceId": "mActWQg9kibLro6Z2ouY",
+    "voiceName": "Riya Rao",
+    "description": "Riya is the pen name of one of the most professional voice-over artists you will ever hear on ElevenLabs. Her voice has already been a part of major conversational bots in the past. Use it for all your professional and conversational needs, such as social media, documentaries, audiobooks, corporate videos, and so on."
+  },
+  {
+    "voiceId": "eWrnzOwO7JvyjacVxTzV",
+    "voiceName": "Bart",
+    "description": "Middle aged Dutch male voice with depth. Works well for informative videos."
+  },
+  {
+    "voiceId": "o3Pmyfc3Ez1s2CJKuwJf",
+    "voiceName": "Ben van Praag",
+    "description": "A Dutch male voice (Flemish accent), fit for radioshows, podcasts and voice-over."
+  },
+  {
+    "voiceId": "s7Z6uboUuE4Nd8Q2nye6",
+    "voiceName": "Hans Claesen",
+    "description": "Male Flemish voice, calm and with a warm sound. Works well for Narrations."
+  },
+  {
+    "voiceId": "s4W8kh4jMEsHFHA7NqXQ",
+    "voiceName": "MaxiAraya",
+    "description": "Middle-aged voice, ideal for news, podcasts, and entertainment."
+  },
+  {
+    "voiceId": "KqSsYz0buWgkvSbaGn1n",
+    "voiceName": "Agustin",
+    "description": "Powerful male voice with an authentic Buenos Aires accent. Perfect for news broadcasts, narrations, and impactful storytelling."
+  },
+  {
+    "voiceId": "vgekQLm3GYiKMHUnPVvY",
+    "voiceName": "Agus",
+    "description": "Young, fast-talking Argentine man with a sharp sense of humor. Perfect for comedic content, witty remarks, and energetic storytelling."
+  },
+  {
+    "voiceId": "34RuvBpKQDapycxZnrDJ",
+    "voiceName": "Matias Rella",
+    "description": "A young professor, passionate about teaching, who explains with energy and enthusiasm. Very useful for podcasts, salespeople, and online classes."
+  },
+  {
+    "voiceId": "ByVRQtaK1WDOvTmP1PKO",
+    "voiceName": "Agustin",
+    "description": "Argentinian male voice with a natural, conversational tone – warm, approachable, and effortlessly engaging, perfect for casual dialogue and authentic narration."
+  },
+  {
+    "voiceId": "6ZDFxWiAykFxCoe683WK",
+    "voiceName": "Elcordovez",
+    "description": "Middle-aged male voice for Narration."
+  },
+  {
+    "voiceId": "prblQcKOdF08ozhxP2mk",
+    "voiceName": "Andrea Rabbit",
+    "description": "Middle-aged Warm, lovely female voice with a calm tone. Works great for Narration & Storytelling."
+  },
+  {
+    "voiceId": "GJid0jgRsqjUy21Avuex",
+    "voiceName": "Emma",
+    "description": "Middle-aged female voice. Suitable for an AI Agent."
+  },
+  {
+    "voiceId": "uNsWM1StCcpydKYOjKyu",
+    "voiceName": "Mia Starset",
+    "description": "A clear and bright Norwegian female voice with a standard Oslo accent. Perfect for social media such as podcasts, commercials and advertisement, but also E-learning, narration or other types of voiceovers."
+  },
+  {
+    "voiceId": "BKwzeEHPemNEGIPoJEI8",
+    "voiceName": "CatyM",
+    "description": "Calm, moderate, professional, didactic female voice."
+  },
+  {
+    "voiceId": "gAEE9Bd8Epzw44tnvUk4",
+    "voiceName": "Zenón – Standard male voice ES",
+    "description": "Adult male voice, serious and clear tone, without distinctive features."
+  },
+  {
+    "voiceId": "e5TbU2GXreRROoYNjNdN",
+    "voiceName": "Héctor Solar",
+    "description": "A young Mexican voice artist with the kind of warm, modern tone brands crave. Whether it’s a high-impact commercial, a captivating documentary, or scroll-stopping social media content, Héctor delivers with effortless style and authenticity. His voice blends rich character and crisp clarity, creating an instant connection with listeners. From laid-back storytelling to vibrant, energetic reads, he knows how to turn every script into something people can’t ignore."
+  },
+  {
+    "voiceId": "7t2HnXP73SsrxZf3OrN7",
+    "voiceName": "Jacobo Sanchez",
+    "description": "Adult male from Argentina, with argentine accent from Buenos Aires. Works well for announcements, ads and narrations. Also works very well in multiple languages such as Italian, French and English!"
+  },
+  {
+    "voiceId": "D7fO4LMKxU3UYXGDpTnA",
+    "voiceName": "Maxi_Argames",
+    "description": "Young male voice in Latin Spanish with an Argentine accent. Ideal for narrating news."
+  },
+  {
+    "voiceId": "EqIGWtLlCCOVlMhwe310",
+    "voiceName": "Laia",
+    "description": "Young - middle-aged female voice, Latin American Spanish. Perfect for your AI Receptionist and AI Call Agents; as well as YouTube videos, TikTok and Instagram shorts and reels, and podcasts."
+  },
+  {
+    "voiceId": "pZv6Kbgq62dtlvkJTupr",
+    "voiceName": "Nata cantante",
+    "description": "As a singing teacher, I have developed a vocal mastery that allows me to play with different dynamics and colors, adapting my expression according to the context and communicative intention."
+  },
+  {
+    "voiceId": "wRQeFzvFBUZhSvUuwWvL",
+    "voiceName": "Alejo",
+    "description": "Great voice for B2B selling"
+  },
+  {
+    "voiceId": "26KjS1zDtmJGObdJ89bv",
+    "voiceName": "Misael",
+    "description": "This voice has been trained using professional voiceover techniques and is designed to achieve a warm, neutral, and versatile tone, ideal for corporate environments, institutional narrations, radio and television commercials, virtual agents, business presentations, e-learning, and more. The intonation is natural and persuasive, with excellent diction, a slow pace, and subtle emotional nuances that connect with Spanish-speaking audiences throughout Latin America."
+  },
+  {
+    "voiceId": "oWSxI36XAKnfMWmzmQok",
+    "voiceName": "Milena",
+    "description": "Young South American Latina Spanish with a beautiful, sweet, neutral voice perfect for commercials, narration, audiobooks, podcasts, YouTube, TikTok, Instagram, and ads. Natural bilingual flow in Spanish and English with a soft, melodic tone. Ideal for brands seeking authenticity, emotion, and connection. Perfect for Mexican, Colombian, Brazilian, Chilean, Argentine, Peru, Latin projects. Perfect for beauty, fashion, health, and educational brands."
+  },
+  {
+    "voiceId": "sHge8q23nEUdrZ9ggcsh",
+    "voiceName": "Carmen Locutora",
+    "description": "A warm and calm voice with a natural, friendly tone, perfect for narration, podcasts, and content that aims to convey closeness and clarity."
+  },
+  {
+    "voiceId": "8tm9IYjg8ybDoxe8w6Rk",
+    "voiceName": "Daniela",
+    "description": "Daniela has a feminine, youthful, and charming voice, ideal for podcasts, advice videos, fashion content, lifestyle content, and any topic in general. Her tone is tender, friendly, and charismatic, capable of conveying closeness and confidence in every word. With Daniela, every message sounds like a conversation with your best friend: natural, warm, and authentic."
+  },
+  {
+    "voiceId": "McVZB9hVxVSk3Equu8EH",
+    "voiceName": "Audrey",
+    "description": "Middle aged female voice. Suitable for Commercials."
+  },
+  {
+    "voiceId": "brPzcy4pXMIUtw6RPYu0",
+    "voiceName": "French Darling",
+    "description": "Female French Voice with engaging style, perfect for Commercials."
+  },
+  {
+    "voiceId": "IPgYtHTNLjC7Bq7IPHrm",
+    "voiceName": "Alexandre Boutin",
+    "description": "A clear, informative French Canadian voice with an authentic Quebec accent. The tone is professional and direct, perfect for delivering precise and engaging content. The recording is crystal clear, with a natural flow that emphasizes clarity and reliability, making it ideal for informative, educational, or news-based projects"
+  },
+  {
+    "voiceId": "nF7t9cuYo0u3kuVI9q4B",
+    "voiceName": "Dana – Engaging Confident German Female",
+    "description": "Middle-aged, yet youthful German female voice with a deep, warm, and slightly nasal tone that exudes trust and authenticity. Ideal for call centers, social media, podcasts, narration, gaming avatars and storytelling."
+  },
+  {
+    "voiceId": "1iF3vHdwHKuVKSPDK23Z",
+    "voiceName": "Louisa v2",
+    "description": "german, adult, emotional, warm"
+  },
+  {
+    "voiceId": "czb8zR3V35utWZxvKd9a",
+    "voiceName": "Leo liest (tief)",
+    "description": "A very deep German voice. Scratchy-smoky, with a dark characteristic timbre. Perfect for Entertainment & TV."
+  },
+  {
+    "voiceId": "otF9rqKzRHFgfwf6serQ",
+    "voiceName": "Dana",
+    "description": "Middle aged German female with deep, warm, nasal voice. Can be fresh and alive as well as serious and thoughtful. Great for conversation, podcast and storytelling. Due to dynamic tone, perfect for a wide range of uses."
+  },
+  {
+    "voiceId": "AVIlLDn2TVmdaDycgbo3",
+    "voiceName": "Eric Sijbesma",
+    "description": "Dutch middle aged man. Voice is great for conversations."
+  },
+  {
+    "voiceId": "cblS8WYNsiBLGnlV6jjx",
+    "voiceName": "Robert",
+    "description": "A middle age (50 years old), enthusiastic Dutch guy that hosts podcast."
+  },
+  {
+    "voiceId": "G53Wkf3yrsXvhoQsmslL",
+    "voiceName": "James",
+    "description": "A native, deep sounding Dutch speaking voice, perfect for podcasts, audiobooks and narration."
+  },
+  {
+    "voiceId": "XJa38TJgDqYhj5mYbSJA",
+    "voiceName": "Bella Ai",
+    "description": "Conversational Dutch female Voice."
+  },
+  {
+    "voiceId": "OlBRrVAItyi00MuGMbna",
+    "voiceName": "Emma",
+    "description": "A calm Dutch female voice that sounds like she's explaining something to a friend. Great for e-learning, tutorials, and natural voice-overs."
+  },
+  {
+    "voiceId": "mm5VPgPEmjoD9MmwFLFW",
+    "voiceName": "Tabaza",
+    "description": "My voice is feminine, confident and catchy, perfect for listening and singing. It sounds decisive and charismatic, attracting attention and adding dynamism. It is perfect for talkativeness, full of humor, with messages in points and in the imperative mood. It is ideally suited to a leader who knows what to say and how to do it. I have the power of voice - every time I say something, it comes true!"
+  },
+  {
+    "voiceId": "bhehD3jAYQsch18622NF",
+    "voiceName": "Michał",
+    "description": "A warm and clear male voice, approximately 50 years old, with a calm and professional tone. Perfect for educational content, storytelling and e-learning. The voice is clear and engaging, at a moderate pace, allowing complex topics to be effectively conveyed. It exudes confidence and approachability, making it suitable for instructional and informational recordings."
+  },
+  {
+    "voiceId": "i30ZrhybXZ9JeFrsIvGn",
+    "voiceName": "Mr Lucas",
+    "description": "Middle aged Male with a low & calm voice. Great for podcasts, trailers, audiobook, ads."
+  },
+  {
+    "voiceId": "pb8c0r30vHTjqkuyCUIQ",
+    "voiceName": "Piotrek Pro",
+    "description": "Middle aged Polish male voice. Perfect for Narrations & Storytelling."
+  },
+  {
+    "voiceId": "DK2oYoQ3lTA1UXL843GC",
+    "voiceName": "Adygeusz",
+    "description": "A middle age Polish male voice. Suitable for storytelling & reading books."
+  },
+  {
+    "voiceId": "H3IcxEgdFxIEJAqMc0Bc",
+    "voiceName": "Joanna v2",
+    "description": "Middle-aged Polish female narrator with friendly, articulate style for storytelling and narrations. Good for audio books, stories, and podcasts."
+  },
+  {
+    "voiceId": "HnsghscV3PKM5tLCzch5",
+    "voiceName": "Bea",
+    "description": "Middle aged Polish female with a calm, relaxed, professional, meditative, relaxing, soft voice. Works well for Narration."
+  },
+  {
+    "voiceId": "o11yegU3CL24TZ1qcm6b",
+    "voiceName": "Adam A",
+    "description": "Middle-aged Polish male voice. Great for Conversations."
+  },
+  {
+    "voiceId": "JxVKcxm9wtnCYEs8V00p",
+    "voiceName": "Bruno Siak",
+    "description": "Deep expressive male Polish Voice perfect for Narrations & Storytelling, especially crime and horror stories."
+  },
+  {
+    "voiceId": "ELipIT4gf7mqOUIdVqNN",
+    "voiceName": "Oliver Brown",
+    "description": "A polish male voice characterized by a warm, gentle, and subtle tone. This voice is perfect for projects that require a calm and soothing delivery, such as meditation apps, audiobooks, or instructional content. Its soft and engaging nature makes it suitable for professional narrations, voiceovers for commercials, or e-learning materials. With a clear and articulate sound, it can effectively convey messages while maintaining a relaxed and inviting atmosphere."
+  },
+  {
+    "voiceId": "gyYsiReJHZ1ezjr0NdZ1",
+    "voiceName": "Krzysztof PL",
+    "description": "professional male voice, calm, great for narration, descriptions, advertisements."
+  },
+  {
+    "voiceId": "RWZoDXNWfWzwHbPcWFpP",
+    "voiceName": "Agata HQ",
+    "description": "Professional and polished, this female voice embodies confidence and clarity. Her tone is warm yet authoritative, making her perfect for a variety of professional settings, including corporate presentations, instructional content, or customer service applications. With a smooth cadence and articulate enunciation, she conveys trustworthiness and competence, while maintaining a natural conversational flow. Ideal for engaging audiences and delivering information with precision and elegance."
+  },
+  {
+    "voiceId": "h83JI5fjWWu9AOKOVRYh",
+    "voiceName": "Wojciech",
+    "description": "A deep young adult Polish voice, mid-low tone, a little bit intimate. Great for Story and Narrative driven projects - especially Audiobooks. High quality audio."
+  },
+  {
+    "voiceId": "gFl0NeqphJUaoBLtWrqM",
+    "voiceName": "Piotr Pro PL",
+    "description": "A mature voice with a warm and pleasant tone brings every story to life. Ideal for narrations, guides and novels - my voice draws the listener in from the first word, creating an unforgettable experience. Trust the experience and sound that builds a bond with the recipient."
+  },
+  {
+    "voiceId": "5J9Sof9JD8HVJhrrdPf9",
+    "voiceName": "MePolish",
+    "description": "Middle aged confident male voice. Perfect for Audiobooks."
+  },
+  {
+    "voiceId": "I9ZSbssU8pRgE3rHwira",
+    "voiceName": "Daniel | Pro",
+    "description": "A multilingual voice with calm confidence and clarity. Ideal for global narration, explainers, and editorial formats."
+  },
+  {
+    "voiceId": "MXt9WArfiuiT7MmD6D61",
+    "voiceName": "Marcin",
+    "description": "Calm, middle-aged male voice. Perfect for storytelling and audiobooks."
+  },
+  {
+    "voiceId": "S1JKkpuAQNsowB8ZvKRO",
+    "voiceName": "Damian PL",
+    "description": "Middle age Polish male with a calm, warm, & pleasant voice. Great for Storytelling & Narration."
+  },
+  {
+    "voiceId": "CLuTGacrAhcIhaJslbXt",
+    "voiceName": "Rafał",
+    "description": "Most natural polish voice."
+  },
+  {
+    "voiceId": "XoHJ8hwSLOtb2sXYdAzv",
+    "voiceName": "Admundo PRO",
+    "description": "A deep and pleasant male voice – universal and versatile. For narration, commercials, stories, podcasts."
+  },
+  {
+    "voiceId": "N0GCuK2B0qwWozQNTS8F",
+    "voiceName": "Magdalena | PL",
+    "description": "Low-pitched, warm, clear and emotionally present. The voice for projects that need calm strength, subtlety, and human rhythm — from narration to voiceovers and more."
+  },
+  {
+    "voiceId": "g8ZOdhoD9R6eYKPTjKbE",
+    "voiceName": "Tomasz Zborek",
+    "description": "A mid-aged , deep, clean and calm man's voice"
+  },
+  {
+    "voiceId": "B9cNwbQXN3s6l3nU6fqz",
+    "voiceName": "Adam",
+    "description": "Young male with standard accent. Great for video, audiobooks and social media."
+  },
+  {
+    "voiceId": "EmspiS7CSUabPeqBcrAP",
+    "voiceName": "Mikołaj",
+    "description": "A warm and professional voice perfect for a podcast or customer service."
+  },
+  {
+    "voiceId": "o2xdfKUpc1Bwq7RchZuW",
+    "voiceName": "Piotr",
+    "description": "Ciepły, niski głos, który budzi zaufanie. Idealny do reklam, filmów i audiobooków."
+  },
+  {
+    "voiceId": "mr1ubFaLs5xVrh1EqWtc",
+    "voiceName": "Konwersacyjny kAImil",
+    "description": "Conversational, friendly call center voice. Warm and youthful tone ideal for support, guidance, and clear, helpful communication."
+  },
+  {
+    "voiceId": "OOTZSkkPGHD1csczSCmT",
+    "voiceName": "Lena Suzuki",
+    "description": "The voice of a mature woman is gentle and calm tone, making it ideal for reading books, especially fairy tales. It has a relaxed, professional, and meditative quality, offering a soothing and soft tone that is perfectly suited for narration."
+  },
+  {
+    "voiceId": "d4Z5Fvjohw3zxGpV8XUV",
+    "voiceName": "Maria",
+    "description": "Young polish female with a feminine, calm and subdued voice. Highly recommend for videos, podcasts and audiobooks."
+  },
+  {
+    "voiceId": "W0sqKm1Sfw1EzlCH14FQ",
+    "voiceName": "Beata Pro",
+    "description": "A middle aged female Polish voice. Perfect for Narrations andd Storytelling."
+  },
+  {
+    "voiceId": "Pid5DJleNF2sxsuF6YKD",
+    "voiceName": "Aneta",
+    "description": "A mature woman's voice that herst loud and confident. Good for reading fairy tales"
+  },
+  {
+    "voiceId": "H0Es1EyjnIrTdY0BEF0V",
+    "voiceName": "Maciek",
+    "description": "Youthful voice, perfect for ads. Energetic. Short sentences. Teens & social media style. Polish, Poland, Poles, Slavic, Eastern Europe."
+  },
+  {
+    "voiceId": "xAVsdcJvD1uegu8lFEE2",
+    "voiceName": "Daniel",
+    "description": "Middle-aged male Polish voice with a great accent and quality. Ideal for news, audiobooks and advertising or promotional videos."
+  },
+  {
+    "voiceId": "zzBTsLBFM6AOJtkr1e9b",
+    "voiceName": "Pawel Pro",
+    "description": "Middle aged male Polish Voice. Perfect for Narrations & Storytelling."
+  },
+  {
+    "voiceId": "FrrTxu4nrplZwLlMy2kD",
+    "voiceName": "Javier",
+    "description": "A young Argentine male voice with a narrative and confident tone. Perfect for all types of content; podcasts or videos."
+  },
+  {
+    "voiceId": "1WXz8v08ntDcSTeVXMN2",
+    "voiceName": "Malena Tango",
+    "description": "Clear, melodious voice, with the unmistakable Buenos Aires accent that transmits confidence without losing softness. Neither too fast nor too slow."
+  },
+  {
+    "voiceId": "9rvdnhrYoXoUt4igKpBw",
+    "voiceName": "Mariana -Intimate and Assertive",
+    "description": "A deep, clear, and emotional voice that captivates with precision. Mariana speaks with an immersive intensity that captivates from the first sentence. Perfect for narration, romantic content, audiobooks, and brands that seek depth without losing clarity. Firm. Sweet. Unforgettable. Now in Spanish."
+  },
+  {
+    "voiceId": "XmoCtjPCefjeLDu0eMSl",
+    "voiceName": "Lalo",
+    "description": "An older Argentinian male voice from the north, pleasant and paternal, special for a chat with friends."
+  },
+  {
+    "voiceId": "9oPKasc15pfAbMr7N6Gs",
+    "voiceName": "Valeria",
+    "description": "Young feminine woman voice, Spanish with Argentinian accent. Suitable for Social media content."
+  },
+  {
+    "voiceId": "YExhVa4bZONzeingloMX",
+    "voiceName": "Juan Carlos",
+    "description": "A middle age Latin American speaker. Warm and pleasant tone. Conversational style. Ideal for narrations, social media, or conversational uses."
+  },
+  {
+    "voiceId": "FjfxJryh105iTLL4ktHB",
+    "voiceName": "Liang",
+    "description": "A youthful Chinese female voice with a calm tone. Suitable for narrating stories and creating content for social media videos."
+  },
+  {
+    "voiceId": "9lHjugDhwqoxA5MhX0az",
+    "voiceName": "Anna Su",
+    "description": "A youthful and bright Chinese female voice with a soft, friendly tone — warm, conversational, and effortlessly engaging, like a friend catching up with you over coffee."
+  },
+  {
+    "voiceId": "BrbEfHMQu0fyclQR7lfh",
+    "voiceName": "Kevin Tu",
+    "description": "An adult Taiwanese Mandarin voice with high-mid voice, good for news, narrative or story."
+  },
+  {
+    "voiceId": "fQj4gJSexpu8RDE2Ii5m",
+    "voiceName": "Yu (Chinese)",
+    "description": "Yu is a vibrant, upbeat voice in Traditional Chinese with a youthful Taiwanese accent. It is characterized by its energetic tone and engaging delivery. Perfectly suited for tutorials, podcasts, calls, and classes, this voice ensures clarity and captures attention with a professional yet approachable vibe."
+  },
+  {
+    "voiceId": "MI36FIkp9wRP7cpWKPTl",
+    "voiceName": "Evan Zhao",
+    "description": "A calm and trustworthy Mandarin male voice with smooth rhythm and warm tone — perfect for audiobooks, language content, and emotional narration."
+  },
+  {
+    "voiceId": "bhJUNIXWQQ94l8eI2VUf",
+    "voiceName": "Amy",
+    "description": "Amy's voice sounds young and natural, with a relaxed and friendly tone—like she's chatting with a friend. Her delivery is soft and approachable, perfect for casual conversations, lifestyle content, or social media."
+  },
+  {
+    "voiceId": "ByhETIclHirOlWnWKhHc",
+    "voiceName": "ShanShan",
+    "description": "A youthful Chinese female voice with lively energy. Suitable for narrating stories and creating content for social media videos."
+  },
+  {
+    "voiceId": "OAAjJsQDvpg3sVjiLgyl",
+    "voiceName": "Denisa",
+    "description": "Calm and soft young female voice. Perfect for audiobooks, tutorials and narration."
+  },
+  {
+    "voiceId": "OjkyUe8dIihIFvOisuvM",
+    "voiceName": "Tung Wong",
+    "description": "A young, conversational and humorous male voice with a subtle Hong Kong accent. Perfect for content creators looking for a friendly and authentic tone with just the right touch of humor and regional charm."
+  },
+  {
+    "voiceId": "QttbagfgqUCm9K0VgUyT",
+    "voiceName": "Aida",
+    "description": "Italian professional female voice, dynamic and engaging, full of charismatic energy, ideal for product promotional content, Tik Tok and social media, video ads and commercials, marketing, demonstrations, tutorials. Video testimonials and user generated content."
+  },
+  {
+    "voiceId": "vqoh9orw2tmOS3mY7D2p",
+    "voiceName": "Sofi",
+    "description": "A young Argentine woman with a great tone for Social Media, Storytelling and Education."
+  },
+  {
+    "voiceId": "dlGxemPxFMTY7iXagmOj",
+    "voiceName": "Fernando Martinez",
+    "description": "Middle aged casual male voice. Ideal for narrations."
+  },
+  {
+    "voiceId": "l1zE9xgNpUTaQCZzpNJa",
+    "voiceName": "Alberto Rodriguez",
+    "description": "Adult male voice, serious tone, ideal for narrations."
+  },
+  {
+    "voiceId": "9F4C8ztpNUmXkdDDbz3J",
+    "voiceName": "Dan Dan",
+    "description": "An upbeat and modulate voice. Great for shorts and social media."
+  },
+  {
+    "voiceId": "gD1IexrzCvsXPHUuT0s3",
+    "voiceName": "Sara Martin",
+    "description": "Young female Spanish-Castillian accent. Suitable for Dialogue and Characters."
+  },
+  {
+    "voiceId": "seBySO9xChmlAEgPcA23",
+    "voiceName": "Elizabeth",
+    "description": "Elizabeth is a formal British girl that is perfect for your narrations and social media."
+  },
+  {
+    "voiceId": "BNgbHR0DNeZixGQVzloa",
+    "voiceName": "David",
+    "description": "An old British male with a deep Voice. Perfect for Storytelling & Narration."
+  },
+  {
+    "voiceId": "hIssydxXZ1WuDorjx6Ic",
+    "voiceName": "Adam",
+    "description": "Polish male voice, warm and calm voice."
+  }
+]

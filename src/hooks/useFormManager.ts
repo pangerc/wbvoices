@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { VoiceTrack, SoundFxPrompt } from "@/types";
+import { VoiceTrack, SoundFxPrompt, MusicPrompts } from "@/types";
 
 export interface FormManagerState {
   // Voice editing state
@@ -14,6 +14,7 @@ export interface FormManagerState {
 
   // Prompt state
   musicPrompt: string;
+  musicPrompts: MusicPrompts | null; // Provider-specific music prompts
   soundFxPrompt: SoundFxPrompt | null;
 
   // Voice track actions
@@ -31,6 +32,7 @@ export interface FormManagerState {
 
   // Prompt actions
   setMusicPrompt: (prompt: string) => void;
+  setMusicPrompts: (prompts: MusicPrompts | null) => void;
   setSoundFxPrompt: (prompt: SoundFxPrompt | null) => void;
 
   // Reset functions
@@ -55,6 +57,7 @@ export function useFormManager(): FormManagerState {
 
   // Prompt state
   const [musicPrompt, setMusicPrompt] = useState("");
+  const [musicPrompts, setMusicPrompts] = useState<MusicPrompts | null>(null);
   const [soundFxPrompt, setSoundFxPrompt] = useState<SoundFxPrompt | null>(
     null
   );
@@ -88,6 +91,7 @@ export function useFormManager(): FormManagerState {
 
   const resetMusicPrompt = () => {
     setMusicPrompt("");
+    setMusicPrompts(null);
     setIsGeneratingMusic(false);
     setStatusMessage("");
   };
@@ -112,6 +116,7 @@ export function useFormManager(): FormManagerState {
     isGeneratingSoundFx,
     statusMessage,
     musicPrompt,
+    musicPrompts,
     soundFxPrompt,
     setVoiceTracks,
     updateVoiceTrack,
@@ -123,6 +128,7 @@ export function useFormManager(): FormManagerState {
     setIsGeneratingSoundFx,
     setStatusMessage,
     setMusicPrompt,
+    setMusicPrompts,
     setSoundFxPrompt,
     resetVoiceTracks,
     resetMusicPrompt,
