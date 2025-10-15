@@ -342,32 +342,40 @@ export async function checkMusicCache(
 
 /**
  * Mixed audio-specific blob upload helper
- * Uploads the final mixed audio from the mixer to permanent storage
- * Uses API route because client-side blob uploads don't have access to tokens
+ * Uses direct client-to-Vercel Blob upload to bypass 4.5 MB API route limits
  */
 export async function uploadMixedAudioToBlob(
   audioBlob: Blob,
   projectId?: string
 ): Promise<{ url: string; downloadUrl: string }> {
-  const formData = new FormData();
-  formData.append('file', audioBlob, 'mixed-audio.wav');
-  if (projectId) {
-    formData.append('projectId', projectId);
+  try {
+    // Step 1: Get upload token and filename from our API
+    const tokenResponse = await fetch('/api/upload-mixed-audio-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId }),
+    });
+
+    if (!tokenResponse.ok) {
+      throw new Error('Failed to get upload token');
+    }
+
+    const { filename, token } = await tokenResponse.json();
+
+    // Step 2: Upload directly to Vercel Blob from client
+    // Using client-side put() from @vercel/blob
+    const blob = await put(filename, audioBlob, {
+      access: 'public',
+      token,
+      contentType: 'audio/wav',
+    });
+
+    return {
+      url: blob.url,
+      downloadUrl: blob.downloadUrl || blob.url,
+    };
+  } catch (error) {
+    console.error('❌ Direct blob upload failed:', error);
+    throw new Error(`Mixed audio upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
-
-  const response = await fetch('/api/upload-mixed-audio', {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
-    throw new Error(`Mixed audio upload failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
-  }
-
-  const result = await response.json();
-  return {
-    url: result.url,
-    downloadUrl: result.downloadUrl
-  };
 }
