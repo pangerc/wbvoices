@@ -227,7 +227,7 @@ Each has specific constraints that MUST be respected:
 1. "description": Base music concept (1 sentence, fallback for backwards compatibility)
 2. "elevenlabs": Detailed instrumental descriptions (100-200 words)
 3. "loudly": Detailed descriptions WITH band references (100-200 words) + optional contextual framing
-4. "mubert": Keyword structure (250 character MAXIMUM)
+4. "mubert": Ultra-simple vibe/concept (3-10 words TARGET)
 
 UNIVERSAL PRINCIPLES (base guidance for detailed prompts):
 
@@ -273,17 +273,19 @@ Starting from the base concept above, transform it for each provider:
 
    Example from base: "Uplifting indie pop track that feels like a summer road trip with friends, featuring bright jangly electric guitars reminiscent of The Strokes, fast rhythmic strumming similar to early Phoenix albums, light bouncy drums with tambourine accents and walking bassline in the style of Vampire Weekend. Perfect for energetic lifestyle content and youth-oriented brands."
 
-3. "mubert": CONDENSE TO KEYWORD STRUCTURE (250 CHAR MAXIMUM)
-   - Format: [genre] [mood] [activity] [optional instruments] [optional BPM]
-   - Use ONE WORD per element
-   - Moods must align with genre
-   - Band names rarely work - AVOID
-   - Shorter = better results
-   - Instruments are optional (don't always work well)
-   - COUNT CHARACTERS - must be ≤250
+3. "mubert": ULTRA-SIMPLE VIBE/CONCEPT (3-10 WORDS TARGET)
+   - Format: [genre], [vibe/mood/scene]
+   - Target: 3-10 words MAXIMUM
+   - Focus on simple vibes and concepts, NOT technical musical terms
+   - Avoid: instruments, tempo, technical descriptors (they make it worse)
+   - Think: genre + emotional vibe or social context
+   - 250 char is absolute max, but aim for brevity
 
-   Example from base: "Indie rock energetic summer guitar drums upbeat"
-   Character count: 51 - well under 250 limit
+   ✅ GOOD: "Indie rock, friends, summer"
+   (4 words - simple, evocative, works great)
+
+   ❌ BAD: "Indie rock, energetic, upbeat, summer, guitar, fast, drums, happy, melodic, bright, rhythmic, lively, clean, pop, bassline"
+   (15 words - kitchen sink approach, too verbose, worse results)
 
 4. "description": FALLBACK (brief essence for backwards compatibility)
    - One sentence capturing core concept
@@ -292,7 +294,7 @@ Starting from the base concept above, transform it for each provider:
 KEY PRINCIPLES:
 1. ElevenLabs: 100-200 words, no artist names, detailed instrumental descriptions
 2. Loudly: 100-200 words WITH artist/band names, detailed descriptions, optional contextual framing
-3. Mubert: Keyword structure, one word per element, MUST be ≤250 characters
+3. Mubert: 3-10 words maximum, simple vibes/concepts not technical terms
 4. Music generators understand: instruments, tempo, playing techniques, genres
 5. Music generators DON'T understand: brand associations, social contexts, experiential feelings
 6. If it's not something a musician would say about the music itself, don't include it
@@ -300,7 +302,7 @@ KEY PRINCIPLES:
 VALIDATION CHECKLIST BEFORE SENDING:
 ✓ ElevenLabs: 100-200 words, no artist names, detailed instrumental descriptions
 ✓ Loudly: 100-200 words WITH artist/band names, detailed descriptions, optional contextual framing
-✓ Mubert: Keyword structure, count characters - MUST be ≤250
+✓ Mubert: 3-10 words, simple vibes/concepts not technical terms
 ✓ Description: One sentence essence
 ✓ All: Concrete musical terms, avoid experiential language
 

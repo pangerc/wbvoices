@@ -438,8 +438,25 @@ export function MusicPanel({
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
-                d="M2 2h4v12H2V2zm6 0h2v12H8V2zm4 0h2v12h-2V2z"
-                fill={mode === 'library' ? "#2F7DFA" : "#FFFFFF"}
+                stroke={mode === 'library' ? "#2F7DFA" : "#FFFFFF"}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M0.8 0.8v14.4"
+                strokeWidth="1.5"
+              />
+              <path
+                stroke={mode === 'library' ? "#2F7DFA" : "#FFFFFF"}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5.38 0.8v14.4"
+                strokeWidth="1.5"
+              />
+              <path
+                stroke={mode === 'library' ? "#2F7DFA" : "#FFFFFF"}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m9.96 0.8 5.24 14.4"
+                strokeWidth="1.5"
               />
             </svg>
           </GlassTab>
