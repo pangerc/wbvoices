@@ -239,6 +239,9 @@ export class VoiceMetadataService {
   /**
    * Bulk fetch blacklist entries optimized for filtering
    * Returns enhanced structure with language-wide and accent-specific info
+   *
+   * GRACEFUL DEGRADATION: If database is unavailable, returns empty object
+   * (all voices pass through unfiltered - safe default behavior)
    */
   async bulkGetBlacklistedEnhanced(
     voiceKeys: string[],
@@ -248,37 +251,44 @@ export class VoiceMetadataService {
   > {
     if (voiceKeys.length === 0) return {};
 
-    const results = await db
-      .select()
-      .from(voiceBlacklist)
-      .where(
-        and(
-          inArray(voiceBlacklist.voiceKey, voiceKeys),
-          eq(voiceBlacklist.language, language)
-        )
-      );
+    try {
+      const results = await db
+        .select()
+        .from(voiceBlacklist)
+        .where(
+          and(
+            inArray(voiceBlacklist.voiceKey, voiceKeys),
+            eq(voiceBlacklist.language, language)
+          )
+        );
 
-    const grouped: Record<
-      string,
-      { accents: Set<string>; hasLanguageWide: boolean }
-    > = {};
+      const grouped: Record<
+        string,
+        { accents: Set<string>; hasLanguageWide: boolean }
+      > = {};
 
-    for (const entry of results) {
-      if (!grouped[entry.voiceKey]) {
-        grouped[entry.voiceKey] = {
-          accents: new Set<string>(),
-          hasLanguageWide: false,
-        };
+      for (const entry of results) {
+        if (!grouped[entry.voiceKey]) {
+          grouped[entry.voiceKey] = {
+            accents: new Set<string>(),
+            hasLanguageWide: false,
+          };
+        }
+
+        if (entry.accent === this.ALL_ACCENTS) {
+          grouped[entry.voiceKey].hasLanguageWide = true;
+        } else {
+          grouped[entry.voiceKey].accents.add(entry.accent);
+        }
       }
 
-      if (entry.accent === this.ALL_ACCENTS) {
-        grouped[entry.voiceKey].hasLanguageWide = true;
-      } else {
-        grouped[entry.voiceKey].accents.add(entry.accent);
-      }
+      return grouped;
+    } catch (error) {
+      // Graceful degradation: if database is down, skip blacklist filtering
+      // This keeps the app functional even when Neon is unavailable
+      console.warn('⚠️ Database unavailable - skipping blacklist filtering:', error);
+      return {}; // Empty object = no voices blacklisted = all voices pass through
     }
-
-    return grouped;
   }
 
   /**

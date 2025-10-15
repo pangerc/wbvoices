@@ -314,9 +314,11 @@ export function BriefPanel({
     selectedProvider?: Provider;
     dialogReady?: boolean;
     dialogWarning?: string;
+    voiceCounts?: Record<Provider, number>; // 🔥 Per-provider counts with blacklist filtering
   }>({
     voices: [],
     count: 0,
+    voiceCounts: { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 },
   });
   const [isLoadingFilteredVoices, setIsLoadingFilteredVoices] = useState(false);
 
@@ -390,7 +392,11 @@ export function BriefPanel({
 
         if (data.error) {
           console.error("❌ Failed to load filtered voices:", data.error);
-          setServerFilteredVoices({ voices: [], count: 0 });
+          setServerFilteredVoices({
+            voices: [],
+            count: 0,
+            voiceCounts: { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 },
+          });
         } else {
           console.log(
             `✅ Loaded ${
@@ -407,6 +413,7 @@ export function BriefPanel({
             selectedProvider: data.selectedProvider,
             dialogReady: data.dialogReady,
             dialogWarning: data.dialogWarning,
+            voiceCounts: data.voiceCounts || { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 }, // 🔥 Store blacklist-filtered counts
           });
 
           // 🔥 Only update provider when user selected "any" (auto-selection)
@@ -420,7 +427,11 @@ export function BriefPanel({
         }
       } catch (error) {
         console.error("Failed to load filtered voices:", error);
-        setServerFilteredVoices({ voices: [], count: 0 });
+        setServerFilteredVoices({
+          voices: [],
+          count: 0,
+          voiceCounts: { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 },
+        });
       } finally {
         setIsLoadingFilteredVoices(false);
       }
@@ -548,9 +559,8 @@ export function BriefPanel({
   const shouldWarnAboutDialog =
     serverFilteredVoices.dialogWarning && campaignFormat === "dialog";
   const shouldSuggestProvider =
-    availableProviders.length > 0 &&
-    availableProviders.find((p) => p.provider === selectedProvider)?.count ===
-      0;
+    serverFilteredVoices.voiceCounts &&
+    (serverFilteredVoices.voiceCounts[selectedProvider] || 0) === 0;
 
   // Filter languages based on search
   const filteredLanguages = useMemo(() => {
@@ -1080,10 +1090,7 @@ export function BriefPanel({
               {isLoadingFilteredVoices
                 ? "Loading..."
                 : selectedProvider === "any"
-                ? `${
-                    availableProviders.find((p) => p.provider === "any")
-                      ?.count || 0
-                  } voices available`
+                ? `${serverFilteredVoices.voiceCounts?.any || 0} voices available`
                 : `${serverFilteredVoices.count} voices available`}
               {hasRegions && selectedRegion && selectedRegion !== "all" && (
                 <>
@@ -1125,25 +1132,14 @@ export function BriefPanel({
                 label: "ByteDance - Chinese TTS with Cantonese support",
               },
             ]
-              .filter((option) =>
-                availableProviders.some((p) => p.provider === option.value)
-              )
               .map((option) => {
-                const providerData = availableProviders.find(
-                  (p) => p.provider === option.value
-                );
-                const voiceCount = providerData?.count || 0;
+                // 🔥 Use blacklist-filtered counts from server (includes blacklist filtering!)
+                const voiceCount = serverFilteredVoices.voiceCounts?.[option.value as Provider] || 0;
 
                 return {
                   ...option,
                   value: option.value as Provider,
-                  label:
-                    option.value === "any"
-                      ? `${option.label} (${
-                          availableProviders.find((p) => p.provider === "any")
-                            ?.count || 0
-                        } voices)`
-                      : `${option.label} (${voiceCount} voices)`,
+                  label: `${option.label} (${voiceCount} voices)`,
                   disabled: voiceCount === 0 && option.value !== "any",
                 };
               })}
@@ -1151,13 +1147,7 @@ export function BriefPanel({
           />
           {shouldSuggestProvider && (
             <p className="text-xs text-orange-400 mt-1">
-              💡 Try{" "}
-              {availableProviders.find((p) => p.count > 0)?.provider ||
-                "another provider"}{" "}
-              -{" "}
-              {availableProviders.find((p) => p.provider === selectedProvider)
-                ?.count || 0}{" "}
-              voices for this region
+              💡 Try another provider - {serverFilteredVoices.voiceCounts?.[selectedProvider] || 0} voices for this selection
             </p>
           )}
           {/* Error message */}

@@ -96,7 +96,7 @@ Use tags moderately for natural, balanced delivery:
     }
 
 ${
-      context.accent || context.region
+      (context.accent && context.accent !== "neutral") || context.region
         ? `
 ACCENT TAG USAGE:
 This ad requires a specific accent/region: ${context.accent || ""}${context.region ? ` from ${context.region}` : ""}
@@ -120,16 +120,16 @@ General tag placement guidelines:
 
 ${
       pacing === "fast"
-        ? `🌟 EXAMPLE (fast pacing${context.accent ? ", with accent" : ""}):
+        ? `🌟 EXAMPLE (fast pacing${context.accent && context.accent !== "neutral" ? ", with accent" : ""}):
 "description": "excited",
-"text": "${context.accent ? `[${context.accent} accent]` : ""}[excited][fast][fast]Check this out! [fast][energetic]Our new product... [very excited]it's AMAZING! [fast][fast][happy]Get yours today!"`
+"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[excited][fast][fast]Check this out! [fast][energetic]Our new product... [very excited]it's AMAZING! [fast][fast][happy]Get yours today!"`
         : pacing === "slow"
-        ? `🌟 EXAMPLE (slow pacing${context.accent ? ", with accent" : ""}):
+        ? `🌟 EXAMPLE (slow pacing${context.accent && context.accent !== "neutral" ? ", with accent" : ""}):
 "description": "calm",
-"text": "${context.accent ? `[${context.accent} accent]` : ""}[gentle]Take a moment... [thoughtful]to discover something [calm]truly special."`
-        : `🌟 EXAMPLE (normal pacing${context.accent ? ", with accent" : ""}):
+"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[gentle]Take a moment... [thoughtful]to discover something [calm]truly special."`
+        : `🌟 EXAMPLE (normal pacing${context.accent && context.accent !== "neutral" ? ", with accent" : ""}):
 "description": "cheerful",
-"text": "${context.accent ? `[${context.accent} accent]` : ""}[laughs][happy]You won't believe this! [excited]Our new product is here. [whispers]And the price? [cheerful]Unbeatable."`
+"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[laughs][happy]You won't believe this! [excited]Our new product is here. [whispers]And the price? [cheerful]Unbeatable."`
     }
 
 KEY PRINCIPLES:

@@ -239,26 +239,27 @@ export async function GET(req: NextRequest) {
             }
           }
 
-          // 🔥 FIXED: Server-side provider auto-selection with correct counting  
+          // 🔥 ALWAYS count filtered voices per provider for accurate UI display
+          // These counts include blacklist filtering and are used by the picker dropdown
+          const voiceCounts = {
+            elevenlabs: allVoices.filter(voice => (voice as { provider?: string }).provider === 'elevenlabs').length,
+            lovo: allVoices.filter(voice => (voice as { provider?: string }).provider === 'lovo').length,
+            openai: allVoices.filter(voice => (voice as { provider?: string }).provider === 'openai').length,
+            qwen: allVoices.filter(voice => (voice as { provider?: string }).provider === 'qwen').length,
+            bytedance: allVoices.filter(voice => (voice as { provider?: string }).provider === 'bytedance').length,
+            any: allVoices.length // Total filtered voices across all providers
+          };
+
+          // 🔥 Provider selection and filtering logic
           let finalVoices = allVoices;
           let selectedProvider: Provider | undefined;
 
           if (!provider || provider === 'any') {
-            // 🔥 FIXED: Count FILTERED voices per provider (not all voices!)
-            const voiceCounts = {
-              elevenlabs: allVoices.filter(voice => (voice as { provider?: string }).provider === 'elevenlabs').length,
-              lovo: allVoices.filter(voice => (voice as { provider?: string }).provider === 'lovo').length,
-              openai: allVoices.filter(voice => (voice as { provider?: string }).provider === 'openai').length,
-              qwen: allVoices.filter(voice => (voice as { provider?: string }).provider === 'qwen').length,
-              bytedance: allVoices.filter(voice => (voice as { provider?: string }).provider === 'bytedance').length,
-              any: 0 // Not used in selection
-            };
-
             console.log(`🔍 Provider auto-selection debug (FIXED):`, {
               campaignFormat,
               voiceCounts,
               language,
-              region: region || 'all', 
+              region: region || 'all',
               accent: accent || 'neutral',
               totalVoices: allVoices.length,
               // 🔍 DEBUG: Show sample voices to verify language filtering
@@ -281,7 +282,7 @@ export async function GET(req: NextRequest) {
             console.log(`🎯 Auto-selected provider: ${selectedProvider} for ${campaignFormat}`);
 
             // Filter to only selected provider's voices
-            finalVoices = allVoices.filter(voice => 
+            finalVoices = allVoices.filter(voice =>
               (voice as { provider?: string }).provider === selectedProvider
             );
 
@@ -290,6 +291,7 @@ export async function GET(req: NextRequest) {
             // Apply specific provider filtering
             finalVoices = allVoices.filter(voice => (voice as { provider?: string }).provider === provider);
             selectedProvider = provider as Provider;
+            console.log(`🔍 Using explicitly selected provider: ${selectedProvider} (${finalVoices.length} voices)`);
           }
 
           // 🎨 ENRICH VOICES WITH DESCRIPTIONS from Neon database
@@ -305,9 +307,11 @@ export async function GET(req: NextRequest) {
             selectedProvider?: Provider;
             dialogReady?: boolean;
             dialogWarning?: string;
+            voiceCounts: Record<Provider, number>; // 🔥 NEW: Per-provider counts for UI picker
           } = {
             voices: enrichedVoices,
             count: enrichedVoices.length,
+            voiceCounts, // 🔥 Include blacklist-filtered counts for all providers
             ...(selectedProvider && { selectedProvider }) // Include selectedProvider if auto-selected
           };
 
@@ -325,6 +329,7 @@ export async function GET(req: NextRequest) {
           return NextResponse.json({
             voices: [],
             count: 0,
+            voiceCounts: { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 },
             error: error instanceof Error ? error.message : 'Failed to load voices'
           });
         }

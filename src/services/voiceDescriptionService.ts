@@ -26,24 +26,33 @@ export class VoiceDescriptionService {
   /**
    * Bulk fetch descriptions for multiple voices (optimized for performance)
    * Returns a map of voiceKey -> description text
+   *
+   * GRACEFUL DEGRADATION: If database is unavailable, returns empty map
+   * (voices without descriptions still work, just less optimal for LLM selection)
    */
   async bulkGetDescriptions(
     voiceKeys: string[]
   ): Promise<Record<string, string>> {
     if (voiceKeys.length === 0) return {};
 
-    const results = await db
-      .select()
-      .from(voiceDescriptions)
-      .where(inArray(voiceDescriptions.voiceKey, voiceKeys));
+    try {
+      const results = await db
+        .select()
+        .from(voiceDescriptions)
+        .where(inArray(voiceDescriptions.voiceKey, voiceKeys));
 
-    // Convert to simple map
-    const descMap: Record<string, string> = {};
-    for (const row of results) {
-      descMap[row.voiceKey] = row.description;
+      // Convert to simple map
+      const descMap: Record<string, string> = {};
+      for (const row of results) {
+        descMap[row.voiceKey] = row.description;
+      }
+
+      return descMap;
+    } catch (error) {
+      // Graceful degradation: if database is down, skip descriptions
+      console.warn('⚠️ Database unavailable - skipping voice descriptions:', error);
+      return {}; // Empty map = no descriptions enrichment
     }
-
-    return descMap;
   }
 
   /**
