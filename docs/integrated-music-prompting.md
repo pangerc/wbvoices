@@ -9,7 +9,7 @@
 Music generation services have fundamentally different prompting requirements:
 
 - **Loudly**: Best with detailed descriptions (100-200 words) including band/artist references and optional contextual framing. No character limit.
-- **Mubert**: Works best with ultra-simple 3-10 word vibes/concepts. Technical terms make it worse.
+- **Mubert**: Works best with structured 8-12 word storytelling (genre → energy → setting → vibe). Multi-word phrases work great.
 - **ElevenLabs Music**: Works great with detailed instrumental descriptions (100-200 words). NO artist/band names allowed.
 
 ### Previous Limitation
@@ -31,7 +31,7 @@ Unlike voice generation (which is "monogamous" - one provider per project), musi
 We use a **single source of truth** in BasePromptStrategy.ts with provider-specific transformation rules:
 
 1. **Base Guidance**: Detailed instrumental descriptions (100-200 words) with specific rules per provider
-2. **Transformations**: Loudly gets band references + optional contextual framing, Mubert gets ultra-simple vibes
+2. **Transformations**: Loudly gets band references + optional contextual framing, Mubert gets structured storytelling
 3. **Single LLM Call**: Generate all 4 prompts at once (description, loudly, mubert, elevenlabs)
 4. **Smart UI**: Show appropriate prompt when user switches providers
 
@@ -74,7 +74,7 @@ You MUST generate FOUR optimized music prompts for different providers.
 1. "description": Base music concept (1 sentence, fallback)
 2. "elevenlabs": Detailed instrumental descriptions (100-200 words)
 3. "loudly": Detailed descriptions WITH band references (100-200 words) + optional contextual framing
-4. "mubert": Ultra-simple vibe/concept (3-10 words TARGET)
+4. "mubert": Structured vibe storytelling (8-12 words TARGET)
 ```
 
 ### Provider-Specific Constraints
@@ -99,16 +99,23 @@ You MUST generate FOUR optimized music prompts for different providers.
 - **Flexibility**: Not a rigid template - use contextual framing naturally when helpful
 - **Example**: "Uplifting indie pop track that feels like a summer road trip with friends, featuring bright jangly electric guitars reminiscent of The Strokes, fast rhythmic strumming similar to early Phoenix albums, light bouncy drums with tambourine accents and walking bassline in the style of Vampire Weekend. Perfect for energetic lifestyle content and youth-oriented brands."
 
-#### Mubert (Ultra-Simple Vibe/Concept)
+#### Mubert (Structured Vibe Storytelling)
 
-- **Format**: `[genre], [vibe/mood/scene]`
-- **Target**: 3-10 words MAXIMUM
-- **Focus**: Simple vibes and concepts, NOT technical musical terms
-- **Avoid**: instruments, tempo, technical descriptors (they make it worse)
-- **Think**: genre + emotional vibe or social context
-- **250 char limit**: Absolute max, but aim for brevity
-- **Good Example**: "Indie rock, friends, summer" (4 words - simple, evocative, works great)
-- **Bad Example**: "Indie rock, energetic, upbeat, summer, guitar, fast, drums, happy, melodic, bright, rhythmic, lively, clean, pop, bassline" (15 words - kitchen sink approach, too verbose, worse results)
+- **Structure**: Genre, Energy/Moods, Key Instrument/Elements (optional), Time/Setting, Vibe/Atmosphere/Activity
+- **Target**: 8-12 words (comma-separated, can use multi-word phrases)
+- **Layer your description**: concrete → energy → optional instrument → setting → vibe/activity
+- **Selective instruments work** when descriptive: soft keys, gentle saxophone, bassline
+- **Multi-word phrases add depth**: "fun day with friends", "night city street", "rainy window"
+
+**Excellent Examples** (battle-tested patterns):
+- "Indie rock, energetic, summer, full of life, fun day with friends"
+- "Lo-fi, chill, night, soft keys, rainy window, city lights"
+- "Smooth jazz, calm, warm, gentle saxophone, quiet night, reading"
+- "Hip hop, slow beat, mellow, bassline, urban, night city street"
+- "Synthwave, energetic, 80s, neon lights, nostalgic, night drive"
+- "Pop rock, energetic, bright, summer, good vibes, friends"
+
+**Bad Example**: "Indie rock, energetic, upbeat, summer, guitar, fast, drums, happy, melodic, bright, rhythmic, lively, clean, pop, bassline" (15 words - redundant energy words, too many instruments, lacks storytelling)
 
 #### Description (Fallback)
 
@@ -145,7 +152,7 @@ All prompt strategies now require this 4-field music object:
   "music": {
     "description": "Uplifting indie pop with bright guitars and energetic drums",
     "loudly": "Uplifting indie pop track that feels like a summer road trip with friends, featuring bright jangly electric guitars reminiscent of The Strokes, fast rhythmic strumming similar to early Phoenix albums, light bouncy drums with tambourine accents and walking bassline in the style of Vampire Weekend. Perfect for energetic lifestyle content and youth-oriented brands.",
-    "mubert": "Indie rock, friends, summer",
+    "mubert": "Indie rock, energetic, summer, full of life, fun day with friends",
     "elevenlabs": "Uplifting indie pop song with bright, jangly electric guitars, fast rhythmic strumming, light bouncy drums. Catchy summery vibe, energetic but laid-back, with tambourine accents and walking bassline.",
     "playAt": "start",
     "fadeIn": 1,
@@ -584,7 +591,7 @@ LLM generates all 4 prompts:
   musicPrompt: "Uplifting indie pop with bright guitars and energetic drums", // Fallback
   musicPrompts: {
     loudly: "Uplifting indie pop track that feels like a summer road trip with friends, featuring bright jangly electric guitars reminiscent of The Strokes, fast rhythmic strumming similar to early Phoenix albums, light bouncy drums with tambourine accents and walking bassline in the style of Vampire Weekend.",
-    mubert: "Indie rock, friends, summer",
+    mubert: "Indie rock, energetic, summer, full of life, fun day with friends",
     elevenlabs: "Uplifting indie pop song with bright, jangly electric guitars..."
   }
 }
@@ -607,7 +614,7 @@ LLM generates all 4 prompts:
 
     "loudly": "Uplifting indie pop track that feels like a summer road trip with friends, featuring bright jangly electric guitars reminiscent of The Strokes, fast rhythmic strumming similar to early Phoenix albums, light bouncy drums with tambourine accents and walking bassline in the style of Vampire Weekend. Perfect for energetic lifestyle content and youth-oriented brands.",
 
-    "mubert": "Indie pop, friends, summer, happy"
+    "mubert": "Indie pop, energetic, bright, summer, good vibes, friends"
   }
 }
 ```
@@ -615,7 +622,7 @@ LLM generates all 4 prompts:
 **User Experience**:
 
 - User switches to Loudly → sees detailed description with band references (The Strokes, Phoenix, Vampire Weekend)
-- User switches to Mubert → sees "Indie pop, friends, summer, happy"
+- User switches to Mubert → sees "Indie pop, energetic, bright, summer, good vibes, friends"
 - User switches to ElevenLabs → sees full detailed description
 - User edits Mubert prompt → switch to Loudly → switch back to Mubert → sees edited version
 
@@ -634,7 +641,7 @@ LLM generates all 4 prompts:
 
     "loudly": "Cinematic orchestral piece that feels like a high-stakes luxury reveal, featuring rich powerful brass section reminiscent of Hans Zimmer's work, sweeping string arrangements in the style of Ludwig Göransson, and dynamic percussion with deep cellos and double basses providing foundation. French horns add majestic presence with steady tempo building to dramatic crescendos. Perfect for premium automotive and luxury brand campaigns.",
 
-    "mubert": "Orchestral, luxury, powerful"
+    "mubert": "Orchestral, cinematic, powerful, dramatic, luxury, elegant reveal"
   }
 }
 ```
@@ -724,4 +731,4 @@ This implementation successfully solved the "polygamous music provider" challeng
 - LLM-generated prompts persist correctly across sessions
 - Old projects auto-migrate seamlessly
 
-The hybrid approach provides detailed guidance for all providers: ElevenLabs gets instrumental-only descriptions, Loudly gets the same detail PLUS band references and optional contextual framing, and Mubert gets ultra-simple 3-10 word vibes/concepts. This ensures high-quality music generation regardless of provider choice.
+The hybrid approach provides detailed guidance for all providers: ElevenLabs gets instrumental-only descriptions, Loudly gets the same detail PLUS band references and optional contextual framing, and Mubert gets structured 8-12 word storytelling (genre → energy → setting → vibe). This ensures high-quality music generation regardless of provider choice.
