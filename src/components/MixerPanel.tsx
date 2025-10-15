@@ -375,17 +375,6 @@ export function MixerPanel({
       const result = await uploadAndUpdateProject(blob, localPreviewUrl);
       clearTimeout(uploadTimeout);
 
-      // Validate we got a real Vercel URL, not a blob URL
-      const isValidUrl = result.permanentUrl.startsWith("http") && !result.permanentUrl.startsWith("blob:");
-
-      if (!isValidUrl) {
-        console.error("❌ Upload failed - got blob URL instead of permanent URL");
-        setIsUploadingMix(false);
-        setUploadError("Upload failed. Please try again.");
-        URL.revokeObjectURL(localPreviewUrl);
-        return null;
-      }
-
       console.log("✅ Mix uploaded successfully:", result.permanentUrl);
       setIsUploadingMix(false);
       setUploadError(null);

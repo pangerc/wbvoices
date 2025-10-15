@@ -29,7 +29,7 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
     handleUploadError,
   } = useFileUpload();
   const { loadProjectFromRedis, updateProject } = useProjectHistoryStore();
-  const { previewUrl, isUploadingMix, isPreviewValid, uploadError, setIsPreviewValid } = useMixerStore();
+  const { previewUrl, isUploadingMix } = useMixerStore();
 
   const [previewData, setPreviewData] = useState<PreviewData>({
     brandName: "",
@@ -45,18 +45,16 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
   React.useEffect(() => {
     console.log("🎵 Preview audio sources:", {
       isUploadingMix,
-      isPreviewValid,
       previewUrl,
       redisPreviewUrl: project?.preview?.mixedAudioUrl,
       musicUrl: project?.generatedTracks?.musicUrl,
       finalAudioSrc:
-        (isPreviewValid && previewUrl) ||
+        previewUrl ||
         project?.preview?.mixedAudioUrl ||
         project?.generatedTracks?.musicUrl,
     });
   }, [
     isUploadingMix,
-    isPreviewValid,
     previewUrl,
     project?.preview?.mixedAudioUrl,
     project?.generatedTracks?.musicUrl,
@@ -139,14 +137,6 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
         if (loadedProject) {
           setProject(loadedProject);
 
-          // Initialize preview validity if project has existing mixed audio
-          if (loadedProject.preview?.mixedAudioUrl) {
-            console.log('✅ Project has existing mixedAudioUrl, setting preview as valid');
-            setIsPreviewValid(true);
-          } else {
-            console.log('⚠️ Project has no mixedAudioUrl, preview is invalid');
-          }
-
           // Initialize preview data from project (preview data takes precedence, fallback to brief data)
           const briefCTA =
             loadedProject.brief?.selectedCTA?.replace(/-/g, " ") || "";
@@ -190,7 +180,7 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
     };
 
     loadProject();
-  }, [projectId, loadProjectFromRedis, setIsPreviewValid]);
+  }, [projectId, loadProjectFromRedis]);
 
   // Debounced update function
   const debouncedUpdateProject = useCallback(
@@ -434,13 +424,11 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
               logo={logoUrl}
               adImage={visualUrl}
               audioSrc={
-                (isPreviewValid && previewUrl) || // Only use preview URL if it's valid
-                project?.preview?.mixedAudioUrl || // Permanent mixed audio from Redis (previous session)
+                previewUrl || // Use current preview URL from store
+                project?.preview?.mixedAudioUrl || // Or permanent URL from Redis
                 project?.generatedTracks?.musicUrl // Fallback to music-only
               }
               isGenerating={isUploadingMix}
-              isInvalid={!isPreviewValid && !isUploadingMix}
-              uploadError={uploadError}
             />
           </div>
         </div>
