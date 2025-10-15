@@ -226,7 +226,7 @@ Each has specific constraints that MUST be respected:
 
 1. "description": Base music concept (1 sentence, fallback for backwards compatibility)
 2. "elevenlabs": Detailed instrumental descriptions (100-200 words)
-3. "loudly": Short phrase structure (genre blend + energy + mood + tempo)
+3. "loudly": Detailed descriptions WITH band references (100-200 words) + optional contextual framing
 4. "mubert": Keyword structure (250 character MAXIMUM)
 
 UNIVERSAL PRINCIPLES (base guidance for detailed prompts):
@@ -261,16 +261,17 @@ Starting from the base concept above, transform it for each provider:
 
    Example: "Uplifting indie pop song with bright, jangly electric guitars, fast rhythmic strumming, light bouncy drums. Catchy summery vibe, energetic but laid-back, with tambourine accents and walking bassline."
 
-2. "loudly": CONDENSE TO SHORT PHRASE STRUCTURE
-   - Format: [genre blend] [energy level] [mood] [tempo]
-   - Can blend 2 genres maximum
-   - Energy types: high, low, original
-   - Add "fast" or "slow" for tempo
-   - Mood vocabulary: energetic, uplifting, happy, chill, relaxing, dark, moody, inspirational, dramatic, playful, tense, calm, aggressive, melancholic, hopeful, mysterious, romantic, funky, groovy, sad
-   - Band references optional but not required
-   - Keep it short and concise
+2. "loudly": DETAILED DESCRIPTIONS WITH BAND REFERENCES + CONTEXTUAL FRAMING
+   - Length: 100-200 words (detailed, like ElevenLabs)
+   - Style: Detailed instrumental descriptions with concrete musical terms
+   - Band/artist references: ALLOWED and ENCOURAGED (key differentiator from ElevenLabs)
+   - Contextual framing: OPTIONAL - use when it adds value:
+     * "feels like [mood/scene]" - adds emotional/contextual anchor
+     * "for [use case or scenario]" - adds purpose-driven context
+   - Focus on: instruments, tempo, playing techniques, genres, artist/band style references
+   - Flexibility: Not a rigid template - use contextual framing naturally when helpful
 
-   Example from base: "Indie rock and indie pop blend, high energy, uplifting, fast"
+   Example from base: "Uplifting indie pop track that feels like a summer road trip with friends, featuring bright jangly electric guitars reminiscent of The Strokes, fast rhythmic strumming similar to early Phoenix albums, light bouncy drums with tambourine accents and walking bassline in the style of Vampire Weekend. Perfect for energetic lifestyle content and youth-oriented brands."
 
 3. "mubert": CONDENSE TO KEYWORD STRUCTURE (250 CHAR MAXIMUM)
    - Format: [genre] [mood] [activity] [optional instruments] [optional BPM]
@@ -290,7 +291,7 @@ Starting from the base concept above, transform it for each provider:
 
 KEY PRINCIPLES:
 1. ElevenLabs: 100-200 words, no artist names, detailed instrumental descriptions
-2. Loudly: Short phrase with genre blend + energy + mood + tempo structure
+2. Loudly: 100-200 words WITH artist/band names, detailed descriptions, optional contextual framing
 3. Mubert: Keyword structure, one word per element, MUST be ≤250 characters
 4. Music generators understand: instruments, tempo, playing techniques, genres
 5. Music generators DON'T understand: brand associations, social contexts, experiential feelings
@@ -298,7 +299,7 @@ KEY PRINCIPLES:
 
 VALIDATION CHECKLIST BEFORE SENDING:
 ✓ ElevenLabs: 100-200 words, no artist names, detailed instrumental descriptions
-✓ Loudly: Short phrase with genre blend + energy + mood + tempo structure
+✓ Loudly: 100-200 words WITH artist/band names, detailed descriptions, optional contextual framing
 ✓ Mubert: Keyword structure, count characters - MUST be ≤250
 ✓ Description: One sentence essence
 ✓ All: Concrete musical terms, avoid experiential language
