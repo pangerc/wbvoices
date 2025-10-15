@@ -306,12 +306,27 @@ export function MixerPanel({
     resetForm();
   };
 
-  const handleExport = async () => {
+  // Shared helper to create and upload mix
+  const createAndUploadMix = async (): Promise<{ permanentUrl: string; downloadUrl: string } | null> => {
     try {
       setIsExporting(true);
-      const voiceUrls = voiceTracks.map((t) => t.url);
-      const musicUrl = musicTracks.length > 0 ? musicTracks[0].url : null;
-      const soundFxUrls = soundFxTracks.map((t) => t.url);
+
+      // Prepare valid URLs for tracks
+      const voiceUrls = voiceTracks
+        .filter((t) => t.url && (t.url.startsWith("blob:") || t.url.startsWith("http")))
+        .map((t) => t.url);
+
+      const musicUrl = musicTracks.length > 0 && musicTracks[0].url ? musicTracks[0].url : null;
+
+      const soundFxUrls = soundFxTracks
+        .filter((t) => t.url && (t.url.startsWith("blob:") || t.url.startsWith("http")))
+        .map((t) => t.url);
+
+      console.log("Creating mix with sources:", {
+        voiceCount: voiceUrls.length,
+        hasMusic: !!musicUrl,
+        soundFxCount: soundFxUrls.length,
+      });
 
       // Prepare timing information for the mixer
       const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
@@ -324,52 +339,101 @@ export function MixerPanel({
           gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
         };
 
-        // IMPORTANT: Use the visualized duration for music to match the timeline
-        // We used to use originalDuration here, but that creates an inconsistency
-        // between what's shown and what's heard
+        // Use visualized duration for music to match timeline
         if (track.type === "music" && track.metadata?.originalDuration) {
-          // Only add a small fade-out buffer if needed
-          const playbackDuration = track.actualDuration;
-          timing.duration = playbackDuration;
+          timing.duration = track.actualDuration;
           console.log(
             `Using visualized music duration for mixing: ${timing.duration}s (original was ${track.metadata.originalDuration}s)`
           );
         }
 
-        // Debug timing info
-        console.log(`Track timing for ${track.label} (${track.type}):`, {
-          startTime: timing.startTime,
-          duration: timing.duration,
-          gain: timing.gain,
-        });
-
         return timing;
       });
 
-      // Sort timing info to ensure correct playback order (important for sound effects before voices)
+      // Sort timing info by start time
       timingInfo.sort((a, b) => a.startTime - b.startTime);
-      console.log(
-        "Sorted timing info for mixer:",
-        timingInfo.map((t) => ({
-          id: t.id,
-          type: t.type,
-          startTime: t.startTime,
-          duration: t.duration,
-        }))
-      );
+      console.log("Sorted timing info for mixer:", timingInfo.map((t) => ({
+        id: t.id,
+        type: t.type,
+        startTime: t.startTime,
+        duration: t.duration,
+      })));
 
-      const { blob } = await createMix(
-        voiceUrls,
-        musicUrl,
-        soundFxUrls,
-        timingInfo
-      );
-
-      // Upload to blob storage and update project
+      // Create the mix
+      const { blob } = await createMix(voiceUrls, musicUrl, soundFxUrls, timingInfo);
       const localPreviewUrl = URL.createObjectURL(blob);
-      const { downloadUrl } = await uploadAndUpdateProject(blob, localPreviewUrl);
+      console.log("Mixed audio blob created:", localPreviewUrl);
 
-      // Create download link using Vercel's downloadUrl for forced download
+      // Upload to blob storage with timeout protection
+      setIsUploadingMix(true);
+      const uploadTimeout = setTimeout(() => {
+        console.error("❌ Upload timeout after 30 seconds");
+        setIsUploadingMix(false);
+        setUploadError("Upload timeout. Please try again.");
+      }, 30000);
+
+      const result = await uploadAndUpdateProject(blob, localPreviewUrl);
+      clearTimeout(uploadTimeout);
+
+      // Validate we got a real Vercel URL, not a blob URL
+      const isValidUrl = result.permanentUrl.startsWith("http") && !result.permanentUrl.startsWith("blob:");
+
+      if (!isValidUrl) {
+        console.error("❌ Upload failed - got blob URL instead of permanent URL");
+        setIsUploadingMix(false);
+        setUploadError("Upload failed. Please try again.");
+        URL.revokeObjectURL(localPreviewUrl);
+        return null;
+      }
+
+      console.log("✅ Mix uploaded successfully:", result.permanentUrl);
+      setIsUploadingMix(false);
+      setUploadError(null);
+
+      // Clean up local URL
+      URL.revokeObjectURL(localPreviewUrl);
+
+      return result;
+    } catch (error) {
+      console.error("Failed to create/upload mix:", error);
+      setIsUploadingMix(false);
+      setUploadError(error instanceof Error ? error.message : "Failed to create mix");
+      return null;
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+
+      // Check if we have a valid preview URL to reuse
+      const hasValidPreview = previewUrl && previewUrl.startsWith("http") && !previewUrl.startsWith("blob:");
+
+      let downloadUrl: string;
+
+      if (hasValidPreview) {
+        console.log("Reusing existing preview URL for export:", previewUrl);
+        // Use the existing preview's download URL
+        downloadUrl = previewUrl.replace(/\/[^/]+$/, (match) => `${match}?download=1`);
+      } else {
+        console.log("No valid preview - creating and uploading mix...");
+        const result = await createAndUploadMix();
+
+        if (!result) {
+          console.error("Failed to create mix for export");
+          return;
+        }
+
+        downloadUrl = result.downloadUrl;
+
+        // Update preview state since we just created it
+        setPreviewUrl(result.permanentUrl);
+        setIsPreviewValid(true);
+      }
+
+      // Create download link
       const a = document.createElement("a");
       a.href = downloadUrl;
       a.style.display = 'none';
@@ -377,13 +441,11 @@ export function MixerPanel({
       a.click();
       document.body.removeChild(a);
 
-      // Clean up local URL
-      URL.revokeObjectURL(localPreviewUrl);
-
       console.log(`✅ Audio exported successfully`);
       console.log(`📊 Audio specs: 44.1kHz, 16-bit, Stereo WAV, -16 LUFS, -2.0 dBTP peak limit`);
     } catch (error) {
       console.error("Failed to export mix:", error);
+      setUploadError(error instanceof Error ? error.message : "Export failed");
     } finally {
       setIsExporting(false);
     }
