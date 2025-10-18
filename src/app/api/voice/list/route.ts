@@ -645,33 +645,28 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ voices });
   } else if (provider === "openai") {
-    // OpenAI TTS voices - updated with latest voice catalog
-    // qualityTier: "poor" = English-only, "good"/"excellent" = multilingual suitable
+    // OpenAI TTS voices - all 11 voices exposed for all languages
     const openAIVoiceVariants = [
-      // Original 6 voices with updated data
       {
         id: "alloy",
         name: "Alloy",
-        gender: "male", // Updated from neutral - perceived as male/ambiguous per table
+        gender: "male",
         description: "Balanced, neutral, clear",
         style: "Default",
-        qualityTier: "poor", // Not recommended for multilingual - strong English optimization
       },
       {
         id: "echo",
         name: "Echo",
         gender: "male",
-        description: "Calm, measured, thoughtful", // Updated description from table
+        description: "Calm, measured, thoughtful",
         style: "Default",
-        qualityTier: "poor", // Not recommended for multilingual - English-primed, accent persists
       },
       {
         id: "fable",
         name: "Fable",
-        gender: "male", // Updated from neutral per table
-        description: "Warm, engaging, storytelling", // Updated description from table
+        gender: "male",
+        description: "Warm, engaging, storytelling",
         style: "Default",
-        qualityTier: "excellent", // Better for multilingual - more natural in languages like German
       },
       {
         id: "onyx",
@@ -679,33 +674,27 @@ export async function GET(req: NextRequest) {
         gender: "male",
         description: "Deep, authoritative",
         style: "Default",
-        qualityTier: "poor", // Not recommended for multilingual - English-centric
       },
       {
         id: "nova",
         name: "Nova",
         gender: "female",
-        description: "Bright, energetic, enthusiastic", // Updated description from table
+        description: "Bright, energetic, enthusiastic",
         style: "Default",
-        qualityTier: "excellent", // Better for multilingual - relatively stronger performance
       },
       {
         id: "shimmer",
         name: "Shimmer",
         gender: "female",
-        description: "Soft, gentle, soothing", // Updated description from table
+        description: "Soft, gentle, soothing",
         style: "Default",
-        qualityTier: "good", // Not specified in table - assume multilingual suitable
       },
-
-      // New voices from expanded catalog
       {
         id: "ash",
         name: "Ash",
         gender: "male",
         description: "Mature, sophisticated",
         style: "Default",
-        qualityTier: "poor", // Not specified - likely similar to Alloy/Echo; assume English-focused
       },
       {
         id: "ballad",
@@ -713,7 +702,6 @@ export async function GET(req: NextRequest) {
         gender: "male",
         description: "Smooth, melodic",
         style: "Default",
-        qualityTier: "good", // Not specified - assume similar constraints as other new voices
       },
       {
         id: "coral",
@@ -721,7 +709,6 @@ export async function GET(req: NextRequest) {
         gender: "female",
         description: "Vibrant, lively",
         style: "Default",
-        qualityTier: "good", // Not specified - assume multilingual suitable
       },
       {
         id: "sage",
@@ -729,7 +716,13 @@ export async function GET(req: NextRequest) {
         gender: "male",
         description: "Wise, contemplative",
         style: "Default",
-        qualityTier: "poor", // Not specified - likely similar to other English-optimized voices
+      },
+      {
+        id: "verse",
+        name: "Verse",
+        gender: "male",
+        description: "Confident, engaging, dynamic",
+        style: "Default",
       },
     ];
 
@@ -866,15 +859,8 @@ export async function GET(req: NextRequest) {
       const normalizedLang =
         languageMap[langCode] || `${langCode}-${langCode.toUpperCase()}`;
 
-      // Filter voices based on language - restrict poor quality voices for non-English
-      const isEnglish = langCode === "en";
-      const filteredVoices = isEnglish
-        ? openAIVoiceVariants // All voices for English
-        : openAIVoiceVariants.filter(
-            (voice: { qualityTier?: string }) => voice.qualityTier !== "poor"
-          ); // No Echo for non-English
-
-      voicesByLanguage[normalizedLang] = filteredVoices.map(
+      // Expose all voices for all languages - let the LLM choose based on rich metadata
+      voicesByLanguage[normalizedLang] = openAIVoiceVariants.map(
         (voice) =>
           ({
             id: `${voice.id}-${langCode}`,

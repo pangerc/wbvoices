@@ -223,70 +223,66 @@ export function getOpenAIVoices(): ProviderVoice[] {
       name: "Alloy",
       gender: "male",
       description: "Balanced, neutral, clear",
-      qualityTier: "poor",
     },
     {
       id: "echo",
       name: "Echo",
       gender: "male",
       description: "Calm, measured, thoughtful",
-      qualityTier: "poor",
     },
     {
       id: "fable",
       name: "Fable",
       gender: "male",
       description: "Warm, engaging, storytelling",
-      qualityTier: "excellent",
     },
     {
       id: "onyx",
       name: "Onyx",
       gender: "male",
       description: "Deep, authoritative",
-      qualityTier: "poor",
     },
     {
       id: "nova",
       name: "Nova",
       gender: "female",
       description: "Bright, energetic, enthusiastic",
-      qualityTier: "excellent",
     },
     {
       id: "shimmer",
       name: "Shimmer",
       gender: "female",
       description: "Soft, gentle, soothing",
-      qualityTier: "good",
     },
     {
       id: "ash",
       name: "Ash",
       gender: "male",
       description: "Mature, sophisticated",
-      qualityTier: "poor",
     },
     {
       id: "ballad",
       name: "Ballad",
       gender: "male",
       description: "Smooth, melodic",
-      qualityTier: "good",
     },
     {
       id: "coral",
       name: "Coral",
       gender: "female",
       description: "Vibrant, lively",
-      qualityTier: "good",
     },
     {
       id: "sage",
       name: "Sage",
       gender: "male",
       description: "Wise, contemplative",
-      qualityTier: "poor",
+    },
+    {
+      id: "verse",
+      name: "Verse",
+      gender: "male",
+      description: "Confident, engaging, dynamic",
     },
   ];
 
@@ -318,14 +314,9 @@ export function getOpenAIVoices(): ProviderVoice[] {
 
   for (const langCode of openAILanguages) {
     const normalizedLang = languageMap[langCode] || `${langCode}-${langCode.toUpperCase()}`;
-    const isEnglish = langCode === "en";
 
-    // Filter voices based on language
-    const filteredVoices = isEnglish
-      ? openAIVoiceVariants
-      : openAIVoiceVariants.filter(v => v.qualityTier !== "poor");
-
-    for (const voice of filteredVoices) {
+    // Expose all voices for all languages - let the LLM choose based on rich metadata
+    for (const voice of openAIVoiceVariants) {
       voices.push({
         id: `${voice.id}-${langCode}`,
         name: voice.name,
