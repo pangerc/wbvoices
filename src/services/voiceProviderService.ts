@@ -95,9 +95,17 @@ export async function fetchElevenLabsVoices(): Promise<ProviderVoice[]> {
       for (const verifiedLang of voice.verified_languages) {
         const normalizedLanguage = normalizeLanguageCode(verifiedLang.language);
 
-        // 🔥 FIXED: Extract specific accent from locale field in verified_languages
+        // 🔥 FIXED: Extract specific accent from locale field, but preserve Modern Standard Arabic
         let accent = verifiedLang.accent;
-        if (verifiedLang.locale) {
+
+        // Don't overwrite Modern Standard Arabic accents with locale region
+        const isModernStandardArabic =
+          normalizedLanguage === 'ar' &&
+          accent &&
+          (accent.toLowerCase().includes('modern') ||
+           accent.toLowerCase() === 'standard');
+
+        if (!isModernStandardArabic && verifiedLang.locale) {
           const [, region] = verifiedLang.locale.split('-');
           if (region) {
             // Use region code (e.g., AR, MX, CO) which normalizeAccent will convert to specific accents
@@ -119,13 +127,22 @@ export async function fetchElevenLabsVoices(): Promise<ProviderVoice[]> {
         });
       }
     } else {
-      // Fallback for voices without verified_languages
+      // Fallback for voices without verified_languages (Professional Voice Clones)
       const { language, isMultilingual, accent } = getVoiceLanguage(voice);
       const normalizedLanguage = normalizeLanguageCode(language);
 
-      // 🔥 FIXED: Extract specific accent from locale for fallback voices too
+      // 🔥 FIXED: For Arabic PVCs, use labels.accent directly (e.g., "egyptian", "jordanian", "moroccan")
       let finalAccent = accent || voice.labels?.accent;
-      if (voice.labels?.locale) {
+
+      // Check if this is Modern Standard Arabic before extracting from locale
+      const isModernStandardArabic =
+        normalizedLanguage === 'ar' &&
+        finalAccent &&
+        (finalAccent.toLowerCase().includes('modern') ||
+         finalAccent.toLowerCase() === 'standard');
+
+      // Only extract from locale if not MSA and not already a specific Arabic accent
+      if (!isModernStandardArabic && voice.labels?.locale) {
         const [, region] = voice.labels.locale.split('-');
         if (region) {
           finalAccent = region;

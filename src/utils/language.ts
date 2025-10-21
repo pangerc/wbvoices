@@ -554,6 +554,7 @@ export const accentRegions: Record<string, Record<string, string[]>> = {
   },
   ar: {
     middle_east: [
+      "standard", // Modern Standard Arabic (MSA)
       "saudi",
       "gulf",
       "kuwaiti",

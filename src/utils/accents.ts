@@ -871,6 +871,10 @@ export function normalizeAccent(
     om: "omani",
     omani: "omani",
     gulf: "gulf",
+    "modern standard": "standard", // Modern Standard Arabic from ElevenLabs
+    "modern standard arabic": "standard",
+    modern: "standard", // Generic "modern" in Arabic context = MSA
+    msa: "standard", // MSA abbreviation
     egypt: "egyptian",
     eg: "egyptian",
     egyptian: "egyptian",
