@@ -884,6 +884,20 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 - **Why?** Users need flexibility: "Roger sounds terrible in ALL French" vs "Roger's Parisian accent is too strong"
 - **Implementation**: Per-voice two-toggle UI, wildcard in database, no schema changes needed
 
+**Decision 3: Remove OpenAI Quality Tier Filtering** (October 2025)
+- **OLD**: Non-English languages filtered to 5 "good" voices (alloy, echo, onyx, ash, sage marked "poor" and hidden)
+- **NEW**: All 11 OpenAI voices exposed for all languages
+- **Why?**
+  - Trust the LLM: It receives rich metadata (gender, age, description) and can make intelligent choices
+  - Remove paternalism: "Quality tier" assessments were subjective and untested
+  - Increase coverage: Spanish jumped from 5 → 11 voices (120% increase)
+  - Use blacklist instead: If specific voices are bad for specific languages, use the blacklist system
+- **Impact**:
+  - Added missing 11th voice "Verse" (was not in hardcoded list)
+  - Removed all qualityTier fields from voice definitions
+  - Simplified code: Removed 230+ lines of conditional filtering logic
+  - Total OpenAI voice entries: 290 → 627 (+116%)
+
 ### ✅ Implemented
 
 **Database:**

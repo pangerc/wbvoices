@@ -280,6 +280,13 @@ export const ACCENT_REGISTRY: Record<string, AccentDefinition[]> = {
       languageCode: "ar",
     },
     {
+      code: "palestinian",
+      displayName: "Palestinian",
+      region: "Levant",
+      isNeutral: false,
+      languageCode: "ar",
+    },
+    {
       code: "iraqi",
       displayName: "Iraqi",
       region: "Mesopotamia",
@@ -787,6 +794,16 @@ export function normalizeAccent(
     CL: "chilean", // Chile
     PE: "peruvian", // Peru
     VE: "venezuelan", // Venezuela
+    DZ: "algerian", // Algeria
+    MA: "moroccan", // Morocco
+    TN: "tunisian", // Tunisia
+    PS: "palestinian", // Palestine
+    SY: "syrian", // Syria
+    LY: "libyan", // Libya
+    EG: "egyptian", // Egypt
+    JO: "jordanian", // Jordan
+    LB: "lebanese", // Lebanon
+    IQ: "iraqi", // Iraq
     argentinian: "argentinian",
     colombia: "colombian",
     co: "colombian",
@@ -878,6 +895,9 @@ export function normalizeAccent(
     syria: "syrian",
     sy: "syrian",
     syrian: "syrian",
+    palestine: "palestinian",
+    ps: "palestinian",
+    palestinian: "palestinian",
     iraq: "iraqi",
     iq: "iraqi",
     iraqi: "iraqi",

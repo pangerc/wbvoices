@@ -561,8 +561,17 @@ export const accentRegions: Record<string, Record<string, string[]>> = {
       "jordanian",
       "lebanese",
       "iraqi",
+      "syrian",
+      "palestinian",
     ],
-    africa: ["egyptian", "maghrebi"],
+    africa: [
+      "egyptian",
+      "maghrebi",
+      "algerian",
+      "moroccan",
+      "tunisian",
+      "libyan",
+    ],
   },
   fr: {
     europe: ["parisian", "belgian", "swiss"],
