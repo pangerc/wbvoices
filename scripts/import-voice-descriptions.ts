@@ -10,6 +10,7 @@
  *   npx tsx scripts/import-voice-descriptions.ts
  */
 
+import "dotenv/config";
 import { voiceDescriptionService } from "@/services/voiceDescriptionService";
 import descriptions from "../data/voice-descriptions.json";
 
@@ -26,7 +27,7 @@ async function importDescriptions() {
   }));
 
   try {
-    await voiceDescriptionService.batchUpsert(batch, "scraped_elevenlabs_2024");
+    await voiceDescriptionService.batchUpsert(batch, "scraped_elevenlabs_2025");
 
     console.log("\n✨ Import complete!");
     console.log(`   Imported ${batch.length} voice descriptions`);

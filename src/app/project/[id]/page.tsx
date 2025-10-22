@@ -62,7 +62,7 @@ export default function ProjectWorkspace() {
   const [campaignFormat, setCampaignFormat] =
     useState<CampaignFormat>("dialog");
   const [adDuration, setAdDuration] = useState(25);
-  const [selectedAiModel, setSelectedAiModel] = useState<AIModel>("gpt4");
+  const [selectedAiModel, setSelectedAiModel] = useState<AIModel>("gpt5");
   const [musicProvider, setMusicProvider] = useState<MusicProvider>("loudly");
   const [selectedCTA, setSelectedCTA] = useState<string | null>(null);
   const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(null);

@@ -25,6 +25,7 @@ export type ProviderVoice = {
 type ElevenLabsVoice = {
   voice_id: string;
   name: string;
+  category?: string;
   labels?: {
     gender?: string;
     accent?: string;
@@ -32,6 +33,7 @@ type ElevenLabsVoice = {
     age?: string;
     use_case?: string;
     locale?: string; // locale field (e.g., "es-AR", "es-MX")
+    language?: string;
   };
   preview_url?: string;
   high_quality_base_model_ids?: string[];
@@ -125,6 +127,33 @@ export async function fetchElevenLabsVoices(): Promise<ProviderVoice[]> {
           sampleUrl: verifiedLang.preview_url || voice.preview_url,
           isMultilingual: voice.verified_languages.length > 1,
         });
+      }
+
+      // 🔥 FIX: For Professional Voice Clones, include labels.language as primary language
+      // even if not in verified_languages (language-agnostic fix for all PVCs)
+      if (voice.category === 'professional' && voice.labels?.language) {
+        const labelLang = voice.labels.language.toLowerCase();
+        const alreadyProcessed = voice.verified_languages.some(
+          (vl: { language: string }) => vl.language.toLowerCase() === labelLang
+        );
+
+        if (!alreadyProcessed) {
+          const normalizedLanguage = normalizeLanguageCode(voice.labels.language);
+          const accent = voice.labels.accent;
+
+          voices.push({
+            id: `${voice.voice_id}-${voice.labels.language}`,
+            name: voice.name,
+            gender: voice.labels?.gender,
+            language: normalizedLanguage,
+            accent: accent,
+            description: voice.labels?.description,
+            age: voice.labels?.age,
+            use_case: voice.labels?.use_case,
+            sampleUrl: voice.preview_url,
+            isMultilingual: voice.verified_languages.length > 1,
+          });
+        }
       }
     } else {
       // Fallback for voices without verified_languages (Professional Voice Clones)
@@ -387,7 +416,7 @@ function getVoiceLanguage(voice: ElevenLabsVoice): {
       "canadian french": "fr-CA", german: "de-DE", austrian: "de-AT",
       "swiss german": "de-CH", portuguese: "pt-PT", brazilian: "pt-BR",
       russian: "ru-RU", egyptian: "ar-EG", gulf: "ar-SA", saudi: "ar-SA",
-      jordanian: "ar-JO", mandarin: "zh-CN", cantonese: "zh-HK", japanese: "ja-JP",
+      jordanian: "ar-JO", moroccan: "ar-MA", mandarin: "zh-CN", cantonese: "zh-HK", japanese: "ja-JP",
       polish: "pl-PL", mazovian: "pl-PL", warsaw: "pl-PL",
     };
 
@@ -413,6 +442,12 @@ function getVoiceLanguage(voice: ElevenLabsVoice): {
 
   if (voice.fine_tuning?.language) {
     const lang = voice.fine_tuning.language.toLowerCase();
+    return { language: normalizeLanguageCode(lang), isMultilingual, accent };
+  }
+
+  // 🔥 FIX: Check labels.language for Professional Voice Clones
+  if (voice.labels?.language) {
+    const lang = voice.labels.language.toLowerCase();
     return { language: normalizeLanguageCode(lang), isMultilingual, accent };
   }
 
