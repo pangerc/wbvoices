@@ -14,7 +14,11 @@ type VoiceTrackPreview = {
 };
 
 type SoundFxPanelProps = {
-  onGenerate: (prompt: string, duration: number, placement?: SoundFxPlacementIntent) => Promise<void>;
+  onGenerate: (
+    prompt: string,
+    duration: number,
+    placement?: SoundFxPlacementIntent
+  ) => Promise<void>;
   isGenerating: boolean;
   statusMessage?: string;
   initialPrompt?: SoundFxPrompt | null;
@@ -94,7 +98,11 @@ export function SoundFxPanel({
         } else if (intent.type === "end") {
           setPlacementOption("end");
         }
-        console.log(`Restored placement dropdown to: ${intent.type}${intent.type === 'afterVoice' ? ` index=${intent.index}` : ''}`);
+        console.log(
+          `Restored placement dropdown to: ${intent.type}${
+            intent.type === "afterVoice" ? ` index=${intent.index}` : ""
+          }`
+        );
       }
 
       // Extract timing information
@@ -135,7 +143,10 @@ export function SoundFxPanel({
 
   const handleGenerate = () => {
     const placementIntent = placementOptionToIntent(placementOption);
-    console.log(`Manually generating sound effect: "${prompt}" (${duration}s) with placement:`, placementIntent);
+    console.log(
+      `Manually generating sound effect: "${prompt}" (${duration}s) with placement:`,
+      placementIntent
+    );
     // Only generate if we have a valid prompt and not already generating
     if (prompt && !isGenerating) {
       onGenerate(prompt, duration, placementIntent);
@@ -189,9 +200,9 @@ export function SoundFxPanel({
         </div>
       </div>
 
-      <div className="space-y-12 md:grid md:grid-cols-3 md:gap-6">
+      <div className="space-y-12 md:grid md:grid-cols-2 md:gap-6">
         {/* Left column: Description */}
-        <div className="md:col-span-1">
+        <div>
           <GlassyTextarea
             label="Sound FX Description"
             value={prompt}
@@ -219,7 +230,7 @@ export function SoundFxPanel({
         </div>
 
         {/* Right column: Placement and Duration controls */}
-        <div className="md:col-span-2 space-y-12">
+        <div className="space-y-12">
           {/* Placement selector */}
           <GlassyListbox
             label="Sound Effect Placement"
@@ -230,7 +241,11 @@ export function SoundFxPanel({
               ...(voiceTrackPreviews && voiceTrackPreviews.length > 0
                 ? voiceTrackPreviews.map((preview, index) => ({
                     value: `afterVoice-${index}`,
-                    label: `After voice ${index + 1} (${preview.name}: "${preview.text.slice(0, 20)}${preview.text.length > 20 ? '...' : ''}")`,
+                    label: `After voice ${index + 1} (${
+                      preview.name
+                    }: "${preview.text.slice(0, 20)}${
+                      preview.text.length > 20 ? "..." : ""
+                    }")`,
                   }))
                 : []),
               { value: "end", label: "At end (after all voices)" },

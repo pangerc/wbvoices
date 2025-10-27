@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { voiceCatalogue, UnifiedVoice } from '@/services/voiceCatalogueService';
-import { Language, Provider, CampaignFormat } from '@/types';
-import { ProviderSelector } from '@/utils/providerSelection';
+import { NextRequest, NextResponse } from "next/server";
+import { voiceCatalogue, UnifiedVoice } from "@/services/voiceCatalogueService";
+import { Language, Provider, CampaignFormat } from "@/types";
+import { ProviderSelector } from "@/utils/providerSelection";
 
 // Use Node.js runtime for proper Redis access
 // export const runtime = 'edge'; // REMOVED - Edge Runtime causes env var issues
@@ -14,21 +14,24 @@ import { ProviderSelector } from '@/utils/providerSelection';
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const operation = url.searchParams.get('operation');
-    const language = url.searchParams.get('language');
-    const accent = url.searchParams.get('accent');
-    const provider = url.searchParams.get('provider');
-    const region = url.searchParams.get('region');
-    
+    const operation = url.searchParams.get("operation");
+    const language = url.searchParams.get("language");
+    const accent = url.searchParams.get("accent");
+    const provider = url.searchParams.get("provider");
+    const region = url.searchParams.get("region");
+
     switch (operation) {
-      case 'stats': {
+      case "stats": {
         const stats = await voiceCatalogue.getCacheStats();
         return NextResponse.json(stats);
       }
-      
-      case 'counts': {
+
+      case "counts": {
         if (!language) {
-          return NextResponse.json({ error: 'Language required' }, { status: 400 });
+          return NextResponse.json(
+            { error: "Language required" },
+            { status: 400 }
+          );
         }
         const counts = await voiceCatalogue.getVoiceCounts(
           language as Language,
@@ -36,14 +39,18 @@ export async function GET(req: NextRequest) {
         );
         return NextResponse.json(counts);
       }
-      
-      case 'voices': {
+
+      case "voices": {
         if (!provider || !language) {
-          return NextResponse.json({ error: 'Provider and language required' }, { status: 400 });
+          return NextResponse.json(
+            { error: "Provider and language required" },
+            { status: 400 }
+          );
         }
 
         // Check if approval filtering is required
-        const requireApproval = url.searchParams.get('requireApproval') === 'true';
+        const requireApproval =
+          url.searchParams.get("requireApproval") === "true";
 
         // If region is specified, get region-filtered voices for the provider
         if (region) {
@@ -53,24 +60,27 @@ export async function GET(req: NextRequest) {
           );
 
           // For OpenAI, always include all voices regardless of region
-          if (provider === 'openai') {
+          if (provider === "openai") {
             const allOpenAIVoices = await voiceCatalogue.getVoicesForProvider(
-              'openai',
+              "openai",
               language as Language,
               accent || undefined,
               requireApproval
             );
             // Enrich with descriptions before returning
-            const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(allOpenAIVoices);
+            const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(
+              allOpenAIVoices
+            );
             return NextResponse.json(enrichedVoices);
           }
 
           // For other providers, filter by provider
-          const providerVoices = regionVoices.filter(voice =>
-            voice.provider === provider || provider === 'any'
+          const providerVoices = regionVoices.filter(
+            (voice) => voice.provider === provider || provider === "any"
           );
           // Enrich with descriptions before returning
-          const enrichedProviderVoices = await voiceCatalogue.enrichWithDescriptions(providerVoices);
+          const enrichedProviderVoices =
+            await voiceCatalogue.enrichWithDescriptions(providerVoices);
           return NextResponse.json(enrichedProviderVoices);
         }
 
@@ -82,13 +92,18 @@ export async function GET(req: NextRequest) {
           requireApproval
         );
         // Enrich with descriptions before returning
-        const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(voices);
+        const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(
+          voices
+        );
         return NextResponse.json(enrichedVoices);
       }
-      
-      case 'by-accent': {
+
+      case "by-accent": {
         if (!language || !accent) {
-          return NextResponse.json({ error: 'Language and accent required' }, { status: 400 });
+          return NextResponse.json(
+            { error: "Language and accent required" },
+            { status: 400 }
+          );
         }
         const voices = await voiceCatalogue.getVoicesByAccent(
           language as Language,
@@ -98,17 +113,25 @@ export async function GET(req: NextRequest) {
       }
 
       // 🔥 NEW: Region-aware operations for clean architecture
-      case 'regions': {
+      case "regions": {
         if (!language) {
-          return NextResponse.json({ error: 'Language required' }, { status: 400 });
+          return NextResponse.json(
+            { error: "Language required" },
+            { status: 400 }
+          );
         }
-        const regions = await voiceCatalogue.getRegionsForLanguage(language as Language);
+        const regions = await voiceCatalogue.getRegionsForLanguage(
+          language as Language
+        );
         return NextResponse.json(regions);
       }
 
-      case 'by-region': {
+      case "by-region": {
         if (!language || !region) {
-          return NextResponse.json({ error: 'Language and region required' }, { status: 400 });
+          return NextResponse.json(
+            { error: "Language and region required" },
+            { status: 400 }
+          );
         }
         const voices = await voiceCatalogue.getVoicesByRegion(
           language as Language,
@@ -117,9 +140,12 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(voices);
       }
 
-      case 'region-counts': {
+      case "region-counts": {
         if (!language || !region) {
-          return NextResponse.json({ error: 'Language and region required' }, { status: 400 });
+          return NextResponse.json(
+            { error: "Language and region required" },
+            { status: 400 }
+          );
         }
         const counts = await voiceCatalogue.getVoiceCountsByRegion(
           language as Language,
@@ -128,77 +154,108 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(counts);
       }
 
-      case 'provider-options': {
+      case "provider-options": {
         if (!language) {
-          return NextResponse.json({ error: 'Language required' }, { status: 400 });
+          return NextResponse.json(
+            { error: "Language required" },
+            { status: 400 }
+          );
         }
-        
+
         // Parse exclude providers from query parameter
-        const excludeParam = url.searchParams.get('exclude');
-        const excludeProviders = excludeParam ? excludeParam.split(',') as Provider[] : undefined;
-        
+        const excludeParam = url.searchParams.get("exclude");
+        const excludeProviders = excludeParam
+          ? (excludeParam.split(",") as Provider[])
+          : undefined;
+
         const options = await voiceCatalogue.getProviderOptions({
           language: language as Language,
           region: region || undefined,
           accent: accent || undefined,
-          excludeProviders
+          excludeProviders,
         });
         return NextResponse.json(options);
       }
 
-      case 'filtered-voices': {
+      case "filtered-voices": {
         // 🔥 NEW: Comprehensive server-side filtering to replace client-side getFilteredVoices()
         if (!language) {
-          return NextResponse.json({ error: 'Language required' }, { status: 400 });
+          return NextResponse.json(
+            { error: "Language required" },
+            { status: 400 }
+          );
         }
 
         // Parse exclude providers from query parameter
-        const excludeParam = url.searchParams.get('exclude');
-        const excludeProviders = excludeParam ? excludeParam.split(',') as Provider[] : [];
-        
+        const excludeParam = url.searchParams.get("exclude");
+        const excludeProviders = excludeParam
+          ? (excludeParam.split(",") as Provider[])
+          : [];
+
         // Parse campaignFormat for dialog validation
-        const campaignFormat = url.searchParams.get('campaignFormat');
-        console.log(`🔍 [${new Date().toISOString()}] filtered-voices API called:`, {
-          language,
-          provider,
-          campaignFormat,
-          region,
-          accent,
-          exclude: excludeProviders
-        });
+        const campaignFormat = url.searchParams.get("campaignFormat");
+        console.log(
+          `🔍 [${new Date().toISOString()}] filtered-voices API called:`,
+          {
+            language,
+            provider,
+            campaignFormat,
+            region,
+            accent,
+            exclude: excludeProviders,
+          }
+        );
 
         try {
           // Get all voices for language with filtering applied
           const allVoices: unknown[] = [];
 
           // Load from non-excluded providers
-          const availableProviders = ['elevenlabs', 'lovo', 'openai', 'qwen', 'bytedance'] as const;
-          const providersToLoad = availableProviders.filter(p => !excludeProviders.includes(p));
+          const availableProviders = [
+            "elevenlabs",
+            "lovo",
+            "openai",
+            "qwen",
+            "bytedance",
+          ] as const;
+          const providersToLoad = availableProviders.filter(
+            (p) => !excludeProviders.includes(p)
+          );
 
           for (const providerName of providersToLoad) {
             try {
               let providerVoices: unknown[] = [];
 
               // Check if approval filtering is required
-              const requireApproval = url.searchParams.get('requireApproval') === 'true';
+              const requireApproval =
+                url.searchParams.get("requireApproval") === "true";
 
               // Apply region filtering if specified
-              if (region && region !== 'all') {
-                console.log(`🔍 Region filtering: region=${region}, accent=${accent || 'none'}, provider=${providerName}`);
+              if (region && region !== "all") {
+                console.log(
+                  `🔍 Region filtering: region=${region}, accent=${
+                    accent || "none"
+                  }, provider=${providerName}`
+                );
                 const regionVoices = await voiceCatalogue.getVoicesByRegion(
                   language as Language,
                   region
                 );
-                console.log(`🔍 Found ${regionVoices.length} voices for region "${region}"`);
-                console.log(`🔍 Sample voices:`, regionVoices.slice(0, 3).map(v => ({
-                  provider: v.provider,
-                  accent: v.accent,
-                  language: v.language,
-                  name: v.name
-                })));
+                console.log(
+                  `🔍 Found ${regionVoices.length} voices for region "${region}"`
+                );
+                console.log(
+                  `🔍 Sample voices:`,
+                  regionVoices.slice(0, 3).map((v) => ({
+                    provider: v.provider,
+                    accent: v.accent,
+                    language: v.language,
+                    name: v.name,
+                  }))
+                );
 
                 // For OpenAI, always include all voices regardless of region
-                if (providerName === 'openai') {
+                if (providerName === "openai") {
                   providerVoices = await voiceCatalogue.getVoicesForProvider(
                     providerName,
                     language as Language,
@@ -207,31 +264,44 @@ export async function GET(req: NextRequest) {
                   );
                 } else {
                   // For other providers, filter by provider AND accent from region voices
-                  providerVoices = regionVoices.filter(voice => {
+                  providerVoices = regionVoices.filter((voice) => {
                     const matchesProvider = voice.provider === providerName;
-                    const matchesAccent = !accent || accent === 'neutral' || voice.accent === accent;
+                    const matchesAccent =
+                      !accent ||
+                      accent === "neutral" ||
+                      voice.accent === accent;
                     return matchesProvider && matchesAccent;
                   });
-                  console.log(`🔍 After filtering by provider (${providerName}) and accent (${accent || 'any'}): ${providerVoices.length} voices`);
+                  console.log(
+                    `🔍 After filtering by provider (${providerName}) and accent (${
+                      accent || "any"
+                    }): ${providerVoices.length} voices`
+                  );
                 }
               } else {
                 // No region filtering - get all voices for provider
-                console.log(`🔍 Loading ${providerName} voices for language: ${language}, accent: ${accent || 'none'}`);
+                console.log(
+                  `🔍 Loading ${providerName} voices for language: ${language}, accent: ${
+                    accent || "none"
+                  }`
+                );
                 providerVoices = await voiceCatalogue.getVoicesForProvider(
                   providerName,
                   language as Language,
                   accent || undefined,
                   requireApproval
                 );
-                console.log(`🔍 Loaded ${providerVoices.length} ${providerName} voices for ${language}`);
+                console.log(
+                  `🔍 Loaded ${providerVoices.length} ${providerName} voices for ${language}`
+                );
               }
-              
+
               // Tag voices with provider and add to result
-              const taggedVoices = providerVoices.map(voice => ({
+              const taggedVoices = providerVoices.map((voice) => ({
                 ...(voice as Record<string, unknown>),
-                provider: providerName
+                provider: providerName,
               }));
-              
+
               allVoices.push(...taggedVoices);
             } catch (error) {
               console.error(`Failed to load ${providerName} voices:`, error);
@@ -242,71 +312,95 @@ export async function GET(req: NextRequest) {
           // 🔥 ALWAYS count filtered voices per provider for accurate UI display
           // These counts include blacklist filtering and are used by the picker dropdown
           const voiceCounts = {
-            elevenlabs: allVoices.filter(voice => (voice as { provider?: string }).provider === 'elevenlabs').length,
-            lovo: allVoices.filter(voice => (voice as { provider?: string }).provider === 'lovo').length,
-            openai: allVoices.filter(voice => (voice as { provider?: string }).provider === 'openai').length,
-            qwen: allVoices.filter(voice => (voice as { provider?: string }).provider === 'qwen').length,
-            bytedance: allVoices.filter(voice => (voice as { provider?: string }).provider === 'bytedance').length,
-            any: allVoices.length // Total filtered voices across all providers
+            elevenlabs: allVoices.filter(
+              (voice) =>
+                (voice as { provider?: string }).provider === "elevenlabs"
+            ).length,
+            lovo: allVoices.filter(
+              (voice) => (voice as { provider?: string }).provider === "lovo"
+            ).length,
+            openai: allVoices.filter(
+              (voice) => (voice as { provider?: string }).provider === "openai"
+            ).length,
+            qwen: allVoices.filter(
+              (voice) => (voice as { provider?: string }).provider === "qwen"
+            ).length,
+            bytedance: allVoices.filter(
+              (voice) =>
+                (voice as { provider?: string }).provider === "bytedance"
+            ).length,
+            any: allVoices.length, // Total filtered voices across all providers
           };
 
           // 🔥 DEDUPLICATION: Remove duplicate voices by provider:id combo
           // This handles cases where the same voice appears multiple times in Redis tower
           const seen = new Set<string>();
-          const deduplicatedVoices = allVoices.filter(voice => {
-            const voiceKey = `${(voice as { provider?: string }).provider}:${(voice as { id?: string }).id}`;
+          const deduplicatedVoices = allVoices.filter((voice) => {
+            const voiceKey = `${(voice as { provider?: string }).provider}:${
+              (voice as { id?: string }).id
+            }`;
             if (seen.has(voiceKey)) {
-              console.log(`⚠️ Removing duplicate voice: ${voiceKey}`);
               return false;
             }
             seen.add(voiceKey);
             return true;
           });
 
-          console.log(`🧹 Deduplication: ${allVoices.length} → ${deduplicatedVoices.length} voices`);
+          console.log(
+            `🧹 Deduplication: ${allVoices.length} → ${deduplicatedVoices.length} voices`
+          );
 
           // 🔥 Provider selection and filtering logic
           let finalVoices = deduplicatedVoices;
           let selectedProvider: Provider | undefined;
 
-          if (!provider || provider === 'any') {
+          if (!provider || provider === "any") {
             console.log(`🔍 Provider auto-selection debug (FIXED):`, {
               campaignFormat,
               voiceCounts,
               language,
-              region: region || 'all',
-              accent: accent || 'neutral',
+              region: region || "all",
+              accent: accent || "neutral",
               totalVoices: deduplicatedVoices.length,
               // 🔍 DEBUG: Show sample voices to verify language filtering
-              sampleVoices: deduplicatedVoices.slice(0, 3).map(voice => ({
+              sampleVoices: deduplicatedVoices.slice(0, 3).map((voice) => ({
                 provider: (voice as { provider?: string }).provider,
                 id: (voice as { id?: string }).id,
-                language: (voice as { language?: string }).language
-              }))
+                language: (voice as { language?: string }).language,
+              })),
             });
 
             // Auto-select provider based on campaign format, language, region, accent, and ACTUAL filtered counts
             selectedProvider = ProviderSelector.selectDefault(
-              campaignFormat as CampaignFormat || 'ad_read',
+              (campaignFormat as CampaignFormat) || "ad_read",
               voiceCounts,
               language, // Pass language for smart Chinese defaults
               region || undefined, // Pass region for context-aware selection
               accent || undefined // Pass accent for context-aware selection
             );
 
-            console.log(`🎯 Auto-selected provider: ${selectedProvider} for ${campaignFormat}`);
-
-            // Filter to only selected provider's voices
-            finalVoices = deduplicatedVoices.filter(voice =>
-              (voice as { provider?: string }).provider === selectedProvider
+            console.log(
+              `🎯 Auto-selected provider: ${selectedProvider} for ${campaignFormat}`
             );
 
-            console.log(`🎯 Server auto-selected ${selectedProvider} for ${campaignFormat} (${finalVoices.length} voices)`);
-          } else if (provider && provider !== 'any') {
+            // Filter to only selected provider's voices
+            finalVoices = deduplicatedVoices.filter(
+              (voice) =>
+                (voice as { provider?: string }).provider === selectedProvider
+            );
+
+            console.log(
+              `🎯 Server auto-selected ${selectedProvider} for ${campaignFormat} (${finalVoices.length} voices)`
+            );
+          } else if (provider && provider !== "any") {
             // Apply specific provider filtering
-            finalVoices = deduplicatedVoices.filter(voice => (voice as { provider?: string }).provider === provider);
+            finalVoices = deduplicatedVoices.filter(
+              (voice) => (voice as { provider?: string }).provider === provider
+            );
             selectedProvider = provider as Provider;
-            console.log(`🔍 Using explicitly selected provider: ${selectedProvider} (${finalVoices.length} voices)`);
+            console.log(
+              `🔍 Using explicitly selected provider: ${selectedProvider} (${finalVoices.length} voices)`
+            );
           }
 
           // 🎨 ENRICH VOICES WITH DESCRIPTIONS from Neon database
@@ -327,11 +421,11 @@ export async function GET(req: NextRequest) {
             voices: enrichedVoices,
             count: enrichedVoices.length,
             voiceCounts, // 🔥 Include blacklist-filtered counts for all providers
-            ...(selectedProvider && { selectedProvider }) // Include selectedProvider if auto-selected
+            ...(selectedProvider && { selectedProvider }), // Include selectedProvider if auto-selected
           };
 
           // Add dialog validation if campaignFormat is provided
-          if (campaignFormat === 'dialog') {
+          if (campaignFormat === "dialog") {
             response.dialogReady = finalVoices.length >= 2;
             if (finalVoices.length < 2) {
               response.dialogWarning = `Only ${finalVoices.length} voice(s) available - dialogue needs 2+ voices`;
@@ -340,23 +434,34 @@ export async function GET(req: NextRequest) {
 
           return NextResponse.json(response);
         } catch (error) {
-          console.error('Error in filtered-voices operation:', error);
+          console.error("Error in filtered-voices operation:", error);
           return NextResponse.json({
             voices: [],
             count: 0,
-            voiceCounts: { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 },
-            error: error instanceof Error ? error.message : 'Failed to load voices'
+            voiceCounts: {
+              elevenlabs: 0,
+              lovo: 0,
+              openai: 0,
+              qwen: 0,
+              bytedance: 0,
+              any: 0,
+            },
+            error:
+              error instanceof Error ? error.message : "Failed to load voices",
           });
         }
       }
-      
+
       default:
-        return NextResponse.json({ error: 'Invalid operation' }, { status: 400 });
+        return NextResponse.json(
+          { error: "Invalid operation" },
+          { status: 400 }
+        );
     }
   } catch (error) {
-    console.error('Voice catalogue API error:', error);
+    console.error("Voice catalogue API error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal error' },
+      { error: error instanceof Error ? error.message : "Internal error" },
       { status: 500 }
     );
   }
