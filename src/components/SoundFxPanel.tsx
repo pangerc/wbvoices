@@ -84,6 +84,19 @@ export function SoundFxPanel({
         setDuration(DEFAULT_SOUND_FX_DURATION);
       }
 
+      // Restore placement dropdown state from Redis
+      if (initialPrompt.placement) {
+        const intent = initialPrompt.placement;
+        if (intent.type === "start") {
+          setPlacementOption("start");
+        } else if (intent.type === "afterVoice" && intent.index !== undefined) {
+          setPlacementOption(`afterVoice-${intent.index}`);
+        } else if (intent.type === "end") {
+          setPlacementOption("end");
+        }
+        console.log(`Restored placement dropdown to: ${intent.type}${intent.type === 'afterVoice' ? ` index=${intent.index}` : ''}`);
+      }
+
       // Extract timing information
       if (initialPrompt.playAfter || initialPrompt.overlap !== undefined) {
         setTimingInfo({

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Voice, VoiceTrack, Provider } from "@/types";
 import {
   GlassyTextarea,
@@ -57,7 +57,21 @@ export function ScripterPanel({
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
 
   // 🎯 Use overrideVoices if provided (project restoration), otherwise use server voices
-  const voices = overrideVoices || serverVoices;
+  const rawVoices = overrideVoices || serverVoices;
+
+  // 🛡️ DEFENSIVE DEDUPLICATION: Remove duplicates by voice.id to prevent React key warnings
+  // This shouldn't be necessary if the API works correctly, but acts as a safety net
+  const voices = useMemo(() => {
+    const seen = new Set<string>();
+    return rawVoices.filter((voice) => {
+      if (seen.has(voice.id)) {
+        console.warn(`⚠️ ScripterPanel: Removing duplicate voice ${voice.id}`);
+        return false;
+      }
+      seen.add(voice.id);
+      return true;
+    });
+  }, [rawVoices]);
 
   // 🔥 Load voices from server when language/provider changes
   useEffect(() => {

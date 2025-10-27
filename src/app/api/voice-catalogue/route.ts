@@ -250,8 +250,23 @@ export async function GET(req: NextRequest) {
             any: allVoices.length // Total filtered voices across all providers
           };
 
+          // 🔥 DEDUPLICATION: Remove duplicate voices by provider:id combo
+          // This handles cases where the same voice appears multiple times in Redis tower
+          const seen = new Set<string>();
+          const deduplicatedVoices = allVoices.filter(voice => {
+            const voiceKey = `${(voice as { provider?: string }).provider}:${(voice as { id?: string }).id}`;
+            if (seen.has(voiceKey)) {
+              console.log(`⚠️ Removing duplicate voice: ${voiceKey}`);
+              return false;
+            }
+            seen.add(voiceKey);
+            return true;
+          });
+
+          console.log(`🧹 Deduplication: ${allVoices.length} → ${deduplicatedVoices.length} voices`);
+
           // 🔥 Provider selection and filtering logic
-          let finalVoices = allVoices;
+          let finalVoices = deduplicatedVoices;
           let selectedProvider: Provider | undefined;
 
           if (!provider || provider === 'any') {
@@ -261,9 +276,9 @@ export async function GET(req: NextRequest) {
               language,
               region: region || 'all',
               accent: accent || 'neutral',
-              totalVoices: allVoices.length,
+              totalVoices: deduplicatedVoices.length,
               // 🔍 DEBUG: Show sample voices to verify language filtering
-              sampleVoices: allVoices.slice(0, 3).map(voice => ({
+              sampleVoices: deduplicatedVoices.slice(0, 3).map(voice => ({
                 provider: (voice as { provider?: string }).provider,
                 id: (voice as { id?: string }).id,
                 language: (voice as { language?: string }).language
@@ -282,14 +297,14 @@ export async function GET(req: NextRequest) {
             console.log(`🎯 Auto-selected provider: ${selectedProvider} for ${campaignFormat}`);
 
             // Filter to only selected provider's voices
-            finalVoices = allVoices.filter(voice =>
+            finalVoices = deduplicatedVoices.filter(voice =>
               (voice as { provider?: string }).provider === selectedProvider
             );
 
             console.log(`🎯 Server auto-selected ${selectedProvider} for ${campaignFormat} (${finalVoices.length} voices)`);
           } else if (provider && provider !== 'any') {
             // Apply specific provider filtering
-            finalVoices = allVoices.filter(voice => (voice as { provider?: string }).provider === provider);
+            finalVoices = deduplicatedVoices.filter(voice => (voice as { provider?: string }).provider === provider);
             selectedProvider = provider as Provider;
             console.log(`🔍 Using explicitly selected provider: ${selectedProvider} (${finalVoices.length} voices)`);
           }
