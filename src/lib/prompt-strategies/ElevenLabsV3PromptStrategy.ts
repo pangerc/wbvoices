@@ -23,18 +23,8 @@ export class ElevenLabsV3PromptStrategy extends BasePromptStrategy {
 🐰 PACING REQUIREMENT: FAST-PACED DELIVERY
 Create a fast-paced, energetic delivery with urgency and excitement.
 RECOMMENDED baseline tones: fast_read, energetic, dynamic, excited
-AVOID slow presets: calm, soothing, gentle, slow_read
 Use shorter sentences and action-oriented language.
 The voice should feel urgent and compelling.
-`;
-    } else if (pacing === "slow") {
-      pacingGuidance = `
-🐢 PACING REQUIREMENT: SLOW-PACED DELIVERY
-Create a slow, deliberate delivery with thoughtful pauses and contemplative tone.
-RECOMMENDED baseline tones: slow_read, calm, gentle, soothing
-AVOID fast presets: energetic, dynamic, excited, fast_read
-Use longer sentences with ellipses (...) for natural pauses.
-The voice should feel relaxed and unhurried.
 `;
     }
 
@@ -78,14 +68,6 @@ Since this ad requires FAST pacing, use [fast] tags aggressively:
 - Target 5-7 tags total per sentence (including mood tags)
 - [fast] tags have MULTIPLICATIVE effect when stacked - use them liberally
 - Example: "[excited][fast][fast]Check this out! [fast][energetic]It's amazing! [fast][fast][happy]Don't wait!"`
-        : pacing === "slow"
-        ? `
-🐌 MINIMAL [fast] TAG MODE (pacing=slow):
-Since this ad requires SLOW pacing:
-- DO NOT use [fast] tags - they conflict with the slow delivery
-- Use sparse tags: 1-2 per sentence maximum
-- Focus on contemplative tags: [thoughtful], [gentle], [calm]
-- Example: "[gentle]Take a moment... [thoughtful]to discover something special."`
         : `
 ⚖️ MODERATE TAG MODE (pacing=normal):
 Use tags moderately for natural, balanced delivery:
@@ -123,17 +105,13 @@ ${
         ? `🌟 EXAMPLE (fast pacing${context.accent && context.accent !== "neutral" ? ", with accent" : ""}):
 "description": "excited",
 "text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[excited][fast][fast]Check this out! [fast][energetic]Our new product... [very excited]it's AMAZING! [fast][fast][happy]Get yours today!"`
-        : pacing === "slow"
-        ? `🌟 EXAMPLE (slow pacing${context.accent && context.accent !== "neutral" ? ", with accent" : ""}):
-"description": "calm",
-"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[gentle]Take a moment... [thoughtful]to discover something [calm]truly special."`
         : `🌟 EXAMPLE (normal pacing${context.accent && context.accent !== "neutral" ? ", with accent" : ""}):
 "description": "cheerful",
 "text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[laughs][happy]You won't believe this! [excited]Our new product is here. [whispers]And the price? [cheerful]Unbeatable."`
     }
 
 KEY PRINCIPLES:
-1. Tag density follows pacing: fast=5-7 tags, normal=2-4 tags, slow=1-2 tags
+1. Tag density follows pacing: fast=5-7 tags, normal=2-4 tags
 2. Only stack [fast] tags when pacing=fast (proven multiplicative effect)
 3. Limit mood tags to 2 per emotional beat
 4. Tags should enhance, not dominate, the natural delivery
@@ -141,7 +119,7 @@ KEY PRINCIPLES:
 Stability settings (handled automatically via baseline tone):
 - Creative (0.0): High expressiveness - cheerful, excited, energetic, fast_read
 - Natural (0.5): Balanced delivery - neutral, warm, empathetic (default)
-- Robust (1.0): Highly stable - calm, serious, professional, slow_read
+- Robust (1.0): Highly stable - calm, serious, professional
 
 The baseline tone you choose automatically sets the appropriate stability level.
 

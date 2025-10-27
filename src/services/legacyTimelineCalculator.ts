@@ -1,4 +1,5 @@
 import { MixerTrack } from "@/store/mixerStore";
+import type { SoundFxPlacementIntent } from "@/types";
 
 // Legacy Timeline Calculator
 // This contains the original 472-line heuristic-based timeline calculation logic
@@ -18,6 +19,71 @@ export type LegacyCalculationResult = {
 };
 
 export class LegacyTimelineCalculator {
+  /**
+   * Resolve placement intent to actual track ID or special placement string
+   * @param intent - The placement intent to resolve
+   * @param voiceTracks - Array of voice tracks (for resolving index-based placement)
+   * @returns Resolved playAfter value (track ID, "start", or undefined for end)
+   */
+  private static resolvePlacementIntent(
+    intent: SoundFxPlacementIntent | undefined,
+    voiceTracks: LegacyCalculatedTrack[]
+  ): string | undefined {
+    if (!intent) {
+      // No intent specified - default to end placement
+      return undefined;
+    }
+
+    switch (intent.type) {
+      case "start":
+        return "start";
+
+      case "afterVoice": {
+        // Find the voice track by index
+        const voiceOnlyTracks = voiceTracks.filter(t => t.type === "voice");
+        const targetVoice = voiceOnlyTracks[intent.index];
+
+        if (targetVoice) {
+          console.log(
+            `Resolved placement intent afterVoice[${intent.index}] to track "${targetVoice.label}" (${targetVoice.id})`
+          );
+          return targetVoice.id;
+        }
+
+        // Fallback: if voice track doesn't exist, try adjacent tracks
+        const fallbackVoice =
+          voiceOnlyTracks[intent.index - 1] ||
+          voiceOnlyTracks[intent.index + 1];
+
+        if (fallbackVoice) {
+          console.warn(
+            `Voice track at index ${intent.index} not found, falling back to "${fallbackVoice.label}"`
+          );
+          return fallbackVoice.id;
+        }
+
+        // No voice tracks available - place at end
+        console.warn(
+          `Voice track at index ${intent.index} not found and no fallback available, placing at end`
+        );
+        return undefined;
+      }
+
+      case "end":
+        // Place at end (after all voices)
+        return undefined;
+
+      case "legacy":
+        // Use legacy playAfter value directly
+        return intent.playAfter;
+
+      default:
+        // Exhaustiveness check
+        const _exhaustive: never = intent;
+        return _exhaustive;
+    }
+  }
+
   static calculateTimings(
     tracks: MixerTrack[],
     audioDurations: { [key: string]: number }
@@ -404,9 +470,40 @@ export class LegacyTimelineCalculator {
     }
 
     // Process sound effects with explicit timing
+    //
+    // KNOWN LIMITATION: Sound effects placed "after voice N" will overlay with voice N+1
+    // because ALL voice tracks are positioned first (lines 148-305), and only then are
+    // sound effects positioned afterward (here). This creates an underlay effect where
+    // SFX plays simultaneously with the next voice, rather than in its own gap.
+    //
+    // Example timeline with SFX "after voice 1":
+    //   Voice 1: [0s ─────── 5s]
+    //   Voice 2:             [5s ─────── 10s]  ← Positioned immediately after Voice 1
+    //   SFX:                 [5s ── 8s]         ← Also positioned after Voice 1, overlays Voice 2!
+    //
+    // Proper fix requires Mixer V3 architecture (see docs/mixer-v3-concept.md) with:
+    // - Semantic IDs that survive regeneration (voice-1, voice-2)
+    // - Dependency-aware positioning that respects all playAfter relationships
+    // - Command pattern that can insert gaps between tracks
+    //
+    // For now, SFX placement options work but create overlays, not gaps.
+    //
     soundFxTracks.forEach((track) => {
       // Skip already processed tracks (like intro sound effects)
       if (trackStartTimes.has(track.id)) return;
+
+      // Resolve placement intent if present
+      let resolvedPlayAfter = track.playAfter;
+      if (track.metadata?.placementIntent) {
+        const voiceTracksCalculated = result.filter(t => t.type === "voice");
+        resolvedPlayAfter = this.resolvePlacementIntent(
+          track.metadata.placementIntent as SoundFxPlacementIntent,
+          voiceTracksCalculated
+        );
+        console.log(
+          `Resolved placement for sound effect "${track.label}": ${JSON.stringify(track.metadata.placementIntent)} → "${resolvedPlayAfter || 'end'}"`
+        );
+      }
 
       // Process tracks with explicit start times
       if (track.startTime !== undefined && track.startTime >= 0) {
@@ -421,14 +518,14 @@ export class LegacyTimelineCalculator {
       }
 
       // Handle tracks that should play after another track
-      if (track.playAfter) {
+      if (resolvedPlayAfter) {
         // Skip "start" case - we already handled those earlier
-        if (track.playAfter === "start") {
+        if (resolvedPlayAfter === "start") {
           return; // Skip because we already processed intro sound effects
         }
 
         // Handle "previous" case - play after previous track in list
-        if (track.playAfter === "previous") {
+        if (resolvedPlayAfter === "previous") {
           const trackIndex = soundFxTracks.indexOf(track);
           const prevSoundFx =
             trackIndex > 0 ? soundFxTracks[trackIndex - 1] : null;
@@ -466,7 +563,7 @@ export class LegacyTimelineCalculator {
         }
 
         // Handle play after specific track ID
-        const referenceTrack = result.find((t) => t.id === track.playAfter);
+        const referenceTrack = result.find((t) => t.id === resolvedPlayAfter);
         if (referenceTrack) {
           const refStartTime = referenceTrack.actualStartTime;
           const refDuration = referenceTrack.actualDuration;

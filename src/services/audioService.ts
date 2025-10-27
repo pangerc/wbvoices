@@ -227,6 +227,7 @@ export class AudioService {
         metadata: {
           promptText: prompt,
           originalDuration: duration, // Keep the requested duration in metadata
+          placementIntent: soundFxPrompt?.placement, // Store placement intent for timeline resolution
         },
       };
 

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { MixerTrack } from "@/store/mixerStore";
 
 // Helper function to clean track labels
@@ -105,6 +105,11 @@ type TimelineTrackProps = {
   onAudioLoaded: () => void;
   onAudioError: () => void;
   isTrackLoading: boolean;
+  // Track action callbacks
+  onChangeVoice?: () => void;
+  onChangeMusic?: () => void;
+  onChangeSoundFx?: () => void;
+  onRemove?: (trackId: string) => void;
 };
 
 export function TimelineTrack({
@@ -120,7 +125,28 @@ export function TimelineTrack({
   onAudioLoaded,
   onAudioError,
   isTrackLoading,
+  onChangeVoice,
+  onChangeMusic,
+  onChangeSoundFx,
+  onRemove,
 }: TimelineTrackProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isMenuOpen]);
+
   // Get width percentage for timeline elements
   const getWidthPercent = (start: number, duration: number) => {
     if (totalDuration === 0) return { left: 0, width: 0 };
@@ -242,7 +268,7 @@ export function TimelineTrack({
               : track.type === "music"
               ? "bg-wb-blue/20 border border-wb-blue/25"
               : "bg-red-500/20 border border-red-500/25"
-          }`}
+          } ${isMenuOpen ? "z-50" : "z-0"}`}
           style={{
             left: `${left}%`,
             width: `${width}%`, // Use exact width based on actual duration
@@ -277,47 +303,110 @@ export function TimelineTrack({
             </div>
           </div>
 
-          {/* Static handle on the right */}
-          <div className="absolute right-1 top-1.5 h-full w-4 cursor-pointer ">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 10 10"
-              height="10"
-              width="10"
-              className="h-3 w-auto "
+          {/* Handle with menu */}
+          <div className="absolute right-1 top-0 h-full w-4 flex items-center" ref={menuRef}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsMenuOpen(!isMenuOpen);
+              }}
+              className="cursor-pointer hover:opacity-70 transition-opacity"
+              title="Track actions"
             >
-              <path
-                fill="#000000"
-                d="M1.7854166666666669 1.42875a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                strokeWidth="1"
-              ></path>
-              <path
-                fill="#000000"
-                d="M1.7854166666666669 5a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                strokeWidth="1"
-              ></path>
-              <path
-                fill="#000000"
-                d="M1.7854166666666669 8.571666666666667a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                strokeWidth="1"
-              ></path>
-              <path
-                fill="#000000"
-                d="M5.357083333333334 1.42875a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                strokeWidth="1"
-              ></path>
-              <path
-                fill="#000000"
-                d="M5.357083333333334 5a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                strokeWidth="1"
-              ></path>
-              <path
-                fill="#000000"
-                d="M5.357083333333334 8.571666666666667a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                strokeWidth="1"
-              ></path>
-            </svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 10 10"
+                height="10"
+                width="10"
+                className="h-3 w-auto"
+              >
+                <path
+                  fill="#000000"
+                  d="M1.7854166666666669 1.42875a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
+                  strokeWidth="1"
+                ></path>
+                <path
+                  fill="#000000"
+                  d="M1.7854166666666669 5a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
+                  strokeWidth="1"
+                ></path>
+                <path
+                  fill="#000000"
+                  d="M1.7854166666666669 8.571666666666667a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
+                  strokeWidth="1"
+                ></path>
+                <path
+                  fill="#000000"
+                  d="M5.357083333333334 1.42875a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
+                  strokeWidth="1"
+                ></path>
+                <path
+                  fill="#000000"
+                  d="M5.357083333333334 5a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
+                  strokeWidth="1"
+                ></path>
+                <path
+                  fill="#000000"
+                  d="M5.357083333333334 8.571666666666667a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
+                  strokeWidth="1"
+                ></path>
+              </svg>
+            </button>
+
+            {/* Dropdown menu */}
+            {isMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-40 bg-black/90 backdrop-blur-md border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden">
+                {track.type === "voice" && onChangeVoice && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onChangeVoice();
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
+                  >
+                    Change voice
+                  </button>
+                )}
+                {track.type === "music" && onChangeMusic && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onChangeMusic();
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
+                  >
+                    Change music
+                  </button>
+                )}
+                {track.type === "soundfx" && onChangeSoundFx && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onChangeSoundFx();
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
+                  >
+                    Change effect
+                  </button>
+                )}
+                {onRemove && (track.type === "music" || track.type === "soundfx") && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onRemove(track.id);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/10"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

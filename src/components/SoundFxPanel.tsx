@@ -1,23 +1,48 @@
 import React, { useState, useEffect } from "react";
-import { SoundFxPrompt } from "@/types";
+import { SoundFxPrompt, SoundFxPlacementIntent } from "@/types";
 import {
   GlassyTextarea,
   GlassySlider,
+  GlassyListbox,
   ResetButton,
   GenerateButton,
 } from "./ui";
 
+type VoiceTrackPreview = {
+  name: string;
+  text: string;
+};
+
 type SoundFxPanelProps = {
-  onGenerate: (prompt: string, duration: number) => Promise<void>;
+  onGenerate: (prompt: string, duration: number, placement?: SoundFxPlacementIntent) => Promise<void>;
   isGenerating: boolean;
   statusMessage?: string;
   initialPrompt?: SoundFxPrompt | null;
   adDuration: number; // Kept for API compatibility with other panels, but not used for duration defaults
   resetForm: () => void;
+  voiceTrackCount?: number; // Number of voice tracks for placement options
+  voiceTrackPreviews?: VoiceTrackPreview[]; // Preview info for each voice track
 };
 
 // Default duration for sound effects
 const DEFAULT_SOUND_FX_DURATION = 3; // 3 seconds is a reasonable default for most sound effects
+
+// Convert placement option string to placement intent
+function placementOptionToIntent(option: string): SoundFxPlacementIntent {
+  if (option === "start") {
+    return { type: "start" };
+  }
+  if (option === "end") {
+    return { type: "end" };
+  }
+  // Format is "afterVoice-0", "afterVoice-1", etc.
+  if (option.startsWith("afterVoice-")) {
+    const index = parseInt(option.split("-")[1], 10);
+    return { type: "afterVoice", index };
+  }
+  // Default to end
+  return { type: "end" };
+}
 
 export function SoundFxPanel({
   onGenerate,
@@ -26,6 +51,8 @@ export function SoundFxPanel({
   initialPrompt = null,
   adDuration, // We keep this for API compatibility, but use a fixed default duration for sound effects
   resetForm,
+  voiceTrackCount = 0,
+  voiceTrackPreviews = [],
 }: SoundFxPanelProps) {
   const [prompt, setPrompt] = useState("");
   const [duration, setDuration] = useState(DEFAULT_SOUND_FX_DURATION);
@@ -34,6 +61,7 @@ export function SoundFxPanel({
     playAfter?: string;
     overlap?: number;
   } | null>(null);
+  const [placementOption, setPlacementOption] = useState<string>("end");
 
   // Update prompt when initialPrompt changes
   useEffect(() => {
@@ -87,15 +115,17 @@ export function SoundFxPanel({
     setPrompt("");
     setDuration(DEFAULT_SOUND_FX_DURATION); // Reset to default sound FX duration, not ad duration
     setTimingInfo(null);
+    setPlacementOption("end"); // Reset to default placement
     setLocalStatusMessage("");
     resetForm();
   };
 
   const handleGenerate = () => {
-    console.log(`Manually generating sound effect: "${prompt}" (${duration}s)`);
+    const placementIntent = placementOptionToIntent(placementOption);
+    console.log(`Manually generating sound effect: "${prompt}" (${duration}s) with placement:`, placementIntent);
     // Only generate if we have a valid prompt and not already generating
     if (prompt && !isGenerating) {
-      onGenerate(prompt, duration);
+      onGenerate(prompt, duration, placementIntent);
     } else {
       console.log(`Generation skipped: prompt empty or already generating`);
     }
@@ -146,34 +176,53 @@ export function SoundFxPanel({
         </div>
       </div>
 
-      <div className="space-y-12 md:grid md:grid-cols-2 md:gap-6">
-        <div className="space-y-12">
-          <div>
-            <GlassyTextarea
-              label="Sound FX Description"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe the sound effect you want to generate... (e.g. 'A door creaking open slowly with a spooky ambiance')"
-              className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
-              minRows={3}
-            />
+      <div className="space-y-12 md:grid md:grid-cols-3 md:gap-6">
+        {/* Left column: Description */}
+        <div className="md:col-span-1">
+          <GlassyTextarea
+            label="Sound FX Description"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Describe the sound effect you want to generate... (e.g. 'A door creaking open slowly with a spooky ambiance')"
+            className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+            minRows={8}
+          />
 
-            {/* Timing instructions for sound effects */}
-            <div className="mt-1 pl-3 text-xs text-gray-500 p-2">
-              <span className="font-medium">Timing: </span>
-              <span>
-                {timingInfo
-                  ? formatTimingInfo()
-                  : "Sound effects typically play at specific moments in the ad"}
-              </span>
-              <div className="mt-1">
-                <span className="text-wb-blue">Pro tip: </span>
-                When generating from a script, sound effects will be positioned
-                based on the AI&apos;s timing suggestions. In the mixer,
-                you&apos;ll be able to adjust when each sound effect plays.
-              </div>
+          {/* Timing instructions for sound effects */}
+          <div className="mt-1 pl-3 text-xs text-gray-500 p-2">
+            <span className="font-medium">Timing: </span>
+            <span>
+              {timingInfo
+                ? formatTimingInfo()
+                : "Sound effects typically play at specific moments in the ad"}
+            </span>
+            <div className="mt-1">
+              <span className="text-wb-blue">Pro tip: </span>
+              When generating from a script, sound effects will be positioned
+              based on the AI&apos;s timing suggestions. In the mixer,
+              you&apos;ll be able to adjust when each sound effect plays.
             </div>
           </div>
+        </div>
+
+        {/* Right column: Placement and Duration controls */}
+        <div className="md:col-span-2 space-y-12">
+          {/* Placement selector */}
+          <GlassyListbox
+            label="Sound Effect Placement"
+            value={placementOption}
+            onChange={setPlacementOption}
+            options={[
+              { value: "start", label: "At beginning (before all voices)" },
+              ...(voiceTrackPreviews && voiceTrackPreviews.length > 0
+                ? voiceTrackPreviews.map((preview, index) => ({
+                    value: `afterVoice-${index}`,
+                    label: `After voice ${index + 1} (${preview.name}: "${preview.text.slice(0, 20)}${preview.text.length > 20 ? '...' : ''}")`,
+                  }))
+                : []),
+              { value: "end", label: "At end (after all voices)" },
+            ]}
+          />
 
           <GlassySlider
             label="Duration"
@@ -190,13 +239,13 @@ export function SoundFxPanel({
               { value: 10, label: "10s" },
             ]}
           />
-        </div>
 
-        {localStatusMessage && (
-          <p className="text-center text-sm text-gray-300">
-            {localStatusMessage}
-          </p>
-        )}
+          {localStatusMessage && (
+            <p className="text-center text-sm text-gray-300">
+              {localStatusMessage}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

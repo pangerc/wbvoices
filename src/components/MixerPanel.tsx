@@ -18,6 +18,11 @@ type MixerPanelProps = {
   isGeneratingMusic?: boolean;
   isGeneratingSoundFx?: boolean;
   resetForm: () => void;
+  // Track action callbacks
+  onChangeVoice?: () => void;
+  onChangeMusic?: () => void;
+  onChangeSoundFx?: () => void;
+  onRemoveTrack?: (trackId: string) => void;
 };
 
 export function MixerPanel({
@@ -25,6 +30,10 @@ export function MixerPanel({
   isGeneratingMusic = false,
   isGeneratingSoundFx = false,
   resetForm,
+  onChangeVoice,
+  onChangeMusic,
+  onChangeSoundFx,
+  onRemoveTrack,
 }: MixerPanelProps) {
   const params = useParams();
   const projectId = params.id as string;
@@ -1022,7 +1031,7 @@ export function MixerPanel({
           </div>
           <div
             ref={timelineRef}
-            className="relative bg-white/3 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden timeline"
+            className="relative bg-white/3 backdrop-blur-sm border border-white/10 rounded-2xl overflow-visible timeline"
           >
             {/* Playback indicator line - positioned absolutely and doesn't interfere with mouse events */}
             {isPlaying && (
@@ -1094,6 +1103,7 @@ export function MixerPanel({
                     }}
                     onAudioError={() => handleAudioError(track.id, track.label)}
                     isTrackLoading={isTrackLoading(track)}
+                    onChangeVoice={onChangeVoice}
                   />
                 ))}
 
@@ -1125,6 +1135,8 @@ export function MixerPanel({
                     }}
                     onAudioError={() => handleAudioError(track.id, track.label)}
                     isTrackLoading={isTrackLoading(track)}
+                    onChangeMusic={onChangeMusic}
+                    onRemove={onRemoveTrack}
                   />
                 ))}
 
@@ -1145,6 +1157,8 @@ export function MixerPanel({
                     playingState={playingTracks[track.id] || false}
                     playbackProgress={playbackProgress[track.id] || 0}
                     audioRef={handleAudioRef(track.id)}
+                    onChangeSoundFx={onChangeSoundFx}
+                    onRemove={onRemoveTrack}
                     onVolumeChange={(value) =>
                       handleVolumeChange(track.id, value)
                     }

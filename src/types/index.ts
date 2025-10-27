@@ -84,11 +84,19 @@ export type SoundFxTrack = {
   overlap?: number;
 };
 
+// Sound effect placement intent - stores semantic placement that gets resolved at timeline calculation
+export type SoundFxPlacementIntent =
+  | { type: "start" }  // Before all voice tracks
+  | { type: "afterVoice"; index: number }  // After voice track N (0-indexed)
+  | { type: "end" }  // After all voice tracks
+  | { type: "legacy"; playAfter: string };  // Backwards compatibility with old format
+
 export type SoundFxPrompt = {
   description: string;
-  playAfter?: string;
+  playAfter?: string;  // Legacy field for backwards compatibility
   overlap?: number;
   duration?: number;
+  placement?: SoundFxPlacementIntent;  // New intent-based placement
 };
 
 export type LibraryMusicTrack = {

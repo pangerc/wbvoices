@@ -1,4 +1,4 @@
-import { VoiceTrack, MusicPrompts } from "@/types";
+import { VoiceTrack, MusicPrompts, SoundFxPlacementIntent } from "@/types";
 import type { SoundFxPrompt } from "@/types";
 
 // Define interfaces for the JSON structure
@@ -91,6 +91,26 @@ function cleanDescription(description: string): string {
     .replace(/\s*\((?:short|long|brief),?\s*\d+\s*s(?:econds?)?\)\s*$/i, "") // (short, 2 seconds)
     .replace(/\s*\((?:short|long|brief)\)\s*$/i, "") // (short)
     .trim();
+}
+
+// Convert legacy playAfter string to placement intent
+function parsePlayAfterToIntent(playAfter?: string): SoundFxPlacementIntent | undefined {
+  if (!playAfter) {
+    // Default to end placement (backwards compatible behavior)
+    return { type: "end" };
+  }
+
+  if (playAfter === "start") {
+    return { type: "start" };
+  }
+
+  if (playAfter === "previous") {
+    // "previous" means after all voices (legacy behavior)
+    return { type: "end" };
+  }
+
+  // Otherwise it's a reference to a specific track ID (legacy format)
+  return { type: "legacy", playAfter };
 }
 
 // Add this function to enforce different voices in dialogues
@@ -263,6 +283,7 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
                 : item.playAfter || "previous",
             overlap: item.overlap || 0,
             duration: item.duration ? Math.min(item.duration, 15) : 3, // Cap at 15 seconds, default to 3 if not provided
+            placement: parsePlayAfterToIntent(item.playAfter), // Add placement intent
           });
         }
         // Handle concurrent elements
@@ -345,6 +366,7 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
                 : item.playAfter || "previous",
             overlap: item.overlap || 0,
             duration: item.duration ? Math.min(item.duration, 15) : 3, // Cap at 15 seconds, default to 3 if not provided
+            placement: parsePlayAfterToIntent(item.playAfter), // Add placement intent
           });
         }
       });

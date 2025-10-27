@@ -1046,35 +1046,32 @@ export function BriefPanel({
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Pacing
             </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedPacing(selectedPacing === "slow" ? null : "slow")
-                }
-                className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border transition-all ${
-                  selectedPacing === "slow"
-                    ? "bg-white/10 border-white/30 text-white"
-                    : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/8 hover:border-white/20"
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
+              {/* Normal option */}
+              <div
+                className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
+                  selectedPacing === null
+                    ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                    : "bg-transparent hover:bg-white/10 text-gray-300"
                 }`}
-                title="Slow pacing - Deliberate, thoughtful delivery"
+                onClick={() => setSelectedPacing(null)}
+                title="Normal - Standard delivery pace"
               >
                 <TurtleIcon />
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedPacing(selectedPacing === "fast" ? null : "fast")
-                }
-                className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border transition-all ${
+              </div>
+
+              {/* Fast option */}
+              <div
+                className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
                   selectedPacing === "fast"
-                    ? "bg-white/10 border-white/30 text-white"
-                    : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/8 hover:border-white/20"
+                    ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                    : "bg-transparent hover:bg-white/10 text-gray-300"
                 }`}
-                title="Fast pacing - Energetic, urgent delivery"
+                onClick={() => setSelectedPacing("fast")}
+                title="Fast - Energetic, urgent delivery"
               >
                 <RabbitIcon />
-              </button>
+              </div>
             </div>
           </div>
         </div>

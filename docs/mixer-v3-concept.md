@@ -1,7 +1,7 @@
 # Mixer V3: Timeline Architecture Redesign
 
 **Status:** Proposal
-**Created:** 2025-01-03
+**Created:** 2025-10-03
 **Author:** Architecture Team
 **Version:** 1.0
 
@@ -12,6 +12,7 @@
 The current mixer timeline system suffers from excessive recalculations (4+ per track addition), fragile regeneration behavior, and architectural limitations that will block future manual editing features. This proposal outlines a redesign using semantic IDs, command patterns, and batched calculations to create a stable foundation for both LLM-generated and manually-edited audio timelines.
 
 ### Key Improvements
+
 - **4+ calculations → 1 calculation** per user action through batching
 - **Stable track references** that survive regeneration (semantic IDs)
 - **Predictable behavior** with no reactive cascades
@@ -51,11 +52,13 @@ Duration measurement completes → calculateTimings() [4th]
 ### Why This Happens
 
 1. **Reactive State Model (Zustand)**
+
    - Every state change immediately broadcasts to all subscribers
    - No transaction boundaries or batching
    - Perfect for UI state, wrong tool for timeline calculations
 
 2. **Mixed Concerns**
+
    - Timeline logic in `legacyTimelineCalculator.ts`
    - State management in `mixerStore.ts`
    - Audio measurement triggers in `audioService.ts`
@@ -63,6 +66,7 @@ Duration measurement completes → calculateTimings() [4th]
    - No clear separation of concerns
 
 3. **Circular Dependencies**
+
    ```
    Audio duration loaded
      → setAudioDuration()
@@ -82,13 +86,14 @@ Duration measurement completes → calculateTimings() [4th]
 #### Problem 1: Track Regeneration Breaks Relationships
 
 **Scenario:**
+
 ```typescript
 // Initial state
 tracks = [
   { id: "voice-abc123", label: "Voice 1" },
   { id: "voice-xyz789", label: "Voice 2" },
-  { id: "sfx-def456", playAfter: "voice-xyz789" }  // SFX after Voice 2
-]
+  { id: "sfx-def456", playAfter: "voice-xyz789" }, // SFX after Voice 2
+];
 
 // User regenerates Voice 2
 // New voice gets new ID: "voice-pqr999"
@@ -97,11 +102,12 @@ tracks = [
 tracks = [
   { id: "voice-abc123", label: "Voice 1" },
   { id: "voice-pqr999", label: "Voice 2 (regenerated)" },
-  { id: "sfx-def456", playAfter: "voice-xyz789" }  // BROKEN REFERENCE!
-]
+  { id: "sfx-def456", playAfter: "voice-xyz789" }, // BROKEN REFERENCE!
+];
 ```
 
 **Current "Miraculous" Behavior:**
+
 - System eventually settles through 4+ recalculations
 - Sometimes works, sometimes breaks
 - No guarantees
@@ -133,14 +139,88 @@ Each event triggers full recalculation with `O(n)` track processing.
 #### Problem 3: Blocks Manual Editing
 
 **Future Requirement:** Drag-and-drop timeline editing
+
 - Dragging a track = 60+ position updates per second
 - Current system = 60+ × 4 = 240+ calculations per second
 - UI would freeze completely
 
 **Missing Features:**
+
 - No undo/redo (every change overwrites state)
 - No transaction boundaries (can't preview then commit)
 - No validation layer (can't enforce rules like "max 3 concurrent voices")
+
+#### Problem 4: Sound Effects Cannot Create Timeline Gaps
+
+**Scenario:**
+
+User places a sound effect "after voice 1" with the expectation that voice 2 will wait until the sound effect finishes, creating a clean sequence: Voice 1 → SFX → Voice 2.
+
+**What Actually Happens:**
+
+```
+Voice 1: [0s ─────── 5s]
+Voice 2:             [5s ─────── 10s]  ← Positioned immediately after Voice 1
+SFX:                 [5s ── 8s]         ← Also positioned after Voice 1, overlays Voice 2!
+```
+
+**Root Cause:**
+
+The legacy timeline calculator processes track types in a **fixed order**:
+
+1. **Intro sound effects** (`playAfter: "start"`) → positioned first
+2. **Voice tracks** → positioned sequentially (lines 148-305)
+3. **Music tracks** → positioned at start
+4. **Remaining sound effects** → positioned last (lines 472+)
+
+By the time step 4 executes, voice tracks are already positioned and immutable. The SFX is placed "after voice 1" at 5s, but voice 2 is also at 5s, causing an overlay instead of creating a gap.
+
+**Why Intro SFX Work but Mid-Timeline SFX Don't:**
+
+- Intro SFX are processed in step 1, **before** voices are positioned
+- Voice positioning respects the `startingOffset` created by intro SFX
+- Mid-timeline SFX are processed in step 4, **after** voices are immutable
+- No mechanism to push subsequent voices forward
+
+**User Expectation vs Reality:**
+
+| User Expectation                                | Reality                                     |
+| ----------------------------------------------- | ------------------------------------------- |
+| Voice 1 → [SFX plays alone] → Voice 2           | Voice 1 → [SFX + Voice 2 simultaneously]    |
+| Timeline gaps preserve audio clarity            | Overlay creates muddy audio mix             |
+| Placement selector creates gaps between tracks  | Placement selector creates overlays         |
+
+**Current Workaround:**
+
+- Documented as known limitation (see `legacyTimelineCalculator.ts:472-490`)
+- Works for intro/outro SFX (before all voices / after all voices)
+- Breaks for mid-timeline SFX (between voice tracks)
+
+**Proper Fix in Mixer V3:**
+
+With semantic IDs and dependency-aware positioning:
+
+```typescript
+// Build dependency graph
+const dependencies = {
+  'voice-1': { playAfter: 'start' },
+  'sfx-1': { playAfter: 'voice-1' },      // SFX after voice 1
+  'voice-2': { playAfter: 'sfx-1' },      // Voice 2 waits for SFX!
+};
+
+// Topological sort determines correct order
+const sortedTracks = ['voice-1', 'sfx-1', 'voice-2'];
+
+// Single-pass calculation respects all dependencies
+sortedTracks.forEach(track => {
+  if (track.playAfter) {
+    const refTrack = findBySemanticId(track.playAfter);
+    startTime = refTrack.endTime - (track.overlap || 0);
+  }
+});
+```
+
+**Result:** Voice 2 naturally positions after SFX finishes, creating the expected gap.
 
 ---
 
@@ -149,6 +229,7 @@ Each event triggers full recalculation with `O(n)` track processing.
 ### 1. Track Regeneration Must Preserve Relationships
 
 **User Flow:**
+
 1. User has ad with Voice 1, Voice 2, SFX (plays after Voice 2)
 2. User regenerates Voice 2 (new text, new voice actor)
 3. Voice 2 gets new URL, new duration, new track ID
@@ -159,6 +240,7 @@ Each event triggers full recalculation with `O(n)` track processing.
 ### 2. Redis Persistence Must Support Both Systems
 
 **Current Redis Format:**
+
 ```typescript
 {
   projectId: "fast-harbor-228",
@@ -172,6 +254,7 @@ Each event triggers full recalculation with `O(n)` track processing.
 ```
 
 **Requirements:**
+
 - New system must read old projects (backward compat)
 - Old system must still work as fallback
 - No forced migration (load-time migration is OK)
@@ -180,6 +263,7 @@ Each event triggers full recalculation with `O(n)` track processing.
 ### 3. Foundation for Manual Editing (Weeks Away)
 
 **Future Features:**
+
 - Drag tracks to reposition
 - Multi-select and batch move
 - Undo/redo
@@ -187,6 +271,7 @@ Each event triggers full recalculation with `O(n)` track processing.
 - Concurrent voice tracks ("happy birthday" chorus)
 
 **Architecture must support:**
+
 - Transaction boundaries (preview while dragging)
 - Command history (for undo)
 - Performance (no calculations during drag)
@@ -219,20 +304,23 @@ Each event triggers full recalculation with `O(n)` track processing.
 ```
 
 **Semantic ID Format:**
+
 - Voice tracks: `voice-1`, `voice-2`, `voice-3`
 - Music tracks: `music-1`
 - Sound effects: `sfx-1`, `sfx-2`
 
 **Version-Specific ID Format:**
+
 - `{semanticId}-v{timestamp}`
 - Example: `voice-1-v1678901234`
 
 **Relationship Resolution:**
+
 ```typescript
 // When calculating timeline:
 if (track.playAfter === "voice-2") {
   // Find track with semanticId === "voice-2" (regardless of version)
-  const refTrack = tracks.find(t => t.semanticId === "voice-2");
+  const refTrack = tracks.find((t) => t.semanticId === "voice-2");
   // Use its actual position for calculation
 }
 ```
@@ -245,7 +333,7 @@ if (track.playAfter === "voice-2") {
 ```typescript
 interface TimelineCommand {
   execute(state: TimelineState): TimelineState;
-  undo(state: TimelineState): TimelineState;  // For future undo/redo
+  undo(state: TimelineState): TimelineState; // For future undo/redo
 }
 
 // Example: Regenerate voice command
@@ -257,23 +345,23 @@ class RegenerateTrackCommand implements TimelineCommand {
 
   execute(state: TimelineState): TimelineState {
     // Find track by semantic ID (not ephemeral ID)
-    const oldTrack = state.tracks.find(t => t.semanticId === this.semanticId);
+    const oldTrack = state.tracks.find((t) => t.semanticId === this.semanticId);
 
     // Create new version with same semantic ID
     const newTrack = {
       ...oldTrack,
       ...this.newTrackData,
       id: `${this.semanticId}-v${Date.now()}`,
-      semanticId: this.semanticId,  // PRESERVE semantic ID
-      version: (oldTrack.version || 0) + 1
+      semanticId: this.semanticId, // PRESERVE semantic ID
+      version: (oldTrack.version || 0) + 1,
     };
 
     // Replace track while preserving array position
     return {
       ...state,
-      tracks: state.tracks.map(t =>
+      tracks: state.tracks.map((t) =>
         t.semanticId === this.semanticId ? newTrack : t
-      )
+      ),
     };
   }
 }
@@ -318,6 +406,7 @@ class CommandBatcher {
 ```
 
 **Result:**
+
 ```
 User regenerates voice
   → Queue: [RegenerateCommand]
@@ -330,6 +419,7 @@ Audio loads
 ```
 
 Instead of:
+
 ```
 Regenerate → calc [1]
   → Audio loads → calc [2]
@@ -350,21 +440,24 @@ class PureTimelineCalculator {
 
     // Build semantic reference map
     const semanticMap = new Map<string, MixerTrack>();
-    tracks.forEach(t => semanticMap.set(t.semanticId, t));
+    tracks.forEach((t) => semanticMap.set(t.semanticId, t));
 
     // Process each track
     for (const track of tracks) {
       let startTime = 0;
 
       // Resolve playAfter using semantic ID
-      if (track.playAfter && track.playAfter !== 'start') {
+      if (track.playAfter && track.playAfter !== "start") {
         const refTrack = semanticMap.get(track.playAfter);
         if (refTrack) {
-          const refCalculated = result.find(r => r.semanticId === track.playAfter);
+          const refCalculated = result.find(
+            (r) => r.semanticId === track.playAfter
+          );
           if (refCalculated) {
-            startTime = refCalculated.actualStartTime +
-                       refCalculated.actualDuration -
-                       (track.overlap || 0);
+            startTime =
+              refCalculated.actualStartTime +
+              refCalculated.actualDuration -
+              (track.overlap || 0);
           }
         }
       }
@@ -372,7 +465,7 @@ class PureTimelineCalculator {
       result.push({
         ...track,
         actualStartTime: startTime,
-        actualDuration: track.duration || this.getDefaultDuration(track.type)
+        actualDuration: track.duration || this.getDefaultDuration(track.type),
       });
     }
 
@@ -382,6 +475,7 @@ class PureTimelineCalculator {
 ```
 
 Benefits:
+
 - Testable (no mocking required)
 - Predictable (same input = same output)
 - Fast (no async, no side effects)
@@ -404,10 +498,12 @@ class TimelineController {
     const audioUrl = await AudioService.generate(voiceData);
 
     // 2. Queue regeneration command (doesn't execute yet)
-    this.batcher.queue(new RegenerateTrackCommand(semanticId, {
-      url: audioUrl,
-      label: voiceData.voice.name
-    }));
+    this.batcher.queue(
+      new RegenerateTrackCommand(semanticId, {
+        url: audioUrl,
+        label: voiceData.voice.name,
+      })
+    );
 
     // 3. When audio loads, queue duration update
     const audio = new Audio(audioUrl);
@@ -505,6 +601,7 @@ class TimelineController {
 ### Problem
 
 Current Redis format is optimized for LLM generation, not timeline editing:
+
 - Stores `voiceUrls` array but no track metadata
 - Stores generation params (`musicPrompt`) but not timeline state
 - No semantic IDs or version tracking
@@ -520,7 +617,7 @@ export type Project = {
   headline: string;
   timestamp: number;
   brief: ProjectBrief;
-  voiceTracks: VoiceTrack[];        // LLM-generated voice segments
+  voiceTracks: VoiceTrack[]; // LLM-generated voice segments
   musicPrompt: string;
   soundFxPrompt: SoundFxPrompt | null;
   generatedTracks: {
@@ -531,11 +628,11 @@ export type Project = {
 
   // ========== NEW (additive) ==========
   timelineState?: {
-    version: 2,                     // Schema version for migration
+    version: 2; // Schema version for migration
     tracks: Array<{
-      id: string;                   // Version-specific: "voice-1-v1678901234"
-      semanticId: string;           // Stable: "voice-1"
-      version: number;              // Regeneration counter
+      id: string; // Version-specific: "voice-1-v1678901234"
+      semanticId: string; // Stable: "voice-1"
+      version: number; // Regeneration counter
       url: string;
       label: string;
       type: "voice" | "music" | "soundfx";
@@ -543,13 +640,13 @@ export type Project = {
       volume?: number;
 
       // Relationships use semantic IDs
-      playAfter?: string;           // References semantic ID
+      playAfter?: string; // References semantic ID
       overlap?: number;
 
       // Track metadata
       metadata?: {
-        sourceVoiceTrackIndex?: number;  // Maps to voiceTracks[index]
-        regeneratedFrom?: string;        // Previous version ID
+        sourceVoiceTrackIndex?: number; // Maps to voiceTracks[index]
+        regeneratedFrom?: string; // Previous version ID
         regeneratedAt?: number;
         voiceId?: string;
         scriptText?: string;
@@ -591,14 +688,14 @@ function migrateLegacyProject(project: Project): Project {
       version: 1,
       url: project.generatedTracks.voiceUrls[index],
       label: voiceTrack.voice?.name || `Voice ${index + 1}`,
-      type: 'voice',
+      type: "voice",
       playAfter: mapPlayAfterToSemantic(voiceTrack.playAfter, index),
       overlap: voiceTrack.overlap,
       metadata: {
         sourceVoiceTrackIndex: index,
         voiceId: voiceTrack.voice?.id,
-        scriptText: voiceTrack.text
-      }
+        scriptText: voiceTrack.text,
+      },
     });
   });
 
@@ -606,11 +703,11 @@ function migrateLegacyProject(project: Project): Project {
   if (project.generatedTracks.musicUrl) {
     semanticTracks.push({
       id: `music-1-v${Date.now()}`,
-      semanticId: 'music-1',
+      semanticId: "music-1",
       version: 1,
       url: project.generatedTracks.musicUrl,
-      label: 'Background Music',
-      type: 'music'
+      label: "Background Music",
+      type: "music",
     });
   }
 
@@ -618,13 +715,13 @@ function migrateLegacyProject(project: Project): Project {
   if (project.generatedTracks.soundFxUrl) {
     semanticTracks.push({
       id: `sfx-1-v${Date.now()}`,
-      semanticId: 'sfx-1',
+      semanticId: "sfx-1",
       version: 1,
       url: project.generatedTracks.soundFxUrl,
-      label: 'Sound Effect',
-      type: 'soundfx',
+      label: "Sound Effect",
+      type: "soundfx",
       playAfter: mapSoundFxPlayAfter(project.soundFxPrompt),
-      overlap: project.soundFxPrompt?.overlap
+      overlap: project.soundFxPrompt?.overlap,
     });
   }
 
@@ -633,8 +730,8 @@ function migrateLegacyProject(project: Project): Project {
     timelineState: {
       version: 2,
       tracks: semanticTracks,
-      lastCalculated: Date.now()
-    }
+      lastCalculated: Date.now(),
+    },
   };
 }
 ```
@@ -656,25 +753,25 @@ async function saveProject(
       version: 2,
       tracks: timeline.tracks,
       totalDuration: timeline.totalDuration,
-      lastCalculated: Date.now()
+      lastCalculated: Date.now(),
     },
 
     // Also update generatedTracks for backward compat
     generatedTracks: {
       voiceUrls: timeline.tracks
-        .filter(t => t.type === 'voice')
+        .filter((t) => t.type === "voice")
         .sort((a, b) => {
           // Sort by semantic ID number
-          const aNum = parseInt(a.semanticId.split('-')[1]);
-          const bNum = parseInt(b.semanticId.split('-')[1]);
+          const aNum = parseInt(a.semanticId.split("-")[1]);
+          const bNum = parseInt(b.semanticId.split("-")[1]);
           return aNum - bNum;
         })
-        .map(t => t.url),
-      musicUrl: timeline.tracks.find(t => t.type === 'music')?.url,
-      soundFxUrl: timeline.tracks.find(t => t.type === 'soundfx')?.url
+        .map((t) => t.url),
+      musicUrl: timeline.tracks.find((t) => t.type === "music")?.url,
+      soundFxUrl: timeline.tracks.find((t) => t.type === "soundfx")?.url,
     },
 
-    lastModified: Date.now()
+    lastModified: Date.now(),
   };
 
   await saveToRedis(projectId, updated);
@@ -683,12 +780,12 @@ async function saveProject(
 
 **Backward Compatibility:**
 
-| Scenario | Old System (Legacy Calculator) | New System (Mixer V3) |
-|----------|--------------------------------|------------------------|
-| Load old project | ✅ Works (ignores `timelineState`) | ✅ Works (migrates on load) |
-| Load new project | ✅ Works (uses `generatedTracks`) | ✅ Works (uses `timelineState`) |
-| Save from old | ✅ Works (saves `generatedTracks`) | N/A (feature flag off) |
-| Save from new | ✅ Works (updates both formats) | ✅ Works (saves `timelineState`) |
+| Scenario         | Old System (Legacy Calculator)     | New System (Mixer V3)            |
+| ---------------- | ---------------------------------- | -------------------------------- |
+| Load old project | ✅ Works (ignores `timelineState`) | ✅ Works (migrates on load)      |
+| Load new project | ✅ Works (uses `generatedTracks`)  | ✅ Works (uses `timelineState`)  |
+| Save from old    | ✅ Works (saves `generatedTracks`) | N/A (feature flag off)           |
+| Save from new    | ✅ Works (updates both formats)    | ✅ Works (saves `timelineState`) |
 
 No forced migration required. Old and new systems coexist peacefully.
 
@@ -701,6 +798,7 @@ No forced migration required. Old and new systems coexist peacefully.
 **Goal:** Build new system alongside legacy, feature flag OFF by default
 
 **Tasks:**
+
 1. Create `src/services/timeline/` directory structure
 2. Implement `PureTimelineCalculator` (pure functions, tested)
 3. Implement `TimelineCommand` interfaces and base classes
@@ -711,12 +809,14 @@ No forced migration required. Old and new systems coexist peacefully.
 8. Add feature flag: `ENABLE_MIXER_V3=false` (default)
 
 **Testing:**
+
 - Unit tests for `PureTimelineCalculator`
 - Unit tests for each command type
 - Integration tests for migration logic
 - All tests pass, no production impact
 
 **Files Created:**
+
 ```
 src/services/timeline/
 ├── PureTimelineCalculator.ts
@@ -734,6 +834,7 @@ src/services/timeline/
 ```
 
 **Success Criteria:**
+
 - All new code has 90%+ test coverage
 - Legacy system still works perfectly
 - Feature flag toggles between systems
@@ -743,6 +844,7 @@ src/services/timeline/
 **Goal:** Enable for NEW projects only, monitor behavior
 
 **Tasks:**
+
 1. Integrate `TimelineController` with `mixerStore.ts`
 2. Update `audioService.ts` to use semantic IDs
 3. Add console logging for debugging (# of calculations, batch sizes)
@@ -751,17 +853,18 @@ src/services/timeline/
 6. Monitor production for issues
 
 **Feature Flag Logic:**
+
 ```typescript
 function shouldUseMixerV3(project: Project): boolean {
   // Environment override
-  if (process.env.ENABLE_MIXER_V3 === 'false') return false;
-  if (process.env.ENABLE_MIXER_V3 === 'true') return true;
+  if (process.env.ENABLE_MIXER_V3 === "false") return false;
+  if (process.env.ENABLE_MIXER_V3 === "true") return true;
 
   // Use V3 for projects with timelineState
   if (project.timelineState?.version >= 2) return true;
 
   // Use V3 for new projects created after cutoff date
-  const CUTOFF = new Date('2025-01-15').getTime();
+  const CUTOFF = new Date("2025-01-15").getTime();
   if (project.timestamp > CUTOFF) return true;
 
   // Default to legacy for safety
@@ -770,6 +873,7 @@ function shouldUseMixerV3(project: Project): boolean {
 ```
 
 **Testing Scenarios:**
+
 - ✅ Fresh project generation
 - ✅ Regenerate single voice track
 - ✅ Regenerate all voice tracks
@@ -780,6 +884,7 @@ function shouldUseMixerV3(project: Project): boolean {
 - ✅ Console logs show 1 calculation instead of 4+
 
 **Success Criteria:**
+
 - No user-reported bugs
 - Calculation count reduced by 75%
 - Regeneration preserves relationships 100% of time
@@ -789,6 +894,7 @@ function shouldUseMixerV3(project: Project): boolean {
 **Goal:** Enable for all projects, deprecate legacy calculator
 
 **Tasks:**
+
 1. Migrate existing projects in Redis (batch script)
 2. Update feature flag default to `true`
 3. Add telemetry for monitoring
@@ -796,9 +902,10 @@ function shouldUseMixerV3(project: Project): boolean {
 5. Final deprecation of legacy calculator
 
 **Batch Migration Script:**
+
 ```typescript
 async function migrateAllProjects() {
-  const projects = await redis.keys('project:*');
+  const projects = await redis.keys("project:*");
 
   for (const key of projects) {
     const project = await redis.get(key);
@@ -816,6 +923,7 @@ async function migrateAllProjects() {
 ```
 
 **Rollback Plan:**
+
 1. Set `ENABLE_MIXER_V3=false` in environment
 2. System immediately switches to legacy calculator
 3. Projects still load (backward compatible)
@@ -823,6 +931,7 @@ async function migrateAllProjects() {
 5. Investigate root cause
 
 **Success Criteria:**
+
 - All projects migrated successfully
 - No increase in error rates
 - User-facing performance improvement visible
@@ -988,11 +1097,11 @@ export const useMixerStore = create<MixerState>((set, get) => ({
     const useMixerV3 = shouldUseMixerV3();
 
     if (useMixerV3) {
-      console.log('🎯 Using Mixer V3 (command-based)');
+      console.log("🎯 Using Mixer V3 (command-based)");
       // New system: commands already executed, this is just for manual trigger
       timelineController.recalculate();
     } else {
-      console.log('🔧 Using Legacy Timeline Calculator (heuristic-based)');
+      console.log("🔧 Using Legacy Timeline Calculator (heuristic-based)");
       // Old system: direct calculation
       const result = LegacyTimelineCalculator.calculateTimings(
         tracks,
@@ -1001,23 +1110,23 @@ export const useMixerStore = create<MixerState>((set, get) => ({
 
       set({
         calculatedTracks: result.calculatedTracks,
-        totalDuration: result.totalDuration
+        totalDuration: result.totalDuration,
       });
     }
-  }
+  },
 }));
 
 function shouldUseMixerV3(): boolean {
   // Environment override
-  if (typeof window !== 'undefined') {
-    const override = window.localStorage.getItem('ENABLE_MIXER_V3');
-    if (override === 'true') return true;
-    if (override === 'false') return false;
+  if (typeof window !== "undefined") {
+    const override = window.localStorage.getItem("ENABLE_MIXER_V3");
+    if (override === "true") return true;
+    if (override === "false") return false;
   }
 
   // Server-side environment variable
-  if (process.env.NEXT_PUBLIC_ENABLE_MIXER_V3 === 'true') return true;
-  if (process.env.NEXT_PUBLIC_ENABLE_MIXER_V3 === 'false') return false;
+  if (process.env.NEXT_PUBLIC_ENABLE_MIXER_V3 === "true") return true;
+  if (process.env.NEXT_PUBLIC_ENABLE_MIXER_V3 === "false") return false;
 
   // Check current project
   const project = useProjectHistoryStore.getState().currentProject;
@@ -1039,30 +1148,32 @@ function shouldUseMixerV3(): boolean {
 **Probability:** Medium
 **Impact:** High (users can't load projects)
 **Mitigation:**
+
 - Extensive testing with real production project data
 - Migration is non-destructive (adds `timelineState`, keeps `generatedTracks`)
 - Legacy system can still load projects (ignores `timelineState`)
 - Rollback via feature flag takes < 5 minutes
 
 **Validation:**
+
 ```typescript
 // Test suite
-describe('Project Migration', () => {
-  test('migrates project with 2 voices + music', () => {
+describe("Project Migration", () => {
+  test("migrates project with 2 voices + music", () => {
     const legacy = createLegacyProject();
     const migrated = migrateLegacyProject(legacy);
     expect(migrated.timelineState.tracks).toHaveLength(3);
-    expect(migrated.timelineState.tracks[0].semanticId).toBe('voice-1');
+    expect(migrated.timelineState.tracks[0].semanticId).toBe("voice-1");
   });
 
-  test('preserves relationships after migration', () => {
+  test("preserves relationships after migration", () => {
     const legacy = createProjectWithSFX();
     const migrated = migrateLegacyProject(legacy);
-    const sfx = migrated.timelineState.tracks.find(t => t.type === 'soundfx');
-    expect(sfx.playAfter).toBe('voice-2');
+    const sfx = migrated.timelineState.tracks.find((t) => t.type === "soundfx");
+    expect(sfx.playAfter).toBe("voice-2");
   });
 
-  test('legacy system can still load migrated project', () => {
+  test("legacy system can still load migrated project", () => {
     const migrated = createMigratedProject();
     const result = LegacyTimelineCalculator.calculateTimings(
       extractTracksForLegacy(migrated)
@@ -1077,18 +1188,20 @@ describe('Project Migration', () => {
 **Probability:** Low
 **Impact:** Medium (users see 100ms delay)
 **Mitigation:**
+
 - 100ms is imperceptible to humans
 - Can tune batch window (50ms, 150ms)
 - Can add "immediate" mode for critical operations
 - Monitor actual batch sizes in production
 
 **Monitoring:**
+
 ```typescript
 class CommandBatcher {
   private metrics = {
     batchSizes: [] as number[],
     avgBatchSize: 0,
-    maxBatchSize: 0
+    maxBatchSize: 0,
   };
 
   executeBatch() {
@@ -1098,9 +1211,11 @@ class CommandBatcher {
 
     // Log stats every 10 batches
     if (this.metrics.batchSizes.length % 10 === 0) {
-      console.log('Batch metrics:', {
-        avg: this.metrics.batchSizes.reduce((a, b) => a + b) / this.metrics.batchSizes.length,
-        max: this.metrics.maxBatchSize
+      console.log("Batch metrics:", {
+        avg:
+          this.metrics.batchSizes.reduce((a, b) => a + b) /
+          this.metrics.batchSizes.length,
+        max: this.metrics.maxBatchSize,
       });
     }
 
@@ -1114,25 +1229,29 @@ class CommandBatcher {
 **Probability:** Very Low
 **Impact:** High (relationships break)
 **Mitigation:**
+
 - Semantic IDs generated deterministically from position
 - Controller validates uniqueness before adding
 - Migration logic handles edge cases (missing tracks, gaps)
 
 **Validation:**
+
 ```typescript
 function addTrackWithSemanticId(track: MixerTrack): void {
   // Ensure semantic ID is unique
   const existingTrack = this.timeline.tracks.find(
-    t => t.semanticId === track.semanticId
+    (t) => t.semanticId === track.semanticId
   );
 
   if (existingTrack) {
     console.error(`Semantic ID collision: ${track.semanticId}`);
     // Auto-resolve: increment suffix
     let suffix = 2;
-    while (this.timeline.tracks.some(t =>
-      t.semanticId === `${track.semanticId}-${suffix}`
-    )) {
+    while (
+      this.timeline.tracks.some(
+        (t) => t.semanticId === `${track.semanticId}-${suffix}`
+      )
+    ) {
       suffix++;
     }
     track.semanticId = `${track.semanticId}-${suffix}`;
@@ -1149,6 +1268,7 @@ function addTrackWithSemanticId(track: MixerTrack): void {
 **Probability:** Low
 **Impact:** Low (slight cost increase)
 **Mitigation:**
+
 - `timelineState` adds ~5KB per project
 - 1000 projects = ~5MB (negligible for Redis)
 - Can add compression if needed
@@ -1159,13 +1279,15 @@ function addTrackWithSemanticId(track: MixerTrack): void {
 **Probability:** Medium
 **Impact:** Low (inconsistent results between systems)
 **Mitigation:**
+
 - Maintain parity during transition period
 - Add integration tests comparing both calculators
 - Deprecate legacy after 2 weeks of monitoring
 
 **Parity Test:**
+
 ```typescript
-test('V3 produces same results as legacy for simple project', () => {
+test("V3 produces same results as legacy for simple project", () => {
   const tracks = createSimpleTracks();
 
   // Calculate with legacy
@@ -1175,8 +1297,14 @@ test('V3 produces same results as legacy for simple project', () => {
   const v3Result = PureTimelineCalculator.calculate(tracks);
 
   // Compare positions (allow 10ms tolerance for rounding)
-  expect(v3Result[0].actualStartTime).toBeCloseTo(legacyResult[0].actualStartTime, 2);
-  expect(v3Result[1].actualStartTime).toBeCloseTo(legacyResult[1].actualStartTime, 2);
+  expect(v3Result[0].actualStartTime).toBeCloseTo(
+    legacyResult[0].actualStartTime,
+    2
+  );
+  expect(v3Result[1].actualStartTime).toBeCloseTo(
+    legacyResult[1].actualStartTime,
+    2
+  );
 });
 ```
 
@@ -1186,21 +1314,21 @@ test('V3 produces same results as legacy for simple project', () => {
 
 ### Performance Metrics
 
-| Metric | Current (Legacy) | Target (V3) | How to Measure |
-|--------|------------------|-------------|----------------|
-| Calculations per track add | 4-6 | 1 | Console logs |
-| Calculation time | ~5-10ms × 4 = 20-40ms | ~2ms × 1 = 2ms | Performance.now() |
-| Regeneration reliability | ~95% (sometimes breaks) | 100% | Error tracking |
-| Redis payload size | ~15KB | ~20KB | redis-cli memory usage |
+| Metric                     | Current (Legacy)        | Target (V3)    | How to Measure         |
+| -------------------------- | ----------------------- | -------------- | ---------------------- |
+| Calculations per track add | 4-6                     | 1              | Console logs           |
+| Calculation time           | ~5-10ms × 4 = 20-40ms   | ~2ms × 1 = 2ms | Performance.now()      |
+| Regeneration reliability   | ~95% (sometimes breaks) | 100%           | Error tracking         |
+| Redis payload size         | ~15KB                   | ~20KB          | redis-cli memory usage |
 
 ### Functional Metrics
 
-| Feature | Current | Target | Validation |
-|---------|---------|--------|------------|
-| Regeneration preserves relationships | Sometimes | Always | Automated tests |
-| Load old projects | ✅ | ✅ | Backward compat tests |
-| Undo/redo | ❌ | Ready (not impl) | Command history exists |
-| Manual editing | ❌ | Ready (foundation) | Architecture supports |
+| Feature                              | Current   | Target             | Validation             |
+| ------------------------------------ | --------- | ------------------ | ---------------------- |
+| Regeneration preserves relationships | Sometimes | Always             | Automated tests        |
+| Load old projects                    | ✅        | ✅                 | Backward compat tests  |
+| Undo/redo                            | ❌        | Ready (not impl)   | Command history exists |
+| Manual editing                       | ❌        | Ready (foundation) | Architecture supports  |
 
 ### Monitoring Dashboard
 
@@ -1221,14 +1349,15 @@ const metrics = {
     this.totalCalculationTime += elapsed;
 
     if (this.calculationsCount % 10 === 0) {
-      console.log('Mixer V3 Metrics:', {
+      console.log("Mixer V3 Metrics:", {
         calculations: this.calculationsCount,
         avgTime: this.totalCalculationTime / this.calculationsCount,
-        successRate: this.regenerationsSuccessful /
-                    (this.regenerationsSuccessful + this.regenerationsFailed)
+        successRate:
+          this.regenerationsSuccessful /
+          (this.regenerationsSuccessful + this.regenerationsFailed),
       });
     }
-  }
+  },
 };
 ```
 
@@ -1241,6 +1370,7 @@ const metrics = {
 Once V3 is stable, enable drag-and-drop editing:
 
 1. **Drag Preview:**
+
    ```typescript
    onDragMove(semanticId: string, newStartTime: number) {
      // Update UI immediately (optimistic)
@@ -1258,6 +1388,7 @@ Once V3 is stable, enable drag-and-drop editing:
    ```
 
 2. **Undo/Redo:**
+
    ```typescript
    class TimelineController {
      private commandHistory: TimelineCommand[] = [];
@@ -1286,6 +1417,7 @@ Once V3 is stable, enable drag-and-drop editing:
    ```
 
 3. **Multi-Select:**
+
    ```typescript
    moveMultipleTracks(semanticIds: string[], deltaTime: number) {
      const commands = semanticIds.map(id =>
@@ -1319,12 +1451,14 @@ The migration is designed to be **low-risk** (backward compatible, feature flagg
 **Do we proceed with Mixer V3?**
 
 ✅ **YES** if we want:
+
 - Reliable regeneration that always works
 - Foundation for manual editing (weeks away)
 - Cleaner, maintainable codebase
 - Elimination of "miraculous" behaviors
 
 ⛔ **NO** if we prefer:
+
 - Keep current fragile system that "mostly works"
 - Accept 4+ calculations per action
 - Delay manual editing features indefinitely

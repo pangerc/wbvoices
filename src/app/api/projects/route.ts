@@ -27,18 +27,24 @@ export async function GET(request: NextRequest) {
       (await redis.get<string[]>(PROJECT_KEYS.userProjects(sessionId))) || [];
     // console.log(`📋 Found ${projectIds.length} project IDs:`, projectIds);
 
-    // Load project metadata
-    const projects: ProjectMetadata[] = [];
-    for (const id of projectIds) {
-      const metadata = await redis.get<ProjectMetadata>(
-        PROJECT_KEYS.projectMeta(id)
+    // Load project metadata using batch MGET (single Redis call instead of N calls)
+    let projects: ProjectMetadata[] = [];
+    if (projectIds.length > 0) {
+      const keys = projectIds.map((id) => PROJECT_KEYS.projectMeta(id));
+      const metadataList = (await redis.mget(...keys)) as (ProjectMetadata | null)[];
+
+      // Filter out null values (missing metadata)
+      projects = metadataList.filter(
+        (metadata, index): metadata is ProjectMetadata => {
+          if (!metadata) {
+            console.log(
+              `⚠️ No metadata found for project ID: ${projectIds[index]}`
+            );
+            return false;
+          }
+          return true;
+        }
       );
-      if (metadata) {
-        projects.push(metadata);
-        // console.log(`✅ Loaded metadata for project: ${metadata.headline}`)
-      } else {
-        console.log(`⚠️ No metadata found for project ID: ${id}`);
-      }
     }
 
     // Sort by timestamp (newest first)

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { LegacyTimelineCalculator } from "@/services/legacyTimelineCalculator";
+import type { SoundFxPlacementIntent } from "@/types";
 
 // Timeline calculation: Using battle-tested heuristic approach
 
@@ -32,6 +33,8 @@ export type MixerTrack = {
     // Track source for music/soundfx (e.g., 'library', 'upload', 'generated')
     source?: string;
     sourceProjectId?: string;
+    // Placement intent for sound effects
+    placementIntent?: SoundFxPlacementIntent;
   };
   // UI state
   isLoading?: boolean;

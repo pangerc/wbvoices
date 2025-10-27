@@ -15,9 +15,6 @@ export class OpenAIPromptStrategy extends BasePromptStrategy {
     if (pacing === "fast") {
       pacingGuidance =
         " REQUIRED (client specified it for this ad): Use FAST pacing - rapid, energetic delivery with quick tempo and urgency.";
-    } else if (pacing === "slow") {
-      pacingGuidance =
-        " REQUIRED (client specified it for this ad): Use SLOW pacing - deliberate delivery with thoughtful pauses and relaxed tempo.";
     }
 
     let instructions = `For OpenAI TTS, provide detailed "voiceInstructions" string for each voice using this structure (IMPORTANT: this part remains in English):
@@ -31,7 +28,7 @@ Pauses: <exact placement and duration of pauses with purpose>
 
 Example: "Voice Affect: Calm, composed, and reassuring; Tone: Sincere, empathetic, and gently authoritative; Pacing: Steady and moderate; unhurried yet professional; Emotion: Genuine empathy and understanding; Emphasis: Clear emphasis on key reassurances and benefits; Pronunciation: Clear and precise, emphasizing important words; Pauses: Brief pauses after offering assistance, highlighting willingness to listen."
 
-Consider commercial pacing needs - fast for urgency, moderate for clarity, slow for luxury/premium brands.`;
+Consider commercial pacing needs - fast for urgency, moderate for all other contexts.`;
 
     if (accent && accent !== "neutral") {
       instructions += ` Include accent guidance in Pronunciation (e.g., "Pronunciation: ${accent}${

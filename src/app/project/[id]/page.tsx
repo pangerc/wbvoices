@@ -793,9 +793,21 @@ export default function ProjectWorkspace() {
     }
   };
 
-  const handleGenerateSoundFx = async (prompt: string, duration: number) => {
+  const handleGenerateSoundFx = async (
+    prompt: string,
+    duration: number,
+    placement?: import("@/types").SoundFxPlacementIntent
+  ) => {
     try {
-      const soundFxPrompt = { description: prompt, duration };
+      const soundFxPrompt = {
+        description: prompt,
+        duration,
+        placement, // Store placement intent
+      };
+
+      // Store in formManager so saveProject() persists it to Redis
+      formManager.setSoundFxPrompt(soundFxPrompt);
+
       await generateSoundFxAudio(soundFxPrompt);
       setSelectedTab(4); // Navigation
 
@@ -917,6 +929,64 @@ export default function ProjectWorkspace() {
     }
   };
 
+  // Handle track removal from timeline
+  const handleRemoveTrack = async (trackId: string) => {
+    const { tracks, removeTrack } = useMixerStore.getState();
+    const track = tracks.find(t => t.id === trackId);
+    if (!track) return;
+
+    // Remove from mixer store
+    removeTrack(trackId);
+
+    // Update Redis project
+    try {
+      const currentProject = await loadProjectFromRedis(projectId);
+      if (!currentProject || !currentProject.generatedTracks) return;
+
+      const updates: {
+        lastModified: number;
+        generatedTracks?: {
+          voiceUrls: string[];
+          musicUrl?: string | undefined;
+          soundFxUrl?: string | undefined;
+        };
+        musicPrompt?: string;
+        soundFxPrompt?: null;
+      } = {
+        lastModified: Date.now(),
+      };
+
+      if (track.type === 'voice') {
+        // Remove from voiceUrls array
+        const voiceUrls = (currentProject.generatedTracks.voiceUrls || [])
+          .filter(url => url !== track.url);
+        updates.generatedTracks = {
+          ...currentProject.generatedTracks,
+          voiceUrls,
+        };
+      } else if (track.type === 'music') {
+        updates.generatedTracks = {
+          ...currentProject.generatedTracks,
+          musicUrl: undefined,
+        };
+        // Also clear music prompt
+        updates.musicPrompt = '';
+      } else if (track.type === 'soundfx') {
+        updates.generatedTracks = {
+          ...currentProject.generatedTracks,
+          soundFxUrl: undefined,
+        };
+        // Also clear soundfx prompt
+        updates.soundFxPrompt = null;
+      }
+
+      await updateProject(projectId, updates);
+      console.log(`✅ Removed ${track.type} track from project`);
+    } catch (error) {
+      console.error('❌ Failed to update project after track removal:', error);
+    }
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -1018,6 +1088,11 @@ export default function ProjectWorkspace() {
               initialPrompt={formManager.soundFxPrompt}
               adDuration={adDuration}
               resetForm={formManager.resetSoundFxPrompt}
+              voiceTrackCount={formManager.voiceTracks.length}
+              voiceTrackPreviews={formManager.voiceTracks.map((track) => ({
+                name: track.voice?.name || "Unknown Voice",
+                text: track.text || "",
+              }))}
             />
           )}
 
@@ -1027,6 +1102,10 @@ export default function ProjectWorkspace() {
               isGeneratingVoice={formManager.isGenerating}
               isGeneratingMusic={formManager.isGeneratingMusic}
               isGeneratingSoundFx={formManager.isGeneratingSoundFx}
+              onChangeVoice={() => setSelectedTab(1)}
+              onChangeMusic={() => setSelectedTab(2)}
+              onChangeSoundFx={() => setSelectedTab(3)}
+              onRemoveTrack={handleRemoveTrack}
             />
           )}
 

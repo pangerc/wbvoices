@@ -10,29 +10,34 @@ export type ProjectHistoryState = {
   // History management
   projects: ProjectMetadata[]
   recentProjects: ProjectMetadata[] // All projects (no limit)
-  
+  lastLoadedAt: number | null // Timestamp of last successful load
+
   // UI state
   isGeneratingHeadline: boolean
   isLoading: boolean
   error: string | null
-  
+
   // Actions
   createProject: (projectId: string, brief: ProjectBrief) => Promise<void>
   updateProject: (projectId: string, updates: Partial<Project>) => Promise<void>
   deleteProject: (id: string) => Promise<void>
-  loadProjects: () => Promise<void>
+  loadProjects: (forceRefresh?: boolean) => Promise<void>
   clearHistory: () => Promise<void>
-  
+
   // Internal helpers
   generateHeadline: (brief: ProjectBrief) => Promise<string>
   saveProjectToRedis: (project: Project) => Promise<void>
   loadProjectFromRedis: (id: string) => Promise<Project | null>
 }
 
+// Cache configuration
+const CACHE_STALE_TIME_MS = 30 * 1000; // 30 seconds
+
 export const useProjectHistoryStore = create<ProjectHistoryState>((set, get) => ({
   // Initial state
   projects: [],
   recentProjects: [],
+  lastLoadedAt: null,
   isGeneratingHeadline: false,
   isLoading: false,
   error: null,
@@ -143,10 +148,10 @@ export const useProjectHistoryStore = create<ProjectHistoryState>((set, get) => 
       await get().saveProjectToRedis(project)
       
       console.log('📝 Reloading project list...')
-      
-      // Reload project list
-      await get().loadProjects()
-      
+
+      // Force reload project list after creation
+      await get().loadProjects(true)
+
       console.log('✅ Project created successfully:', project.headline)
       
     } catch (error) {
@@ -192,7 +197,7 @@ export const useProjectHistoryStore = create<ProjectHistoryState>((set, get) => 
     try {
       set({ isLoading: true, error: null })
       const sessionId = getUserSessionId()
-      
+
       const response = await fetch(`/api/projects/${id}?sessionId=${encodeURIComponent(sessionId)}`, {
         method: 'DELETE'
       })
@@ -200,10 +205,10 @@ export const useProjectHistoryStore = create<ProjectHistoryState>((set, get) => 
       if (!response.ok) {
         throw new Error('Failed to delete project')
       }
-      
-      // Reload project list
-      await get().loadProjects()
-      
+
+      // Force reload project list after deletion
+      await get().loadProjects(true)
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete project'
       set({ error: errorMessage })
@@ -213,24 +218,35 @@ export const useProjectHistoryStore = create<ProjectHistoryState>((set, get) => 
   },
 
   // Load project list
-  loadProjects: async () => {
+  loadProjects: async (forceRefresh = false) => {
     try {
+      // Check if cache is still fresh (unless force refresh)
+      const { lastLoadedAt } = get();
+      if (!forceRefresh && lastLoadedAt) {
+        const cacheAge = Date.now() - lastLoadedAt;
+        if (cacheAge < CACHE_STALE_TIME_MS) {
+          console.log(`📋 Using cached projects (${Math.round(cacheAge / 1000)}s old)`);
+          return; // Use cached data
+        }
+      }
+
       set({ isLoading: true, error: null })
       const sessionId = getUserSessionId()
-      
+
       const response = await fetch(`/api/projects?sessionId=${encodeURIComponent(sessionId)}`)
-      
+
       if (!response.ok) {
         throw new Error('Failed to load projects')
       }
 
       const { projects } = await response.json()
-      
-      set({ 
+
+      set({
         projects: projects || [],
-        recentProjects: projects || []
+        recentProjects: projects || [],
+        lastLoadedAt: Date.now()
       })
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load projects'
       set({ error: errorMessage })
@@ -261,7 +277,8 @@ export const useProjectHistoryStore = create<ProjectHistoryState>((set, get) => 
       // Reset local state
       set({
         projects: [],
-        recentProjects: []
+        recentProjects: [],
+        lastLoadedAt: Date.now()
       })
       
     } catch (error) {
