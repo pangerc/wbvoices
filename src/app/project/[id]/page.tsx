@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   CampaignFormat,
@@ -266,6 +266,9 @@ export default function ProjectWorkspace() {
     }
   }, [tracks.length]);
 
+  // 🔥 Track pending debounced saves to prevent race conditions
+  const pendingSaveRef = useRef<NodeJS.Timeout | null>(null);
+
   // Simple debounce utility
   const debounce = (func: (...args: unknown[]) => void, wait: number) => {
     let timeout: NodeJS.Timeout;
@@ -444,14 +447,24 @@ export default function ProjectWorkspace() {
     // No cleanup needed - debounce handles its own timeout
   }, [tracks.length, tracks, isLoading, projectNotFound]); // No saveProject dependency!
 
-  // Debounced save for text changes (500ms delay)
+  // Debounced save for text changes (500ms delay) with timeout tracking
   // 🗡️ DEMON EXORCISM: Safe debounced save without saveProject dependency
   const debouncedSave = useMemo(() => {
-    return debounce(() => {
-      if (!isLoading && !projectNotFound) {
-        saveProject("text changes");
+    return () => {
+      // Clear any existing pending save
+      if (pendingSaveRef.current) {
+        clearTimeout(pendingSaveRef.current);
+        pendingSaveRef.current = null;
       }
-    }, 500);
+
+      // Schedule new save and store timeout reference
+      pendingSaveRef.current = setTimeout(() => {
+        if (!isLoading && !projectNotFound) {
+          saveProject("text changes");
+        }
+        pendingSaveRef.current = null; // Clear after execution
+      }, 500);
+    };
   }, [projectId, projectNotFound, isLoading]); // No saveProject dependency
 
   // Enhanced voice track update with immediate save for voice changes, debounced for text
@@ -725,6 +738,19 @@ export default function ProjectWorkspace() {
     voiceTracks?: VoiceTrack[]
   ) => {
     try {
+      // 🔥 CRITICAL: Flush any pending debounced saves before voice generation
+      // This prevents race condition where manual script edits are lost
+      if (pendingSaveRef.current) {
+        console.log("⏱️ Flushing pending save before voice generation");
+        clearTimeout(pendingSaveRef.current);
+        pendingSaveRef.current = null;
+
+        // Execute the save immediately to persist manual edits
+        if (!projectNotFound) {
+          await saveProject("flush manual edits before voice generation");
+        }
+      }
+
       // Simple: use provided provider or fall back to voice manager state
       const providerToUse =
         provider || (voiceManager.selectedProvider as Provider);
