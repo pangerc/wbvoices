@@ -153,11 +153,27 @@ export async function uploadSoundFxToBlob(
 }
 
 /**
+ * Normalizes prompt text for consistent cache key generation
+ * Handles whitespace, punctuation, and special character differences
+ * that occur when copy-pasting from different sources (Google Docs, Slack, etc.)
+ */
+function normalizePrompt(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .normalize('NFC')                    // Unicode normalization
+    .replace(/\s+/g, ' ')                // Collapse whitespace (tabs, newlines, multiple spaces → single space)
+    .replace(/[""]/g, '"')               // Curly → straight quotes
+    .replace(/['']/g, "'")               // Smart → straight apostrophes
+    .replace(/[—–]/g, '-');              // Em/en dash → hyphen
+}
+
+/**
  * Generates a cache key from prompt and parameters
  */
 export async function generateCacheKey(prompt: string, params: Record<string, unknown> = {}): Promise<string> {
   const normalized = JSON.stringify({
-    prompt: prompt.trim().toLowerCase(),
+    prompt: normalizePrompt(prompt),
     ...params
   });
   
