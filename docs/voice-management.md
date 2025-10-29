@@ -1404,10 +1404,51 @@ Maxime Lavaud - French young man (id: OPCL81coXM3AEo8gUxHM)
 
 **Future Enhancements:**
 1. **Manual description editing** - Build UI for editing/overriding descriptions
-2. **Multi-provider coverage** - Scrape descriptions for Lovo, OpenAI, Qwen
+2. **Multi-provider coverage** - ~~Scrape descriptions for Lovo, OpenAI, Qwen~~ OpenAI completed (October 2025)
 3. **AI-generated descriptions** - Generate descriptions for voices missing from scrape
 4. **Quality ratings** - Add 1-5 star ratings per description
 5. **A/B testing** - Measure impact of descriptions on voice selection quality
+
+### ✅ OpenAI Voice Descriptions (October 2025)
+
+**Problem Solved**: French users reported OpenAI voices labeled as "male" were sounding female. Investigation revealed incorrect hardcoded gender assignments.
+
+**Source**: Vocal range classification table with authoritative gender assignments based on vocal range (soprano, alto, tenor, baritone, bass).
+
+**Gender Corrections Applied**:
+- **alloy**: male → **female** (contralto)
+- **fable**: male → **female** (alto)
+- **sage**: male → **female** (soprano_2)
+
+**Final Gender Distribution**:
+- Male: 5 voices (ash, ballad, echo, onyx, verse)
+- Female: 6 voices (alloy, coral, fable, nova, sage, shimmer)
+
+**Coverage**: 11/11 voices (100%)
+
+**Key Characteristics**:
+- Vocal range classifications provide objective gender indicators
+- Accent handling notes ("not great with accents" for alloy/ash)
+- Direction responsiveness ratings (how well voice responds to instructions)
+- Practical descriptions of voice character
+
+**Implementation**:
+- Gender metadata corrected in `src/services/voiceProviderService.ts`
+- Rich descriptions stored in `data/openai-voice-descriptions.json`
+- Imported via `scripts/import-openai-descriptions.ts`
+- Source tag: `openai_vocal_ranges_2024`
+
+**Usage**:
+```bash
+# Import OpenAI descriptions
+npx tsx scripts/import-openai-descriptions.ts
+```
+
+**Impact**:
+- ✅ French voice selection now accurate (female voices correctly labeled)
+- ✅ LLM receives vocal range and accent handling information
+- ✅ Direction responsiveness helps match voices to creative needs
+- ✅ Consistent with official OpenAI voice characteristics
 
 ### 🎯 Usage
 

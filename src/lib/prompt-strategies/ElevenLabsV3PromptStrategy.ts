@@ -97,17 +97,60 @@ TAG STACKING BEHAVIOR:
 
 General tag placement guidelines:
 - Match tags to voice personality (serious voice shouldn't use [giggles])
+
+📋 VOICE PERSONALITY → EMOTIONAL TAG MATCHING:
+
+Review each voice's "Personality" field before selecting tags. Choose tags that align with their natural delivery style:
+
+**Warm, Friendly, Approachable voices:**
+✅ Use: [happy], [laughs], [chuckles], [cheerful], [excited]
+❌ Avoid: [serious], [cold], [monotone], [stern]
+
+**Professional, Authoritative, Serious voices:**
+✅ Use: [confident], [serious], [thoughtful pause], [authoritative]
+❌ Avoid: [giggles], [silly], [wheezing], [mischievously]
+
+**Playful, Energetic, Dynamic voices:**
+✅ Use: [excited], [laughing], [happy], [mischievously], [very excited]
+❌ Avoid: [monotone], [dull], [serious], [whispers]
+
+**Calm, Soothing, Gentle voices:**
+✅ Use: [gentle], [whispers], [thoughtful], [soft], [sighs]
+❌ Avoid: [shouting], [angry], [excited], [very excited]
+
+**Conversational, Natural, Relatable voices:**
+✅ Use: [sighs], [chuckles], [thoughtful], [curious], [laughs]
+❌ Avoid: Over-dramatic tags that break natural flow
+
+IMPORTANT: If a voice's personality description includes traits like "calm and composed", do NOT use high-energy tags like [excited] or [shouting]. If it says "energetic and dynamic", do NOT use subdued tags like [whispers] or [gentle]. Always respect the voice's natural character.
+
 - Tags must be in ENGLISH regardless of target language
 - More tags = more expressive delivery, but only when contextually appropriate
 
 ${
       pacing === "fast"
-        ? `🌟 EXAMPLE (fast pacing${context.accent && context.accent !== "neutral" ? ", with accent" : ""}):
+        ? `🌟 EXAMPLES WITH PERSONALITY AWARENESS (fast pacing):
+
+Example 1 - Warm, Friendly voice (Rachel):
 "description": "excited",
-"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[excited][fast][fast]Check this out! [fast][energetic]Our new product... [very excited]it's AMAZING! [fast][fast][happy]Get yours today!"`
-        : `🌟 EXAMPLE (normal pacing${context.accent && context.accent !== "neutral" ? ", with accent" : ""}):
+"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[laughs][excited][fast][fast]You're going to love this! [fast][happy]Our new product... [very excited]it's AMAZING! [fast][fast][cheerful]Don't miss out!"
+
+Example 2 - Professional, Authoritative voice (Michael):
+"description": "professional",
+"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[confident][fast][fast]Introducing our solution. [fast][serious]Proven results. [fast][authoritative]Act now."`
+        : `🌟 EXAMPLES WITH PERSONALITY AWARENESS (normal pacing):
+
+Example 1 - Warm, Friendly voice (Rachel):
 "description": "cheerful",
-"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[laughs][happy]You won't believe this! [excited]Our new product is here. [whispers]And the price? [cheerful]Unbeatable."`
+"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[laughs][happy]You won't believe this! [excited]Our new product is here. [whispers]And the price? [cheerful]Unbeatable."
+
+Example 2 - Professional, Authoritative voice (Michael):
+"description": "professional",
+"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[confident]Introducing our latest solution. [thoughtful pause]Proven results. [serious]Guaranteed satisfaction."
+
+Example 3 - Calm, Soothing voice (Sarah):
+"description": "calm",
+"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[gentle]Take a moment for yourself... [soft][sighs]You deserve this. [whispers]Pure relaxation."`
     }
 
 KEY PRINCIPLES:

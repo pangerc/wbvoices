@@ -2,7 +2,7 @@ import { Language } from "@/utils/language";
 
 export type Provider = "any" | "lovo" | "elevenlabs" | "openai" | "qwen" | "bytedance";
 
-export type Pacing = "slow" | "normal" | "fast";
+export type Pacing = "normal" | "fast";
 
 export type { Language };
 

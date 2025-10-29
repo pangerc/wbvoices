@@ -267,7 +267,7 @@ export function getOpenAIVoices(): ProviderVoice[] {
     {
       id: "alloy",
       name: "Alloy",
-      gender: "male",
+      gender: "female",
       description: "Balanced, neutral, clear",
     },
     {
@@ -279,7 +279,7 @@ export function getOpenAIVoices(): ProviderVoice[] {
     {
       id: "fable",
       name: "Fable",
-      gender: "male",
+      gender: "female",
       description: "Warm, engaging, storytelling",
     },
     {
@@ -321,7 +321,7 @@ export function getOpenAIVoices(): ProviderVoice[] {
     {
       id: "sage",
       name: "Sage",
-      gender: "male",
+      gender: "female",
       description: "Wise, contemplative",
     },
     {

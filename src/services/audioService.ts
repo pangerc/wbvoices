@@ -1,4 +1,4 @@
-import { Provider, Voice, VoiceTrack, MusicProvider, SoundFxPrompt } from "@/types";
+import { Provider, Voice, VoiceTrack, MusicProvider, SoundFxPrompt, Pacing } from "@/types";
 // Beatoven removed - trial expired and poor quality
 import { generateMusicWithLoudly } from "@/utils/loudly-api";
 import { generateMusicWithMubert } from "@/utils/mubert-api";
@@ -12,7 +12,8 @@ export class AudioService {
     onStatusUpdate: (message: string) => void,
     setIsGenerating?: (generating: boolean) => void,
     region?: string,
-    accent?: string
+    accent?: string,
+    pacing?: Pacing | null
   ): Promise<void> {
     setIsGenerating?.(true);
     onStatusUpdate("Generating audio...");
@@ -42,6 +43,7 @@ export class AudioService {
             voiceInstructions: track.voiceInstructions, // OpenAI-specific voice instructions
             region, // Pass region for accent support
             accent, // Pass accent for dialect support
+            pacing, // Pass pacing for speed control
             projectId: `voice-project-${Date.now()}`, // Add projectId for blob storage
           }),
         });

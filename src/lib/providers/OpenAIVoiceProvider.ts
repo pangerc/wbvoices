@@ -8,19 +8,19 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
   readonly providerType = 'voice' as const;
 
   validateParams(body: Record<string, unknown>): ValidationResult {
-    const { text, voiceId, style, useCase, projectId, region, accent } = body;
+    const { text, voiceId, style, useCase, projectId, region, accent, pacing } = body;
 
     if (!text || typeof text !== 'string') {
-      return { 
-        isValid: false, 
-        error: "Missing required parameter: text" 
+      return {
+        isValid: false,
+        error: "Missing required parameter: text"
       };
     }
 
     if (!voiceId || typeof voiceId !== 'string') {
-      return { 
-        isValid: false, 
-        error: "Missing required parameter: voiceId" 
+      return {
+        isValid: false,
+        error: "Missing required parameter: voiceId"
       };
     }
 
@@ -33,7 +33,8 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
         useCase: typeof useCase === 'string' ? useCase : undefined,
         projectId: typeof projectId === 'string' ? projectId : undefined,
         region: typeof region === 'string' ? region : undefined,
-        accent: typeof accent === 'string' ? accent : undefined
+        accent: typeof accent === 'string' ? accent : undefined,
+        pacing: typeof pacing === 'string' ? pacing : undefined
       }
     };
   }
@@ -54,7 +55,7 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
   }
 
   async makeRequest(params: Record<string, unknown>, credentials: AuthCredentials): Promise<ProviderResponse> {
-    const { text, voiceId, style, useCase, instructions: voiceInstructions, region, accent } = params;
+    const { text, voiceId, style, useCase, instructions: voiceInstructions, region, accent, pacing } = params;
     const { apiKey } = credentials;
 
     console.log(`🎭 OpenAI API Call:`);
@@ -65,6 +66,7 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
     console.log(`  Voice Instructions: ${voiceInstructions || 'none'}`);
     console.log(`  Region: ${region || 'none'}`);
     console.log(`  Accent: ${accent || 'none'}`);
+    console.log(`  Pacing: ${pacing || 'normal (default)'}`);
 
     // Extract base voice from our ID format
     const openAIVoice = (voiceId as string).split('-')[0];
@@ -129,6 +131,14 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
       }
     }
 
+    // Map pacing to speed values (aggressive for ads)
+    let speed = 1.1; // Default: Normal (null/undefined) → 1.1
+    if (pacing === 'fast') {
+      speed = 1.6; // Fast → 1.6
+    }
+
+    console.log(`  🎛️ Speed setting: ${speed} (pacing: ${pacing || 'normal'})`);
+
     // Build API request body
     const requestBody: {
       model: string;
@@ -142,7 +152,7 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
       input: text as string,  // Clean text only
       voice: openAIVoice,
       response_format: "mp3",
-      speed: 1.0,
+      speed: speed,
     };
 
     // Add instructions if we have any

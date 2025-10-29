@@ -708,7 +708,8 @@ export default function ProjectWorkspace() {
       formManager.setStatusMessage,
       formManager.setIsGenerating,
       voiceManager.selectedRegion || undefined,
-      voiceManager.selectedAccent || undefined
+      voiceManager.selectedAccent || undefined,
+      selectedPacing
     );
   };
 
