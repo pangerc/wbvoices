@@ -21,63 +21,135 @@ import {
   GlassySlider,
   GlassyCombobox,
   SplitGenerateButton,
+  ProviderSelectionModal,
+  AIModelSelectionModal,
 } from "./ui";
 
-/**
- * Small refresh button for updating the voice cache
- */
-function RefreshVoiceCache() {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      const response = await fetch("/api/admin/voice-cache", {
-        method: "POST",
-      });
-      if (response.ok) {
-        setLastRefresh(new Date());
-        // Reload the page to get fresh voice data
-        window.location.reload();
-      } else {
-        console.error("Failed to refresh voice cache");
-      }
-    } catch (error) {
-      console.error("Error refreshing voice cache:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  return (
-    <button
-      onClick={handleRefresh}
-      disabled={isRefreshing}
-      className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-300 transition-colors disabled:opacity-50"
-    >
-      <svg
-        className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`}
+// SVG Icons for Ad Format
+const DialogueIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    height="20"
+    width="20"
+  >
+    <g>
+      <path
+        d="m6.5 5.5 11 0"
         fill="none"
-        viewBox="0 0 24 24"
         stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-        />
-      </svg>
-      {isRefreshing ? "Refreshing..." : "Refresh voices database"}
-      {lastRefresh && (
-        <span className="text-gray-500">
-          (updated {lastRefresh.toLocaleTimeString()})
-        </span>
-      )}
-    </button>
-  );
-}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1"
+      />
+      <path
+        d="m6.5 8.5 6.5 0"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1"
+      />
+      <path
+        d="m13.5 14.5 6 0"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1"
+      />
+      <path
+        d="m13.5 17.5 6 0"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1"
+      />
+      <path
+        d="m6.5 11.5 2.5 0"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1"
+      />
+      <path
+        d="m8 18.67 -6.64 3.08L4 16.58a8.6 8.6 0 0 1 -3.5 -6.7C0.5 4.7 5.65 0.5 12 0.5s11.5 4.2 11.5 9.38"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1"
+      />
+      <path
+        d="M9.7 16.38c0 3.11 3.09 5.63 6.9 5.63a8.28 8.28 0 0 0 2.4 -0.36l4 1.85 -1.55 -3.1a5.16 5.16 0 0 0 2.07 -4c0 -3.11 -3.09 -5.63 -6.9 -5.63s-6.92 2.5 -6.92 5.61Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1"
+      />
+    </g>
+  </svg>
+);
+
+const SingleVoiceIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    height="20"
+    width="20"
+  >
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M0.552307 23.45c0.013353 -1.1373 0.250113 -2.2609 0.696813 -3.3069 0.48778 -0.9765 2.52746 -1.6534 5.08776 -2.6011 0.69184 -0.2568 0.57836 -2.0646 0.27176 -2.402 -0.48843 -0.5289 -0.85944 -1.1552 -1.08865 -1.8377 -0.22921 -0.6825 -0.31144 -1.4057 -0.24127 -2.1222 -0.04387 -0.4561 0.0066 -0.9163 0.14824 -1.35196 0.14165 -0.4357 0.37145 -0.83758 0.67511 -1.18064 0.30365 -0.34306 0.67466 -0.61995 1.08994 -0.81345 0.41527 -0.1935 0.86593 -0.29946 1.32392 -0.31128 0.45833 0.01129 0.90942 0.11685 1.32517 0.31011 0.4157 0.19326 0.7872 0.47008 1.0913 0.8132 0.3041 0.34311 0.5342 0.74518 0.6761 1.18114 0.1419 0.43598 0.1925 0.89648 0.1486 1.35288 0.0702 0.7165 -0.012 1.4397 -0.2412 2.1222 -0.2293 0.6825 -0.6003 1.3088 -1.0887 1.8377 -0.3066 0.3374 -0.4201 2.1452 0.2718 2.402 2.5603 0.9477 4.5999 1.6246 5.0877 2.6011 0.4467 1.046 0.6835 2.1696 0.6968 3.3069H0.552307Z"
+      strokeWidth="1"
+    />
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M13.9701 12.0361c0.4876 0.1906 0.9957 0.3243 1.514 0.3982l0 3.0561c0.4978 -0.4978 3.4841 -2.9864 3.9819 -3.4453 1.1446 -0.4067 2.1385 -1.1519 2.8497 -2.13667 0.7112 -0.98482 1.106 -2.16265 1.1321 -3.37714 -0.0676 -1.64985 -0.7867 -3.20557 -1.9997 -4.32598 -1.213 -1.1204 -2.8207 -1.714036 -4.4708 -1.650715 -1.5447 -0.050572 -3.0541 0.468435 -4.2411 1.458295 -1.187 0.98986 -1.9687 2.3815 -2.1965 3.91018"
+      strokeWidth="1"
+    />
+    <path
+      stroke="currentColor"
+      d="M14.2398 6.77617c-0.1375 0 -0.2489 -0.11142 -0.2489 -0.24886 0 -0.13745 0.1114 -0.24887 0.2489 -0.24887"
+      strokeWidth="1"
+    />
+    <path
+      stroke="currentColor"
+      d="M14.2398 6.77617c0.1374 0 0.2488 -0.11142 0.2488 -0.24886 0 -0.13745 -0.1114 -0.24887 -0.2488 -0.24887"
+      strokeWidth="1"
+    />
+    <path
+      stroke="currentColor"
+      d="M16.9773 6.77617c-0.1375 0 -0.2489 -0.11142 -0.2489 -0.24886 0 -0.13745 0.1114 -0.24887 0.2489 -0.24887"
+      strokeWidth="1"
+    />
+    <path
+      stroke="currentColor"
+      d="M16.9773 6.77617c0.1374 0 0.2488 -0.11142 0.2488 -0.24886 0 -0.13745 -0.1114 -0.24887 -0.2488 -0.24887"
+      strokeWidth="1"
+    />
+    <g>
+      <path
+        stroke="currentColor"
+        d="M19.7147 6.77617c-0.1374 0 -0.2488 -0.11142 -0.2488 -0.24886 0 -0.13745 0.1114 -0.24887 0.2488 -0.24887"
+        strokeWidth="1"
+      />
+      <path
+        stroke="currentColor"
+        d="M19.7148 6.77617c0.1374 0 0.2488 -0.11142 0.2488 -0.24886 0 -0.13745 -0.1114 -0.24887 -0.2488 -0.24887"
+        strokeWidth="1"
+      />
+    </g>
+  </svg>
+);
 
 /**
  * 🔥 BRIEF PANEL - REDIS POWERED!
@@ -127,13 +199,12 @@ const campaignFormatOptions = [
   {
     value: "ad_read" as CampaignFormat,
     label: "Single Voice Ad Read",
-    description: "One voice narrating the entire advertisement",
+    icon: <SingleVoiceIcon />,
   },
   {
     value: "dialog" as CampaignFormat,
     label: "Dialogue",
-    description:
-      "Two voices having a conversation about the product or service",
+    icon: <DialogueIcon />,
   },
 ];
 
@@ -257,6 +328,61 @@ const RabbitIcon = () => (
   </svg>
 );
 
+// SVG Icons for settings (AI Model, Voice Provider)
+const PenIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 10 10"
+    height="12"
+    width="12"
+  >
+    <path
+      fill="currentColor"
+      fillRule="evenodd"
+      d="M6.353 0.149a0.5 0.5 0 0 0 -0.77 0.076L4.522 1.817l3.661 3.661 1.592 -1.06a0.5 0.5 0 0 0 0.076 -0.77L6.353 0.147Zm1.428 6.34L3.51 2.22l-1.357 0.151A1.5 1.5 0 0 0 0.838 3.627L0.015 8.84a0.997 0.997 0 0 0 0.02 0.416L2.844 6.45l-0.346 -0.346a0.5 0.5 0 0 1 0.707 -0.708l0.694 0.694 0.005 0.006 0.006 0.006 0.694 0.693a0.5 0.5 0 0 1 -0.708 0.707l-0.345 -0.345L0.743 9.964c0.13 0.035 0.27 0.044 0.416 0.021l5.214 -0.823A1.5 1.5 0 0 0 7.63 7.846l0.15 -1.356Z"
+      clipRule="evenodd"
+      strokeWidth="1"
+    />
+  </svg>
+);
+
+const VoiceMailIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 10 10"
+    height="12"
+    width="12"
+  >
+    <path
+      fill="currentColor"
+      fillRule="evenodd"
+      d="M6.414 5.914A2 2 0 0 1 3 4.5V2a2 2 0 1 1 4 0v2.5a2 2 0 0 1 -0.586 1.414Zm1.644 -2.106a0.625 0.625 0 0 1 1.067 0.442v0.5a4.132 4.132 0 0 1 -3.5 4.078v0.547a0.625 0.625 0 0 1 -1.25 0v-0.547a4.132 4.132 0 0 1 -3.5 -4.078v-0.5a0.625 0.625 0 1 1 1.25 0v0.5a2.875 2.875 0 1 0 5.75 0v-0.5c0 -0.166 0.066 -0.325 0.183 -0.442Z"
+      clipRule="evenodd"
+      strokeWidth="1"
+    />
+  </svg>
+);
+
+const ExternalLinkIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={2}
+    stroke="currentColor"
+    height="12"
+    width="12"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+    />
+  </svg>
+);
+
 const allAiModelOptions = [
   {
     value: "gpt4" as AIModel,
@@ -306,6 +432,10 @@ export function BriefPanel({
 
   // 🚀 AUTO Mode state - tracks which mode was last used (for button display)
   const [autoModeEnabled, setAutoModeEnabled] = useState(true);
+
+  // Modal state
+  const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
+  const [isAiModelModalOpen, setIsAiModelModalOpen] = useState(false);
 
   // 🔥 NEW: Server-filtered voices to replace client-side getFilteredVoices()
   const [serverFilteredVoices, setServerFilteredVoices] = useState<{
@@ -487,15 +617,26 @@ export function BriefPanel({
   ]);
 
   // 🎯 AI Model auto-selection for Chinese language - intelligent model matching
+  // Only auto-selects Chinese models when switching TO Chinese language
+  // Does NOT force switch away from Chinese models for other languages (user choice respected)
+  const previousLanguageForAiRef = useRef(selectedLanguage);
   useEffect(() => {
     console.count("🔥 brief:ai-model-selection"); // 🧪 DEMON DIAGNOSTIC
+
+    const languageChanged = previousLanguageForAiRef.current !== selectedLanguage;
+
+    // Only auto-select when language actually changes (not when AI model changes)
+    if (!languageChanged) {
+      return;
+    }
+
+    previousLanguageForAiRef.current = selectedLanguage;
 
     const isChineseLanguage =
       selectedLanguage === "zh" || selectedLanguage.startsWith("zh-");
 
-    // Check if we should auto-select for Chinese
+    // Only auto-select Chinese model when switching TO Chinese language
     if (isChineseLanguage) {
-      // Only switch if currently using a non-Chinese model
       const chineseModels = ["moonshot", "qwen"];
       const isUsingChineseModel = chineseModels.includes(selectedAiModel);
 
@@ -513,26 +654,9 @@ export function BriefPanel({
           setSelectedAiModel(suggestedModel);
         }
       }
-    } else {
-      // For non-Chinese languages, switch away from Chinese models if needed
-      const chineseModels = ["moonshot", "qwen"];
-      const isUsingChineseModel = chineseModels.includes(selectedAiModel);
-
-      if (isUsingChineseModel) {
-        const availableModels = aiModelOptions.map((option) => option.value);
-        const suggestedModel = selectAIModelForLanguage(
-          selectedLanguage,
-          availableModels
-        );
-
-        if (suggestedModel && suggestedModel !== selectedAiModel) {
-          console.log(
-            `🎯 Auto-selecting AI model "${suggestedModel}" for non-Chinese language`
-          );
-          setSelectedAiModel(suggestedModel);
-        }
-      }
     }
+    // Note: We do NOT force switch away from Chinese models for non-Chinese languages
+    // Users should be free to choose any model for any language
   }, [selectedLanguage, selectedAiModel, setSelectedAiModel, aiModelOptions]);
 
   // 🗡️ REMOVED: Client-side getFilteredVoices() - now using server-side filtering!
@@ -830,7 +954,7 @@ export function BriefPanel({
       </div>
 
       {/* Row 1: Client Description and Creative Brief */}
-      <div className="grid grid-cols-2 gap-8 mb-8">
+      <div className="grid grid-cols-3 gap-6 mb-6">
         {/* Column 1: Client Description */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -844,8 +968,8 @@ export function BriefPanel({
           />
         </div>
 
-        {/* Column 2: Creative Brief */}
-        <div>
+        {/* Column 2-3: Creative Brief (spans 2 columns) */}
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-300 mb-2">
             Creative Brief (description of the ad)
           </label>
@@ -858,108 +982,132 @@ export function BriefPanel({
         </div>
       </div>
 
-      {/* Row 2: Voice Selection */}
-      <div className="grid grid-cols-2 gap-8 mb-8">
-        {/* Column 1: Language, Region, Accent */}
-        <div className="space-y-4">
-          {/* Language */}
-          <div>
-            <label className="flex justify-between text-sm font-medium text-gray-300 mb-2">
-              Language
-              <span className="text-ml text-gray-600 pr-6">
-                {getFlagCode(selectedLanguage)}
-              </span>
-            </label>
-            <GlassyCombobox
-              value={
-                availableLanguages.find((l) => l.code === selectedLanguage)
-                  ? {
-                      value: selectedLanguage,
-                      label: availableLanguages.find(
-                        (l) => l.code === selectedLanguage
-                      )!.name,
-                      flag: getFlagCode(selectedLanguage),
-                    }
-                  : null
-              }
-              onChange={(item) =>
-                item && setSelectedLanguage(item.value as Language)
-              }
-              options={filteredLanguages
-                .filter((lang) => lang && lang.code && lang.name)
-                .map((lang) => ({
-                  value: lang.code,
-                  label: lang.name,
-                  flag: getFlagCode(lang.code),
-                }))}
-              onQueryChange={setLanguageQuery}
-              disabled={isLoading}
-            />
-          </div>
-
-          {/* Region - only shown for languages with regional variations */}
-          {hasRegions && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Region
-              </label>
-              <GlassyListbox
-                value={selectedRegion || "all"}
-                onChange={(value) => setSelectedRegion(value || null)}
-                options={availableRegions.map((r) => ({
-                  value: r.code,
-                  label: r.displayName,
-                }))}
-                disabled={isLoading || availableRegions.length === 0}
-              />
-            </div>
-          )}
-
-          {/* Accent - only shown when there are multiple accents available */}
-          {hasAccents && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Accent
-              </label>
-              <GlassyListbox
-                value={selectedAccent}
-                onChange={setSelectedAccent}
-                options={availableAccents.map((a) => ({
-                  value: a.code,
-                  label: a.displayName,
-                }))}
-                disabled={isLoading || availableAccents.length === 0}
-              />
-            </div>
-          )}
-
-          {/* Voice Cache Refresh */}
-          <RefreshVoiceCache />
+      {/* Row 2: Language, Region, Accent */}
+      <div className="grid grid-cols-3 gap-6 mb-6">
+        {/* Column 1: Language */}
+        <div>
+          <label className="flex justify-between text-sm font-medium text-gray-300 mb-2">
+            Language
+            <span className="text-ml text-gray-600 pr-6">
+              {getFlagCode(selectedLanguage)}
+            </span>
+          </label>
+          <GlassyCombobox
+            value={
+              availableLanguages.find((l) => l.code === selectedLanguage)
+                ? {
+                    value: selectedLanguage,
+                    label: availableLanguages.find(
+                      (l) => l.code === selectedLanguage
+                    )!.name,
+                    flag: getFlagCode(selectedLanguage),
+                  }
+                : null
+            }
+            onChange={(item) =>
+              item && setSelectedLanguage(item.value as Language)
+            }
+            options={filteredLanguages
+              .filter((lang) => lang && lang.code && lang.name)
+              .map((lang) => ({
+                value: lang.code,
+                label: lang.name,
+                flag: getFlagCode(lang.code),
+              }))}
+            onQueryChange={setLanguageQuery}
+            disabled={isLoading}
+          />
         </div>
 
-        {/* Column 2: Ad Format */}
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Ad Format
-            </label>
-            <GlassyOptionPicker
-              options={campaignFormatOptions}
-              value={campaignFormat}
-              onChange={setCampaignFormat}
+        {/* Column 2: Region */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Region
+          </label>
+          {hasRegions ? (
+            <GlassyListbox
+              value={selectedRegion || "all"}
+              onChange={(value) => setSelectedRegion(value || null)}
+              options={availableRegions.map((r) => ({
+                value: r.code,
+                label: r.displayName,
+              }))}
+              disabled={isLoading || availableRegions.length === 0}
             />
-            {shouldWarnAboutDialog && (
-              <p className="text-xs text-yellow-400 mt-2">
-                ⚠️ {serverFilteredVoices.dialogWarning}
-              </p>
-            )}
-          </div>
+          ) : (
+            <div className="bg-white/5 backdrop-blur-sm rounded-xl py-3 px-4 text-sm text-gray-400">
+              No regional variations
+            </div>
+          )}
+        </div>
+
+        {/* Column 3: Accent */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Accent
+          </label>
+          {hasAccents ? (
+            <GlassyListbox
+              value={selectedAccent}
+              onChange={setSelectedAccent}
+              options={availableAccents.map((a) => ({
+                value: a.code,
+                label: a.displayName,
+              }))}
+              disabled={isLoading || availableAccents.length === 0}
+            />
+          ) : (
+            <div className="bg-white/5 backdrop-blur-sm rounded-xl py-3 px-4 text-sm text-gray-400">
+              No accent variations
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Row 3: CTA and Duration */}
-      <div className="grid grid-cols-2 gap-8 mb-8">
-        {/* Column 1: Call to Action */}
+      {/* Row 3: Ad Format, CTA, and AI Model link */}
+      <div className="grid grid-cols-3 gap-6 mb-6">
+        {/* Column 1: Ad Format */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Ad Format
+          </label>
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
+            {/* Single Voice option */}
+            <div
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
+                campaignFormat === "ad_read"
+                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                  : "bg-transparent hover:bg-white/10 text-gray-300"
+              }`}
+              onClick={() => setCampaignFormat("ad_read")}
+              title="Single Voice Ad Read"
+            >
+              <SingleVoiceIcon />
+              <span className="text-xs">Single</span>
+            </div>
+
+            {/* Dialogue option */}
+            <div
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
+                campaignFormat === "dialog"
+                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                  : "bg-transparent hover:bg-white/10 text-gray-300"
+              }`}
+              onClick={() => setCampaignFormat("dialog")}
+              title="Dialogue"
+            >
+              <DialogueIcon />
+              <span className="text-xs">Dialogue</span>
+            </div>
+          </div>
+          {shouldWarnAboutDialog && (
+            <p className="text-xs text-yellow-400 mt-2">
+              ⚠️ {serverFilteredVoices.dialogWarning}
+            </p>
+          )}
+        </div>
+
+        {/* Column 2: Call to Action */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
             Call to Action (CTA)
@@ -997,182 +1145,179 @@ export function BriefPanel({
           />
         </div>
 
-        {/* Column 2: Duration and Pacing (split) */}
-        <div className="grid grid-cols-3 gap-6">
-          {/* Duration (2/3 width) */}
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Ad Duration{" "}
-              <span className="text-sm text-gray-400">
-                {adDuration} seconds
-              </span>
-            </label>
-            <GlassySlider
-              label={null}
-              value={adDuration}
-              onChange={setAdDuration}
-              min={10}
-              max={60}
-              step={5}
-              tickMarks={[
-                { value: 10, label: "10s" },
-                { value: 15, label: "15s" },
-                { value: 20, label: "20s" },
-                { value: 25, label: "25s" },
-                { value: 30, label: "30s" },
-                { value: 35, label: "35s" },
-                { value: 40, label: "40s" },
-                { value: 45, label: "45s" },
-                { value: 50, label: "50s" },
-                { value: 55, label: "55s" },
-                { value: 60, label: "60s" },
-              ]}
-            />
-
-            {/* Spotify Compliance Warning */}
-            <div className="mt-3 text-xs text-gray-500">
-              Spotify: Standard ads max 30s. Long-form (60s) in select markets
-              only.
-              {adDuration > 30 && (
-                <span className="text-red-900 ml-1">
-                  Duration exceeds 30s standard.
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Pacing (1/3 width) */}
-          <div className="col-span-1">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Pacing
-            </label>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
-              {/* Normal option */}
-              <div
-                className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
-                  selectedPacing === null
-                    ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                    : "bg-transparent hover:bg-white/10 text-gray-300"
-                }`}
-                onClick={() => setSelectedPacing(null)}
-                title="Normal - Standard delivery pace"
-              >
-                <TurtleIcon />
-              </div>
-
-              {/* Fast option */}
-              <div
-                className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
-                  selectedPacing === "fast"
-                    ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                    : "bg-transparent hover:bg-white/10 text-gray-300"
-                }`}
-                onClick={() => setSelectedPacing("fast")}
-                title="Fast - Energetic, urgent delivery"
-              >
-                <RabbitIcon />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Row 4: Voice Provider and AI Model */}
-      <div className="grid grid-cols-2 gap-8 mb-8">
-        {/* Column 1: Voice Provider */}
-        <div>
-          <label className="flex justify-between text-sm font-medium text-gray-300 mb-2">
-            Voice Provider
-            <span className="text-xs text-gray-500 pt-2">
-              {isLoadingFilteredVoices
-                ? "Loading..."
-                : selectedProvider === "any"
-                ? `${serverFilteredVoices.voiceCounts?.any || 0} voices available`
-                : `${serverFilteredVoices.count} voices available`}
-              {hasRegions && selectedRegion && selectedRegion !== "all" && (
-                <>
-                  {" "}
-                  •{" "}
-                  {availableRegions.find((r) => r.code === selectedRegion)
-                    ?.displayName || selectedRegion}
-                </>
-              )}
-              {hasAccents && <> • {selectedAccent} accent</>}
-            </span>
-          </label>
-          <GlassyListbox
-            value={selectedProvider}
-            onChange={setSelectedProvider}
-            options={[
-              {
-                value: "any",
-                label: "Any Provider - We will pick the best option for you",
-              },
-              {
-                value: "elevenlabs",
-                label: "ElevenLabs - Good quality of real actor voices",
-              },
-              {
-                value: "openai",
-                label: "OpenAI - Natural sounding voices with good accents",
-              },
-              {
-                value: "lovo",
-                label: "Lovo - Broad coverage but robotic quality",
-              },
-              {
-                value: "qwen",
-                label: "Qwen - Chinese AI voices optimized for Mandarin",
-              },
-              {
-                value: "bytedance",
-                label: "ByteDance - Chinese TTS with Cantonese support",
-              },
-            ]
-              .map((option) => {
-                // 🔥 Use blacklist-filtered counts from server (includes blacklist filtering!)
-                const voiceCount = serverFilteredVoices.voiceCounts?.[option.value as Provider] || 0;
-
-                return {
-                  ...option,
-                  value: option.value as Provider,
-                  label: `${option.label} (${voiceCount} voices)`,
-                  disabled: voiceCount === 0 && option.value !== "any",
-                };
-              })}
-            disabled={isLoading}
-          />
-          {shouldSuggestProvider && (
-            <p className="text-xs text-orange-400 mt-1">
-              💡 Try another provider - {serverFilteredVoices.voiceCounts?.[selectedProvider] || 0} voices for this selection
-            </p>
-          )}
-          {/* Error message */}
-          {error && (
-            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-              <p className="text-red-400 text-sm">{error}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Column 2: AI Model */}
+        {/* Column 3: AI Model link */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            AI Model Used for Generation of Creatives
+            AI Model
           </label>
-          <GlassyListbox
-            value={selectedAiModel}
-            onChange={setSelectedAiModel}
-            options={aiModelOptions.map((option) => ({
-              value: option.value,
-              label: `${option.label}${
-                option.description ? ` - ${option.description}` : ""
-              }`,
-            }))}
-            disabled={isLoading}
-          />
+          <button
+            onClick={() => setIsAiModelModalOpen(true)}
+            className="flex items-center gap-2 text-sm text-wb-blue hover:text-wb-blue/80 transition-colors"
+          >
+            <PenIcon />
+            <span>
+              {aiModelOptions.find((o) => o.value === selectedAiModel)
+                ?.label || selectedAiModel}
+            </span>
+          </button>
         </div>
       </div>
+
+      {/* Row 4: Pacing, Duration, and Voice Provider link */}
+      <div className="grid grid-cols-3 gap-6 mb-6">
+        {/* Column 1: Pacing */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Pacing
+          </label>
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
+            {/* Normal option */}
+            <div
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
+                selectedPacing === null
+                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                  : "bg-transparent hover:bg-white/10 text-gray-300"
+              }`}
+              onClick={() => setSelectedPacing(null)}
+              title="Normal - Standard delivery pace"
+            >
+              <TurtleIcon />
+              <span className="text-xs">Normal</span>
+            </div>
+
+            {/* Fast option */}
+            <div
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
+                selectedPacing === "fast"
+                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                  : "bg-transparent hover:bg-white/10 text-gray-300"
+              }`}
+              onClick={() => setSelectedPacing("fast")}
+              title="Fast - Energetic, urgent delivery"
+            >
+              <RabbitIcon />
+              <span className="text-xs">Fast</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Column 2: Duration */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Ad Duration{" "}
+            <span className="text-sm text-gray-400">
+              {adDuration} seconds
+            </span>
+          </label>
+          <GlassySlider
+            label={null}
+            value={adDuration}
+            onChange={setAdDuration}
+            min={10}
+            max={60}
+            step={5}
+            tickMarks={[
+              { value: 10, label: "10s" },
+              { value: 15, label: "15s" },
+              { value: 20, label: "20s" },
+              { value: 25, label: "25s" },
+              { value: 30, label: "30s" },
+              { value: 35, label: "35s" },
+              { value: 40, label: "40s" },
+              { value: 45, label: "45s" },
+              { value: 50, label: "50s" },
+              { value: 55, label: "55s" },
+              { value: 60, label: "60s" },
+            ]}
+          />
+
+          {/* Spotify Compliance Warning */}
+          <div className="mt-3 text-xs text-gray-500">
+            Spotify: Standard ads max 30s. Long-form (60s) in select markets
+            only.
+            {adDuration > 30 && (
+              <span className="text-red-900 ml-1">
+                Duration exceeds 30s standard.
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Column 3: Voice Provider link */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Voice Provider
+          </label>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setIsProviderModalOpen(true)}
+              className="flex items-center gap-2 text-sm text-wb-blue hover:text-wb-blue/80 transition-colors"
+            >
+              <VoiceMailIcon />
+              <span>
+                {selectedProvider === "any"
+                  ? "Any"
+                  : selectedProvider.charAt(0).toUpperCase() +
+                    selectedProvider.slice(1)}
+                {" ("}
+                {isLoadingFilteredVoices
+                  ? "..."
+                  : selectedProvider === "any"
+                  ? serverFilteredVoices.voiceCounts?.any || 0
+                  : serverFilteredVoices.count}
+                {")"}
+              </span>
+            </button>
+            <a
+              href="/admin/voice-manager"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-300 transition-colors"
+            >
+              <span>Voice Manager</span>
+              <ExternalLinkIcon />
+            </a>
+          </div>
+          {shouldSuggestProvider && (
+            <p className="text-xs text-orange-400 mt-2">
+              💡 Try another provider -{" "}
+              {serverFilteredVoices.voiceCounts?.[selectedProvider] || 0} voices
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+          <p className="text-red-400 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Modals */}
+      <ProviderSelectionModal
+        isOpen={isProviderModalOpen}
+        onClose={() => setIsProviderModalOpen(false)}
+        selectedProvider={selectedProvider}
+        onSelectProvider={setSelectedProvider}
+        voiceCounts={
+          serverFilteredVoices.voiceCounts || {
+            elevenlabs: 0,
+            lovo: 0,
+            openai: 0,
+            qwen: 0,
+            bytedance: 0,
+            any: 0,
+          }
+        }
+      />
+
+      <AIModelSelectionModal
+        isOpen={isAiModelModalOpen}
+        onClose={() => setIsAiModelModalOpen(false)}
+        selectedAiModel={selectedAiModel}
+        onSelectAiModel={setSelectedAiModel}
+      />
     </div>
   );
 }

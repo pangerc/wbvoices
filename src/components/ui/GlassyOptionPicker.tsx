@@ -1,4 +1,4 @@
-import React from "react";
+import React, { ReactNode } from "react";
 
 export interface Option<T> {
   value: T;
@@ -6,6 +6,7 @@ export interface Option<T> {
   description?: string;
   badge?: string;
   disabled?: boolean;
+  icon?: ReactNode;
 }
 
 export interface GlassyOptionPickerProps<T> {
@@ -13,6 +14,7 @@ export interface GlassyOptionPickerProps<T> {
   options: Option<T>[];
   value: T;
   onChange: (value: T) => void;
+  compact?: boolean;
 }
 
 export function GlassyOptionPicker<T extends string | number>({
@@ -20,16 +22,22 @@ export function GlassyOptionPicker<T extends string | number>({
   options,
   value,
   onChange,
+  compact = false,
 }: GlassyOptionPickerProps<T>) {
+  const containerPadding = compact ? "p-2 space-y-1" : "p-3 space-y-2";
+  const optionPadding = compact ? "px-2 py-2" : "px-4 py-3";
+
   return (
     <div className="space-y-4">
       {label && <label className="block mb-2 text-white">{label}</label>}
 
-      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 space-y-2">
+      <div
+        className={`bg-white/10 backdrop-blur-sm rounded-xl ${containerPadding}`}
+      >
         {options.map((option) => (
           <div
             key={option.value as string}
-            className={`relative flex px-4 py-3 rounded-lg transition-colors duration-200 ${
+            className={`relative flex ${optionPadding} rounded-lg transition-colors duration-200 ${
               option.disabled
                 ? "cursor-not-allowed opacity-50"
                 : "cursor-pointer"
@@ -43,7 +51,12 @@ export function GlassyOptionPicker<T extends string | number>({
             onClick={() => !option.disabled && onChange(option.value)}
           >
             <div className="flex w-full items-center justify-between">
-              <div className="flex items-center w-full">
+              <div className="flex items-center w-full gap-3">
+                {option.icon && (
+                  <div className="flex-shrink-0 text-current">
+                    {option.icon}
+                  </div>
+                )}
                 <div className="text-sm w-full">
                   <p
                     className={`font-medium w-full flex justify-between ${
@@ -65,7 +78,7 @@ export function GlassyOptionPicker<T extends string | number>({
                   </p>
                   {option.description && (
                     <div
-                      className={` inline ${
+                      className={`text-xs ${
                         value === option.value
                           ? "text-gray-300"
                           : "text-gray-400"
