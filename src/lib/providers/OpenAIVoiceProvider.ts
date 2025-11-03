@@ -131,10 +131,10 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
       }
     }
 
-    // Map pacing to speed values (aggressive for ads)
+    // Map pacing to speed values (tuned based on research feedback)
     let speed = 1.0; // Default: Normal (null/undefined) → 1.0
     if (pacing === 'fast') {
-      speed = 1.3; // Fast → 1.3
+      speed = 1.2; // Fast → 1.2 (reduced from 1.3 - research shows 1.3 was too fast)
     }
 
     console.log(`  🎛️ Speed setting: ${speed} (pacing: ${pacing || 'normal'})`);

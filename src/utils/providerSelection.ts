@@ -7,6 +7,7 @@ export class ProviderSelector {
   /**
    * Dragon-slaying simple provider selection
    * Language-aware quality hierarchy:
+   * - Arabic: OpenAI > ElevenLabs (research shows 2/13 ElevenLabs voices good for Arabic)
    * - Chinese: Qwen > ByteDance > ElevenLabs > OpenAI
    * - Other languages: ElevenLabs > OpenAI (Lovo disabled)
    * Dialog needs 2+ voices, ad_read needs 1+ voice
@@ -20,7 +21,8 @@ export class ProviderSelector {
   ): Provider {
     const minVoices = format === "dialog" ? 2 : 1;
     const isChineseLanguage = language === "zh" || language?.startsWith("zh-");
-    
+    const isArabicLanguage = language === "ar" || language?.startsWith("ar-");
+
     console.log(`🔍 ProviderSelector.selectDefault:`, {
       format,
       minVoices,
@@ -28,12 +30,20 @@ export class ProviderSelector {
       region,
       accent,
       isChineseLanguage,
+      isArabicLanguage,
       voiceCounts,
       elevenlabsCheck: `${voiceCounts.elevenlabs} >= ${minVoices} = ${voiceCounts.elevenlabs >= minVoices}`
     });
-    
+
     const contextStr = [language, region, accent].filter(Boolean).join('+');
-    
+
+    // Arabic language preference: OpenAI > ElevenLabs
+    // Research shows OpenAI performs better for Arabic with proper pronunciation instructions
+    if (isArabicLanguage && voiceCounts.openai >= minVoices) {
+      console.log(`✅ Selected openai for Arabic ${contextStr} (${voiceCounts.openai} >= ${minVoices})`);
+      return "openai";
+    }
+
     // Chinese language preference: Qwen > ByteDance > ElevenLabs > OpenAI
     if (isChineseLanguage && voiceCounts.qwen >= minVoices) {
       console.log(`✅ Selected qwen for ${contextStr} (${voiceCounts.qwen} >= ${minVoices})`);
@@ -44,19 +54,20 @@ export class ProviderSelector {
       console.log(`✅ Selected bytedance for ${contextStr} (${voiceCounts.bytedance} >= ${minVoices})`);
       return "bytedance";
     }
-    
+
     // Check providers in quality order (Lovo disabled)
+    // For Arabic, only fallback to ElevenLabs if OpenAI unavailable
     if (voiceCounts.elevenlabs >= minVoices) {
       console.log(`✅ Selected elevenlabs for ${contextStr} (${voiceCounts.elevenlabs} >= ${minVoices})`);
       return "elevenlabs";
     }
-    
+
     // Skip Lovo due to poor voice quality
     // if (voiceCounts.lovo >= minVoices) {
     //   return "lovo";
     // }
-    
-    // OpenAI fallback
+
+    // OpenAI fallback (good for Arabic, fallback for others)
     console.log(`✅ Fallback to openai for ${contextStr} (elevenlabs: ${voiceCounts.elevenlabs} < ${minVoices})`);
     return "openai";
   }
