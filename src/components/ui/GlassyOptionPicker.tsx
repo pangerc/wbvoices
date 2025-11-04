@@ -3,7 +3,7 @@ import React, { ReactNode } from "react";
 export interface Option<T> {
   value: T;
   label: string;
-  description?: string;
+  description?: string | ReactNode;
   badge?: string;
   disabled?: boolean;
   icon?: ReactNode;

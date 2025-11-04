@@ -13,7 +13,7 @@ import { generateCreativeCopy } from "@/utils/ai-api-client";
 import { parseCreativeJSON } from "@/utils/json-parser";
 import { getFlagCode } from "@/utils/language";
 import { VoiceManagerV2State } from "@/hooks/useVoiceManagerV2";
-import { selectAIModelForLanguage, AI_MODEL_REGISTRY, getAiModelLabel } from "@/utils/aiModelSelection";
+import { selectAIModelForLanguage, AI_MODEL_REGISTRY, getAiModelLabel, getAiModelTechnicalDetails } from "@/utils/aiModelSelection";
 import {
   GlassyTextarea,
   GlassyListbox,
@@ -1139,7 +1139,12 @@ export function BriefPanel({
             className="flex items-center gap-2 text-sm text-wb-blue hover:text-wb-blue/80 transition-colors"
           >
             <PenIcon />
-            <span>{getAiModelLabel(selectedAiModel)}</span>
+            <div className="flex flex-col items-start">
+              <span>{getAiModelLabel(selectedAiModel)}</span>
+              <span className="text-xs text-white/40">
+                {getAiModelTechnicalDetails(selectedAiModel)}
+              </span>
+            </div>
           </button>
         </div>
       </div>

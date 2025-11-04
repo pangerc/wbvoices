@@ -5,33 +5,38 @@
 
 export const AI_MODEL_REGISTRY = [
   {
-    value: 'gpt5-thinking',
-    label: 'GPT 5 Thinking',
+    value: 'gpt5-premium',
+    label: 'GPT 5 Premium',
     description: 'Full reasoning mode - highest quality, slower, best for complex creative direction',
+    technicalDetails: 'gpt-5 • high reasoning',
     category: 'default' as const,
   },
   {
-    value: 'gpt5-basic',
-    label: 'GPT 5 Basic',
-    description: 'Minimal reasoning - faster iteration, good for simple briefs',
+    value: 'gpt5-fast',
+    label: 'GPT 5 Fast',
+    description: 'Minimal reasoning - fastest iteration, good for simple briefs',
+    technicalDetails: 'gpt-5 • minimal reasoning',
     category: 'default' as const,
   },
   {
-    value: 'gpt5-mini',
-    label: 'GPT 5 Mini',
-    description: 'Balanced speed and quality - recommended for most projects',
+    value: 'gpt5-balanced',
+    label: 'GPT 5 Balanced',
+    description: 'Medium reasoning - recommended for most projects',
+    technicalDetails: 'gpt-5-mini • medium reasoning',
     category: 'default' as const,
   },
   {
     value: 'moonshot',
     label: 'Moonshot KIMI',
     description: 'Chinese LLM optimized for multilingual content',
+    technicalDetails: 'kimi-latest',
     category: 'chinese' as const,
   },
   {
     value: 'qwen',
     label: 'Qwen-Max',
     description: "Alibaba's multilingual AI model",
+    technicalDetails: 'qwen-max',
     category: 'chinese' as const,
   },
 ] as const;
@@ -40,7 +45,7 @@ export const AI_MODEL_REGISTRY = [
 export type AIModel = typeof AI_MODEL_REGISTRY[number]['value'];
 
 // Default AI model for new projects
-export const DEFAULT_AI_MODEL: AIModel = 'gpt5-mini';
+export const DEFAULT_AI_MODEL: AIModel = 'gpt5-balanced';
 
 // Helper functions to get model metadata
 export function getAiModelLabel(model: AIModel): string {
@@ -49,6 +54,10 @@ export function getAiModelLabel(model: AIModel): string {
 
 export function getAiModelDescription(model: AIModel): string {
   return AI_MODEL_REGISTRY.find(m => m.value === model)?.description || '';
+}
+
+export function getAiModelTechnicalDetails(model: AIModel): string {
+  return AI_MODEL_REGISTRY.find(m => m.value === model)?.technicalDetails || '';
 }
 
 /**
@@ -130,12 +139,12 @@ export function getAIModelSelectionReason(model: AIModel, language: string): str
   }
 
   switch (model) {
-    case 'gpt5-thinking':
-      return 'Selected GPT 5 Thinking for highest quality creative generation';
-    case 'gpt5-basic':
-      return 'Selected GPT 5 Basic for faster creative generation';
-    case 'gpt5-mini':
-      return 'Selected GPT 5 Mini for balanced creative generation';
+    case 'gpt5-premium':
+      return 'Selected GPT 5 Premium for highest quality creative generation';
+    case 'gpt5-fast':
+      return 'Selected GPT 5 Fast for faster creative generation';
+    case 'gpt5-balanced':
+      return 'Selected GPT 5 Balanced for balanced creative generation';
     default:
       return `Selected ${model} for optimal creative generation`;
   }

@@ -20,7 +20,12 @@ export function AIModelSelectionModal({
   const aiModelOptions: Option<AIModel>[] = AI_MODEL_REGISTRY.map(model => ({
     value: model.value,
     label: model.label,
-    description: model.description,
+    description: (
+      <>
+        <div>{model.description}</div>
+        <div className="text-white/40 mt-1">{model.technicalDetails}</div>
+      </>
+    ),
   }));
 
   const handleSelect = (model: AIModel) => {

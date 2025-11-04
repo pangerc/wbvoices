@@ -173,21 +173,18 @@ export async function POST(req: NextRequest) {
       client = openai;
 
       // Determine model and reasoning effort
-      if (aiModel === "gpt5-thinking") {
+      let reasoningEffort: "minimal" | "low" | "medium" | "high";
+      if (aiModel === "gpt5-premium") {
         model = "gpt-5";
-      } else if (aiModel === "gpt5-basic") {
+        reasoningEffort = "high";
+      } else if (aiModel === "gpt5-fast") {
         model = "gpt-5";
+        reasoningEffort = "minimal";
       } else {
-        // gpt5-mini
+        // gpt5-balanced
         model = "gpt-5-mini";
+        reasoningEffort = "medium";
       }
-
-      const reasoningEffort =
-        aiModel === "gpt5-thinking"
-          ? "high"
-          : aiModel === "gpt5-basic"
-          ? "minimal"
-          : "medium"; // gpt5-mini default
 
       console.log(
         `Attempting ${aiProvider} Responses API call with model: ${model}, reasoning: ${reasoningEffort}`
