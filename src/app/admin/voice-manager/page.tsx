@@ -299,7 +299,7 @@ export default function VoiceManagerPage() {
   async function handleRebuild() {
     setIsRebuilding(true);
     try {
-      const response = await fetch("/api/admin/rebuild-voice-cache", {
+      const response = await fetch("/api/admin/voice-cache", {
         method: "POST",
       });
 
