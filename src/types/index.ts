@@ -1,4 +1,5 @@
 import { Language } from "@/utils/language";
+import type { AIModel as AIModelType } from '@/utils/aiModelSelection';
 
 export type Provider = "any" | "lovo" | "elevenlabs" | "openai" | "qwen" | "bytedance";
 
@@ -27,7 +28,8 @@ export type PronunciationDictionary = {
   createdAt: string;
 };
 
-export type AIModel = "gpt4" | "gpt5" | "gemini" | "moonshot" | "qwen";
+// Import AIModel from single source of truth
+export type AIModel = AIModelType;
 
 export type Voice = {
   id: string;

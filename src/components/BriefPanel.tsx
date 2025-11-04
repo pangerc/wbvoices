@@ -13,7 +13,7 @@ import { generateCreativeCopy } from "@/utils/ai-api-client";
 import { parseCreativeJSON } from "@/utils/json-parser";
 import { getFlagCode } from "@/utils/language";
 import { VoiceManagerV2State } from "@/hooks/useVoiceManagerV2";
-import { selectAIModelForLanguage } from "@/utils/aiModelSelection";
+import { selectAIModelForLanguage, AI_MODEL_REGISTRY, getAiModelLabel } from "@/utils/aiModelSelection";
 import {
   GlassyTextarea,
   GlassyListbox,
@@ -383,28 +383,12 @@ const ExternalLinkIcon = () => (
   </svg>
 );
 
-const allAiModelOptions = [
-  {
-    value: "gpt4" as AIModel,
-    label: "GPT 4.1",
-    description: "Largest Open AI model for creative tasks",
-  },
-  {
-    value: "gpt5" as AIModel,
-    label: "GPT 5",
-    description: "Latest model for advanced creative reasoning",
-  },
-  {
-    value: "moonshot" as AIModel,
-    label: "Moonshot KIMI",
-    description: "Chinese LLM optimized for multilingual content",
-  },
-  {
-    value: "qwen" as AIModel,
-    label: "Qwen-Max",
-    description: "Alibaba's multilingual AI model",
-  },
-];
+// Use single source of truth from registry
+const allAiModelOptions = AI_MODEL_REGISTRY.map(model => ({
+  value: model.value,
+  label: model.label,
+  description: model.description,
+}));
 
 export function BriefPanel({
   clientDescription,
@@ -1155,10 +1139,7 @@ export function BriefPanel({
             className="flex items-center gap-2 text-sm text-wb-blue hover:text-wb-blue/80 transition-colors"
           >
             <PenIcon />
-            <span>
-              {aiModelOptions.find((o) => o.value === selectedAiModel)
-                ?.label || selectedAiModel}
-            </span>
+            <span>{getAiModelLabel(selectedAiModel)}</span>
           </button>
         </div>
       </div>

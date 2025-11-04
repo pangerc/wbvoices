@@ -1,13 +1,63 @@
-import { AIModel } from '@/types';
+/**
+ * 🎯 SINGLE SOURCE OF TRUTH FOR AI MODELS
+ * All AI model configuration lives here - types, labels, descriptions, preferences
+ */
+
+export const AI_MODEL_REGISTRY = [
+  {
+    value: 'gpt5-thinking',
+    label: 'GPT 5 Thinking',
+    description: 'Full reasoning mode - highest quality, slower, best for complex creative direction',
+    category: 'default' as const,
+  },
+  {
+    value: 'gpt5-basic',
+    label: 'GPT 5 Basic',
+    description: 'Minimal reasoning - faster iteration, good for simple briefs',
+    category: 'default' as const,
+  },
+  {
+    value: 'gpt5-mini',
+    label: 'GPT 5 Mini',
+    description: 'Balanced speed and quality - recommended for most projects',
+    category: 'default' as const,
+  },
+  {
+    value: 'moonshot',
+    label: 'Moonshot KIMI',
+    description: 'Chinese LLM optimized for multilingual content',
+    category: 'chinese' as const,
+  },
+  {
+    value: 'qwen',
+    label: 'Qwen-Max',
+    description: "Alibaba's multilingual AI model",
+    category: 'chinese' as const,
+  },
+] as const;
+
+// Export the AIModel type derived from the registry
+export type AIModel = typeof AI_MODEL_REGISTRY[number]['value'];
+
+// Default AI model for new projects
+export const DEFAULT_AI_MODEL: AIModel = 'gpt5-mini';
+
+// Helper functions to get model metadata
+export function getAiModelLabel(model: AIModel): string {
+  return AI_MODEL_REGISTRY.find(m => m.value === model)?.label || model;
+}
+
+export function getAiModelDescription(model: AIModel): string {
+  return AI_MODEL_REGISTRY.find(m => m.value === model)?.description || '';
+}
 
 /**
  * 🎯 AI MODEL LANGUAGE PREFERENCES
  * Configurable preferences for AI model selection based on language
- * Easy to extend/modify without breaking existing functionality
  */
 export const AI_MODEL_PREFERENCES = {
-  chinese: ['moonshot', 'qwen'] as AIModel[], // Chinese-optimized models
-  default: ['gpt5', 'gpt4'] as AIModel[]      // Default fallback models
+  chinese: AI_MODEL_REGISTRY.filter(m => m.category === 'chinese').map(m => m.value),
+  default: AI_MODEL_REGISTRY.filter(m => m.category === 'default').map(m => m.value),
 } as const;
 
 /**
@@ -67,17 +117,26 @@ export function shouldAutoSelectAIModel(currentModel: AIModel): boolean {
  */
 export function getAIModelSelectionReason(model: AIModel, language: string): string {
   const isChineseLanguage = language === 'zh' || language.startsWith('zh-');
-  
+
   if (isChineseLanguage) {
     switch (model) {
       case 'moonshot':
         return 'Auto-selected Moonshot KIMI for Chinese content optimization';
-      case 'qwen': 
+      case 'qwen':
         return 'Auto-selected Qwen-Max for Chinese language expertise';
       default:
         return `Selected ${model} for Chinese content`;
     }
   }
-  
-  return `Selected ${model} for optimal creative generation`;
+
+  switch (model) {
+    case 'gpt5-thinking':
+      return 'Selected GPT 5 Thinking for highest quality creative generation';
+    case 'gpt5-basic':
+      return 'Selected GPT 5 Basic for faster creative generation';
+    case 'gpt5-mini':
+      return 'Selected GPT 5 Mini for balanced creative generation';
+    default:
+      return `Selected ${model} for optimal creative generation`;
+  }
 }

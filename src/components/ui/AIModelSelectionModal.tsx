@@ -1,7 +1,7 @@
 import React from "react";
 import { GlassyModal } from "./GlassyModal";
 import { GlassyOptionPicker, Option } from "./GlassyOptionPicker";
-import { AIModel } from "@/types";
+import { AIModel, AI_MODEL_REGISTRY } from "@/utils/aiModelSelection";
 
 interface AIModelSelectionModalProps {
   isOpen: boolean;
@@ -16,28 +16,12 @@ export function AIModelSelectionModal({
   selectedAiModel,
   onSelectAiModel,
 }: AIModelSelectionModalProps) {
-  const aiModelOptions: Option<AIModel>[] = [
-    {
-      value: "gpt4",
-      label: "GPT 4.1",
-      description: "Largest Open AI model for creative tasks",
-    },
-    {
-      value: "gpt5",
-      label: "GPT 5",
-      description: "Latest model for advanced creative reasoning",
-    },
-    {
-      value: "moonshot",
-      label: "Moonshot KIMI",
-      description: "Chinese LLM optimized for multilingual content",
-    },
-    {
-      value: "qwen",
-      label: "Qwen-Max",
-      description: "Alibaba's multilingual AI model",
-    },
-  ];
+  // Use single source of truth from registry
+  const aiModelOptions: Option<AIModel>[] = AI_MODEL_REGISTRY.map(model => ({
+    value: model.value,
+    label: model.label,
+    description: model.description,
+  }));
 
   const handleSelect = (model: AIModel) => {
     onSelectAiModel(model);

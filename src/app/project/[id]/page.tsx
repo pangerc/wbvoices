@@ -42,6 +42,7 @@ import { AudioService } from "@/services/audioService";
 import { generateProjectId } from "@/utils/projectId";
 import { hasRegionalAccents, getLanguageRegions } from "@/utils/language";
 import { ErrorDetails } from "@/lib/providers/BaseAudioProvider";
+import { DEFAULT_AI_MODEL } from "@/utils/aiModelSelection";
 
 export default function ProjectWorkspace() {
   const params = useParams();
@@ -62,7 +63,7 @@ export default function ProjectWorkspace() {
   const [campaignFormat, setCampaignFormat] =
     useState<CampaignFormat>("dialog");
   const [adDuration, setAdDuration] = useState(25);
-  const [selectedAiModel, setSelectedAiModel] = useState<AIModel>("gpt5");
+  const [selectedAiModel, setSelectedAiModel] = useState<AIModel>(DEFAULT_AI_MODEL);
   const [musicProvider, setMusicProvider] = useState<MusicProvider>("loudly");
   const [selectedCTA, setSelectedCTA] = useState<string | null>(null);
   const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(null);
@@ -114,7 +115,7 @@ export default function ProjectWorkspace() {
           setCreativeBrief(project.brief.creativeBrief);
           setCampaignFormat(project.brief.campaignFormat);
           setAdDuration(project.brief.adDuration);
-          setSelectedAiModel(project.brief.selectedAiModel || "gpt4");
+          setSelectedAiModel(project.brief.selectedAiModel || DEFAULT_AI_MODEL);
           setMusicProvider(project.brief.musicProvider || "loudly");
           setSelectedCTA(project.brief.selectedCTA || null);
           setSelectedPacing(project.brief.selectedPacing || null);

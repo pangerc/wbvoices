@@ -169,13 +169,11 @@ export async function POST(req: NextRequest) {
         max_tokens: 2000,
       };
     } else {
-      // OpenAI models
+      // OpenAI GPT-5 models
       client = openai;
-      model = aiModel === "gpt5" ? "gpt-5" : "gpt-4.1";
-      temperature = aiModel === "gpt5" ? 1 : 0.7;
+      temperature = 1;
 
       const baseParams = {
-        model,
         messages: [
           { role: "system" as const, content: systemPrompt },
           { role: "user" as const, content: userPrompt },
@@ -183,11 +181,34 @@ export async function POST(req: NextRequest) {
         temperature,
       };
 
-      // Use max_completion_tokens for GPT-5, max_tokens for other models
-      completionParams =
-        aiModel === "gpt5"
-          ? { ...baseParams, max_completion_tokens: 10000 }
-          : { ...baseParams, max_tokens: 2000 };
+      // Handle three GPT-5 variants
+      if (aiModel === "gpt5-thinking") {
+        model = "gpt-5";
+        completionParams = {
+          ...baseParams,
+          model,
+          max_completion_tokens: 10000,
+          reasoning: { effort: "high" },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any; // OpenAI SDK types don't include reasoning parameter yet
+      } else if (aiModel === "gpt5-basic") {
+        model = "gpt-5";
+        completionParams = {
+          ...baseParams,
+          model,
+          max_completion_tokens: 10000,
+          reasoning: { effort: "minimal" },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any; // OpenAI SDK types don't include reasoning parameter yet
+      } else {
+        // gpt5-mini
+        model = "gpt-5-mini";
+        completionParams = {
+          ...baseParams,
+          model,
+          max_completion_tokens: 10000,
+        };
+      }
     }
 
     console.log(`Attempting ${aiProvider} API call with model: ${model}`);
