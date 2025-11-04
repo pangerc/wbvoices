@@ -169,46 +169,79 @@ export async function POST(req: NextRequest) {
         max_tokens: 2000,
       };
     } else {
-      // OpenAI GPT-5 models
+      // OpenAI GPT-5 models - use Responses API
       client = openai;
-      temperature = 1;
 
-      const baseParams = {
-        messages: [
-          { role: "system" as const, content: systemPrompt },
-          { role: "user" as const, content: userPrompt },
-        ],
-        temperature,
-      };
-
-      // Handle three GPT-5 variants
+      // Determine model and reasoning effort
       if (aiModel === "gpt5-thinking") {
         model = "gpt-5";
-        completionParams = {
-          ...baseParams,
-          model,
-          max_completion_tokens: 10000,
-          reasoning: { effort: "high" },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any; // OpenAI SDK types don't include reasoning parameter yet
       } else if (aiModel === "gpt5-basic") {
         model = "gpt-5";
-        completionParams = {
-          ...baseParams,
-          model,
-          max_completion_tokens: 10000,
-          reasoning: { effort: "minimal" },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any; // OpenAI SDK types don't include reasoning parameter yet
       } else {
         // gpt5-mini
         model = "gpt-5-mini";
-        completionParams = {
-          ...baseParams,
-          model,
-          max_completion_tokens: 10000,
-        };
       }
+
+      const reasoningEffort =
+        aiModel === "gpt5-thinking"
+          ? "high"
+          : aiModel === "gpt5-basic"
+          ? "minimal"
+          : "medium"; // gpt5-mini default
+
+      console.log(
+        `Attempting ${aiProvider} Responses API call with model: ${model}, reasoning: ${reasoningEffort}`
+      );
+
+      // Use Responses API for GPT-5
+      const response = await client.responses.create({
+        model,
+        input: `${systemPrompt}\n\n${userPrompt}`,
+        reasoning: { effort: reasoningEffort },
+        max_output_tokens: 10000,
+      });
+
+      console.log(`${aiProvider} response:`, response);
+
+      const content = response.output_text || "";
+      console.log(
+        `Raw ${aiProvider} response content:`,
+        JSON.stringify(content)
+      );
+      console.log("Content length:", content.length);
+
+      if (!content || content.trim() === "") {
+        console.error(`Empty response from ${aiProvider}`);
+        throw new Error("AI returned empty response");
+      }
+
+      // Clean up the response if it contains markdown
+      let cleanedContent = content.trim();
+      if (cleanedContent.startsWith("```")) {
+        cleanedContent = cleanedContent
+          .replace(/^```(?:json)?\s*\n/, "")
+          .replace(/\n```\s*$/, "");
+      }
+
+      console.log("Cleaned content:", JSON.stringify(cleanedContent));
+
+      // Validate it's valid JSON
+      try {
+        const parsed = JSON.parse(cleanedContent);
+        console.log("Successfully parsed JSON:", parsed);
+      } catch (jsonError) {
+        console.error("Invalid JSON response:", cleanedContent);
+        console.error("JSON parse error:", jsonError);
+        throw new Error(
+          `AI returned invalid JSON format: ${
+            jsonError instanceof Error
+              ? jsonError.message
+              : "Unknown parsing error"
+          }`
+        );
+      }
+
+      return NextResponse.json({ content: cleanedContent });
     }
 
     console.log(`Attempting ${aiProvider} API call with model: ${model}`);
