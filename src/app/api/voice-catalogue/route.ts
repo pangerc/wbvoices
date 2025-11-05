@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { voiceCatalogue, UnifiedVoice } from "@/services/voiceCatalogueService";
 import { Language, Provider, CampaignFormat } from "@/types";
 import { ProviderSelector } from "@/utils/providerSelection";
+import { accentRegions, normalizeLanguageCode } from "@/utils/language";
 
 // Use Node.js runtime for proper Redis access
 // export const runtime = 'edge'; // REMOVED - Edge Runtime causes env var issues
@@ -263,19 +264,34 @@ export async function GET(req: NextRequest) {
                     requireApproval
                   );
                 } else {
-                  // For other providers, filter by provider AND accent from region voices
-                  providerVoices = regionVoices.filter((voice) => {
-                    const matchesProvider = voice.provider === providerName;
+                  // For other providers, get ALL voices (with blacklist filtering)
+                  // then filter to only voices in the selected region
+                  const allProviderVoices = await voiceCatalogue.getVoicesForProvider(
+                    providerName,
+                    language as Language,
+                    accent || undefined,
+                    requireApproval
+                  );
+
+                  // Determine which accents belong to the selected region
+                  const normalizedLanguage = normalizeLanguageCode(language);
+                  const [lang] = normalizedLanguage.split('-');
+                  const regionAccents = accentRegions[lang]?.[region] || [];
+
+                  // Filter to voices that belong to this region
+                  providerVoices = allProviderVoices.filter((voice) => {
+                    const inRegion = regionAccents.includes(voice.accent);
                     const matchesAccent =
                       !accent ||
                       accent === "neutral" ||
                       voice.accent === accent;
-                    return matchesProvider && matchesAccent;
+                    return inRegion && matchesAccent;
                   });
+
                   console.log(
-                    `🔍 After filtering by provider (${providerName}) and accent (${
+                    `🔍 After filtering by region (${region}) and accent (${
                       accent || "any"
-                    }): ${providerVoices.length} voices`
+                    }): ${providerVoices.length} voices (blacklist applied: ${requireApproval})`
                   );
                 }
               } else {
