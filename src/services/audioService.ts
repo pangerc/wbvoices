@@ -26,13 +26,18 @@ export class AudioService {
       for (const track of voiceTracks) {
         if (!track.voice || !track.text) continue;
 
-        console.log(`🎭 Sending emotional parameters to ${selectedProvider}:`);
+        // Use track-specific provider if set, otherwise fall back to voice.provider or selectedProvider
+        const trackProvider = track.trackProvider || track.voice.provider || selectedProvider;
+
+        console.log(`🎭 Sending emotional parameters to ${trackProvider}:`);
         console.log(`  - Voice: ${track.voice.name} (${track.voice.id})`);
+        console.log(`  - Provider: ${trackProvider}${track.trackProvider ? ' (track override)' : ''}`);
         console.log(`  - Style: ${track.style || 'none'}`);
         console.log(`  - Use Case: ${track.useCase || 'none'}`);
         console.log(`  - Voice Instructions: ${track.voiceInstructions || 'none'}`);
+        console.log(`  - Speed: ${track.speed !== undefined ? `${track.speed}x (manual)` : 'not set (using preset/default)'}`);
 
-        const res = await fetch(`/api/voice/${selectedProvider}-v2`, {
+        const res = await fetch(`/api/voice/${trackProvider}-v2`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -43,7 +48,8 @@ export class AudioService {
             voiceInstructions: track.voiceInstructions, // OpenAI-specific voice instructions
             region, // Pass region for accent support
             accent, // Pass accent for dialect support
-            pacing, // Pass pacing for speed control
+            pacing, // Pass pacing for speed control (global)
+            speed: track.speed, // Per-track speed override (manual control)
             projectId: `voice-project-${Date.now()}`, // Add projectId for blob storage
           }),
         });
@@ -60,14 +66,14 @@ export class AudioService {
           // New blob storage response format (OpenAI and future providers)
           const jsonResponse = await res.json();
           url = jsonResponse.audio_url;
-          console.log(`Using permanent blob URL for ${selectedProvider}:`, url);
+          console.log(`Using permanent blob URL for ${trackProvider}:`, url);
         } else {
           // Legacy blob response format (ElevenLabs, Lovo for now)
           const blob = await res.blob();
           url = URL.createObjectURL(blob);
-          console.log(`Using temporary blob URL for ${selectedProvider}:`, url);
+          console.log(`Using temporary blob URL for ${trackProvider}:`, url);
         }
-        
+
         const mixerTrack: MixerTrack = {
           id: `voice-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           url,
@@ -80,7 +86,7 @@ export class AudioService {
           isConcurrent: track.isConcurrent,
           metadata: {
             voiceId: track.voice.id,
-            voiceProvider: selectedProvider,
+            voiceProvider: trackProvider,
             scriptText: track.text,
           },
         };

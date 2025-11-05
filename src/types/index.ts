@@ -34,6 +34,7 @@ export type AIModel = AIModelType;
 export type Voice = {
   id: string;
   name: string;
+  provider?: Provider; // Voice provider (elevenlabs, openai, lovo)
   gender: "male" | "female" | null;
   sampleUrl?: string;
   language?: Language;
@@ -48,12 +49,14 @@ export type Voice = {
 export type VoiceTrack = {
   voice: Voice | null;
   text: string;
+  trackProvider?: Provider; // Override provider for this track (defaults to global selectedProvider)
   playAfter?: string;
   overlap?: number;
   isConcurrent?: boolean;
   style?: string;
   useCase?: string;
   voiceInstructions?: string; // OpenAI-specific voice control instructions
+  speed?: number; // Per-track speed multiplier (OpenAI: 0.25-4.0, ElevenLabs: 0.7-1.2)
 };
 
 export type CampaignFormat = "ad_read" | "dialog";

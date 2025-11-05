@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Voice, VoiceTrack, Provider } from "@/types";
 import {
   GlassyTextarea,
@@ -53,15 +53,31 @@ export function ScripterPanel({
   const [editingInstructionsIndex, setEditingInstructionsIndex] = useState<number | null>(null);
 
   // 🔥 Clean server-side voice loading (matching BriefPanel architecture)
-  const [serverVoices, setServerVoices] = useState<Voice[]>([]);
+  // Load voices for both ElevenLabs and OpenAI to support mixed-provider scripts
+  const [elevenLabsVoices, setElevenLabsVoices] = useState<Voice[]>([]);
+  const [openAIVoices, setOpenAIVoices] = useState<Voice[]>([]);
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
 
-  // 🎯 Use overrideVoices if provided (project restoration), otherwise use server voices
-  const rawVoices = overrideVoices || serverVoices;
+  // Get voices for a specific provider (used by voice picker)
+  const getVoicesForProvider = (provider: Provider): Voice[] => {
+    if (overrideVoices) return overrideVoices;
 
-  // 🛡️ DEFENSIVE DEDUPLICATION: Remove duplicates by voice.id to prevent React key warnings
-  // This shouldn't be necessary if the API works correctly, but acts as a safety net
-  const voices = useMemo(() => {
+    switch (provider) {
+      case "elevenlabs":
+        return elevenLabsVoices;
+      case "openai":
+        return openAIVoices;
+      default:
+        return elevenLabsVoices; // Default to ElevenLabs
+    }
+  };
+
+  // Helper function to get deduplicated voices for a specific track
+  const getVoicesForTrack = (trackProvider?: Provider): Voice[] => {
+    const provider = trackProvider || (selectedProvider as Provider);
+    const rawVoices = overrideVoices || getVoicesForProvider(provider);
+
+    // Apply deduplication logic
     const seen = new Set<string>();
     return rawVoices.filter((voice) => {
       if (seen.has(voice.id)) {
@@ -71,9 +87,9 @@ export function ScripterPanel({
       seen.add(voice.id);
       return true;
     });
-  }, [rawVoices]);
+  };
 
-  // 🔥 Load voices from server when language/provider changes
+  // 🔥 Load voices from server for BOTH providers to support mixed-provider scripts
   useEffect(() => {
     // If we have overrideVoices (project restoration), skip server loading
     if (overrideVoices) {
@@ -81,11 +97,8 @@ export function ScripterPanel({
       return;
     }
 
-    const loadVoices = async () => {
-      setIsLoadingVoices(true);
+    const loadVoicesForProvider = async (provider: 'elevenlabs' | 'openai'): Promise<Voice[]> => {
       try {
-        console.log(`🔄 ScripterPanel loading voices: ${selectedLanguage}/${selectedProvider}/${campaignFormat}`);
-        
         const url = new URL("/api/voice-catalogue", window.location.origin);
         url.searchParams.set("operation", "filtered-voices");
         url.searchParams.set("language", selectedLanguage);
@@ -100,7 +113,7 @@ export function ScripterPanel({
           url.searchParams.set("accent", selectedAccent);
         }
 
-        url.searchParams.set("provider", selectedProvider);
+        url.searchParams.set("provider", provider);
         url.searchParams.set("campaignFormat", campaignFormat);
         url.searchParams.set("exclude", "lovo"); // Exclude Lovo (poor quality)
         url.searchParams.set("requireApproval", "true"); // Filter out blacklisted voices
@@ -109,22 +122,38 @@ export function ScripterPanel({
         const data = await response.json();
 
         if (data.error) {
-          console.error("❌ ScripterPanel failed to load voices:", data.error);
-          setServerVoices([]);
-        } else {
-          console.log(`✅ ScripterPanel loaded ${data.count} voices for ${selectedLanguage}/${selectedProvider}`);
-          setServerVoices(data.voices || []);
+          console.error(`❌ ScripterPanel failed to load ${provider} voices:`, data.error);
+          return [];
         }
+
+        console.log(`✅ ScripterPanel loaded ${data.count} ${provider} voices`);
+
+        // Ensure each voice has the provider field set for correct API routing
+        const voices = data.voices || [];
+        return voices.map((v: Voice) => ({ ...v, provider }));
       } catch (error) {
-        console.error("ScripterPanel voice loading error:", error);
-        setServerVoices([]);
-      } finally {
-        setIsLoadingVoices(false);
+        console.error(`ScripterPanel ${provider} voice loading error:`, error);
+        return [];
       }
     };
 
-    loadVoices();
-  }, [selectedLanguage, selectedProvider, selectedRegion, selectedAccent, campaignFormat, hasRegions, overrideVoices]);
+    const loadAllVoices = async () => {
+      setIsLoadingVoices(true);
+      console.log(`🔄 ScripterPanel loading voices for both providers: ${selectedLanguage}/${campaignFormat}`);
+
+      // Load voices for both providers in parallel
+      const [elevenLabsData, openAIData] = await Promise.all([
+        loadVoicesForProvider('elevenlabs'),
+        loadVoicesForProvider('openai'),
+      ]);
+
+      setElevenLabsVoices(elevenLabsData);
+      setOpenAIVoices(openAIData);
+      setIsLoadingVoices(false);
+    };
+
+    loadAllVoices();
+  }, [selectedLanguage, selectedRegion, selectedAccent, campaignFormat, hasRegions, overrideVoices]);
 
   // Handle local reset
   const handleReset = () => {
@@ -203,10 +232,10 @@ export function ScripterPanel({
               <div className="w-full">
                 {/* Voice Combobox */}
                 <VoiceCombobox
-                  label="Voice"
+                  label={track.trackProvider ? `Voice (${track.trackProvider === 'openai' ? 'OpenAI' : 'ElevenLabs'})` : "Voice"}
                   value={track.voice}
                   onChange={(voice) => updateVoiceTrack(index, { voice })}
-                  voices={voices}
+                  voices={getVoicesForTrack(track.trackProvider)}
                   disabled={isLoadingVoices}
                   loading={isLoadingVoices}
                 />
@@ -237,36 +266,6 @@ export function ScripterPanel({
                           Description:
                         </span>{" "}
                         <span className="text-gray-300">{track.voice.description}</span>
-                      </p>
-                    )}
-                    {(track.style ||
-                      track.useCase ||
-                      track.voiceInstructions) && (
-                      <p>
-                        <span className="font-medium text-gray-300">
-                          Creative:
-                        </span>{" "}
-                        {[
-                          track.style && `Tone=${track.style}`,
-                          track.useCase && `Use=${track.useCase}`,
-                          track.voiceInstructions &&
-                            <span
-                              key="instructions"
-                              onClick={() => setEditingInstructionsIndex(index)}
-                              className="cursor-pointer hover:text-wb-blue transition-colors inline-flex items-center gap-1"
-                              title="Click to edit voice instructions"
-                            >
-                              Instructions={track.voiceInstructions}
-                              <svg className="w-3 h-3 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                            </span>,
-                        ]
-                          .filter(Boolean)
-                          .reduce((acc: React.ReactNode[], curr, i) =>
-                            i === 0 ? [curr] : [...acc, " · ", curr],
-                            []
-                          )}
                       </p>
                     )}
                   </div>
@@ -403,6 +402,37 @@ export function ScripterPanel({
                       provider={selectedProvider as Provider}
                       disabled={!track.voice || !track.text.trim()}
                     />
+                    {/* Settings button - show for OpenAI and ElevenLabs */}
+                    {(selectedProvider === 'openai' || selectedProvider === 'elevenlabs') && (
+                      <button
+                        onClick={() => setEditingInstructionsIndex(index)}
+                        className={`p-2 rounded-lg border transition-all ${
+                          track.speed !== undefined || track.voiceInstructions
+                            ? "text-wb-blue bg-wb-blue/10 border-wb-blue/20"
+                            : "text-gray-500 hover:text-wb-blue hover:bg-wb-blue/10 border-transparent hover:border-wb-blue/20"
+                        }`}
+                        title="Voice settings (instructions & speed)"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                        </svg>
+                      </button>
+                    )}
                     {/* Remove button - only show if more than 1 track */}
                     {voiceTracks.length > 1 && (
                       <button
@@ -483,9 +513,20 @@ export function ScripterPanel({
           isOpen={true}
           onClose={() => setEditingInstructionsIndex(null)}
           voiceInstructions={voiceTracks[editingInstructionsIndex]?.voiceInstructions}
-          onSave={(instructions) => {
+          speed={voiceTracks[editingInstructionsIndex]?.speed}
+          provider={selectedProvider as Provider}
+          trackProvider={voiceTracks[editingInstructionsIndex]?.trackProvider}
+          voiceDescription={voiceTracks[editingInstructionsIndex]?.voice?.description}
+          onSave={(instructions, speed, provider) => {
+            const currentTrack = voiceTracks[editingInstructionsIndex];
+            const providerChanged = provider !== (currentTrack.trackProvider || selectedProvider);
+
             updateVoiceTrack(editingInstructionsIndex, {
               voiceInstructions: instructions,
+              speed: speed,
+              trackProvider: provider,
+              // Clear voice if provider changed (user needs to select new voice)
+              voice: providerChanged ? null : currentTrack.voice,
             });
           }}
         />

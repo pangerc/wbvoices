@@ -420,6 +420,8 @@ export default function ProjectWorkspace() {
       creativeBrief,
       musicProvider,
       selectedAiModel,
+      selectedCTA,
+      selectedPacing,
       tracks.length,
       updateProject,
       voiceManager.selectedAccent,
@@ -446,7 +448,8 @@ export default function ProjectWorkspace() {
     }
 
     // No cleanup needed - debounce handles its own timeout
-  }, [tracks.length, tracks, isLoading, projectNotFound]); // No saveProject dependency!
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tracks.length, tracks, isLoading, projectNotFound]); // No saveProject dependency - intentional to avoid circular deps
 
   // Debounced save for text changes (500ms delay) with timeout tracking
   // 🗡️ DEMON EXORCISM: Safe debounced save without saveProject dependency
@@ -466,7 +469,8 @@ export default function ProjectWorkspace() {
         pendingSaveRef.current = null; // Clear after execution
       }, 500);
     };
-  }, [projectId, projectNotFound, isLoading]); // No saveProject dependency
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, projectNotFound, isLoading]); // No saveProject dependency - intentional to avoid circular deps
 
   // Enhanced voice track update with immediate save for voice changes, debounced for text
   // 🗡️ DEMON EXORCISM: Restored with safe dependency management
@@ -486,7 +490,8 @@ export default function ProjectWorkspace() {
         debouncedSave();
       }
     },
-    [formManager, debouncedSave, isLoading, projectNotFound] // No saveProject dependency
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [formManager, debouncedSave, isLoading, projectNotFound] // No saveProject dependency - intentional to avoid circular deps
   );
 
   // Track music prompt changes for saving

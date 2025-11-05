@@ -17,7 +17,6 @@ import { selectAIModelForLanguage, AI_MODEL_REGISTRY, getAiModelLabel, getAiMode
 import {
   GlassyTextarea,
   GlassyListbox,
-  GlassyOptionPicker,
   GlassySlider,
   GlassyCombobox,
   SplitGenerateButton,
@@ -194,19 +193,6 @@ export type BriefPanelProps = {
   // New: shared creative generation state
   setIsGeneratingCreative: (generating: boolean) => void;
 };
-
-const campaignFormatOptions = [
-  {
-    value: "ad_read" as CampaignFormat,
-    label: "Single Voice Ad Read",
-    icon: <SingleVoiceIcon />,
-  },
-  {
-    value: "dialog" as CampaignFormat,
-    label: "Dialogue",
-    icon: <DialogueIcon />,
-  },
-];
 
 // SVG Icons for pacing control
 const TurtleIcon = () => (
@@ -822,6 +808,8 @@ export function BriefPanel({
         style: segment.style,
         useCase: segment.useCase,
         voiceInstructions: segment.voiceInstructions,
+        // Set initial speed for OpenAI when fast pacing is selected
+        speed: providerToUse === "openai" && selectedPacing === "fast" ? 1.2 : undefined,
       }));
 
       onGenerateCreative(
@@ -885,6 +873,8 @@ export function BriefPanel({
         style: segment.style,
         useCase: segment.useCase,
         voiceInstructions: segment.voiceInstructions,
+        // Set initial speed for OpenAI when fast pacing is selected
+        speed: providerToUse === "openai" && selectedPacing === "fast" ? 1.2 : undefined,
       }));
 
       // Step 2: Trigger AUTO mode with parallel generation

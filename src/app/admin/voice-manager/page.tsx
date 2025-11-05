@@ -70,14 +70,16 @@ export default function VoiceManagerPage() {
     if (selectedLanguage) {
       loadAccents(selectedLanguage);
     }
-  }, [selectedLanguage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLanguage]); // loadAccents is stable, intentionally omitted
 
   // Load providers when language/accent changes
   useEffect(() => {
     if (selectedLanguage && selectedAccent) {
       loadProviders();
     }
-  }, [selectedLanguage, selectedAccent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLanguage, selectedAccent]); // loadProviders is stable, intentionally omitted
 
   // Load voices when filters change
   useEffect(() => {

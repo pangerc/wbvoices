@@ -12,7 +12,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
   readonly providerType = "voice" as const;
 
   validateParams(body: Record<string, unknown>): ValidationResult {
-    const { text, voiceId, style, useCase, projectId, pronunciationDictionaryId, pronunciationVersionId } = body;
+    const { text, voiceId, style, useCase, projectId, pronunciationDictionaryId, pronunciationVersionId, speed } = body;
 
     if (!text || typeof text !== "string") {
       return {
@@ -38,6 +38,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
         projectId: typeof projectId === "string" ? projectId : undefined,
         pronunciationDictionaryId: typeof pronunciationDictionaryId === "string" ? pronunciationDictionaryId : undefined,
         pronunciationVersionId: typeof pronunciationVersionId === "string" ? pronunciationVersionId : undefined,
+        speed: typeof speed === "number" ? speed : undefined,
       },
     };
   }
@@ -61,7 +62,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
     params: Record<string, unknown>,
     credentials: AuthCredentials
   ): Promise<ProviderResponse> {
-    const { text, voiceId, style, useCase, pronunciationDictionaryId, pronunciationVersionId } = params;
+    const { text, voiceId, style, useCase, pronunciationDictionaryId, pronunciationVersionId, speed } = params;
     const { apiKey } = credentials;
 
     // Strip language suffix from voice ID if present (e.g., "zzBTsLBFM6AOJtkr1e9b-pl" -> "zzBTsLBFM6AOJtkr1e9b")
@@ -72,6 +73,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
     console.log(`  Voice ID: ${voiceId} (cleaned: ${cleanVoiceId})`);
     console.log(`  Style: ${style || "none"}`);
     console.log(`  Use Case: ${useCase || "none"}`);
+    console.log(`  Speed parameter received: ${speed !== undefined ? `${speed}x` : 'undefined (will use preset)'}`);
     console.log(`  Has emotional tags: ${/\[.*?\]/.test(text as string)}`);
 
     // Build voice settings based on emotional dimensions
@@ -241,11 +243,21 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       use_speaker_boost: settings.use_speaker_boost,
     };
 
+    // Use manual speed override if provided, otherwise use preset speed
+    const presetSpeed = voiceSettings.speed;
+    const effectiveSpeed = (speed as number | undefined) ?? presetSpeed;
+
+    console.log(`  🎛️ Speed calculation:`);
+    console.log(`    - Preset speed (from voice tone): ${presetSpeed}x`);
+    console.log(`    - Manual speed override: ${speed !== undefined ? `${speed}x` : 'none'}`);
+    console.log(`    - Effective speed (FINAL): ${effectiveSpeed}x ${speed !== undefined ? "(using manual override)" : "(using preset)"}`);
+
     console.log(
       `  🎛️ Applied voice settings for "${style || "neutral"}":` +
         ` stability=${voiceSettings.stability},` +
         ` similarity_boost=${voiceSettings.similarity_boost},` +
-        ` style=${voiceSettings.style}, speed=${voiceSettings.speed},` +
+        ` style=${voiceSettings.style},` +
+        ` speed=${effectiveSpeed},` +
         ` use_speaker_boost=${voiceSettings.use_speaker_boost}`
     );
 
@@ -261,7 +273,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       similarity_boost: voiceSettings.similarity_boost,
       style: voiceSettings.style,
       use_speaker_boost: voiceSettings.use_speaker_boost,
-      speed: voiceSettings.speed,
+      speed: effectiveSpeed,
     };
 
     const requestBody: {
@@ -291,14 +303,13 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       console.log(`  📖 Using pronunciation dictionary: ${pronunciationDictionaryId}`);
     }
 
-    console.log(
-      `  📡 ElevenLabs request body:`,
-      JSON.stringify(requestBody, null, 2)
-    );
+    console.log(`\n  📡 === FINAL REQUEST TO ELEVENLABS API ===`);
+    console.log(`  Request body:`, JSON.stringify(requestBody, null, 2));
 
     const apiUrl = `https://api.elevenlabs.io/v1/text-to-speech/${cleanVoiceId}?output_format=mp3_44100_128`;
-    console.log(`  🌐 ElevenLabs API URL: ${apiUrl}`);
-    console.log(`  🔑 Using API key: ${(apiKey as string).substring(0, 10)}...`);
+    console.log(`  🌐 API URL: ${apiUrl}`);
+    console.log(`  🔑 API key: ${(apiKey as string).substring(0, 10)}...`);
+    console.log(`  === END REQUEST ===\n`);
 
     const response = await this.makeFetch(apiUrl, {
       method: "POST",
@@ -309,7 +320,12 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       body: JSON.stringify(requestBody),
     });
 
-    console.log(`elevenlabs API response status: ${response.status}`);
+    console.log(`  ✅ ElevenLabs API response status: ${response.status}`);
+    console.log(`  📋 Response headers:`, {
+      'content-type': response.headers.get('content-type'),
+      'content-length': response.headers.get('content-length'),
+      'x-elevenlabs-request-id': response.headers.get('x-elevenlabs-request-id'),
+    });
 
     if (!response.ok) {
       const errorInfo = await this.handleApiError(response);

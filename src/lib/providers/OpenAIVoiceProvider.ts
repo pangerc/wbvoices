@@ -8,7 +8,7 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
   readonly providerType = 'voice' as const;
 
   validateParams(body: Record<string, unknown>): ValidationResult {
-    const { text, voiceId, style, useCase, projectId, region, accent, pacing } = body;
+    const { text, voiceId, style, useCase, projectId, region, accent, pacing, speed } = body;
 
     if (!text || typeof text !== 'string') {
       return {
@@ -34,7 +34,8 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
         projectId: typeof projectId === 'string' ? projectId : undefined,
         region: typeof region === 'string' ? region : undefined,
         accent: typeof accent === 'string' ? accent : undefined,
-        pacing: typeof pacing === 'string' ? pacing : undefined
+        pacing: typeof pacing === 'string' ? pacing : undefined,
+        speed: typeof speed === 'number' ? speed : undefined
       }
     };
   }
@@ -55,7 +56,7 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
   }
 
   async makeRequest(params: Record<string, unknown>, credentials: AuthCredentials): Promise<ProviderResponse> {
-    const { text, voiceId, style, useCase, instructions: voiceInstructions, region, accent, pacing } = params;
+    const { text, voiceId, style, useCase, instructions: voiceInstructions, region, accent, pacing, speed } = params;
     const { apiKey } = credentials;
 
     console.log(`🎭 OpenAI API Call:`);
@@ -131,13 +132,25 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
       }
     }
 
-    // Map pacing to speed values (tuned based on research feedback)
-    let speed = 1.0; // Default: Normal (null/undefined) → 1.0
-    if (pacing === 'fast') {
-      speed = 1.2; // Fast → 1.2 (reduced from 1.3 - research shows 1.3 was too fast)
+    // Determine effective speed: manual override > pacing-based > default 1.0
+    let effectiveSpeed: number;
+    let speedSource: string;
+
+    if (speed !== undefined && typeof speed === 'number') {
+      // Manual speed override from VoiceTrack
+      effectiveSpeed = speed;
+      speedSource = 'manual override';
+    } else if (pacing === 'fast') {
+      // Pacing-based speed (from BriefPanel rabbit button)
+      effectiveSpeed = 1.2; // Fast → 1.2 (tuned based on research feedback)
+      speedSource = `pacing: ${pacing}`;
+    } else {
+      // Default normal speed
+      effectiveSpeed = 1.0;
+      speedSource = 'default';
     }
 
-    console.log(`  🎛️ Speed setting: ${speed} (pacing: ${pacing || 'normal'})`);
+    console.log(`  🎛️ Speed setting: ${effectiveSpeed} (${speedSource})`);
 
     // Build API request body
     const requestBody: {
@@ -152,7 +165,7 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
       input: text as string,  // Clean text only
       voice: openAIVoice,
       response_format: "mp3",
-      speed: speed,
+      speed: effectiveSpeed,
     };
 
     // Add instructions if we have any
