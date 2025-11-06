@@ -57,6 +57,9 @@ export type VoiceTrack = {
   useCase?: string;
   voiceInstructions?: string; // OpenAI-specific voice control instructions
   speed?: number; // Per-track speed multiplier (OpenAI: 0.25-4.0, ElevenLabs: 0.7-1.2)
+  postProcessingSpeedup?: number; // Post-processing time-stretch speedup (1.0-1.6x, ElevenLabs only)
+  postProcessingPitch?: number; // Post-processing pitch adjustment (0.7-1.2x, default 1.0, ElevenLabs only)
+  targetDuration?: number; // Target duration in seconds (auto-calculates speedup, capped at 1.6x)
 };
 
 export type CampaignFormat = "ad_read" | "dialog";

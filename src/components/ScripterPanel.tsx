@@ -240,13 +240,10 @@ export function ScripterPanel({
                   loading={isLoadingVoices}
                 />
 
-                {/* Three neutral gray lines: speaker metadata + description + creative direction */}
+                {/* Voice metadata in single line */}
                 {track.voice && (
-                  <div className="mt-2 text-xs text-gray-400 space-y-1">
+                  <div className="mt-2 text-xs text-gray-400">
                     <p>
-                      <span className="font-medium text-gray-300">
-                        Speaker:
-                      </span>{" "}
                       {[
                         track.voice.name,
                         track.voice.accent && `${track.voice.accent} accent`,
@@ -259,15 +256,10 @@ export function ScripterPanel({
                       ]
                         .filter(Boolean)
                         .join(" · ")}
+                      {track.voice.description && selectedProvider === 'elevenlabs' && (
+                        <span className="text-gray-500"> · {track.voice.description}</span>
+                      )}
                     </p>
-                    {track.voice.description && selectedProvider === 'elevenlabs' && (
-                      <p>
-                        <span className="font-medium text-gray-300">
-                          Description:
-                        </span>{" "}
-                        <span className="text-gray-300">{track.voice.description}</span>
-                      </p>
-                    )}
                   </div>
                 )}
 
@@ -458,7 +450,7 @@ export function ScripterPanel({
                   </div>
                 </div>
 
-                {/* Timing instructions for this voice track */}
+                {/* Timing instructions for this voice track - only show when custom timing is set */}
                 {track.playAfter && (
                   <div className="mt-4 pl-4 text-xs text-gray-300 bg-gray-800 p-2 rounded-sm border border-gray-700">
                     <span className="font-medium text-gray-200">Timing: </span>
@@ -472,19 +464,6 @@ export function ScripterPanel({
                         (overlaps by {track.overlap}s)
                       </span>
                     )}
-                  </div>
-                )}
-
-                {!track.playAfter && index > 0 && (
-                  <div className="mt-4 text-xs text-gray-600">
-                    This voice will play sequentially after the previous
-                    element.
-                  </div>
-                )}
-
-                {index === 0 && !track.playAfter && (
-                  <div className="mt-3 pl-4 text-xs text-gray-600 ">
-                    This voice will play at the beginning of the sequence.
                   </div>
                 )}
               </div>
@@ -514,10 +493,13 @@ export function ScripterPanel({
           onClose={() => setEditingInstructionsIndex(null)}
           voiceInstructions={voiceTracks[editingInstructionsIndex]?.voiceInstructions}
           speed={voiceTracks[editingInstructionsIndex]?.speed}
+          postProcessingSpeedup={voiceTracks[editingInstructionsIndex]?.postProcessingSpeedup}
+          postProcessingPitch={voiceTracks[editingInstructionsIndex]?.postProcessingPitch}
+          targetDuration={voiceTracks[editingInstructionsIndex]?.targetDuration}
           provider={selectedProvider as Provider}
           trackProvider={voiceTracks[editingInstructionsIndex]?.trackProvider}
           voiceDescription={voiceTracks[editingInstructionsIndex]?.voice?.description}
-          onSave={(instructions, speed, provider) => {
+          onSave={(instructions, speed, provider, postProcessingSpeedup, postProcessingPitch, targetDuration) => {
             const currentTrack = voiceTracks[editingInstructionsIndex];
             const providerChanged = provider !== (currentTrack.trackProvider || selectedProvider);
 
@@ -525,6 +507,9 @@ export function ScripterPanel({
               voiceInstructions: instructions,
               speed: speed,
               trackProvider: provider,
+              postProcessingSpeedup: postProcessingSpeedup,
+              postProcessingPitch: postProcessingPitch,
+              targetDuration: targetDuration,
               // Clear voice if provider changed (user needs to select new voice)
               voice: providerChanged ? null : currentTrack.voice,
             });

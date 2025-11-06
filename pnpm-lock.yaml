@@ -62,6 +62,9 @@ importers:
       react-textarea-autosize:
         specifier: ^8.5.9
         version: 8.5.9(@types/react@19.0.5)(react@19.0.0)
+      soundtouchjs:
+        specifier: ^0.2.1
+        version: 0.2.1
       uuid:
         specifier: ^11.1.0
         version: 11.1.0
@@ -2537,6 +2540,9 @@ packages:
 
   simple-swizzle@0.2.2:
     resolution: {integrity: sha512-JA//kQgZtbuY83m+xT+tXJkmJncGMTFT+C+g2h2R9uxkYIrE2yy9sgmcLhCnw57/WSD+Eh3J97FPEDFnbXnDUg==}
+
+  soundtouchjs@0.2.1:
+    resolution: {integrity: sha512-ApYdqT4bHqvm6QTRzHDta8PzJIgLacaXdkzUnSdotHvk7N2Ugr9JqV3SlWYsFTsd4ceJHEJqT7JI5E2MYmuQ6w==}
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
@@ -5243,6 +5249,8 @@ snapshots:
     dependencies:
       is-arrayish: 0.3.2
     optional: true
+
+  soundtouchjs@0.2.1: {}
 
   source-map-js@1.2.1: {}
 

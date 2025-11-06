@@ -226,3 +226,245 @@ export function applyLoudnessNormalization(
 export function normalizeToSpotifySpec(audioBuffer: AudioBuffer): AudioBuffer {
   return applyLoudnessNormalization(audioBuffer, -16, -2.0);
 }
+
+/**
+ * Apply time-stretching with pitch adjustment to audio data using SoundTouch WSOLA algorithm
+ * @param audioArrayBuffer Raw audio data (MP3/WAV) from provider
+ * @param speedup Speedup multiplier (1.0-1.6x, where 1.0 = no change, 1.6x = 1.6x faster)
+ * @param pitch Pitch adjustment multiplier (0.7-1.2x, where 1.0 = no change, <1.0 = lower pitch, >1.0 = higher pitch)
+ * @returns ArrayBuffer containing WAV audio data
+ */
+export async function applyTimeStretch(
+  audioArrayBuffer: ArrayBuffer,
+  speedup: number,
+  pitch: number = 1.0
+): Promise<ArrayBuffer> {
+  console.log(`⚡ Applying time-stretch: ${speedup}x speedup with ${pitch}x pitch adjustment`);
+
+  // Clamp speedup to valid range (1.0-1.6x)
+  const clampedSpeedup = Math.max(1.0, Math.min(1.6, speedup));
+  if (clampedSpeedup !== speedup) {
+    console.warn(`⚠️ Speedup ${speedup}x clamped to ${clampedSpeedup}x (valid range: 1.0-1.6)`);
+  }
+
+  // If no processing needed (both tempo and pitch are default), return original data
+  if (clampedSpeedup === 1.0 && pitch === 1.0) {
+    console.log('No tempo or pitch adjustment needed, returning original audio');
+    return audioArrayBuffer;
+  }
+
+  // Create temporary audio context for decoding
+  const tempContext = new (window.AudioContext || window.webkitAudioContext)();
+
+  try {
+    // Decode the audio data
+    console.log('Decoding audio data...');
+    const audioBuffer = await tempContext.decodeAudioData(audioArrayBuffer.slice(0));
+    const originalDuration = audioBuffer.duration;
+    console.log(`Original duration: ${originalDuration.toFixed(2)}s`);
+
+    // Use SoundTouch PitchShifter for robust time-stretch with pitch adjustment
+    const { PitchShifter } = await import('soundtouchjs');
+
+    console.log('Applying SoundTouch WSOLA algorithm...');
+    console.log('SoundTouch configuration:', {
+      tempo: clampedSpeedup,
+      pitch: pitch,
+      speedup: clampedSpeedup,
+      pitchAdjustment: pitch
+    });
+
+    // Calculate expected output duration and length
+    const expectedDuration = audioBuffer.duration / clampedSpeedup;
+    const expectedLength = Math.ceil(expectedDuration * audioBuffer.sampleRate);
+
+    // Create offline context for rendering
+    const offlineContext = new OfflineAudioContext({
+      numberOfChannels: audioBuffer.numberOfChannels,
+      length: expectedLength,
+      sampleRate: audioBuffer.sampleRate
+    });
+
+    // Create PitchShifter node - handles all the complexity internally
+    const shifter = new PitchShifter(tempContext, audioBuffer, 16384);
+    shifter.tempo = clampedSpeedup;  // Control speed (1.0-1.6x)
+    shifter.pitch = pitch;           // Control pitch (0.8-1.2x)
+
+    // Connect to offline context for rendering
+    // Note: We need to create a buffer source for the offline context
+    const source = offlineContext.createBufferSource();
+    source.buffer = audioBuffer;
+
+    // PitchShifter works by creating a processing node
+    // For offline rendering, we'll use a different approach: manual processing
+    // Use the lower-level API but with proper setup
+    const { SoundTouch, SimpleFilter, WebAudioBufferSource } = await import('soundtouchjs');
+
+    const soundtouch = new SoundTouch();
+    soundtouch.tempo = clampedSpeedup;
+    soundtouch.pitch = pitch;
+    soundtouch.rate = 1.0;
+
+    const bufferSource = new WebAudioBufferSource(audioBuffer);
+    const filter = new SimpleFilter(bufferSource, soundtouch);
+
+    // Extract processed audio in chunks
+    const processedSamples: Float32Array[] = [];
+    const framesToExtract = 8192; // Smaller chunks for stability
+    let totalExtracted = 0;
+    let safetyCounter = 0;
+    const maxChunks = Math.ceil(audioBuffer.length / framesToExtract) * 10; // Large safety margin
+
+    while (safetyCounter < maxChunks) {
+      // Allocate target buffer (interleaved: frames * channels)
+      const target = new Float32Array(framesToExtract * audioBuffer.numberOfChannels);
+
+      let framesExtracted = 0;
+      try {
+        framesExtracted = filter.extract(target, framesToExtract);
+      } catch (err) {
+        console.error('Filter extract failed:', err);
+        // If extract fails, we're done
+        break;
+      }
+
+      if (framesExtracted === 0) {
+        // No more data available
+        break;
+      }
+
+      // Store the extracted samples (only the portion that was filled)
+      const samplesExtracted = framesExtracted * audioBuffer.numberOfChannels;
+      processedSamples.push(target.slice(0, samplesExtracted));
+      totalExtracted += framesExtracted;
+      safetyCounter++;
+    }
+
+    if (safetyCounter >= maxChunks) {
+      console.warn(`⚠️ Hit safety limit of ${maxChunks} chunks`);
+    }
+
+    console.log(`Extracted ${totalExtracted} frames in ${processedSamples.length} chunks`);
+
+    // Calculate total samples and create output buffer
+    const totalSamples = processedSamples.reduce((sum, chunk) => sum + chunk.length, 0);
+    const totalFrames = totalSamples / audioBuffer.numberOfChannels;
+
+    console.log(`Creating output buffer: ${totalFrames} frames`);
+
+    const stretchedBuffer = new AudioBuffer({
+      numberOfChannels: audioBuffer.numberOfChannels,
+      length: totalFrames,
+      sampleRate: audioBuffer.sampleRate
+    });
+
+    // Deinterleave samples into separate channels
+    let frameIndex = 0;
+    for (const chunk of processedSamples) {
+      const chunkFrames = chunk.length / audioBuffer.numberOfChannels;
+
+      for (let i = 0; i < chunkFrames; i++) {
+        for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
+          const sampleValue = chunk[i * audioBuffer.numberOfChannels + ch];
+          const channelData = stretchedBuffer.getChannelData(ch);
+          if (frameIndex < channelData.length) {
+            channelData[frameIndex] = sampleValue;
+          }
+        }
+        frameIndex++;
+      }
+    }
+
+    console.log(`Rendered duration: ${stretchedBuffer.duration.toFixed(2)}s (${frameIndex} frames written)`);
+
+    // Convert to WAV format
+    console.log('Converting to WAV format...');
+    const wavArrayBuffer = audioBufferToWavArrayBuffer(stretchedBuffer);
+    console.log(`✅ Time-stretch complete: ${originalDuration.toFixed(2)}s → ${stretchedBuffer.duration.toFixed(2)}s (tempo: ${clampedSpeedup}x, pitch: ${pitch}x)`);
+
+    return wavArrayBuffer;
+  } catch (error) {
+    console.error('❌ SoundTouch processing failed:', error);
+    console.log('Falling back to simple playback rate adjustment (will alter pitch)');
+
+    // Fallback to simple playback rate adjustment
+    const audioBuffer = await tempContext.decodeAudioData(audioArrayBuffer.slice(0));
+    const newDuration = audioBuffer.duration / clampedSpeedup;
+    const newLength = Math.ceil(newDuration * audioBuffer.sampleRate);
+
+    const offlineContext = new OfflineAudioContext({
+      numberOfChannels: audioBuffer.numberOfChannels,
+      length: newLength,
+      sampleRate: audioBuffer.sampleRate
+    });
+
+    const source = offlineContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.playbackRate.value = clampedSpeedup;
+    source.connect(offlineContext.destination);
+    source.start(0);
+
+    const stretchedBuffer = await offlineContext.startRendering();
+    return audioBufferToWavArrayBuffer(stretchedBuffer);
+  } finally {
+    // Clean up temporary context
+    await tempContext.close();
+  }
+}
+
+/**
+ * Convert AudioBuffer to WAV ArrayBuffer
+ */
+function audioBufferToWavArrayBuffer(audioBuffer: AudioBuffer): ArrayBuffer {
+  const numOfChan = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const bitsPerSample = 16;
+  const bytesPerSample = bitsPerSample / 8;
+  const blockAlign = numOfChan * bytesPerSample;
+  const byteRate = sampleRate * blockAlign;
+  const dataSize = audioBuffer.length * numOfChan * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  // WAV header
+  writeString(view, 0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(view, 8, "WAVE");
+  writeString(view, 12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numOfChan, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+  writeString(view, 36, "data");
+  view.setUint32(40, dataSize, true);
+
+  // Write audio data
+  const channelData: Float32Array[] = [];
+  for (let i = 0; i < numOfChan; i++) {
+    channelData.push(audioBuffer.getChannelData(i));
+  }
+
+  let offset = 44;
+  for (let i = 0; i < audioBuffer.length; i++) {
+    for (let channel = 0; channel < numOfChan; channel++) {
+      const sample = Math.max(-1, Math.min(1, channelData[channel][i]));
+      const int16Sample = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+      view.setInt16(offset, int16Sample, true);
+      offset += 2;
+    }
+  }
+
+  return buffer;
+}
+
+/**
+ * Helper to write string to DataView
+ */
+function writeString(view: DataView, offset: number, string: string): void {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
+}

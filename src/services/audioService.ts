@@ -4,6 +4,7 @@ import { generateMusicWithLoudly } from "@/utils/loudly-api";
 import { generateMusicWithMubert } from "@/utils/mubert-api";
 import { generateMusicWithElevenLabs } from "@/utils/elevenlabs-music-api";
 import { useMixerStore, MixerTrack } from "@/store/mixerStore";
+import { applyTimeStretch } from "@/utils/audio-processing";
 
 export class AudioService {
   static async generateVoiceAudio(
@@ -61,7 +62,7 @@ export class AudioService {
 
         let url: string;
         const contentType = res.headers.get('content-type');
-        
+
         if (contentType && contentType.includes('application/json')) {
           // New blob storage response format (OpenAI and future providers)
           const jsonResponse = await res.json();
@@ -72,6 +73,13 @@ export class AudioService {
           const blob = await res.blob();
           url = URL.createObjectURL(blob);
           console.log(`Using temporary blob URL for ${trackProvider}:`, url);
+        }
+
+        // Apply post-processing speedup if specified (ElevenLabs only)
+        if (trackProvider === 'elevenlabs' && (track.postProcessingSpeedup || track.targetDuration)) {
+          console.log(`🎬 Post-processing required for ElevenLabs track`);
+          onStatusUpdate(`Applying ${track.postProcessingSpeedup ? `${track.postProcessingSpeedup}x speedup` : `target duration ${track.targetDuration}s`}...`);
+          url = await this.applyPostProcessingSpeedup(url, track, onStatusUpdate);
         }
 
         const mixerTrack: MixerTrack = {
@@ -243,6 +251,103 @@ export class AudioService {
       onStatusUpdate("Sound effect generation complete!");
     } finally {
       setIsGeneratingSoundFx?.(false);
+    }
+  }
+
+  /**
+   * Apply post-processing speedup to audio
+   * Downloads audio, applies time-stretching, uploads processed version
+   * @param originalUrl URL of the original audio
+   * @param track VoiceTrack with post-processing parameters
+   * @param onStatusUpdate Status callback
+   * @returns URL of the processed audio
+   */
+  private static async applyPostProcessingSpeedup(
+    originalUrl: string,
+    track: VoiceTrack,
+    onStatusUpdate: (message: string) => void
+  ): Promise<string> {
+    try {
+      // Download the original audio
+      console.log(`📥 Downloading original audio from ${originalUrl}`);
+      const response = await fetch(originalUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download audio: ${response.statusText}`);
+      }
+      const audioArrayBuffer = await response.arrayBuffer();
+      console.log(`Downloaded ${audioArrayBuffer.byteLength} bytes`);
+
+      // Calculate speedup
+      let speedup = track.postProcessingSpeedup || 1.0;
+
+      // If target duration is specified, measure original duration and calculate speedup
+      if (track.targetDuration) {
+        console.log(`🎯 Target duration specified: ${track.targetDuration}s`);
+        onStatusUpdate(`Measuring audio duration...`);
+
+        // Measure original duration using Audio element
+        const originalDuration = await new Promise<number>((resolve) => {
+          const audio = new Audio(originalUrl);
+          audio.addEventListener('loadedmetadata', () => {
+            console.log(`Original duration: ${audio.duration}s`);
+            resolve(audio.duration);
+          });
+          audio.addEventListener('error', () => {
+            console.warn(`Could not measure duration, using speedup parameter`);
+            resolve(0);
+          });
+          audio.load();
+        });
+
+        if (originalDuration > 0) {
+          // Calculate speedup to achieve target duration
+          speedup = originalDuration / track.targetDuration!;
+          console.log(`Calculated speedup: ${speedup}x (${originalDuration}s → ${track.targetDuration}s)`);
+
+          // Clamp to 1.6x max
+          if (speedup > 1.6) {
+            console.warn(`⚠️ Calculated speedup ${speedup}x exceeds 1.6x, clamping to 1.6x`);
+            const achievableDuration = originalDuration / 1.6;
+            console.warn(`  Achievable duration at 1.6x: ${achievableDuration.toFixed(2)}s (target was ${track.targetDuration}s)`);
+            speedup = 1.6;
+          }
+        }
+      }
+
+      // Apply time-stretching
+      const pitch = track.postProcessingPitch || 1.0;
+      console.log(`⚡ Applying ${speedup}x time-stretch with ${pitch}x pitch adjustment...`);
+      onStatusUpdate(`Processing audio (${speedup.toFixed(2)}x speedup, ${pitch.toFixed(2)}x pitch)...`);
+      const processedArrayBuffer = await applyTimeStretch(audioArrayBuffer, speedup, pitch);
+
+      // Upload processed audio to Vercel
+      console.log(`📤 Uploading processed audio...`);
+      onStatusUpdate('Uploading processed audio...');
+
+      const processedBlob = new Blob([processedArrayBuffer], { type: 'audio/wav' });
+      const formData = new FormData();
+      formData.append('audio', processedBlob, `processed-voice-${Date.now()}.wav`);
+      formData.append('voiceId', track.voice?.id || 'unknown');
+      formData.append('provider', 'elevenlabs-processed');
+      formData.append('projectId', `voice-processed-${Date.now()}`);
+
+      const uploadResponse = await fetch('/api/voice/upload-processed', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Failed to upload processed audio: ${uploadResponse.statusText}`);
+      }
+
+      const { audio_url } = await uploadResponse.json();
+      console.log(`✅ Processed audio uploaded: ${audio_url}`);
+      return audio_url;
+    } catch (error) {
+      console.error('❌ Post-processing failed:', error);
+      onStatusUpdate('Post-processing failed, using original audio');
+      // Return original URL on error
+      return originalUrl;
     }
   }
 

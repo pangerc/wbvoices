@@ -23,6 +23,7 @@ export class ElevenLabsV3PromptStrategy extends BasePromptStrategy {
 🐰 PACING REQUIREMENT: FAST-PACED DELIVERY
 Create a fast-paced, energetic delivery with urgency and excitement.
 RECOMMENDED baseline tones: fast_read, energetic, dynamic, excited
+CRITICAL: Use [rapid-fire] tag liberally - it saves 2-4 seconds per ad and creates urgent, quick delivery
 Use shorter sentences and action-oriented language.
 The voice should feel urgent and compelling.
 `;
@@ -43,7 +44,7 @@ Layer emotional moments using inline tags for fine-grained control:
 Available audio tags (use these as a guide - you can infer similar, contextually appropriate tags):
 
 **Emotional/Delivery Directions:**
-[happy], [sad], [excited], [angry], [whisper], [annoyed], [appalled], [thoughtful], [surprised], [sarcastic], [curious], [crying], [mischievously]
+[happy], [sad], [excited], [angry], [whisper], [annoyed], [appalled], [thoughtful], [surprised], [sarcastic], [curious], [crying], [mischievously], [rapid-fire]
 
 **Non-verbal Sounds:**
 [laughing], [chuckles], [sighs], [clears throat], [short pause], [long pause], [exhales sharply], [inhales deeply], [laughs], [laughs harder], [starts laughing], [wheezing], [whispers], [exhales], [snorts]
@@ -62,12 +63,14 @@ ElevenLabs V3 benefits from thoughtful tag usage. The density and types of tags 
 ${
       pacing === "fast"
         ? `
-🚀 [fast] TAG BOMBARDMENT MODE (pacing=fast):
-Since this ad requires FAST pacing, use [fast] tags aggressively:
+🚀 [rapid-fire] + [fast] TAG BOMBARDMENT MODE (pacing=fast):
+Since this ad requires FAST pacing, use [rapid-fire] and [fast] tags aggressively:
+- PRIORITIZE [rapid-fire] tag - it saves 2-4 seconds and creates urgent delivery
+- Stack [rapid-fire] with [fast] tags for maximum speed effect
 - Stack 2-3 [fast] tags together between clauses for urgent, rapid delivery
 - Target 5-7 tags total per sentence (including mood tags)
-- [fast] tags have MULTIPLICATIVE effect when stacked - use them liberally
-- Example: "[excited][fast][fast]Check this out! [fast][energetic]It's amazing! [fast][fast][happy]Don't wait!"`
+- [rapid-fire] and [fast] tags have MULTIPLICATIVE effect when combined - use them liberally
+- Example: "[excited][rapid-fire][fast][fast]Check this out! [rapid-fire][energetic]It's amazing! [fast][fast][happy]Don't wait!"`
         : `
 ⚖️ MODERATE TAG MODE (pacing=normal):
 Use tags moderately for natural, balanced delivery:
@@ -92,6 +95,7 @@ Example: "[happy][excited]Your text starts here..." or "[laughs][curious]Opening
     }
 
 TAG STACKING BEHAVIOR:
+- [rapid-fire] tag: USE LIBERALLY for fast pacing - saves 2-4 seconds per ad. Combine with [fast] for maximum effect.
 - [fast] tags: Only stack when pacing=fast. Use 2-3 together for multiplicative effect.
 - Mood tags ([excited], [happy], [joyful]): Diminishing returns after 2. Use sparingly.
 
@@ -133,11 +137,11 @@ ${
 
 Example 1 - Warm, Friendly voice (Rachel):
 "description": "excited",
-"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[laughs][excited][fast][fast]You're going to love this! [fast][happy]Our new product... [very excited]it's AMAZING! [fast][fast][cheerful]Don't miss out!"
+"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[laughs][excited][rapid-fire][fast][fast]You're going to love this! [rapid-fire][happy]Our new product... [very excited]it's AMAZING! [rapid-fire][fast][fast][cheerful]Don't miss out!"
 
 Example 2 - Professional, Authoritative voice (Michael):
 "description": "professional",
-"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[confident][fast][fast]Introducing our solution. [fast][serious]Proven results. [fast][authoritative]Act now."`
+"text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[confident][rapid-fire][fast][fast]Introducing our solution. [rapid-fire][serious]Proven results. [rapid-fire][authoritative]Act now."`
         : `🌟 EXAMPLES WITH PERSONALITY AWARENESS (normal pacing):
 
 Example 1 - Warm, Friendly voice (Rachel):
@@ -154,10 +158,11 @@ Example 3 - Calm, Soothing voice (Sarah):
     }
 
 KEY PRINCIPLES:
-1. Tag density follows pacing: fast=5-7 tags, normal=2-4 tags
-2. Only stack [fast] tags when pacing=fast (proven multiplicative effect)
-3. Limit mood tags to 2 per emotional beat
-4. Tags should enhance, not dominate, the natural delivery
+1. [rapid-fire] is CRITICAL for fast pacing - saves 2-4 seconds and creates urgent delivery
+2. Tag density follows pacing: fast=5-7 tags (including [rapid-fire]), normal=2-4 tags
+3. Only stack [rapid-fire] + [fast] tags when pacing=fast (proven multiplicative effect)
+4. Limit mood tags to 2 per emotional beat
+5. Tags should enhance, not dominate, the natural delivery
 
 Stability settings (handled automatically via baseline tone):
 - Creative (0.0): High expressiveness - cheerful, excited, energetic, fast_read
