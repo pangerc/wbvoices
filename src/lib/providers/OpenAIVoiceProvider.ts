@@ -56,7 +56,7 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
   }
 
   async makeRequest(params: Record<string, unknown>, credentials: AuthCredentials): Promise<ProviderResponse> {
-    const { text, voiceId, style, useCase, instructions: voiceInstructions, region, accent, pacing, speed } = params;
+    const { text, voiceId, style, useCase, voiceInstructions, region, accent, pacing, speed } = params;
     const { apiKey } = credentials;
 
     console.log(`🎭 OpenAI API Call:`);

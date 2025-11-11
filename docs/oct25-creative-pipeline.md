@@ -1506,9 +1506,75 @@ What started as a speed parameter investigation ("why doesn't ElevenLabs speed w
 
 **Key Achievement**: Delivered a complex feature (mixed-provider scripts) while simultaneously fixing bugs (speed ranges, provider routing) and improving code quality (build warnings, logging) - proving that feature work and technical debt can be addressed together when architecture is sound.
 
+## Smart Speed Post-Processing
+
+_January 2025_
+
+**Feature**: Client-side audio time-stretching with independent pitch control for ElevenLabs voices.
+
+**Purpose**: Enable natural-sounding speedup (1.0-1.6x) for pharma disclaimers and other use cases requiring compressed timing without quality degradation.
+
+### The Problem
+
+Even with per-track provider switching (ElevenLabs for quality + OpenAI for speed), users wanted ElevenLabs-quality voices at speeds beyond the native 1.2x limit. Speeding up audio naturally raises pitch (chipmunk effect), requiring sophisticated pitch compensation.
+
+### The Solution
+
+**Client-Side Post-Processing Pipeline**:
+```
+Generate → Download → applyTimeStretch(tempo, pitch) → Re-upload → Mixer
+```
+
+**Technology**: soundtouchjs (WSOLA algorithm)
+- Real-time capable on all devices
+- Optimized for speech at 1.0-1.6x range
+- Manual pitch compensation (0.7x-1.2x)
+
+### Key Features
+
+**Dual Slider Control**:
+- **Tempo**: 1.0-1.6x (0.01 step granularity)
+- **Pitch**: 0.7-1.2x (0.01 step granularity)
+- **Tabbed UI**: Smart Speed | Fit Duration | Advanced
+
+**Typical Values**:
+- 1.1x tempo → 0.95x pitch
+- 1.3x tempo → 0.85-0.90x pitch
+- 1.5x tempo → 0.75-0.80x pitch
+
+**Alternative Libraries Researched**:
+- Rubber Band WASM: Superior quality but ~10x CPU (overkill for browser)
+- Professional DAWs (Elastique, ZTX): Not available for web
+- Superpowered SDK: Commercial option (potential future upgrade)
+- Verdict: soundtouchjs is correct choice for speech at these speeds
+
+### Implementation
+
+**Files Modified**:
+- `src/types/index.ts`: Added postProcessingSpeedup/Pitch to VoiceTrack
+- `src/utils/audio-processing.ts`: Core applyTimeStretch() function
+- `src/services/audioService.ts`: Post-processing pipeline integration
+- `src/components/ui/VoiceInstructionsDialog.tsx`: Dual slider UI
+- `src/app/api/voice/upload-processed/route.ts`: New upload endpoint
+
+**Bug Fixes**:
+- Corrected soundtouchjs API usage (WebAudioBufferSource + extract())
+- Fixed buffer overflow with smaller chunk sizes
+- Narrowed pitch range based on user testing (0.8→0.7x min)
+
+### Impact
+
+- ✅ **Business Value**: Enables pharma disclaimers at 1.5x+ while maintaining ElevenLabs quality
+- ✅ **User Experience**: Fine-grained control (0.01 step sliders) for precise tuning
+- ✅ **Performance**: Real-time processing, mobile-capable
+- ✅ **Architecture**: Clean double-upload trade-off for client-side simplicity
+
+**Documentation**: See [Smart Speed Guide](./smart-speed.md) for complete technical details, troubleshooting, and alternative libraries analysis.
+
 ---
 
 **Related Documentation**:
 - [Architecture Overview](./architecture.md) - Main system architecture
 - [Pronunciation System](./pronounciation.md) - ElevenLabs pronunciation dictionaries
 - [Voice System Guide](./voice-system-guide.md) - Redis voice management
+- [Smart Speed Guide](./smart-speed.md) - Post-processing audio time-stretching
