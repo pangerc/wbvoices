@@ -14,14 +14,13 @@ type VoiceTrackPreview = {
 };
 
 type SoundFxPanelProps = {
-  onGenerate: (
-    prompt: string,
-    duration: number,
-    placement?: SoundFxPlacementIntent
-  ) => Promise<void>;
+  onGenerate: () => Promise<void>; // Simplified - generates all soundfx in array
   isGenerating: boolean;
   statusMessage?: string;
-  initialPrompt?: SoundFxPrompt | null;
+  soundFxPrompts: SoundFxPrompt[]; // Array of soundfx prompts
+  onUpdatePrompt: (index: number, updates: Partial<SoundFxPrompt>) => void; // Update specific soundfx
+  onRemovePrompt: (index: number) => void; // Remove specific soundfx
+  onAddPrompt: () => void; // Add new empty soundfx
   adDuration: number; // Kept for API compatibility with other panels, but not used for duration defaults
   resetForm: () => void;
   voiceTrackCount?: number; // Number of voice tracks for placement options
@@ -52,72 +51,17 @@ export function SoundFxPanel({
   onGenerate,
   isGenerating,
   statusMessage: parentStatusMessage,
-  initialPrompt = null,
+  soundFxPrompts,
+  onUpdatePrompt,
+  onRemovePrompt,
+  onAddPrompt,
   adDuration, // We keep this for API compatibility, but use a fixed default duration for sound effects
   resetForm,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   voiceTrackCount: _voiceTrackCount = 0, // Kept for API compatibility, not currently used
   voiceTrackPreviews = [],
 }: SoundFxPanelProps) {
-  const [prompt, setPrompt] = useState("");
-  const [duration, setDuration] = useState(DEFAULT_SOUND_FX_DURATION);
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
-  const [timingInfo, setTimingInfo] = useState<{
-    playAfter?: string;
-    overlap?: number;
-  } | null>(null);
-  const [placementOption, setPlacementOption] = useState<string>("end");
-
-  // Update prompt when initialPrompt changes
-  useEffect(() => {
-    // Only update the prompt - do not automatically generate
-    if (initialPrompt) {
-      console.log("Setting sound FX prompt to:", initialPrompt);
-      setPrompt(initialPrompt.description);
-
-      // Use the provided duration, or fall back to default (not the ad duration)
-      if (initialPrompt.duration && initialPrompt.duration > 0) {
-        console.log(
-          `Using provided sound FX duration: ${initialPrompt.duration}s`
-        );
-        setDuration(initialPrompt.duration);
-      } else {
-        // For sound effects, use a short default duration rather than the full ad length
-        console.log(
-          `Using default sound FX duration: ${DEFAULT_SOUND_FX_DURATION}s`
-        );
-        setDuration(DEFAULT_SOUND_FX_DURATION);
-      }
-
-      // Restore placement dropdown state from Redis
-      if (initialPrompt.placement) {
-        const intent = initialPrompt.placement;
-        if (intent.type === "start") {
-          setPlacementOption("start");
-        } else if (intent.type === "afterVoice" && intent.index !== undefined) {
-          setPlacementOption(`afterVoice-${intent.index}`);
-        } else if (intent.type === "end") {
-          setPlacementOption("end");
-        }
-        console.log(
-          `Restored placement dropdown to: ${intent.type}${
-            intent.type === "afterVoice" ? ` index=${intent.index}` : ""
-          }`
-        );
-      }
-
-      // Extract timing information
-      if (initialPrompt.playAfter || initialPrompt.overlap !== undefined) {
-        setTimingInfo({
-          playAfter: initialPrompt.playAfter,
-          overlap: initialPrompt.overlap,
-        });
-      }
-    }
-  }, [initialPrompt]);
-
-  // Do NOT update duration when adDuration changes - sound effects should be short
-  // We don't need the useEffect that previously updated to adDuration
 
   // Update local status message when parent status message changes
   // but only if we're actually generating sound fx
@@ -132,44 +76,32 @@ export function SoundFxPanel({
     setLocalStatusMessage("");
   }, []);
 
-  // Handle local reset
+  // Handle reset - clears all soundfx and resets form
   const handleReset = () => {
-    setPrompt("");
-    setDuration(DEFAULT_SOUND_FX_DURATION); // Reset to default sound FX duration, not ad duration
-    setTimingInfo(null);
-    setPlacementOption("end"); // Reset to default placement
     setLocalStatusMessage("");
     resetForm();
   };
 
+  // Generate all soundfx in the array
   const handleGenerate = () => {
-    const placementIntent = placementOptionToIntent(placementOption);
-    console.log(
-      `Manually generating sound effect: "${prompt}" (${duration}s) with placement:`,
-      placementIntent
-    );
-    // Only generate if we have a valid prompt and not already generating
-    if (prompt && !isGenerating) {
-      onGenerate(prompt, duration, placementIntent);
+    console.log(`Generating ${soundFxPrompts.length} sound effects`);
+    // Check if at least one prompt has valid description
+    const hasValidPrompt = soundFxPrompts.some(p => p.description?.trim());
+    if (hasValidPrompt && !isGenerating) {
+      onGenerate();
     } else {
-      console.log(`Generation skipped: prompt empty or already generating`);
+      console.log(`Generation skipped: no valid prompts or already generating`);
     }
   };
 
-  const formatTimingInfo = () => {
-    if (!timingInfo) return "Sound effect will play at the start of the ad";
-
-    if (timingInfo.playAfter === "previous") {
-      return timingInfo.overlap
-        ? `Will play after previous element with ${timingInfo.overlap}s overlap`
-        : "Will play after previous element";
+  // Helper to convert placement intent to string option for listbox
+  const placementIntentToOption = (placement?: SoundFxPlacementIntent): string => {
+    if (!placement) return "end";
+    if (placement.type === "start") return "start";
+    if (placement.type === "afterVoice" && placement.index !== undefined) {
+      return `afterVoice-${placement.index}`;
     }
-
-    return timingInfo.playAfter
-      ? `Will play after element "${timingInfo.playAfter}"${
-          timingInfo.overlap ? ` with ${timingInfo.overlap}s overlap` : ""
-        }`
-      : "No specific timing information";
+    return "end";
   };
 
   // Make typescript happy by referencing adDuration in a harmless way
@@ -193,89 +125,128 @@ export function SoundFxPanel({
           <ResetButton onClick={handleReset} />
           <GenerateButton
             onClick={handleGenerate}
-            disabled={!prompt.trim()}
+            disabled={!soundFxPrompts.some(p => p.description?.trim())}
             isGenerating={isGenerating}
-            text="Generate Sound Effect"
+            text={`Generate Sound Effect${soundFxPrompts.length > 1 ? 's' : ''}`}
             generatingText="Generating..."
           />
         </div>
       </div>
 
-      <div className="space-y-12 md:grid md:grid-cols-2 md:gap-6">
-        {/* Left column: Description */}
-        <div>
-          <GlassyTextarea
-            label="Sound FX Description"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe the sound effect you want to generate... (e.g. 'A door creaking open slowly with a spooky ambiance')"
-            className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
-            minRows={8}
-          />
+      {/* Render each soundfx form */}
+      <div className="space-y-8">
+        {soundFxPrompts.map((prompt, index) => (
+          <div
+            key={index}
+            className="p-6 rounded-xl bg-white/5 border border-white/10 space-y-6"
+          >
+            {/* Form header with number and remove button */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">
+                Sound Effect {index + 1}
+              </h3>
+              {soundFxPrompts.length > 1 && (
+                <button
+                  onClick={() => onRemovePrompt(index)}
+                  disabled={isGenerating}
+                  className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+                  title="Remove this sound effect"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
 
-          {/* Timing instructions for sound effects */}
-          <div className="mt-1 pl-3 text-xs text-gray-500 p-2">
-            <span className="font-medium">Timing: </span>
-            <span>
-              {timingInfo
-                ? formatTimingInfo()
-                : "Sound effects typically play at specific moments in the ad"}
-            </span>
-            <div className="mt-1">
-              <span className="text-wb-blue">Pro tip: </span>
-              When generating from a script, sound effects will be positioned
-              based on the AI&apos;s timing suggestions. In the mixer,
-              you&apos;ll be able to adjust when each sound effect plays.
+            <div className="space-y-6 md:grid md:grid-cols-2 md:gap-6 md:space-y-0">
+              {/* Left column: Description */}
+              <div>
+                <GlassyTextarea
+                  label="Sound FX Description"
+                  value={prompt.description || ""}
+                  onChange={(e) =>
+                    onUpdatePrompt(index, { description: e.target.value })
+                  }
+                  placeholder="Describe the sound effect... (e.g. 'A door creaking open slowly')"
+                  className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+                  minRows={6}
+                />
+              </div>
+
+              {/* Right column: Placement and Duration controls */}
+              <div className="space-y-6">
+                {/* Placement selector */}
+                <GlassyListbox
+                  label="Placement"
+                  value={placementIntentToOption(prompt.placement)}
+                  onChange={(value) =>
+                    onUpdatePrompt(index, {
+                      placement: placementOptionToIntent(value),
+                    })
+                  }
+                  options={[
+                    { value: "start", label: "At beginning (before all voices)" },
+                    ...(voiceTrackPreviews && voiceTrackPreviews.length > 0
+                      ? voiceTrackPreviews.map((preview, voiceIndex) => ({
+                          value: `afterVoice-${voiceIndex}`,
+                          label: `After voice ${voiceIndex + 1} (${
+                            preview.name
+                          }: "${preview.text.slice(0, 20)}${
+                            preview.text.length > 20 ? "..." : ""
+                          }")`,
+                        }))
+                      : []),
+                    { value: "end", label: "At end (after all voices)" },
+                  ]}
+                />
+
+                <GlassySlider
+                  label="Duration"
+                  value={prompt.duration || DEFAULT_SOUND_FX_DURATION}
+                  onChange={(value) => onUpdatePrompt(index, { duration: value })}
+                  min={1}
+                  max={10}
+                  step={1}
+                  formatLabel={(val) => `${val} seconds`}
+                  tickMarks={[
+                    { value: 1, label: "1s" },
+                    { value: 3, label: "3s" },
+                    { value: 5, label: "5s" },
+                    { value: 10, label: "10s" },
+                  ]}
+                />
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Right column: Placement and Duration controls */}
-        <div className="space-y-12">
-          {/* Placement selector */}
-          <GlassyListbox
-            label="Sound Effect Placement"
-            value={placementOption}
-            onChange={setPlacementOption}
-            options={[
-              { value: "start", label: "At beginning (before all voices)" },
-              ...(voiceTrackPreviews && voiceTrackPreviews.length > 0
-                ? voiceTrackPreviews.map((preview, index) => ({
-                    value: `afterVoice-${index}`,
-                    label: `After voice ${index + 1} (${
-                      preview.name
-                    }: "${preview.text.slice(0, 20)}${
-                      preview.text.length > 20 ? "..." : ""
-                    }")`,
-                  }))
-                : []),
-              { value: "end", label: "At end (after all voices)" },
-            ]}
-          />
-
-          <GlassySlider
-            label="Duration"
-            value={duration}
-            onChange={setDuration}
-            min={1}
-            max={10}
-            step={1}
-            formatLabel={(val) => `${val} seconds`}
-            tickMarks={[
-              { value: 1, label: "1s" },
-              { value: 3, label: "3s" },
-              { value: 5, label: "5s" },
-              { value: 10, label: "10s" },
-            ]}
-          />
-
-          {localStatusMessage && (
-            <p className="text-center text-sm text-gray-300">
-              {localStatusMessage}
-            </p>
-          )}
-        </div>
+        ))}
       </div>
+
+      {/* Add Sound Effect button - matching ScripterPanel style */}
+      <button
+        onClick={onAddPrompt}
+        disabled={isGenerating}
+        className="mt-8 px-2.5 py-1.5 text-sm border-b border-sky-800 bg-gradient-to-t from-sky-900/50 to-transparent w-full text-sky-700 hover:bg-gradient-to-t hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        + Add Sound Effect
+      </button>
+
+      {/* Status message */}
+      {localStatusMessage && (
+        <p className="mt-6 text-center text-sm text-gray-300">
+          {localStatusMessage}
+        </p>
+      )}
     </div>
   );
 }

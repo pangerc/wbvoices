@@ -171,11 +171,11 @@ export class AudioService {
   ): Promise<void> {
     setIsGeneratingSoundFx?.(true);
     onStatusUpdate("Generating sound effect...");
-    
-    // Clear existing soundfx tracks from mixer
-    const { clearTracks, addTrack } = useMixerStore.getState();
-    clearTracks("soundfx");
-    
+
+    // NOTE: Clearing tracks is now handled by the caller (handleGenerateSoundFx)
+    // to prevent clearing on each iteration when generating multiple soundfx
+    const { addTrack } = useMixerStore.getState();
+
     try {
       const response = await fetch("/api/sfx/elevenlabs-v2", {
         method: "POST",
@@ -238,7 +238,10 @@ export class AudioService {
         }" (${actualDuration.toFixed(1)}s)`,
         type: "soundfx",
         duration: actualDuration,
-        playAfter: soundFxPrompt?.playAfter,
+        // Convert placement intent to playAfter for timeline calculator
+        playAfter: soundFxPrompt?.placement?.type === "start"
+          ? "start"
+          : soundFxPrompt?.playAfter,
         overlap: soundFxPrompt?.overlap,
         metadata: {
           promptText: prompt,

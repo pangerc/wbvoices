@@ -6,16 +6,21 @@ const STORAGE_KEY = 'pronunciation_rules';
 
 type PronunciationEditorProps = {
   className?: string;
+  renderSaveButton?: (props: {
+    onClick: () => void;
+    disabled: boolean;
+    isSaving: boolean;
+    hasChanges: boolean;
+  }) => React.ReactNode;
 };
 
 /**
  * Pronunciation dictionary editor for ElevenLabs
  * Manages global brand pronunciation rules
  */
-export function PronunciationEditor({ className = '' }: PronunciationEditorProps) {
+export function PronunciationEditor({ className = '', renderSaveButton }: PronunciationEditorProps) {
   const [rules, setRules] = useState<PronunciationRule[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [dictionaryId, setDictionaryId] = useState<string | null>(null);
@@ -180,44 +185,6 @@ export function PronunciationEditor({ className = '' }: PronunciationEditorProps
     }
   };
 
-  const handleDeleteAll = async () => {
-    if (!confirm('Delete all pronunciation rules? This will remove custom pronunciations from voice generation.')) {
-      return;
-    }
-
-    if (!dictionaryId) {
-      // Just clear local state
-      setRules([]);
-      localStorage.removeItem(STORAGE_KEY);
-      return;
-    }
-
-    setIsDeleting(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/pronunciation/${dictionaryId}`, {
-        method: 'DELETE',
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setRules([]);
-        setDictionaryId(null);
-        localStorage.removeItem(STORAGE_KEY);
-        setSuccess('All rules deleted');
-        setTimeout(() => setSuccess(null), 3000);
-      } else {
-        setError(data.error || 'Failed to delete dictionary');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete dictionary');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const hasChanges = () => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return rules.some(r => r.stringToReplace.trim() || r.alias?.trim());
@@ -245,9 +212,17 @@ export function PronunciationEditor({ className = '' }: PronunciationEditorProps
         </div>
       )}
 
+      {/* Save button render prop */}
+      {renderSaveButton && renderSaveButton({
+        onClick: handleSave,
+        disabled: !hasChanges(),
+        isSaving: isSaving,
+        hasChanges: hasChanges()
+      })}
+
       {/* Rules List */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4">
           <h3 className="text-lg font-semibold text-white">
             Pronunciation Rules
             {rules.length > 0 && (
@@ -256,12 +231,6 @@ export function PronunciationEditor({ className = '' }: PronunciationEditorProps
               </span>
             )}
           </h3>
-          <button
-            onClick={addRule}
-            className="text-sky-400 hover:text-sky-300 text-sm transition-colors px-3 py-1.5 border-b border-sky-800 bg-gradient-to-t from-sky-900/50 to-transparent"
-          >
-            + Add Rule
-          </button>
         </div>
 
         {rules.length === 0 ? (
@@ -306,19 +275,20 @@ export function PronunciationEditor({ className = '' }: PronunciationEditorProps
                   />
                   <button
                     onClick={() => removeRule(index)}
-                    className="text-red-400 hover:text-red-300 transition-colors p-2"
+                    className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+                    title="Remove this rule"
                   >
                     <svg
-                      className="w-5 h-5"
+                      className="w-4 h-4"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
+                      strokeWidth={2}
                     >
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                       />
                     </svg>
                   </button>
@@ -327,43 +297,16 @@ export function PronunciationEditor({ className = '' }: PronunciationEditorProps
             ))}
           </div>
         )}
-      </div>
 
-      {/* Actions */}
-      {rules.length > 0 && (
-        <div className="flex items-center justify-between pt-6 border-t border-white/10">
-          <div>
-            {dictionaryId && (
-              <button
-                onClick={handleDeleteAll}
-                disabled={isDeleting}
-                className="text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-4 py-2"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete All Rules'}
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {hasChanges() && (
-              <span className="text-sm text-yellow-400">Unsaved changes</span>
-            )}
-            <button
-              onClick={handleSave}
-              disabled={isSaving || !hasChanges()}
-              className="bg-sky-600 hover:bg-sky-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-6 py-2 rounded-xl transition-colors"
-            >
-              {isSaving ? 'Saving...' : 'Save Rules'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Info */}
-      <div className="mt-8 bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-        <p className="text-blue-300 text-sm">
-          <strong>💡 Tip:</strong> These pronunciation rules are automatically applied to all ElevenLabs voice generation.
-          Perfect for brand names like &quot;YSL&quot; or &quot;L&apos;Oréal&quot; that need consistent pronunciation across languages.
-        </p>
+        {/* Add Rule Button - below the list */}
+        {rules.length > 0 && (
+          <button
+            onClick={addRule}
+            className="mt-8 px-2.5 py-1.5 text-sm border-b border-sky-800 bg-gradient-to-t from-sky-900/50 to-transparent w-full text-sky-700 hover:bg-gradient-to-t hover:text-white"
+          >
+            + Add Rule
+          </button>
+        )}
       </div>
     </div>
   );

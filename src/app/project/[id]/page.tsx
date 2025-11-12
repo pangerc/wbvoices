@@ -21,9 +21,30 @@ type LLMResponseData = {
   voiceTracks: VoiceTrack[];
   musicPrompt: string;
   musicPrompts: MusicPrompts | null; // Provider-specific music prompts
-  soundFxPrompt: SoundFxPrompt | null;
+  soundFxPrompt: SoundFxPrompt | null; // LEGACY: Keep for backward compatibility
+  soundFxPrompts?: SoundFxPrompt[]; // NEW: Array of sound effects
   projectReady?: boolean; // Whether project is ready for saving
 };
+
+// Migration helper: Convert legacy single soundFx to array format
+function migrateSoundFxData(project: {
+  soundFxPrompts?: SoundFxPrompt[];
+  soundFxPrompt: SoundFxPrompt | null;
+}): SoundFxPrompt[] {
+  // If new array format exists, use it
+  if (project.soundFxPrompts && Array.isArray(project.soundFxPrompts)) {
+    return project.soundFxPrompts;
+  }
+
+  // Migrate from legacy single format
+  if (project.soundFxPrompt) {
+    return [project.soundFxPrompt]; // Wrap single in array
+  }
+
+  // No sound effects
+  return [];
+}
+
 import {
   ScripterPanel,
   MixerPanel,
@@ -189,11 +210,14 @@ export default function ProjectWorkspace() {
             console.log("🎵 Restoring provider-specific music prompts:", project.musicPrompts);
             formManager.setMusicPrompts(project.musicPrompts);
           }
-          if (project.soundFxPrompt) {
-            console.log("🔊 Restoring sound FX prompt:", project.soundFxPrompt);
-            formManager.setSoundFxPrompt(project.soundFxPrompt);
+
+          // Migrate and restore sound FX prompts (supports both legacy single and new array format)
+          const migratedSoundFxPrompts = migrateSoundFxData(project);
+          if (migratedSoundFxPrompts.length > 0) {
+            console.log("🔊 Restoring sound FX prompts:", migratedSoundFxPrompts.length, "effects");
+            formManager.setSoundFxPrompts(migratedSoundFxPrompts);
           } else {
-            console.log("🔇 No sound FX prompt to restore");
+            console.log("🔇 No sound FX prompts to restore");
           }
 
           // Restore mixer state
@@ -319,7 +343,10 @@ export default function ProjectWorkspace() {
           .filter((t) => t.type === "voice")
           .map((t) => t.url),
         musicUrl: currentTracks.find((t) => t.type === "music")?.url,
-        soundFxUrl: currentTracks.find((t) => t.type === "soundfx")?.url,
+        soundFxUrl: currentTracks.find((t) => t.type === "soundfx")?.url, // LEGACY: Keep for backward compatibility
+        soundFxUrls: currentTracks
+          .filter((t) => t.type === "soundfx")
+          .map((t) => t.url), // NEW: Save all soundfx URLs
       };
 
       // Use explicit LLM data if provided (AUTO mode), otherwise use formManager state (manual mode)
@@ -333,7 +360,8 @@ export default function ProjectWorkspace() {
           voiceTracks: formManager.voiceTracks,
           musicPrompt: formManager.musicPrompt,
           musicPrompts: formManager.musicPrompts, // Use provider-specific prompts from formManager
-          soundFxPrompt: formManager.soundFxPrompt,
+          soundFxPrompt: formManager.soundFxPrompt, // LEGACY: Keep for backward compatibility
+          soundFxPrompts: formManager.soundFxPrompts, // NEW: Save array of prompts
         };
       }
 
@@ -396,7 +424,8 @@ export default function ProjectWorkspace() {
         voiceTracks: dataToSave.voiceTracks,
         musicPrompt: dataToSave.musicPrompt,
         musicPrompts: dataToSave.musicPrompts ?? undefined, // Save provider-specific prompts, convert null to undefined
-        soundFxPrompt: dataToSave.soundFxPrompt,
+        soundFxPrompt: dataToSave.soundFxPrompt, // LEGACY: Keep for backward compatibility
+        soundFxPrompts: dataToSave.soundFxPrompts, // NEW: Save array of prompts
         generatedTracks: tracks.length > 0 ? generatedTracks : undefined,
         mixerState,
         lastModified: Date.now(),
@@ -826,33 +855,52 @@ export default function ProjectWorkspace() {
     }
   };
 
-  const handleGenerateSoundFx = async (
-    prompt: string,
-    duration: number,
-    placement?: import("@/types").SoundFxPlacementIntent
-  ) => {
+  const handleGenerateSoundFx = async () => {
     try {
-      const soundFxPrompt = {
-        description: prompt,
-        duration,
-        placement, // Store placement intent
-      };
+      const prompts = formManager.soundFxPrompts;
 
-      // Store in formManager so saveProject() persists it to Redis
-      formManager.setSoundFxPrompt(soundFxPrompt);
+      if (prompts.length === 0) {
+        console.log("No sound effects to generate");
+        return;
+      }
 
-      await generateSoundFxAudio(soundFxPrompt);
-      setSelectedTab(4); // Navigation
+      console.log(`🎵 Generating ${prompts.length} sound effect(s)`);
+
+      // Clear existing soundfx tracks once before generating all new ones
+      const { clearTracks } = useMixerStore.getState();
+      clearTracks("soundfx");
+
+      // Generate each soundfx sequentially
+      for (let i = 0; i < prompts.length; i++) {
+        const prompt = prompts[i];
+
+        if (!prompt.description?.trim()) {
+          console.log(`Skipping empty sound effect ${i + 1}`);
+          continue;
+        }
+
+        formManager.setStatusMessage(
+          `Generating sound effect ${i + 1}/${prompts.length}...`
+        );
+
+        await generateSoundFxAudio(prompt);
+      }
+
+      setSelectedTab(4); // Navigation to mixer
 
       // Save complete project state
       if (!projectNotFound) {
         await saveProject("after generate sound fx");
         console.log("✅ Project saved after sound fx generation");
       }
-    } catch (error) {
-      console.error("Failed to generate sound effect:", error);
+
       formManager.setStatusMessage(
-        `Failed to generate sound effect: ${
+        `${prompts.length} sound effect(s) generated successfully`
+      );
+    } catch (error) {
+      console.error("Failed to generate sound effects:", error);
+      formManager.setStatusMessage(
+        `Failed to generate sound effects: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
@@ -925,12 +973,9 @@ export default function ProjectWorkspace() {
         );
       }
       if (llmResponseData.soundFxPrompt) {
-        promises.push(
-          handleGenerateSoundFx(
-            llmResponseData.soundFxPrompt.description,
-            llmResponseData.soundFxPrompt.duration || 3
-          )
-        );
+        // Store soundfx prompt in FormManager array before generating
+        formManager.setSoundFxPrompts([llmResponseData.soundFxPrompt]);
+        promises.push(handleGenerateSoundFx());
       }
 
       console.log(`🚀 Starting ${promises.length} parallel processes...`);
@@ -1118,7 +1163,10 @@ export default function ProjectWorkspace() {
               onGenerate={handleGenerateSoundFx}
               isGenerating={formManager.isGeneratingSoundFx}
               statusMessage={formManager.statusMessage}
-              initialPrompt={formManager.soundFxPrompt}
+              soundFxPrompts={formManager.soundFxPrompts}
+              onUpdatePrompt={formManager.updateSoundFxPrompt}
+              onRemovePrompt={formManager.removeSoundFxPrompt}
+              onAddPrompt={formManager.addSoundFxPrompt}
               adDuration={adDuration}
               resetForm={formManager.resetSoundFxPrompt}
               voiceTrackCount={formManager.voiceTracks.length}

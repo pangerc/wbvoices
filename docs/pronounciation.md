@@ -26,10 +26,10 @@ After exploring ElevenLabs' API constraints, we opted for a **single global dict
    - Synced automatically on save
    - Fast, simple, reliable
 
-3. **Integrated UI**: Embedded in ScripterPanel
-   - Contextual access when using ElevenLabs
-   - Tab toggle pattern (script ↔ pronunciation)
-   - No separate admin page needed
+3. **Admin UI**: Centralized in Admin Panel
+   - Global configuration page at `/admin/pronunciation-rules`
+   - Clear indication that rules apply to all projects
+   - Separate from creative workflow to avoid confusion
 
 4. **Backend Auto-Application**: Zero user touchpoints
    - No dictionary selection UI
@@ -69,11 +69,9 @@ After exploring ElevenLabs' API constraints, we opted for a **single global dict
 ### Flow
 
 ```
-ScripterPanel (when ElevenLabs is selected)
+Admin Panel → Pronunciation Rules
   ↓
-Switch to "Pronunciation" tab
-  ↓
-Add/edit rules in integrated UI
+Add/edit rules in admin UI
   ↓
 Save → localStorage + Redis + ElevenLabs API
   ↓
@@ -129,7 +127,7 @@ Key: `pronunciation:global_rules`
 
 **UI Components:**
 - `src/components/PronunciationEditor.tsx` - Pronunciation rule editor component
-- `src/components/ScripterPanel.tsx` - Integrates pronunciation editor via tab toggle (only visible when ElevenLabs provider is selected)
+- `src/app/admin/pronunciation-rules/page.tsx` - Admin page hosting the pronunciation editor
 
 **API routes:**
 - `src/app/api/pronunciation/route.ts` - GET (list), POST (create), syncs to Redis
@@ -143,8 +141,8 @@ Key: `pronunciation:global_rules`
 
 ### Editor UI Flow
 
-1. **Access**: Available in ScripterPanel when ElevenLabs is selected as voice provider
-2. **Load**: Fetch rules from localStorage on mount
+1. **Access**: Available in Admin Panel at `/admin/pronunciation-rules`
+2. **Load**: Fetch rules from Redis (with localStorage fallback) on mount
 3. **Edit**: Add/remove/update rules in state
 4. **Save**:
    - Delete old dictionary on ElevenLabs (if exists)
@@ -246,15 +244,14 @@ DELETE /api/pronunciation/{id}
 
 ### Adding a Brand Pronunciation
 
-1. In any project, navigate to the "Scripter" step
-2. Select "ElevenLabs" as your voice provider
-3. Click the "Pronunciation" tab (speech icon)
-4. Click "+ Add Rule"
-5. Enter: "YSL" → "igrek es el"
-6. Click "Save Rules"
-7. Done - applies to all future voice generation
+1. Navigate to the Admin Panel (click "Admin" link or visit `/admin`)
+2. Click "Pronunciation Rules" in the left sidebar
+3. Click "+ Add Rule"
+4. Enter: "YSL" → "igrek es el"
+5. Click "Save Rules"
+6. Done - applies to all future voice generation across all projects
 
-**Note**: The pronunciation editor is currently only visible when ElevenLabs is selected as the voice provider (UI limitation), but pronunciation rules work for **both ElevenLabs and OpenAI** voice generation thanks to Redis storage.
+**Note**: Pronunciation rules are global and automatically applied to **both ElevenLabs and OpenAI** voice generation. Changes here affect all projects immediately.
 
 ### Testing Pronunciation
 
@@ -281,15 +278,13 @@ Returns two audio URLs:
 2. **Fetch rules from ElevenLabs**: Need PLS download (not implemented)
 3. **Update dictionaries**: Must delete + recreate (ElevenLabs limitation)
 4. **Multiple dictionaries**: Currently only one global dictionary
-5. **UI visibility**: Pronunciation editor only shows for ElevenLabs (though rules work for all providers)
 
 ### Why These Trade-offs Are OK
 
 1. **Per-language**: Most brands are global - "YSL" pronunciation can be the same or have multiple rules
-2. **Fetch rules**: Redis is our source of truth (localStorage for UI state only)
+2. **Fetch rules**: Redis is our source of truth (localStorage for UI state cache only)
 3. **Update pattern**: Delete + recreate is clean and simple
 4. **Single dictionary**: Covers 95% of use cases, can extend later if needed
-5. **UI visibility**: Users typically edit rules with ElevenLabs selected; rules automatically apply to OpenAI too
 
 ## Future Enhancements
 

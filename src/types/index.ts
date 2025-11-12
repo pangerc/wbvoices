@@ -151,12 +151,14 @@ export type Project = {
   voiceTracks: VoiceTrack[]; // Generated voice scripts
   musicPrompt: string; // Music generation prompt (base/fallback)
   musicPrompts?: MusicPrompts; // Provider-specific music prompts
-  soundFxPrompt: SoundFxPrompt | null; // Sound effects prompt
+  soundFxPrompt: SoundFxPrompt | null; // Sound effects prompt (LEGACY: single soundfx)
+  soundFxPrompts?: SoundFxPrompt[]; // NEW: Array of sound effects (supports multiple)
   // Store actual generated audio URLs (now permanent with Vercel Blob)
   generatedTracks?: {
     voiceUrls: string[];
     musicUrl?: string;
-    soundFxUrl?: string;
+    soundFxUrl?: string; // LEGACY: single soundfx URL
+    soundFxUrls?: string[]; // NEW: Array of soundfx URLs matching soundFxPrompts by index
   };
   // Mixer state - positions and volumes
   mixerState?: {
