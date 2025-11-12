@@ -38,7 +38,7 @@ export interface FormManagerState {
   setSoundFxPrompt: (prompt: SoundFxPrompt | null) => void; // LEGACY: wraps as array
   setSoundFxPrompts: (prompts: SoundFxPrompt[]) => void; // NEW: bulk setter
   addSoundFxPrompt: () => void; // NEW: add sound effect form
-  updateSoundFxPrompt: (index: number, prompt: SoundFxPrompt) => void; // NEW: update specific soundfx
+  updateSoundFxPrompt: (index: number, updates: Partial<SoundFxPrompt>) => void; // NEW: update specific soundfx
   removeSoundFxPrompt: (index: number) => void; // NEW: remove specific soundfx
   setGeneratingSoundFxState: (index: number, generating: boolean) => void; // NEW: per-form loading state
 
