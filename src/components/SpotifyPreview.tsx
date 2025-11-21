@@ -490,14 +490,14 @@ export function SpotifyPreview({
 
           {/* Creative */}
           <div className="px-6">
-            <div className="rounded-sm overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+            <div className="aspect-[6/5] rounded-sm overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
               {adImage ? (
                 <Image
                   src={adImage}
                   alt="Ad preview"
-                  width={640}
-                  height={640}
-                  className="w-full h-auto object-cover"
+                  width={600}
+                  height={500}
+                  className="w-full h-full object-cover"
                 />
               ) : (
                 <div className="w-full aspect-square bg-gray-600 flex items-center justify-center">
@@ -525,7 +525,7 @@ export function SpotifyPreview({
                   alt="Brand logo"
                   width={48}
                   height={48}
-                  className="h-12 w-12 rounded-sm object-cover"
+                  className="aspect-square h-12 w-12 rounded-sm object-cover"
                 />
               ) : (
                 <div className="h-12 w-12 rounded-sm bg-gray-600 flex items-center justify-center">

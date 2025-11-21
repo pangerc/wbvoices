@@ -1571,6 +1571,64 @@ Generate → Download → applyTimeStretch(tempo, pitch) → Re-upload → Mixer
 
 **Documentation**: See [Smart Speed Guide](./smart-speed.md) for complete technical details, troubleshooting, and alternative libraries analysis.
 
+## Multiple SoundFX Support
+
+_November 2025_
+
+### The Problem
+
+Users could only add one sound effect per project. Creative ads often require multiple effects (e.g., intro horn + door slam + background ambience).
+
+### The Implementation
+
+**Architecture**: Array-based soundfx management following voice tracks pattern.
+
+**Files Modified**:
+- `src/types/index.ts`: SoundFxPrompt already supported placement intent
+- `src/hooks/useFormManager.ts`: Added soundFxPrompts array, CRUD operations
+- `src/components/SoundFxPanel.tsx`: Transformed to render multiple form cards
+- `src/app/project/[id]/page.tsx`: Loop through array for generation
+- `src/services/audioService.ts`: Moved clearTracks outside loop
+
+**Key Decisions**:
+1. **Single generate button** (not per-form): Simpler UX, cache handles unchanged prompts
+2. **Placement per soundfx**: Each effect has independent placement (start/after voice X/end)
+3. **Partial updates**: `updateSoundFxPrompt(index, updates)` merges instead of replacing
+4. **Sequential generation**: Generate soundfx one by one to avoid race conditions
+
+### Bugs Fixed
+
+**Bug 1: Lost form data on placement change**
+- **Cause**: `updateSoundFxPrompt` replaced entire object instead of merging
+- **Fix**: Changed to `{...existing, ...updates}` spread pattern
+
+**Bug 2: Only last soundfx appeared on timeline**
+- **Cause**: `clearTracks("soundfx")` called inside generation loop
+- **Fix**: Moved to before loop (clear once, then append all)
+
+**Bug 3: TypeScript signature mismatch**
+- **Cause**: Interface declared `prompt: SoundFxPrompt`, implementation used `Partial<SoundFxPrompt>`
+- **Fix**: Updated interface to match implementation
+
+### Caching Behavior
+
+ElevenLabs soundfx API includes full cache support (lines 56-78 in `ElevenLabsSoundFxProvider.ts`):
+- Cache key: `generateCacheKey(text, {duration, provider})`
+- Cache hit: Returns existing blob URL, no API call
+- Cache miss: Generates new audio, uploads to Vercel blob
+
+When regenerating multiple soundfx, unchanged prompts serve from cache automatically.
+
+### Impact
+
+**User workflow**:
+- Add multiple soundfx forms via "+ Add Sound Effect" button
+- Configure each with independent prompt/placement/duration
+- Generate all with single button (cached prompts reuse existing audio)
+- Mixer displays all tracks with correct positioning
+
+**Persistence**: Both prompts and generated URLs stored in Redis, restored on reload.
+
 ---
 
 **Related Documentation**:

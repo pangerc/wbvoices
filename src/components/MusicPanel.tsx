@@ -13,7 +13,6 @@ import {
 } from "./ui";
 import { FileUpload, useFileUpload } from "./ui/FileUpload";
 import { useMixerStore } from "@/store/mixerStore";
-import { useProjectHistoryStore } from "@/store/projectHistoryStore";
 import { useParams } from "next/navigation";
 
 type MusicMode = 'generate' | 'upload' | 'library';
@@ -46,7 +45,6 @@ export function MusicPanel({
   const params = useParams();
   const projectId = params.id as string;
   const { addTrack, clearTracks } = useMixerStore();
-  const { updateProject, loadProjectFromRedis } = useProjectHistoryStore();
   
   // File upload hook
   const {
@@ -75,32 +73,8 @@ export function MusicPanel({
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Load project musicPrompts on mount and when project changes
-  useEffect(() => {
-    const loadMusicPrompts = async () => {
-      if (!projectId) return;
-
-      try {
-        const project = await loadProjectFromRedis(projectId);
-        if (!project) return;
-
-        // Load provider-specific prompts if they exist
-        if (project.musicPrompts) {
-          console.log("✅ Loaded provider-specific music prompts");
-          setProviderPrompts(project.musicPrompts);
-        } else if (project.musicPrompt) {
-          // Migrate old projects on-the-fly
-          console.log("🔄 Migrating old musicPrompt to provider-specific prompts");
-          const migrated = migrateMusicPrompt(project.musicPrompt);
-          setProviderPrompts(migrated);
-        }
-      } catch (error) {
-        console.error("Failed to load music prompts:", error);
-      }
-    };
-
-    loadMusicPrompts();
-  }, [projectId, loadProjectFromRedis]);
+  // Note: Music prompts are now managed through the V3 version stream system
+  // The draft version already contains all necessary data
 
   // Update duration when adDuration changes - add 5 seconds for smoother fade, minimum 30s
   useEffect(() => {
@@ -224,102 +198,55 @@ export function MusicPanel({
   // Handle music upload completion
   const handleMusicUpload = async (result: { url: string; filename: string }) => {
     handleUploadComplete("music")(result);
-    
-    if (!projectId) {
-      console.error('No project ID for music upload');
-      return;
-    }
-    
-    try {
-      // Load current project to preserve existing data
-      const currentProject = await loadProjectFromRedis(projectId);
-      if (!currentProject) {
-        console.error('Project not found for music upload');
-        return;
-      }
-      
-      // Update project with uploaded music URL (same place as generated music)
-      await updateProject(projectId, {
-        generatedTracks: {
-          voiceUrls: currentProject.generatedTracks?.voiceUrls || [],
-          soundFxUrl: currentProject.generatedTracks?.soundFxUrl,
-          musicUrl: result.url,
-        },
-        lastModified: Date.now(),
-      });
 
-      // Clear existing music tracks from mixer (like generation does)
-      clearTracks("music");
+    // Note: In V3 workspace, music uploads are handled through the version stream API
+    // The mixer store is updated separately when versions are loaded
 
-      // Add track to mixer store (same as generated music)
-      addTrack({
-        id: `custom-music-${Date.now()}`,
-        url: result.url,
-        label: "Custom Music Track",
-        type: "music",
-        metadata: {
-          originalDuration: duration, // Use the selected duration
-        },
-      });
+    // Clear existing music tracks from mixer
+    clearTracks("music");
 
-      console.log('✅ Custom music track uploaded and added to mixer');
+    // Add track to mixer store
+    addTrack({
+      id: `custom-music-${Date.now()}`,
+      url: result.url,
+      label: "Custom Music Track",
+      type: "music",
+      metadata: {
+        originalDuration: duration,
+      },
+    });
 
-      // Switch to mixer tab to show the result
-      onTrackSelected?.();
-    } catch (error) {
-      console.error('❌ Failed to process music upload:', error);
-    }
+    console.log('✅ Custom music track uploaded and added to mixer');
+
+    // Switch to mixer tab to show the result
+    onTrackSelected?.();
   };
 
   // Handle library track selection
   const handleLibraryTrackSelect = async (track: LibraryMusicTrack) => {
-    if (!projectId) {
-      console.error('No project ID for library selection');
-      return;
-    }
+    // Note: In V3 workspace, library selections are handled through the version stream API
+    // The mixer store is updated separately when versions are loaded
 
-    try {
-      // Load current project to preserve existing data
-      const currentProject = await loadProjectFromRedis(projectId);
-      if (!currentProject) {
-        console.error('Project not found for library selection');
-        return;
-      }
+    // Clear existing music tracks from mixer
+    clearTracks("music");
 
-      // Update project with selected music URL and prompt
-      await updateProject(projectId, {
-        generatedTracks: {
-          voiceUrls: currentProject.generatedTracks?.voiceUrls || [],
-          soundFxUrl: currentProject.generatedTracks?.soundFxUrl,
-          musicUrl: track.musicUrl,
-        },
-        musicPrompt: track.musicPrompt, // Also save the prompt from the library track
-        lastModified: Date.now(),
-      });
+    // Add track to mixer store
+    addTrack({
+      id: `library-music-${Date.now()}`,
+      url: track.musicUrl,
+      label: `Music from "${track.projectTitle}"`,
+      type: "music",
+      metadata: {
+        originalDuration: track.duration,
+        source: 'library',
+        sourceProjectId: track.projectId,
+      },
+    });
 
-      // Clear existing music tracks from mixer (like generation does)
-      clearTracks("music");
+    console.log(`✅ Library music track from "${track.projectTitle}" added to mixer`);
 
-      // Add track to mixer store
-      addTrack({
-        id: `library-music-${Date.now()}`,
-        url: track.musicUrl,
-        label: `Music from "${track.projectTitle}"`,
-        type: "music",
-        metadata: {
-          originalDuration: track.duration,
-          source: 'library',
-          sourceProjectId: track.projectId,
-        },
-      });
-
-      console.log(`✅ Library music track from "${track.projectTitle}" added to mixer`);
-
-      // Switch to mixer tab to show the result
-      onTrackSelected?.();
-    } catch (error) {
-      console.error('❌ Failed to select library track:', error);
-    }
+    // Switch to mixer tab to show the result
+    onTrackSelected?.();
   };
 
   // Handle local reset
@@ -370,33 +297,6 @@ export function MusicPanel({
 
   return (
     <div className="py-8 text-white">
-      <div className="flex items-start justify-between gap-2 my-8">
-        <div>
-          <h1 className="text-4xl font-black mb-2">Soundtrack Your Story</h1>
-          <h2 className="font-medium mb-12">
-            {mode === 'generate'
-              ? "Choose the mood. We'll generate the perfect track for your audio ad."
-              : mode === 'upload'
-              ? "Upload your own music track to use as the soundtrack."
-              : "Browse and reuse music from your previous projects."
-            }
-          </h2>
-        </div>
-        {/* Button group */}
-        <div className="flex items-center gap-2">
-          <ResetButton onClick={handleReset} />
-          {mode === 'generate' && (
-            <GenerateButton
-              onClick={handleGenerate}
-              disabled={!providerPrompts[musicProvider].trim()}
-              isGenerating={isGenerating}
-              text="Generate Music"
-              generatingText="Generating..."
-            />
-          )}
-        </div>
-      </div>
-
       {/* Mode Toggle */}
       <div className="flex justify-center mb-8">
         <GlassTabBar>

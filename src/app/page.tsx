@@ -2,35 +2,48 @@
 
 import React, { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { generateProjectId } from "@/utils/projectId";
 
 export default function HomePage() {
   const router = useRouter();
   const hasRedirected = useRef(false);
 
   useEffect(() => {
-    const initializeApp = () => {
+    const initializeApp = async () => {
       // Prevent multiple simultaneous redirects
       if (hasRedirected.current) {
         return;
       }
 
       try {
-        // For pilot/demo: Always create a fresh new project for better UX
-        // Users can discover existing projects via the "Recent Projects" dropdown
-        const newProjectId = generateProjectId();
-        console.log('🔄 Creating fresh project for demo session:', newProjectId);
-        hasRedirected.current = true;
-        router.replace(`/project/${newProjectId}`);
-        
+        // Get or create session ID (use default-session for development)
+        const sessionId = typeof window !== 'undefined'
+          ? localStorage.getItem('universal-session') || (() => {
+              const newSession = 'default-session';
+              localStorage.setItem('universal-session', newSession);
+              return newSession;
+            })()
+          : 'default-session';
+
+        // Create new ad via API
+        const res = await fetch('/api/ads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Untitled Ad',
+            sessionId,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          console.log('✨ Created new ad:', data.adId);
+          hasRedirected.current = true;
+          router.replace(`/ad/${data.adId}`);
+        } else {
+          console.error('❌ Failed to create ad');
+        }
       } catch (error) {
         console.error('❌ Failed to initialize app:', error);
-        // Create a new project as fallback
-        if (!hasRedirected.current) {
-          const newProjectId = generateProjectId();
-          hasRedirected.current = true;
-          router.replace(`/project/${newProjectId}`);
-        }
       }
     };
 

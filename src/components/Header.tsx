@@ -1,16 +1,14 @@
-import React, { useEffect } from "react";
+import React from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { GlassTabBar, GlassTab } from "./ui";
 import { HistoryDrawer, useHistoryDrawer } from "./HistoryDrawer";
-import { ProjectMetadata } from "@/types";
-import { useProjectHistoryStore } from "@/store/projectHistoryStore";
 
 type HeaderProps = {
   selectedTab: number;
   onTabChange: (index: number) => void;
   onNewProject: () => void;
-  projectId?: string;
+  adId?: string;
+  projectId?: string; // For backward compatibility with legacy pages
   isNewProject?: boolean;
   projectName?: string;
 };
@@ -254,29 +252,13 @@ export function Header({
   selectedTab,
   onTabChange,
   onNewProject,
+  adId,
   projectId,
   isNewProject,
   projectName,
 }: HeaderProps) {
   const { isOpen, toggle, close } = useHistoryDrawer();
-  const { recentProjects, loadProjects } = useProjectHistoryStore();
 
-  const router = useRouter();
-
-  // Load projects when component mounts to ensure count is available
-  useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
-
-  const handleProjectSelect = (project: ProjectMetadata) => {
-    console.log(
-      "🔄 Header: Navigating to project:",
-      project.id,
-      project.headline
-    );
-    router.push(`/project/${project.id}`);
-    close();
-  };
   return (
     <header className="py-10 bg-black">
       <div className="container mx-auto px-4 flex justify-between items-center">
@@ -352,11 +334,6 @@ export function Header({
             className="flex items-center text-white/70 text-sm hover:text-white transition-colors duration-200 group"
           >
             <span>History</span>
-            {recentProjects.length > 0 && (
-              <span className="ml-2 px-1.5 py-0.5 bg-white/20 text-white text-xs rounded-full min-w-[20px] text-center">
-                {recentProjects.length}
-              </span>
-            )}
             <svg
               width="16"
               height="16"
@@ -378,8 +355,7 @@ export function Header({
           <HistoryDrawer
             isOpen={isOpen}
             onClose={close}
-            onProjectSelect={handleProjectSelect}
-            currentProjectId={projectId}
+            currentAdId={adId || projectId}
           />
         </div>
       </div>

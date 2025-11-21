@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import { Voice, VoiceTrack, Provider } from "@/types";
+import type { VoiceTrackGenerationStatus } from "@/types/versions";
 import {
   GlassyTextarea,
-  ResetButton,
-  GenerateButton,
   VoiceCombobox,
   TestVoiceButton,
   VoiceInstructionsDialog,
@@ -25,6 +23,10 @@ type ScripterPanelProps = {
   hasRegions: boolean;
   resetForm: () => void;
   overrideVoices?: Voice[] | null;
+  // Per-track generation (optional, for draft mode)
+  onGenerateTrack?: (index: number) => void;
+  trackGenerationStatus?: VoiceTrackGenerationStatus[];
+  generateButtonText?: string;
 };
 
 export function ScripterPanel({
@@ -43,6 +45,9 @@ export function ScripterPanel({
   hasRegions,
   resetForm,
   overrideVoices,
+  onGenerateTrack,
+  trackGenerationStatus,
+  generateButtonText,
 }: ScripterPanelProps) {
   const [editingInstructionsIndex, setEditingInstructionsIndex] = useState<
     number | null
@@ -173,42 +178,8 @@ export function ScripterPanel({
   };
 
   return (
-    <div className="py-8  text-white">
-      <div className="flex items-start justify-between gap-2 my-8">
-        <div>
-          <h1 className="text-4xl font-black mb-2">
-            Your Message, in the Right Voice
-          </h1>
-          <h2 className=" font-medium mb-2  ">
-            Pick a voice and review or edit your script. Make it sound exactly
-            how you want. Manage{" "}
-            <Link
-              href="/admin/pronunciation-rules"
-              className="text-wb-blue hover:underline"
-            >
-              global pronunciation rules
-            </Link>{" "}
-            in the Admin Panel.
-          </h2>
-        </div>
-        {/* Button group */}
-        <div className="flex items-center gap-2">
-          <ResetButton onClick={handleReset} />
-          <GenerateButton
-            onClick={() =>
-              generateAudio(selectedProvider as Provider, voiceTracks)
-            }
-            disabled={
-              !voiceTracks.some((t) => t.voice && t.text) || isLoadingVoices
-            }
-            isGenerating={isGenerating}
-            text="Generate Voices"
-            generatingText="Generating Voices..."
-          />
-        </div>
-      </div>
-
-      <div className="space-y-4 ">
+    <div className="py-4 text-white">
+      <div className="space-y-4">
         {voiceTracks.map((track, index) => {
           return (
             <div
@@ -378,11 +349,67 @@ export function ScripterPanel({
                       minRows={3}
                     />
                   </div>
-                  {/* Action buttons aligned with label */}
-                  <div className="flex flex-col gap-2">
-                    <label className="block mb-2 text-white opacity-0 pointer-events-none">
+                  {/* Action buttons in 2x2 grid */}
+                  <div className="grid grid-cols-2 gap-2 w-[100px]">
+                    <label className="col-span-2 block mb-2 text-white opacity-0 pointer-events-none">
                       &nbsp;
                     </label>
+
+                    {/* Row 1, Col 1: Generate button */}
+                    {onGenerateTrack && trackGenerationStatus && (
+                      <button
+                        onClick={() => onGenerateTrack(index)}
+                        disabled={
+                          !track.voice ||
+                          !track.text.trim() ||
+                          trackGenerationStatus[index]?.isGenerating
+                        }
+                        className="p-2 rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed text-wb-blue hover:text-blue-400 hover:bg-wb-blue/10 border-wb-blue/20 hover:border-wb-blue/30"
+                        title={
+                          trackGenerationStatus[index]?.hasAudio
+                            ? "Regenerate this track"
+                            : "Generate this track"
+                        }
+                      >
+                        {trackGenerationStatus[index]?.isGenerating ? (
+                          <svg
+                            className="w-4 h-4 animate-spin"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                        ) : (
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M13 10V3L4 14h7v7l9-11h-7z"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    )}
+
+                    {/* Row 1, Col 2: Play button */}
                     <TestVoiceButton
                       voice={track.voice}
                       text={track.text}
@@ -392,7 +419,31 @@ export function ScripterPanel({
                       provider={selectedProvider as Provider}
                       disabled={!track.voice || !track.text.trim()}
                     />
-                    {/* Settings button - show for OpenAI and ElevenLabs */}
+
+                    {/* Row 2, Col 1: Delete button */}
+                    {voiceTracks.length > 1 && (
+                      <button
+                        onClick={() => removeVoiceTrack(index)}
+                        className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+                        title="Delete this voice track"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    )}
+
+                    {/* Row 2, Col 2: Configure button */}
                     {(selectedProvider === "openai" ||
                       selectedProvider === "elevenlabs") && (
                       <button
@@ -402,7 +453,7 @@ export function ScripterPanel({
                             ? "text-wb-blue bg-wb-blue/10 border-wb-blue/20"
                             : "text-gray-500 hover:text-wb-blue hover:bg-wb-blue/10 border-transparent hover:border-wb-blue/20"
                         }`}
-                        title="Voice settings (instructions & speed)"
+                        title="Configure voice settings (instructions & speed)"
                       >
                         <svg
                           className="w-4 h-4"
@@ -424,47 +475,8 @@ export function ScripterPanel({
                         </svg>
                       </button>
                     )}
-                    {/* Remove button - only show if more than 1 track */}
-                    {voiceTracks.length > 1 && (
-                      <button
-                        onClick={() => removeVoiceTrack(index)}
-                        className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
-                        title="Remove this voice track"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </button>
-                    )}
                   </div>
                 </div>
-
-                {/* Timing instructions for this voice track - only show when custom timing is set */}
-                {track.playAfter && (
-                  <div className="mt-4 pl-4 text-xs text-gray-300 bg-gray-800 p-2 rounded-sm border border-gray-700">
-                    <span className="font-medium text-gray-200">Timing: </span>
-                    {track.playAfter === "previous" ? (
-                      <span>Plays after previous element</span>
-                    ) : (
-                      <span>Plays after {track.playAfter}</span>
-                    )}
-                    {track.overlap && track.overlap > 0 && (
-                      <span className="ml-1 text-sky-300">
-                        (overlaps by {track.overlap}s)
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           );

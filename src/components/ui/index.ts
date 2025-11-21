@@ -21,3 +21,5 @@ export * from "./VoiceInstructionsDialog";
 export * from "./GlassyModal";
 export * from "./ProviderSelectionModal";
 export * from "./AIModelSelectionModal";
+export * from "./DraftAccordion";
+export * from "./VersionAccordion";

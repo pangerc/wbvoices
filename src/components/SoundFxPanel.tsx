@@ -113,26 +113,6 @@ export function SoundFxPanel({
 
   return (
     <div className="py-8 text-white">
-      <div className="flex items-start justify-between gap-2 my-8">
-        <div>
-          <h1 className="text-4xl font-black mb-2">Add a Punch</h1>
-          <h2 className="font-medium mb-12">
-            Spice up your creative with little sound effects.
-          </h2>
-        </div>
-        {/* Button group */}
-        <div className="flex items-center gap-2">
-          <ResetButton onClick={handleReset} />
-          <GenerateButton
-            onClick={handleGenerate}
-            disabled={!soundFxPrompts.some(p => p.description?.trim())}
-            isGenerating={isGenerating}
-            text={`Generate Sound Effect${soundFxPrompts.length > 1 ? 's' : ''}`}
-            generatingText="Generating..."
-          />
-        </div>
-      </div>
-
       {/* Render each soundfx form */}
       <div className="space-y-8">
         {soundFxPrompts.map((prompt, index) => (
