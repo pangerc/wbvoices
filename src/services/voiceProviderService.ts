@@ -8,6 +8,19 @@
 
 import { normalizeLanguageCode } from "@/utils/language";
 
+/**
+ * Manual overrides for voices that support languages not listed in ElevenLabs API
+ * These voices are multilingual but the API doesn't properly expose all their languages
+ */
+const VOICE_ADDITIONAL_LANGUAGES: Record<string, string[]> = {
+  // Thai/Indonesian multilingual voices
+  "NPDHDOOQCSyifTJZOe6J": ["th"],       // Nilasari - add Thai (already has Indonesian)
+  "W98P5TTtcHAH6zHkf7ul": ["th"],       // Raya Fie - add Thai (already has Indonesian)
+  "dDU5VfWXOm9eAwl9oqA1": ["th"],       // Om Tobi NOBAR - add Thai (already has Indonesian)
+  "iWydkXKoiVtvdn4vLKp9": ["th"],       // Cahaya - add Thai (already has Indonesian)
+  "plgKUYgnlZ1DCNh54DwJ": ["th", "id"], // Dakocan - add Thai AND Indonesian (has neither in verified_languages)
+};
+
 export type ProviderVoice = {
   id: string;
   name: string;
@@ -190,6 +203,36 @@ export async function fetchElevenLabsVoices(): Promise<ProviderVoice[]> {
         sampleUrl: voice.preview_url,
         isMultilingual,
       });
+    }
+  }
+
+  // Add additional language entries from manual overrides
+  // This handles voices that support languages not listed in ElevenLabs API
+  for (const voice of data.voices as ElevenLabsVoice[]) {
+    const additionalLangs = VOICE_ADDITIONAL_LANGUAGES[voice.voice_id];
+    if (additionalLangs) {
+      for (const lang of additionalLangs) {
+        const voiceIdWithLang = `${voice.voice_id}-${lang}`;
+        // Skip if entry already exists (either from verified_languages or labels.language)
+        const alreadyExists = voices.some(
+          v => v.id === voiceIdWithLang ||
+               (v.id === voice.voice_id && v.language === lang)
+        );
+        if (!alreadyExists) {
+          voices.push({
+            id: voiceIdWithLang,
+            name: voice.name,
+            gender: voice.labels?.gender,
+            language: lang,
+            accent: voice.labels?.accent || "standard",
+            description: voice.labels?.description,
+            age: voice.labels?.age,
+            use_case: voice.labels?.use_case,
+            sampleUrl: voice.preview_url,
+            isMultilingual: true,
+          });
+        }
+      }
     }
   }
 

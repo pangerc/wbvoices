@@ -581,6 +581,28 @@ curl -X POST http://localhost:3000/api/admin/voice-cache
 curl http://localhost:3000/api/voice-catalogue?operation=stats
 ```
 
+### Issue: Voices Missing Language Support (e.g., Thai/Indonesian)
+
+**Symptom**: Voice supports multiple languages in ElevenLabs UI but only shows one language in our system
+
+**Cause**: ElevenLabs API doesn't expose all supported languages in `verified_languages` or `labels.language`
+
+**Fix**: Add manual override in `/src/services/voiceProviderService.ts`:
+
+```typescript
+// At top of file
+const VOICE_ADDITIONAL_LANGUAGES: Record<string, string[]> = {
+  // Thai/Indonesian multilingual voices
+  "NPDHDOOQCSyifTJZOe6J": ["th"],       // Nilasari - add Thai
+  "W98P5TTtcHAH6zHkf7ul": ["th"],       // Raya Fie - add Thai
+  "dDU5VfWXOm9eAwl9oqA1": ["th"],       // Om Tobi NOBAR - add Thai
+  "iWydkXKoiVtvdn4vLKp9": ["th"],       // Cahaya - add Thai
+  "plgKUYgnlZ1DCNh54DwJ": ["th", "id"], // Dakocan - add Thai AND Indonesian
+};
+```
+
+The code automatically creates additional voice entries for these overrides. After adding, rebuild the cache.
+
 ### Issue: Edge Runtime Compatibility
 
 **Symptom**: "Module not found: Can't resolve 'crypto'"
