@@ -186,8 +186,11 @@ export async function POST(req: NextRequest) {
         reasoningEffort = "medium";
       }
 
+      // Higher token budget for reasoning models - reasoning tokens count against this limit
+      const maxTokens = reasoningEffort === "high" ? 25000 : 16000;
+
       console.log(
-        `Attempting ${aiProvider} Responses API call with model: ${model}, reasoning: ${reasoningEffort}`
+        `Attempting ${aiProvider} Responses API call with model: ${model}, reasoning: ${reasoningEffort}, maxTokens: ${maxTokens}`
       );
 
       // Use Responses API for GPT-5
@@ -195,7 +198,7 @@ export async function POST(req: NextRequest) {
         model,
         input: `${systemPrompt}\n\n${userPrompt}`,
         reasoning: { effort: reasoningEffort },
-        max_output_tokens: 10000,
+        max_output_tokens: maxTokens,
       });
 
       console.log(`${aiProvider} response:`, response);
