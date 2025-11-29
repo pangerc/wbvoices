@@ -12,6 +12,7 @@ import {
   getAllVersionsWithData,
   createVersion,
 } from "@/lib/redis/versions";
+import { ensureAdExists } from "@/lib/redis/ensureAd";
 import {
   VoiceVersion,
   VersionStreamResponse,
@@ -108,6 +109,10 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    // Ensure ad exists (lazy creation for manual version creation)
+    const sessionId = request.headers.get("x-session-id") || "default-session";
+    await ensureAdExists(adId, sessionId);
 
     // Build version data
     const versionData: VoiceVersion = {

@@ -52,11 +52,11 @@ export type CreatedBy = "llm" | "user" | "fork";
  * Contains script segments with voice selections and generation results
  */
 export interface VoiceVersion {
-  /** Voice track definitions (script + voice selections) */
+  /** Voice track definitions (script + voice selections, each with embedded generatedUrl) */
   voiceTracks: VoiceTrack[];
 
-  /** Generated audio blob URLs (parallel array to voiceTracks) */
-  generatedUrls: string[];
+  /** @deprecated Use voiceTracks[i].generatedUrl instead - kept for migration only */
+  generatedUrls?: string[];
 
   /** Unix timestamp when version was created */
   createdAt: number;
@@ -87,6 +87,9 @@ export interface VoiceTrackGenerationStatus {
 
   /** Whether this track is currently generating */
   isGenerating: boolean;
+
+  /** Whether this track is currently playing */
+  isPlaying: boolean;
 }
 
 // ============ Music Version Stream ============
@@ -234,6 +237,9 @@ export interface MixerState {
     music: VersionId | null;
     sfx: VersionId | null;
   };
+
+  /** Permanent URL of final mixed audio (uploaded to blob storage) */
+  mixedAudioUrl?: string;
 }
 
 /**

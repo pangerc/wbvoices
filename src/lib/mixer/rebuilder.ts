@@ -71,10 +71,15 @@ export async function rebuildMixer(adId: string): Promise<MixerState> {
   const tracks: MixerTrack[] = [];
   const audioDurations: { [key: string]: number } = {};
 
-  // Add voice tracks
-  if (voiceVersion && voiceVersion.generatedUrls.length > 0) {
+  // Add voice tracks (check both embedded URL and legacy parallel array)
+  const hasVoiceAudio = voiceVersion && (
+    voiceVersion.voiceTracks.some(t => !!t.generatedUrl) ||
+    (voiceVersion.generatedUrls && voiceVersion.generatedUrls.length > 0)
+  );
+  if (voiceVersion && hasVoiceAudio) {
     voiceVersion.voiceTracks.forEach((voiceTrack, index) => {
-      const url = voiceVersion.generatedUrls[index];
+      // Use embedded URL first, fall back to legacy parallel array
+      const url = voiceTrack.generatedUrl || voiceVersion.generatedUrls?.[index];
       if (!url) return; // Skip if no audio generated yet
 
       const trackId = `voice-${activeVoiceId}-${index}`;

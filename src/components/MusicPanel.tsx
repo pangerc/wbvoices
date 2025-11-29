@@ -22,7 +22,7 @@ type MusicPanelProps = {
     prompt: string,
     provider: MusicProvider,
     duration: number
-  ) => Promise<void>;
+  ) => Promise<string | null | void>;
   isGenerating: boolean;
   statusMessage?: string;
   adDuration: number;
@@ -30,6 +30,7 @@ type MusicPanelProps = {
   setMusicProvider: (provider: MusicProvider) => void;
   resetForm: () => void;
   onTrackSelected?: () => void; // Optional callback after track selection/upload
+  initialPrompts?: MusicPrompts; // Initial prompts from draft version
 };
 
 export function MusicPanel({
@@ -41,6 +42,7 @@ export function MusicPanel({
   setMusicProvider,
   resetForm,
   onTrackSelected,
+  initialPrompts,
 }: MusicPanelProps) {
   const params = useParams();
   const projectId = params.id as string;
@@ -60,11 +62,10 @@ export function MusicPanel({
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
 
   // Provider-specific prompts - one state per provider
-  const [providerPrompts, setProviderPrompts] = useState<MusicPrompts>({
-    loudly: "",
-    mubert: "",
-    elevenlabs: "",
-  });
+  // Initialize from draft version if available
+  const [providerPrompts, setProviderPrompts] = useState<MusicPrompts>(
+    initialPrompts || { loudly: "", mubert: "", elevenlabs: "" }
+  );
 
   // Library state
   const [libraryTracks, setLibraryTracks] = useState<LibraryMusicTrack[]>([]);

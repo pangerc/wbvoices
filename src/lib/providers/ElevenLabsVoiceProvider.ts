@@ -98,87 +98,88 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
 
     // V3 preset table - stability must be 0.0, 0.5, or 1.0
     // 0.0 = Creative (high expressiveness), 0.5 = Natural (balanced), 1.0 = Robust (stable)
+    // Note: similarity_boost=1.0 and use_speaker_boost=true maximize voice identity consistency
     const PRESETS: Record<string, Settings> = {
       // upbeat and bright - use Creative (0.0) for high expressiveness
       cheerful: {
         stability: 0.0,
-        similarity_boost: 0.85,
+        similarity_boost: 1.0,
         style: 0.5,
         speed: 1.08,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
       happy: {
         stability: 0.0,
-        similarity_boost: 0.85,
+        similarity_boost: 1.0,
         style: 0.5,
         speed: 1.08,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
       excited: {
         stability: 0.0,
-        similarity_boost: 0.85,
+        similarity_boost: 1.0,
         style: 0.55,
         speed: 1.1,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
 
       // high energy promo reads - use Creative (0.0)
       energetic: {
         stability: 0.0,
-        similarity_boost: 0.85,
+        similarity_boost: 1.0,
         style: 0.6,
         speed: 1.12,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
       dynamic: {
         stability: 0.0,
-        similarity_boost: 0.85,
+        similarity_boost: 1.0,
         style: 0.6,
         speed: 1.12,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
 
       // calm and intimate - use Robust (1.0) for stability
       calm: {
         stability: 1.0,
-        similarity_boost: 0.65,
+        similarity_boost: 1.0,
         style: 0.15,
         speed: 0.96,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
       gentle: {
         stability: 1.0,
-        similarity_boost: 0.65,
+        similarity_boost: 1.0,
         style: 0.15,
         speed: 0.96,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
       soothing: {
         stability: 1.0,
-        similarity_boost: 0.65,
+        similarity_boost: 1.0,
         style: 0.12,
         speed: 0.95,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
 
       // credible, brand-safe - use Robust (1.0)
       serious: {
         stability: 1.0,
-        similarity_boost: 0.75,
+        similarity_boost: 1.0,
         style: 0.2,
         speed: 0.99,
         use_speaker_boost: true,
       },
       professional: {
         stability: 1.0,
-        similarity_boost: 0.75,
+        similarity_boost: 1.0,
         style: 0.2,
         speed: 0.99,
         use_speaker_boost: true,
       },
       authoritative: {
         stability: 1.0,
-        similarity_boost: 0.78,
+        similarity_boost: 1.0,
         style: 0.22,
         speed: 0.98,
         use_speaker_boost: true,
@@ -187,49 +188,49 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       // warm human read - use Natural (0.5) for balance
       empathetic: {
         stability: 0.5,
-        similarity_boost: 0.8,
+        similarity_boost: 1.0,
         style: 0.4,
         speed: 1.0,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
       warm: {
         stability: 0.5,
-        similarity_boost: 0.8,
+        similarity_boost: 1.0,
         style: 0.4,
         speed: 1.0,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
 
       // pacing controls
       fast_read: {
         stability: 0.0, // Creative for expressiveness
-        similarity_boost: 0.8,
+        similarity_boost: 1.0,
         style: 0.35,
         speed: 1.15,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
       slow_read: {
         stability: 1.0, // Robust for stability
-        similarity_boost: 0.7,
+        similarity_boost: 1.0,
         style: 0.2,
         speed: 0.9,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
 
       // default/neutral - use Natural (0.5)
       neutral: {
         stability: 0.5,
-        similarity_boost: 0.75,
+        similarity_boost: 1.0,
         style: 0.3,
         speed: 1.0,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
       default: {
         stability: 0.5,
-        similarity_boost: 0.75,
+        similarity_boost: 1.0,
         style: 0.3,
         speed: 1.0,
-        use_speaker_boost: false,
+        use_speaker_boost: true,
       },
     };
 

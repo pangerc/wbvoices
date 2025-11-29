@@ -37,8 +37,8 @@ export function AIModelSelectionModal({
     <GlassyModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Select AI Model"
-      description="Choose which AI model to use for creative generation"
+      title="Select AI Provider"
+      description="Choose which AI provider to use for creative generation"
       maxWidth="xl"
     >
       <GlassyOptionPicker

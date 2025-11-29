@@ -28,10 +28,10 @@ export interface ToolDefinition {
 
 // Tool implementation parameter types
 export interface SearchVoicesParams {
+  provider: "elevenlabs" | "openai" | "lovo";
   language: string;
   gender?: "male" | "female";
   accent?: string;
-  style?: string;
   count?: number;
 }
 
@@ -42,12 +42,17 @@ export interface CreateVoiceDraftParams {
     text: string;
     playAfter?: string;
     overlap?: number;
+    description?: string; // ElevenLabs baseline tone
+    voiceInstructions?: string; // OpenAI voice guidance
   }>;
 }
 
 export interface CreateMusicDraftParams {
   adId: string;
   prompt: string;
+  elevenlabs?: string; // Detailed instrumental (no artist names)
+  loudly?: string; // Detailed with artist references
+  mubert?: string; // 8-12 word vibe storytelling
   provider?: "loudly" | "mubert" | "elevenlabs";
   duration?: number;
 }

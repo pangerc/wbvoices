@@ -51,10 +51,10 @@ export function getRegionConfig() {
     // Default language per region
     defaultLanguage: region === 'apac' ? 'zh' : 'en',
     
-    // Available AI models per region
-    availableAIModels: region === 'apac' 
-      ? ['gpt4', 'gpt5', 'moonshot', 'qwen'] as const
-      : ['gpt4', 'gpt5'] as const,
+    // Available AI providers per region
+    availableAIModels: region === 'apac'
+      ? ['openai', 'qwen', 'moonshot'] as const
+      : ['openai', 'qwen', 'moonshot'] as const,  // All providers available in all regions
       
     // OpenAI proxy configuration
     needsOpenAIProxy: region === 'apac',
@@ -76,7 +76,7 @@ export function getClientRegionConfig() {
     isAmericas: true,
     isEurope: false,
     defaultLanguage: 'en' as const,
-    availableAIModels: ['gpt4', 'gpt5'] as const,
+    availableAIModels: ['openai', 'qwen', 'moonshot'] as const,
     needsOpenAIProxy: false
   };
 }

@@ -81,15 +81,9 @@ export async function executeToolCall(call: ToolCall): Promise<ToolResult> {
 }
 
 /**
- * Execute multiple tool calls in sequence
+ * Execute multiple tool calls in parallel
+ * Tool calls are independent (different Redis keys, different API calls)
  */
 export async function executeToolCalls(calls: ToolCall[]): Promise<ToolResult[]> {
-  const results: ToolResult[] = [];
-
-  for (const call of calls) {
-    const result = await executeToolCall(call);
-    results.push(result);
-  }
-
-  return results;
+  return Promise.all(calls.map((call) => executeToolCall(call)));
 }

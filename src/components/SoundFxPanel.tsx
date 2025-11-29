@@ -14,7 +14,7 @@ type VoiceTrackPreview = {
 };
 
 type SoundFxPanelProps = {
-  onGenerate: () => Promise<void>; // Simplified - generates all soundfx in array
+  onGenerate: () => Promise<string[] | null | void>; // Can return generated URLs for autoplay
   isGenerating: boolean;
   statusMessage?: string;
   soundFxPrompts: SoundFxPrompt[]; // Array of soundfx prompts

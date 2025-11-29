@@ -2,52 +2,25 @@
 
 import React, { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { generateProjectId } from "@/utils/projectId";
 
 export default function HomePage() {
   const router = useRouter();
   const hasRedirected = useRef(false);
 
   useEffect(() => {
-    const initializeApp = async () => {
-      // Prevent multiple simultaneous redirects
-      if (hasRedirected.current) {
-        return;
-      }
+    // Prevent multiple simultaneous redirects
+    if (hasRedirected.current) {
+      return;
+    }
 
-      try {
-        // Get or create session ID (use default-session for development)
-        const sessionId = typeof window !== 'undefined'
-          ? localStorage.getItem('universal-session') || (() => {
-              const newSession = 'default-session';
-              localStorage.setItem('universal-session', newSession);
-              return newSession;
-            })()
-          : 'default-session';
+    // Generate adId client-side (no Redis write yet - lazy creation)
+    // Ad will be persisted to Redis when user clicks Generate or creates a version
+    const adId = generateProjectId();
+    console.log(`🚀 Generated client-side adId: ${adId} (not persisted yet)`);
 
-        // Create new ad via API
-        const res = await fetch('/api/ads', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: 'Untitled Ad',
-            sessionId,
-          }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          console.log('✨ Created new ad:', data.adId);
-          hasRedirected.current = true;
-          router.replace(`/ad/${data.adId}`);
-        } else {
-          console.error('❌ Failed to create ad');
-        }
-      } catch (error) {
-        console.error('❌ Failed to initialize app:', error);
-      }
-    };
-
-    initializeApp();
+    hasRedirected.current = true;
+    router.replace(`/ad/${adId}`);
   }, [router]);
 
   // Show loading state while creating new project

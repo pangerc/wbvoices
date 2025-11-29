@@ -1,18 +1,14 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   CampaignFormat,
   AIModel,
-  SoundFxPrompt,
-  MusicPrompts,
   Language,
-  Voice,
   Provider,
   Pacing,
+  ProjectBrief,
 } from "@/types";
-import { generateCreativeCopy } from "@/utils/ai-api-client";
-import { parseCreativeJSON } from "@/utils/json-parser";
 import { getFlagCode } from "@/utils/language";
-import { VoiceManagerV2State } from "@/hooks/useVoiceManagerV2";
+import { useBriefOptions, useLanguageOptions } from "@/hooks/useBriefOptions";
 import { selectAIModelForLanguage, AI_MODEL_REGISTRY, getAiModelLabel, getAiModelTechnicalDetails } from "@/utils/aiModelSelection";
 import {
   GlassyTextarea,
@@ -349,30 +345,156 @@ export type BriefPanelV3Props = {
   // Required: which ad are we creating drafts for?
   adId: string;
 
-  // Voice manager (existing interface)
-  voiceManager: VoiceManagerV2State;
+  // Initial brief data from Redis (for persistence)
+  initialBrief?: ProjectBrief | null;
 
   // Optional callback when drafts are created
-  onDraftsCreated?: (draftIds: {
+  onDraftsCreated?: (result: {
     voices?: string;
     music?: string;
     sfx?: string;
+    adName?: string;
   }) => void;
 };
 
 export function BriefPanelV3({
   adId,
-  voiceManager,
+  initialBrief,
   onDraftsCreated,
 }: BriefPanelV3Props) {
-  // Form state - all local, no FormManager!
-  const [clientDescription, setClientDescription] = useState("");
-  const [creativeBrief, setCreativeBrief] = useState("");
-  const [campaignFormat, setCampaignFormat] = useState<CampaignFormat>("ad_read");
-  const [adDuration, setAdDuration] = useState(30);
-  const [selectedAiModel, setSelectedAiModel] = useState<AIModel>("gpt5-balanced");
-  const [selectedCTA, setSelectedCTA] = useState<string | null>(null);
-  const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(null);
+  // Form state - initialized from initialBrief if provided
+  const [clientDescription, setClientDescription] = useState(initialBrief?.clientDescription || "");
+  const [creativeBrief, setCreativeBrief] = useState(initialBrief?.creativeBrief || "");
+  const [campaignFormat, setCampaignFormat] = useState<CampaignFormat>(initialBrief?.campaignFormat || "ad_read");
+  const [adDuration, setAdDuration] = useState(initialBrief?.adDuration || 30);
+  const [selectedAiModel, setSelectedAiModel] = useState<AIModel>(initialBrief?.selectedAiModel || "openai");
+  const [selectedCTA, setSelectedCTA] = useState<string | null>(initialBrief?.selectedCTA || null);
+  const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(initialBrief?.selectedPacing || null);
+
+  // Voice selection state (local - replaces voiceManager)
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(initialBrief?.selectedLanguage || "en");
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(initialBrief?.selectedRegion || null);
+  const [selectedAccent, setSelectedAccent] = useState<string>(initialBrief?.selectedAccent || "neutral");
+  const [selectedProvider, setSelectedProvider] = useState<Provider>(initialBrief?.selectedProvider || "any");
+
+  // Static data (loaded once on mount)
+  const { languages: availableLanguages, isLoading: isLoadingLanguages } = useBriefOptions();
+
+  // Language-dependent options (single API call when language/format/region/provider/accent changes)
+  // Region filters accents, provider/accent determine dialogReady
+  const { options: languageOptions, isLoading: isLoadingOptions } = useLanguageOptions(
+    selectedLanguage,
+    campaignFormat,
+    selectedRegion,
+    selectedProvider,
+    selectedAccent
+  );
+
+  // Derived state from languageOptions
+  const availableRegions = languageOptions?.regions || [];
+  const availableAccents = languageOptions?.accents || [];
+  const voiceCounts = languageOptions?.voiceCounts || { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 };
+  const hasRegions = languageOptions?.hasRegions ?? false;
+  const hasAccents = languageOptions?.hasAccents ?? false;
+  const dialogReady = languageOptions?.dialogReady ?? true;
+  const isLoading = isLoadingLanguages || isLoadingOptions;
+
+  // Track if initialBrief has been loaded (for auto-save skip on first render)
+  const initialBriefLoadedRef = useRef(false);
+
+  // Update form state when initialBrief loads or changes (e.g., after generation)
+  useEffect(() => {
+    if (initialBrief) {
+      // Mark as loaded for auto-save logic
+      initialBriefLoadedRef.current = true;
+
+      // Update all form fields from initialBrief
+      if (initialBrief.clientDescription) setClientDescription(initialBrief.clientDescription);
+      if (initialBrief.creativeBrief) setCreativeBrief(initialBrief.creativeBrief);
+      if (initialBrief.campaignFormat) setCampaignFormat(initialBrief.campaignFormat);
+      if (initialBrief.adDuration) setAdDuration(initialBrief.adDuration);
+      if (initialBrief.selectedAiModel) setSelectedAiModel(initialBrief.selectedAiModel);
+      if (initialBrief.selectedCTA !== undefined) setSelectedCTA(initialBrief.selectedCTA);
+      if (initialBrief.selectedPacing !== undefined) setSelectedPacing(initialBrief.selectedPacing);
+      // Voice selection state
+      if (initialBrief.selectedLanguage) setSelectedLanguage(initialBrief.selectedLanguage);
+      if (initialBrief.selectedRegion) setSelectedRegion(initialBrief.selectedRegion);
+      if (initialBrief.selectedAccent) setSelectedAccent(initialBrief.selectedAccent);
+      // NOTE: Don't restore selectedProvider from initialBrief - let it auto-select based on language availability
+    }
+  }, [initialBrief]);
+
+  // Debounced save to Redis
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveBriefToRedis = useCallback(async () => {
+    try {
+      const briefData: ProjectBrief = {
+        clientDescription,
+        creativeBrief,
+        campaignFormat,
+        adDuration,
+        selectedAiModel,
+        selectedCTA: selectedCTA || null,
+        selectedPacing: selectedPacing || null,
+        selectedLanguage,
+        selectedRegion: selectedRegion || null,
+        selectedAccent,
+        selectedProvider,
+      };
+
+      const response = await fetch(`/api/ads/${adId}/brief`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brief: briefData }),
+      });
+
+      // 404 is expected for unpersisted ads (lazy creation)
+      // Brief will be persisted when Generate is clicked
+      if (!response.ok && response.status !== 404) {
+        console.error("Failed to save brief:", response.status);
+      }
+    } catch (error) {
+      console.error("Failed to save brief:", error);
+    }
+  }, [
+    adId, clientDescription, creativeBrief, campaignFormat, adDuration,
+    selectedAiModel, selectedCTA, selectedPacing,
+    selectedLanguage, selectedRegion, selectedAccent, selectedProvider
+  ]);
+
+  // Auto-save brief when form values change (debounced)
+  useEffect(() => {
+    // CRITICAL: Don't save until we know the initial state
+    // undefined = still loading from parent, null = no existing brief, object = brief loaded
+    if (initialBrief === undefined) {
+      return; // Still loading, don't overwrite Redis with defaults
+    }
+
+    // Skip if no content and we haven't loaded anything yet
+    if (!initialBriefLoadedRef.current && !clientDescription && !creativeBrief) {
+      return;
+    }
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      saveBriefToRedis();
+    }, 1000); // 1 second debounce
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [
+    initialBrief, // Add to deps so we re-evaluate when it loads
+    clientDescription, creativeBrief, campaignFormat, adDuration,
+    selectedAiModel, selectedCTA, selectedPacing,
+    selectedLanguage, selectedRegion, selectedAccent, selectedProvider,
+    saveBriefToRedis
+  ]);
 
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -383,140 +505,36 @@ export function BriefPanelV3({
   const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
   const [isAiModelModalOpen, setIsAiModelModalOpen] = useState(false);
 
-  // Server-filtered voices
-  const [serverFilteredVoices, setServerFilteredVoices] = useState<{
-    voices: unknown[];
-    count: number;
-    selectedProvider?: Provider;
-    dialogReady?: boolean;
-    dialogWarning?: string;
-    voiceCounts?: Record<Provider, number>;
-  }>({
-    voices: [],
-    count: 0,
-    voiceCounts: { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 },
-  });
-  const [isLoadingFilteredVoices, setIsLoadingFilteredVoices] = useState(false);
-
   // Use all AI models without regional filtering
   const aiModelOptions = allAiModelOptions;
 
-  const {
-    selectedLanguage,
-    selectedRegion,
-    selectedAccent,
-    selectedProvider,
-    availableLanguages,
-    availableRegions,
-    availableAccents,
-    isLoading,
-    hasRegions,
-    hasAccents,
-    setSelectedLanguage,
-    setSelectedRegion,
-    setSelectedAccent,
-    setSelectedProvider,
-  } = voiceManager;
-
-  // Load server-filtered voices when filter criteria change
+  // Auto-select suggested provider when language changes (novice UX)
+  // Track which language we last auto-selected provider FOR (not the previous value)
+  const lastAutoSelectedLanguageRef = useRef<string | null>(null);
   useEffect(() => {
-    const loadFilteredVoices = async () => {
-      if (!selectedLanguage || availableLanguages.length === 0) {
-        return;
-      }
+    // Only auto-select when:
+    // 1. We have options that match the current language (not stale data)
+    // 2. We haven't already auto-selected for this language
+    const optionsMatchLanguage = languageOptions?.language === selectedLanguage;
+    const alreadyAutoSelected = lastAutoSelectedLanguageRef.current === selectedLanguage;
 
-      setIsLoadingFilteredVoices(true);
-      try {
-        const url = new URL("/api/voice-catalogue", window.location.origin);
-        url.searchParams.set("operation", "filtered-voices");
-        url.searchParams.set("language", selectedLanguage);
+    if (optionsMatchLanguage && languageOptions?.suggestedProvider && !alreadyAutoSelected) {
+      setSelectedProvider(languageOptions.suggestedProvider);
+      setSelectedRegion(null);
+      setSelectedAccent("neutral");
+      lastAutoSelectedLanguageRef.current = selectedLanguage;
+    }
+  }, [selectedLanguage, languageOptions]);
 
-        if (selectedRegion && selectedRegion !== "all" && hasRegions) {
-          url.searchParams.set("region", selectedRegion);
-        }
-
-        if (selectedAccent && selectedAccent !== "neutral") {
-          url.searchParams.set("accent", selectedAccent);
-        }
-
-        url.searchParams.set("provider", selectedProvider);
-        url.searchParams.set("campaignFormat", campaignFormat);
-        url.searchParams.set("exclude", "lovo");
-        url.searchParams.set("requireApproval", "true");
-
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (data.error) {
-          console.error("❌ Failed to load filtered voices:", data.error);
-          setServerFilteredVoices({
-            voices: [],
-            count: 0,
-            voiceCounts: { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 },
-          });
-        } else {
-          setServerFilteredVoices({
-            voices: data.voices || [],
-            count: data.count || 0,
-            selectedProvider: data.selectedProvider,
-            dialogReady: data.dialogReady,
-            dialogWarning: data.dialogWarning,
-            voiceCounts: data.voiceCounts || { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 },
-          });
-
-          if (selectedProvider === "any" && data.selectedProvider) {
-            setSelectedProvider(data.selectedProvider);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load filtered voices:", error);
-        setServerFilteredVoices({
-          voices: [],
-          count: 0,
-          voiceCounts: { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 },
-        });
-      } finally {
-        setIsLoadingFilteredVoices(false);
-      }
-    };
-
-    loadFilteredVoices();
-  }, [
-    selectedLanguage,
-    selectedRegion,
-    selectedAccent,
-    selectedProvider,
-    campaignFormat,
-    availableLanguages.length,
-    hasRegions,
-    setSelectedProvider,
-  ]);
-
-  // Provider reset on language/region/accent change
-  const previousLanguageRef = useRef(selectedLanguage);
-  const previousRegionRef = useRef(selectedRegion);
-  const previousAccentRef = useRef(selectedAccent);
+  // Reset accent when region changes and selected accent is no longer available
   useEffect(() => {
-    const languageChanged = previousLanguageRef.current !== selectedLanguage;
-    const regionChanged = previousRegionRef.current !== selectedRegion;
-    const accentChanged = previousAccentRef.current !== selectedAccent;
-
-    if (languageChanged || regionChanged || accentChanged) {
-      previousLanguageRef.current = selectedLanguage;
-      previousRegionRef.current = selectedRegion;
-      previousAccentRef.current = selectedAccent;
-
-      if (selectedProvider !== "any") {
-        setSelectedProvider("any");
+    if (availableAccents.length > 0 && selectedAccent !== "neutral") {
+      const accentStillAvailable = availableAccents.some(a => a.code === selectedAccent);
+      if (!accentStillAvailable) {
+        setSelectedAccent("neutral");
       }
     }
-  }, [
-    selectedLanguage,
-    selectedRegion,
-    selectedAccent,
-    selectedProvider,
-    setSelectedProvider,
-  ]);
+  }, [availableAccents, selectedAccent]);
 
   // AI Model auto-selection for Chinese language
   const previousLanguageForAiRef = useRef(selectedLanguage);
@@ -551,11 +569,9 @@ export function BriefPanelV3({
   }, [selectedLanguage, selectedAiModel, aiModelOptions]);
 
   // Warnings
-  const shouldWarnAboutDialog =
-    serverFilteredVoices.dialogWarning && campaignFormat === "dialog";
+  const shouldWarnAboutDialog = !dialogReady && campaignFormat === "dialog";
   const shouldSuggestProvider =
-    serverFilteredVoices.voiceCounts &&
-    (serverFilteredVoices.voiceCounts[selectedProvider] || 0) === 0;
+    voiceCounts && (voiceCounts[selectedProvider] || 0) === 0;
 
   // Filter languages based on search
   const filteredLanguages = useMemo(() => {
@@ -570,188 +586,11 @@ export function BriefPanelV3({
   }, [languageQuery, availableLanguages]);
 
   /**
-   * Resolve provider for generation
-   * If "any", server will auto-select the best provider
-   */
-  const resolveProviderForGeneration = async (): Promise<{
-    provider: Provider;
-    voices: Voice[];
-  }> => {
-    if (selectedProvider !== "any") {
-      return {
-        provider: selectedProvider,
-        voices: serverFilteredVoices.voices as Voice[],
-      };
-    }
-
-    console.log("🎯 Resolving 'any' provider for generation...");
-
-    try {
-      const url = new URL("/api/voice-catalogue", window.location.origin);
-      url.searchParams.set("operation", "filtered-voices");
-      url.searchParams.set("language", selectedLanguage);
-      url.searchParams.set("provider", "any");
-      url.searchParams.set("campaignFormat", campaignFormat);
-      url.searchParams.set("requireApproval", "true");
-
-      if (selectedRegion && selectedRegion !== "all" && availableRegions.length > 0) {
-        url.searchParams.set("region", selectedRegion);
-      }
-      if (selectedAccent && selectedAccent !== "neutral") {
-        url.searchParams.set("accent", selectedAccent);
-      }
-
-      const response = await fetch(url.toString());
-      if (!response.ok) {
-        throw new Error(`Failed to resolve provider: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      if (data.selectedProvider) {
-        console.log(
-          `🎯 Resolved provider: ${data.selectedProvider} (${data.count} voices)`
-        );
-        setSelectedProvider(data.selectedProvider);
-
-        return {
-          provider: data.selectedProvider,
-          voices: data.voices as Voice[],
-        };
-      } else {
-        return {
-          provider: selectedProvider,
-          voices: serverFilteredVoices.voices as Voice[],
-        };
-      }
-    } catch (error) {
-      console.error("Error resolving provider:", error);
-      return {
-        provider: selectedProvider,
-        voices: serverFilteredVoices.voices as Voice[],
-      };
-    }
-  };
-
-  /**
-   * Create drafts in Redis via direct API calls
-   */
-  const createDraftsInRedis = async (
-    voiceSegments: Array<{
-      voice: { id: string };
-      text: string;
-      playAfter?: string;
-      overlap?: number;
-      isConcurrent?: boolean;
-      speed?: number;
-      style?: string;
-      useCase?: string;
-      voiceInstructions?: string;
-    }>,
-    musicPrompt: string | null,
-    musicPrompts: MusicPrompts | null,
-    soundFxPrompts: SoundFxPrompt[],
-    provider: Provider
-  ) => {
-    const draftIds: { voices?: string; music?: string; sfx?: string } = {};
-
-    // Create voice draft
-    if (voiceSegments.length > 0) {
-      try {
-        const voiceRes = await fetch(`/api/ads/${adId}/voices`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            voiceTracks: voiceSegments.map(seg => ({
-              voiceId: seg.voice.id,
-              text: seg.text,
-              playAfter: seg.playAfter || "start",
-              overlap: seg.overlap || 0,
-              isConcurrent: seg.isConcurrent || false,
-              speed: seg.speed,
-              style: seg.style,
-              useCase: seg.useCase,
-              voiceInstructions: seg.voiceInstructions,
-            })),
-            createdBy: "llm",
-          }),
-        });
-
-        if (!voiceRes.ok) {
-          throw new Error(`Failed to create voice draft: ${voiceRes.statusText}`);
-        }
-
-        const { versionId } = await voiceRes.json();
-        draftIds.voices = versionId;
-        console.log(`✅ Created voice draft: ${versionId}`);
-      } catch (error) {
-        console.error("Error creating voice draft:", error);
-        throw error;
-      }
-    }
-
-    // Create music draft
-    if (musicPrompt || musicPrompts) {
-      try {
-        const musicRes = await fetch(`/api/ads/${adId}/music`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            musicPrompt: musicPrompt || musicPrompts?.loudly || "",
-            musicPrompts: musicPrompts || {
-              loudly: musicPrompt || "",
-              mubert: musicPrompt || "",
-              elevenlabs: musicPrompt || "",
-            },
-            duration: adDuration,
-            provider: "loudly",
-            createdBy: "llm",
-          }),
-        });
-
-        if (!musicRes.ok) {
-          throw new Error(`Failed to create music draft: ${musicRes.statusText}`);
-        }
-
-        const { versionId } = await musicRes.json();
-        draftIds.music = versionId;
-        console.log(`✅ Created music draft: ${versionId}`);
-      } catch (error) {
-        console.error("Error creating music draft:", error);
-        throw error;
-      }
-    }
-
-    // Create SFX draft
-    if (soundFxPrompts && soundFxPrompts.length > 0) {
-      try {
-        const sfxRes = await fetch(`/api/ads/${adId}/sfx`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            soundFxPrompts: soundFxPrompts,
-            createdBy: "llm",
-          }),
-        });
-
-        if (!sfxRes.ok) {
-          throw new Error(`Failed to create SFX draft: ${sfxRes.statusText}`);
-        }
-
-        const { versionId } = await sfxRes.json();
-        draftIds.sfx = versionId;
-        console.log(`✅ Created SFX draft: ${versionId}`);
-      } catch (error) {
-        console.error("Error creating SFX draft:", error);
-        throw error;
-      }
-    }
-
-    return draftIds;
-  };
-
-  /**
-   * Main generation flow
+   * Main generation flow - V3 Tool-Calling API
+   *
+   * Calls /api/ai/generate which runs the agent loop.
+   * LLM uses tools (search_voices, create_voice_draft, etc.) to create drafts directly.
+   * No JSON parsing needed - tools write to Redis directly.
    */
   const handleGenerateCreative = async () => {
     if (!clientDescription.trim() || !creativeBrief.trim()) {
@@ -763,57 +602,49 @@ export function BriefPanelV3({
     setError(null);
 
     try {
-      // Step 1: Resolve provider and get filtered voices
-      const { provider: providerToUse, voices: voicesToUse } =
-        await resolveProviderForGeneration();
+      console.log(`🚀 Starting V3 agentic generation for ad ${adId}`);
 
-      console.log(
-        `🎯 Sending ${voicesToUse.length} ${providerToUse} voices to LLM`
-      );
+      // Get sessionId for lazy ad creation
+      const sessionId = localStorage.getItem('universal-session') || 'default-session';
 
-      // Step 2: Call LLM
-      const jsonResponse = await generateCreativeCopy(
-        selectedAiModel,
-        selectedLanguage,
-        clientDescription,
-        creativeBrief,
-        campaignFormat,
-        voicesToUse,
-        adDuration,
-        providerToUse,
-        selectedRegion || undefined,
-        selectedAccent || undefined,
-        selectedCTA,
-        selectedPacing
-      );
+      const response = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adId,                              // Required! Tools need this to write drafts
+          sessionId,                         // Required for lazy ad creation
+          aiModel: selectedAiModel,
+          language: selectedLanguage,
+          clientDescription,
+          creativeBrief,
+          campaignFormat,
+          duration: adDuration,
+          region: selectedRegion || undefined,
+          accent: selectedAccent || undefined,
+          cta: selectedCTA,
+          pacing: selectedPacing,
+          selectedProvider: selectedProvider,  // Voice provider for search_voices tool
+        }),
+      });
 
-      // Step 3: Parse LLM response
-      const { voiceSegments, musicPrompt, musicPrompts, soundFxPrompts } =
-        parseCreativeJSON(jsonResponse);
-
-      if (voiceSegments.length === 0) {
-        throw new Error("No voice segments found in response");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate creative");
       }
 
-      // Set initial speed for OpenAI when fast pacing is selected
-      const segments = voiceSegments.map((segment) => ({
-        ...segment,
-        speed: providerToUse === "openai" && selectedPacing === "fast" ? 1.2 : segment.speed,
-      }));
+      const result = await response.json();
+      // result = { conversationId, drafts, message, provider, toolCalls, usage }
 
-      // Step 4: Create drafts in Redis
-      const draftIds = await createDraftsInRedis(
-        segments,
-        musicPrompt,
-        musicPrompts,
-        soundFxPrompts,
-        providerToUse
-      );
+      console.log(`✅ V3 generation complete:`, {
+        conversationId: result.conversationId,
+        drafts: result.drafts,
+        toolCalls: result.toolCalls,
+        provider: result.provider,
+        adName: result.adName,
+      });
 
-      console.log("✅ All drafts created:", draftIds);
-
-      // Step 5: Notify parent
-      onDraftsCreated?.(draftIds);
+      // Notify parent to reload version streams and update ad name
+      onDraftsCreated?.({ ...result.drafts, adName: result.adName });
 
     } catch (error) {
       console.error("Error generating creative:", error);
@@ -841,8 +672,8 @@ export function BriefPanelV3({
           disabled={
             !clientDescription ||
             !creativeBrief ||
-            serverFilteredVoices.count === 0 ||
-            isLoadingFilteredVoices ||
+            (voiceCounts.any || 0) === 0 ||
+            isLoading ||
             isGenerating
           }
           className="px-6 py-3 bg-wb-blue hover:bg-wb-blue/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
@@ -1000,7 +831,7 @@ export function BriefPanelV3({
           </div>
           {shouldWarnAboutDialog && (
             <p className="text-xs text-yellow-400 mt-2">
-              ⚠️ {serverFilteredVoices.dialogWarning}
+              ⚠️ Not enough voices for dialogue - need at least 2
             </p>
           )}
         </div>
@@ -1160,11 +991,9 @@ export function BriefPanelV3({
                   : selectedProvider.charAt(0).toUpperCase() +
                     selectedProvider.slice(1)}
                 {" ("}
-                {isLoadingFilteredVoices
+                {isLoading
                   ? "..."
-                  : selectedProvider === "any"
-                  ? serverFilteredVoices.voiceCounts?.any || 0
-                  : serverFilteredVoices.count}
+                  : voiceCounts[selectedProvider] || 0}
                 {")"}
               </span>
             </button>
@@ -1180,8 +1009,7 @@ export function BriefPanelV3({
           </div>
           {shouldSuggestProvider && (
             <p className="text-xs text-orange-400 mt-2">
-              💡 Try another provider -{" "}
-              {serverFilteredVoices.voiceCounts?.[selectedProvider] || 0} voices
+              💡 Try another provider - {voiceCounts[selectedProvider] || 0} voices
             </p>
           )}
         </div>
@@ -1200,16 +1028,7 @@ export function BriefPanelV3({
         onClose={() => setIsProviderModalOpen(false)}
         selectedProvider={selectedProvider}
         onSelectProvider={setSelectedProvider}
-        voiceCounts={
-          serverFilteredVoices.voiceCounts || {
-            elevenlabs: 0,
-            lovo: 0,
-            openai: 0,
-            qwen: 0,
-            bytedance: 0,
-            any: 0,
-          }
-        }
+        voiceCounts={voiceCounts}
       />
 
       <AIModelSelectionModal

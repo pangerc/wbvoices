@@ -12,7 +12,9 @@ export function VoiceVersionContent({
   return (
     <div className="space-y-0">
       {version.voiceTracks.map((track, index) => {
-        const hasAudio = version.generatedUrls[index];
+        // Use embedded URL first, fall back to legacy parallel array
+        const audioUrl = track.generatedUrl || version.generatedUrls?.[index];
+        const hasAudio = !!audioUrl;
 
         return (
           <div
@@ -74,11 +76,11 @@ export function VoiceVersionContent({
                 </div>
 
                 {/* Audio player on right (replaces action buttons column) */}
-                {hasAudio && (
+                {hasAudio && audioUrl && (
                   <div className="flex flex-col">
                     <audio
                       controls
-                      src={version.generatedUrls[index]}
+                      src={audioUrl}
                       className="h-8"
                       style={{
                         filter: "invert(1) hue-rotate(180deg)",

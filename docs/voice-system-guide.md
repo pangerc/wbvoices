@@ -318,6 +318,21 @@ curl -X POST http://localhost:3000/api/voice/newprovider-v2 \
 - **API**: Requires `xi-api-key` header
 - **Caveat**: Filter non-string values from `verified_languages` array
 
+#### Voice Consistency Settings
+
+To maintain voice identity consistency across different lines in dialogue ads:
+
+- **`similarity_boost: 1.0`** - Maximum adherence to original voice identity
+- **`use_speaker_boost: true`** - Boosts similarity to original speaker (slight latency increase)
+
+These settings are applied to all presets in `ElevenLabsVoiceProvider.ts`.
+
+**Why not use `seed`?** The ElevenLabs `seed` parameter only provides **reproducibility** (same text + same seed = identical output), not cross-line consistency. Different text will still produce natural variation regardless of seed. The `similarity_boost` and `use_speaker_boost` parameters actually target voice identity consistency.
+
+**Trade-offs:**
+- `use_speaker_boost: true` adds slight latency per request
+- Very high similarity may slightly reduce emotional range (mitigated by keeping stability at expressive levels)
+
 ### OpenAI
 - **Always included**: Bypass region filtering for global coverage
 - **Accent**: Always "neutral" (synthetic)

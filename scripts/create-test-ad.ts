@@ -29,7 +29,7 @@ const testBrief = {
   selectedProvider: "elevenlabs" as const,
   adDuration: 30,
   selectedAccent: null,
-  selectedAiModel: "gpt5-balanced" as const,
+  selectedAiModel: "openai" as const,
   musicProvider: "loudly" as const,
   selectedCTA: "Try Premium free for 1 month",
   selectedPacing: null,

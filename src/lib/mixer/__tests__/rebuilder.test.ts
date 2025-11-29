@@ -115,9 +115,10 @@ describe("rebuildMixer", () => {
           {
             ...mockVoiceTrack,
             voice: {
-              ...mockVoiceTrack.voice,
+              ...mockVoiceTrack.voice!,
               name: "Test Voice",
               id: "test-voice-123",
+              gender: "female" as const,
             },
             text: "Test script text",
           },

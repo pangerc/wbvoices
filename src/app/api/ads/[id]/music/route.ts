@@ -12,6 +12,7 @@ import {
   getAllVersionsWithData,
   createVersion,
 } from "@/lib/redis/versions";
+import { ensureAdExists } from "@/lib/redis/ensureAd";
 import {
   MusicVersion,
   VersionStreamResponse,
@@ -82,13 +83,17 @@ export async function POST(
 
     console.log(`✨ Creating new music version for ad ${adId}`);
 
-    // Validate required fields
-    if (!body.musicPrompt || !body.provider) {
+    // Validate required fields (musicPrompt can be empty string for new drafts)
+    if (body.musicPrompt === undefined || !body.provider) {
       return NextResponse.json(
         { error: "musicPrompt and provider are required" },
         { status: 400 }
       );
     }
+
+    // Ensure ad exists (lazy creation for manual version creation)
+    const sessionId = request.headers.get("x-session-id") || "default-session";
+    await ensureAdExists(adId, sessionId);
 
     // Build version data
     const versionData: MusicVersion = {

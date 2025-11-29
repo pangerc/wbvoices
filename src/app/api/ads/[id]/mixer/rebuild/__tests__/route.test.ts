@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 import { POST } from "../route";
 import { createVersion, setActiveVersion } from "@/lib/redis/versions";
 import {
@@ -67,7 +68,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
     await setActiveVersion(mockAdId, "music", "v1");
 
     // Make request
-    const request = new Request("http://localhost:3003/api/ads/test/mixer/rebuild", {
+    const request = new NextRequest("http://localhost:3003/api/ads/test/mixer/rebuild", {
       method: "POST",
     });
     const params = Promise.resolve({ id: mockAdId });
@@ -98,7 +99,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
   });
 
   it("should handle empty mixer (no active versions)", async () => {
-    const request = new Request("http://localhost:3003/api/ads/test/mixer/rebuild", {
+    const request = new NextRequest("http://localhost:3003/api/ads/test/mixer/rebuild", {
       method: "POST",
     });
     const params = Promise.resolve({ id: mockAdId });
@@ -128,7 +129,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
     await createVersion(mockAdId, "voices", voiceVersion);
     await setActiveVersion(mockAdId, "voices", "v1");
 
-    const request = new Request("http://localhost:3003/api/ads/test/mixer/rebuild", {
+    const request = new NextRequest("http://localhost:3003/api/ads/test/mixer/rebuild", {
       method: "POST",
     });
     const params = Promise.resolve({ id: mockAdId });
@@ -154,7 +155,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
     await createVersion(mockAdId, "voices", voiceVersion);
     await setActiveVersion(mockAdId, "voices", "v1");
 
-    const request = new Request("http://localhost:3003/api/ads/test/mixer/rebuild", {
+    const request = new NextRequest("http://localhost:3003/api/ads/test/mixer/rebuild", {
       method: "POST",
     });
     const params = Promise.resolve({ id: mockAdId });
@@ -173,7 +174,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
   it("should include lastCalculated timestamp", async () => {
     const beforeTime = Date.now();
 
-    const request = new Request("http://localhost:3003/api/ads/test/mixer/rebuild", {
+    const request = new NextRequest("http://localhost:3003/api/ads/test/mixer/rebuild", {
       method: "POST",
     });
     const params = Promise.resolve({ id: mockAdId });
@@ -189,7 +190,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
 
   it("should return 500 on error", async () => {
     // Force an error by passing invalid adId that causes issues
-    const request = new Request("http://localhost:3003/api/ads/test/mixer/rebuild", {
+    const request = new NextRequest("http://localhost:3003/api/ads/test/mixer/rebuild", {
       method: "POST",
     });
 
@@ -236,7 +237,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
     await setActiveVersion(adId2, "voices", "v1");
 
     // Rebuild first ad
-    const request1 = new Request("http://localhost:3003/api/ads/test/mixer/rebuild", {
+    const request1 = new NextRequest("http://localhost:3003/api/ads/test/mixer/rebuild", {
       method: "POST",
     });
     const params1 = Promise.resolve({ id: adId1 });
@@ -244,7 +245,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
     const data1 = await response1.json();
 
     // Rebuild second ad
-    const request2 = new Request("http://localhost:3003/api/ads/test/mixer/rebuild", {
+    const request2 = new NextRequest("http://localhost:3003/api/ads/test/mixer/rebuild", {
       method: "POST",
     });
     const params2 = Promise.resolve({ id: adId2 });
@@ -266,7 +267,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
     await setActiveVersion(mockAdId, "voices", "v1");
 
     // Rebuild via API
-    const request = new Request("http://localhost:3003/api/ads/test/mixer/rebuild", {
+    const request = new NextRequest("http://localhost:3003/api/ads/test/mixer/rebuild", {
       method: "POST",
     });
     const params = Promise.resolve({ id: mockAdId });

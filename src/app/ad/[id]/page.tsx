@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 import { VersionAccordion, DraftAccordion } from "@/components/ui";
@@ -11,7 +11,8 @@ import { VoiceDraftEditor } from "@/components/draft-editors/VoiceDraftEditor";
 import { MusicDraftEditor } from "@/components/draft-editors/MusicDraftEditor";
 import { SfxDraftEditor } from "@/components/draft-editors/SfxDraftEditor";
 import { BriefPanelV3 } from "@/components/BriefPanelV3";
-import { useVoiceManagerV2 } from "@/hooks/useVoiceManagerV2";
+import { MixerPanel } from "@/components/MixerPanel";
+import { useMixerStore } from "@/store/mixerStore";
 import type {
   VoiceVersion,
   MusicVersion,
@@ -27,8 +28,6 @@ export default function AdWorkspace() {
   const router = useRouter();
   const adId = params.id as string;
 
-  // Voice manager for BriefPanel
-  const voiceManager = useVoiceManagerV2();
 
   // State for each stream
   const [voiceStream, setVoiceStream] =
@@ -41,10 +40,24 @@ export default function AdWorkspace() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [adName, setAdName] = useState<string>("");
-  const [briefData, setBriefData] = useState<ProjectBrief | null>(null);
+  // undefined = still loading, null = no brief exists, object = brief data
+  const [briefData, setBriefData] = useState<ProjectBrief | null | undefined>(undefined);
 
   // Header tab state (0=Brief, 1=Voice, 2=Music, 3=SFX, 4=Mix, 5=Preview)
   const [selectedTab, setSelectedTab] = useState(0);
+
+  // Refs to expose draft editor functions for DraftAccordion header buttons
+  const voicePlayAllRef = useRef<(() => Promise<void>) | null>(null);
+  const voiceSendToMixerRef = useRef<(() => void) | null>(null);
+  // Note: voicePlayAllStateRef removed - state now comes from centralized audioPlaybackStore
+
+  // Music refs
+  const musicPlayAllRef = useRef<(() => Promise<void>) | null>(null);
+  const musicSendToMixerRef = useRef<(() => void) | null>(null);
+
+  // SFX refs
+  const sfxPlayAllRef = useRef<(() => Promise<void>) | null>(null);
+  const sfxSendToMixerRef = useRef<(() => void) | null>(null);
 
   // Helper functions to get draft versions and their IDs
   const getVoiceDraft = () => {
@@ -101,10 +114,14 @@ export default function AdWorkspace() {
             setBriefData(ad.meta.brief || null);
           } else {
             setAdName(adId); // Fallback to ad ID
+            setBriefData(null); // No brief exists for this ad
           }
+        } else {
+          setBriefData(null); // Failed to load, treat as no brief
         }
       } catch (error) {
         console.error("Failed to load ad metadata:", error);
+        setBriefData(null); // Error loading, treat as no brief
         setAdName(adId); // Fallback to ad ID
       }
     };
@@ -144,6 +161,42 @@ export default function AdWorkspace() {
     };
 
     loadStreams();
+  }, [adId]);
+
+  // Load mixer state from Redis on mount (Issue #4 fix: persistence on reload)
+  useEffect(() => {
+    const loadMixerState = async () => {
+      try {
+        const res = await fetch(`/api/ads/${adId}/mixer`);
+        if (res.ok) {
+          const mixerState = await res.json();
+          if (mixerState.tracks && mixerState.tracks.length > 0) {
+            const { clearTracks, addTrack, setTrackVolume } = useMixerStore.getState();
+
+            // Clear existing tracks first
+            clearTracks();
+
+            // Hydrate tracks from Redis
+            mixerState.tracks.forEach((track: { id: string; url: string; label: string; type: "voice" | "music" | "soundfx"; volume?: number }) => {
+              addTrack(track);
+            });
+
+            // Restore volume settings
+            if (mixerState.volumes) {
+              Object.entries(mixerState.volumes).forEach(([id, volume]) => {
+                setTrackVolume(id, volume as number);
+              });
+            }
+
+            console.log(`🔄 Restored mixer state with ${mixerState.tracks.length} tracks`);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load mixer state:", error);
+      }
+    };
+
+    loadMixerState();
   }, [adId]);
 
   // Validation: Check if voice version can be activated
@@ -325,12 +378,27 @@ export default function AdWorkspace() {
     }
   };
 
-  // Handle draft creation
+  // Handle draft creation (activates existing draft first if present)
   const handleCreateVoiceDraft = async () => {
     try {
+      const sessionId = localStorage.getItem('universal-session') || 'default-session';
+
+      // If draft exists, activate it first (commits it as a version)
+      const existingDraft = getVoiceDraft();
+      if (existingDraft) {
+        await fetch(`/api/ads/${adId}/voices/${existingDraft.id}/activate`, {
+          method: "POST",
+          headers: { "x-session-id": sessionId },
+        });
+      }
+
+      // Create new draft
       const res = await fetch(`/api/ads/${adId}/voices`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-session-id": sessionId,
+        },
         body: JSON.stringify({
           voiceTracks: [],
           createdBy: "user",
@@ -349,9 +417,24 @@ export default function AdWorkspace() {
 
   const handleCreateMusicDraft = async () => {
     try {
+      const sessionId = localStorage.getItem('universal-session') || 'default-session';
+
+      // If draft exists, activate it first (commits it as a version)
+      const existingDraft = getMusicDraft();
+      if (existingDraft) {
+        await fetch(`/api/ads/${adId}/music/${existingDraft.id}/activate`, {
+          method: "POST",
+          headers: { "x-session-id": sessionId },
+        });
+      }
+
+      // Create new draft
       const res = await fetch(`/api/ads/${adId}/music`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-session-id": sessionId,
+        },
         body: JSON.stringify({
           musicPrompt: "",
           musicPrompts: { loudly: "", mubert: "", elevenlabs: "" },
@@ -373,9 +456,24 @@ export default function AdWorkspace() {
 
   const handleCreateSfxDraft = async () => {
     try {
+      const sessionId = localStorage.getItem('universal-session') || 'default-session';
+
+      // If draft exists, activate it first (commits it as a version)
+      const existingDraft = getSfxDraft();
+      if (existingDraft) {
+        await fetch(`/api/ads/${adId}/sfx/${existingDraft.id}/activate`, {
+          method: "POST",
+          headers: { "x-session-id": sessionId },
+        });
+      }
+
+      // Create new draft
       const res = await fetch(`/api/ads/${adId}/sfx`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-session-id": sessionId,
+        },
         body: JSON.stringify({
           soundFxPrompts: [],
           createdBy: "user",
@@ -397,8 +495,26 @@ export default function AdWorkspace() {
     voices?: string;
     music?: string;
     sfx?: string;
+    adName?: string;
   }) => {
     console.log("✅ Drafts created:", draftIds);
+
+    // Update ad name if returned
+    if (draftIds.adName) {
+      setAdName(draftIds.adName);
+    }
+
+    // Reload brief from Redis to ensure consistency
+    // (generation endpoint persists the brief)
+    const sessionId = localStorage.getItem('universal-session') || 'default-session';
+    const metaRes = await fetch(`/api/ads?sessionId=${sessionId}`);
+    if (metaRes.ok) {
+      const data = await metaRes.json();
+      const ad = data.ads.find((a: { adId: string }) => a.adId === adId);
+      if (ad?.meta?.brief) {
+        setBriefData(ad.meta.brief);
+      }
+    }
 
     // Reload all streams to show new drafts
     const [voicesRes, musicRes, sfxRes] = await Promise.all([
@@ -501,7 +617,7 @@ export default function AdWorkspace() {
           {selectedTab === 0 && (
             <BriefPanelV3
               adId={adId}
-              voiceManager={voiceManager}
+              initialBrief={briefData}
               onDraftsCreated={handleDraftsCreated}
             />
           )}
@@ -510,24 +626,33 @@ export default function AdWorkspace() {
           {selectedTab === 1 && voiceStream && (
             <div>
             <div className="flex items-center justify-end gap-2 mb-4">
-              {!getVoiceDraft() && (
-                <button
-                  onClick={handleCreateVoiceDraft}
-                  className="px-4 py-2 text-sm bg-wb-blue/10 text-wb-blue border border-wb-blue/30 rounded-lg hover:bg-wb-blue/20 transition-colors"
-                >
-                  + New Version
-                </button>
-              )}
+              <button
+                onClick={handleCreateVoiceDraft}
+                className="px-4 py-2 text-sm bg-wb-blue/10 text-wb-blue border border-wb-blue/30 rounded-lg hover:bg-wb-blue/20 transition-colors"
+              >
+                + New Version
+              </button>
             </div>
 
             {/* Voice Draft Editor - Wrapped in Accordion */}
             {getVoiceDraft() && (
               <DraftAccordion
                 title={getVoiceDraft()!.id}
-                onGenerateAll={() => {
-                  // TODO: Wire up to VoiceDraftEditor's generateAudio
-                  alert("Generate All - to be wired up!");
+                type="voice"
+                versionId={getVoiceDraft()!.id}
+                onPlayAll={() => {
+                  if (voicePlayAllRef.current) {
+                    voicePlayAllRef.current();
+                  }
                 }}
+                onSendToMixer={() => {
+                  if (voiceSendToMixerRef.current) {
+                    voiceSendToMixerRef.current();
+                  }
+                  // Issue #3 fix: Auto-switch to Mix tab after sending to mixer
+                  setSelectedTab(4);
+                }}
+                hasTracksWithAudio={getVoiceDraft()!.version.voiceTracks.some(t => !!t.generatedUrl)}
               >
                 <VoiceDraftEditor
                   adId={adId}
@@ -539,6 +664,8 @@ export default function AdWorkspace() {
                       setVoiceStream(await updated.json());
                     }
                   }}
+                  onPlayAllRef={voicePlayAllRef}
+                  onSendToMixerRef={voiceSendToMixerRef}
                 />
               </DraftAccordion>
             )}
@@ -549,18 +676,21 @@ export default function AdWorkspace() {
               </div>
             ) : (
               <VersionAccordion
-                versions={voiceStream.versions.map((vId) => ({
-                  id: vId,
-                  ...(voiceStream.versionsData[vId] as VoiceVersion),
-                }))}
+                versions={voiceStream.versions
+                  .filter((vId) => voiceStream.versionsData[vId].status !== "draft")
+                  .map((vId) => ({
+                    id: vId,
+                    ...(voiceStream.versionsData[vId] as VoiceVersion),
+                  }))}
                 activeVersionId={voiceStream.active}
                 onActivate={handleActivateVoice}
                 onPreview={handlePreview}
                 onClone={handleCloneVoice}
                 onDelete={handleDeleteVoice}
                 hasAudio={(v) =>
-                  (v as VoiceVersion).generatedUrls &&
-                  (v as VoiceVersion).generatedUrls.length > 0
+                  (v as VoiceVersion).voiceTracks.some(t => !!t.generatedUrl) ||
+                  // Legacy support
+                  !!((v as VoiceVersion).generatedUrls && (v as VoiceVersion).generatedUrls!.length > 0)
                 }
                 renderContent={(version, isActive) => (
                   <VoiceVersionContent
@@ -577,24 +707,32 @@ export default function AdWorkspace() {
           {selectedTab === 2 && musicStream && (
             <div>
             <div className="flex items-center justify-end mb-4">
-              {!getMusicDraft() && (
-                <button
-                  onClick={handleCreateMusicDraft}
-                  className="px-4 py-2 text-sm bg-wb-blue/10 text-wb-blue border border-wb-blue/30 rounded-lg hover:bg-wb-blue/20 transition-colors"
-                >
-                  + New Version
-                </button>
-              )}
+              <button
+                onClick={handleCreateMusicDraft}
+                className="px-4 py-2 text-sm bg-wb-blue/10 text-wb-blue border border-wb-blue/30 rounded-lg hover:bg-wb-blue/20 transition-colors"
+              >
+                + New Version
+              </button>
             </div>
 
             {/* Music Draft Editor - Wrapped in Accordion */}
             {getMusicDraft() && (
               <DraftAccordion
                 title={getMusicDraft()!.id}
-                onGenerateAll={() => {
-                  // TODO: Wire up to MusicDraftEditor's generate function
-                  alert("Generate All - to be wired up!");
+                type="music"
+                versionId={getMusicDraft()!.id}
+                onPlayAll={() => {
+                  if (musicPlayAllRef.current) {
+                    musicPlayAllRef.current();
+                  }
                 }}
+                onSendToMixer={() => {
+                  if (musicSendToMixerRef.current) {
+                    musicSendToMixerRef.current();
+                  }
+                  setSelectedTab(4); // Switch to Mix tab
+                }}
+                hasTracksWithAudio={!!getMusicDraft()!.version.generatedUrl}
               >
                 <MusicDraftEditor
                   adId={adId}
@@ -606,6 +744,8 @@ export default function AdWorkspace() {
                       setMusicStream(await updated.json());
                     }
                   }}
+                  onPlayAllRef={musicPlayAllRef}
+                  onSendToMixerRef={musicSendToMixerRef}
                 />
               </DraftAccordion>
             )}
@@ -616,10 +756,12 @@ export default function AdWorkspace() {
               </div>
             ) : (
               <VersionAccordion
-                versions={musicStream.versions.map((vId) => ({
-                  id: vId,
-                  ...(musicStream.versionsData[vId] as MusicVersion),
-                }))}
+                versions={musicStream.versions
+                  .filter((vId) => musicStream.versionsData[vId].status !== "draft")
+                  .map((vId) => ({
+                    id: vId,
+                    ...(musicStream.versionsData[vId] as MusicVersion),
+                  }))}
                 activeVersionId={musicStream.active}
                 onActivate={handleActivateMusic}
                 onPreview={handlePreview}
@@ -644,24 +786,32 @@ export default function AdWorkspace() {
           {selectedTab === 3 && sfxStream && (
             <div>
             <div className="flex items-center justify-end mb-4">
-              {!getSfxDraft() && (
-                <button
-                  onClick={handleCreateSfxDraft}
-                  className="px-4 py-2 text-sm bg-wb-blue/10 text-wb-blue border border-wb-blue/30 rounded-lg hover:bg-wb-blue/20 transition-colors"
-                >
-                  + New Version
-                </button>
-              )}
+              <button
+                onClick={handleCreateSfxDraft}
+                className="px-4 py-2 text-sm bg-wb-blue/10 text-wb-blue border border-wb-blue/30 rounded-lg hover:bg-wb-blue/20 transition-colors"
+              >
+                + New Version
+              </button>
             </div>
 
             {/* SFX Draft Editor - Wrapped in Accordion */}
             {getSfxDraft() && (
               <DraftAccordion
                 title={getSfxDraft()!.id}
-                onGenerateAll={() => {
-                  // TODO: Wire up to SfxDraftEditor's generate function
-                  alert("Generate All - to be wired up!");
+                type="sfx"
+                versionId={getSfxDraft()!.id}
+                onPlayAll={() => {
+                  if (sfxPlayAllRef.current) {
+                    sfxPlayAllRef.current();
+                  }
                 }}
+                onSendToMixer={() => {
+                  if (sfxSendToMixerRef.current) {
+                    sfxSendToMixerRef.current();
+                  }
+                  setSelectedTab(4); // Switch to Mix tab
+                }}
+                hasTracksWithAudio={(getSfxDraft()!.version.generatedUrls?.length || 0) > 0}
               >
                 <SfxDraftEditor
                   adId={adId}
@@ -673,6 +823,8 @@ export default function AdWorkspace() {
                       setSfxStream(await updated.json());
                     }
                   }}
+                  onPlayAllRef={sfxPlayAllRef}
+                  onSendToMixerRef={sfxSendToMixerRef}
                 />
               </DraftAccordion>
             )}
@@ -684,10 +836,12 @@ export default function AdWorkspace() {
               </div>
             ) : (
               <VersionAccordion
-                versions={sfxStream.versions.map((vId) => ({
-                  id: vId,
-                  ...(sfxStream.versionsData[vId] as SfxVersion),
-                }))}
+                versions={sfxStream.versions
+                  .filter((vId) => sfxStream.versionsData[vId].status !== "draft")
+                  .map((vId) => ({
+                    id: vId,
+                    ...(sfxStream.versionsData[vId] as SfxVersion),
+                  }))}
                 activeVersionId={sfxStream.active}
                 onActivate={handleActivateSfx}
                 onPreview={handlePreview}
@@ -706,6 +860,18 @@ export default function AdWorkspace() {
               />
             )}
             </div>
+          )}
+
+          {/* Mix - Tab 4 */}
+          {selectedTab === 4 && (
+            <MixerPanel
+              resetForm={() => {
+                useMixerStore.getState().clearTracks();
+              }}
+              onChangeVoice={() => setSelectedTab(1)}
+              onChangeMusic={() => setSelectedTab(2)}
+              onChangeSoundFx={() => setSelectedTab(3)}
+            />
           )}
         </div>
       </div>

@@ -109,6 +109,18 @@ export class VoiceCatalogueService {
     return dataTower[voiceKey] || null;
   }
 
+  /**
+   * Get voice by ID without knowing the provider.
+   * Searches all providers until found.
+   */
+  async getVoiceById(voiceId: string): Promise<UnifiedVoice | null> {
+    for (const provider of ["elevenlabs", "lovo", "openai", "qwen", "bytedance"] as const) {
+      const voice = await this.getVoice(provider, voiceId);
+      if (voice) return voice;
+    }
+    return null;
+  }
+
   async getVoicesByLanguage(language: Language): Promise<UnifiedVoice[]> {
     const voiceTower =
       (await redis.get<VoiceTower>(this.TOWER_KEYS.VOICES)) ||
@@ -459,6 +471,18 @@ export class VoiceCatalogueService {
 
     const voiceIds: string[] = [];
 
+    // Helper: Get language data with fallback to base language
+    // This handles cases where voices are stored with "zh" but search uses "zh-CN"
+    const getLanguageData = (providerTower: typeof voiceTower[ActualProvider]) => {
+      let data = providerTower?.[language] || {};
+      // If no results and language has region suffix, try base language
+      if (Object.keys(data).length === 0 && language.includes('-')) {
+        const baseLanguage = language.split('-')[0];
+        data = providerTower?.[baseLanguage] || {};
+      }
+      return data;
+    };
+
     if (provider === "any") {
       // Get voices from all providers across all regions
       for (const actualProvider of [
@@ -467,7 +491,7 @@ export class VoiceCatalogueService {
         "openai",
         "qwen",
       ] as ActualProvider[]) {
-        const languageData = voiceTower[actualProvider]?.[language] || {};
+        const languageData = getLanguageData(voiceTower[actualProvider]);
         for (const region of Object.keys(languageData)) {
           const regionData = languageData[region] || {};
           if (accent) {
@@ -482,7 +506,7 @@ export class VoiceCatalogueService {
     } else {
       // Specific provider across all regions
       const actualProvider = provider as ActualProvider;
-      const languageData = voiceTower[actualProvider]?.[language] || {};
+      const languageData = getLanguageData(voiceTower[actualProvider]);
 
       for (const region of Object.keys(languageData)) {
         const regionData = languageData[region] || {};

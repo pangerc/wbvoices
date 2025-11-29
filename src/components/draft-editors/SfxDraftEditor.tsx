@@ -1,15 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SoundFxPanel } from "@/components/SoundFxPanel";
 import type { SfxVersion, VersionId } from "@/types/versions";
 import type { SoundFxPrompt } from "@/types";
+import { useMixerStore } from "@/store/mixerStore";
+import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
+import { useSfxDraftState, usePlaybackActions } from "@/hooks/useAudioPlayback";
 
 export interface SfxDraftEditorProps {
   adId: string;
   draftVersionId: VersionId;
   draftVersion: SfxVersion;
   onUpdate: () => void;
+  // Refs for parent to call header button actions
+  onPlayAllRef?: React.MutableRefObject<(() => Promise<void>) | null>;
+  onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export function SfxDraftEditor({
@@ -17,12 +23,17 @@ export function SfxDraftEditor({
   draftVersionId,
   draftVersion,
   onUpdate,
+  onPlayAllRef,
+  onSendToMixerRef,
 }: SfxDraftEditorProps) {
   const [soundFxPrompts, setSoundFxPrompts] = useState<SoundFxPrompt[]>(
     draftVersion.soundFxPrompts
   );
-  const [isGenerating, setIsGenerating] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+
+  // Use centralized audio playback store for state
+  const { isGenerating, isPlaying } = useSfxDraftState(draftVersionId);
+  const { setGeneratingSfx } = usePlaybackActions();
 
   // Default ad duration (TODO: get from actual ad)
   const adDuration = 30;
@@ -91,9 +102,9 @@ export function SfxDraftEditor({
     }
   };
 
-  // Generate sound effects for draft
-  const handleGenerate = async () => {
-    setIsGenerating(true);
+  // Generate sound effects for draft - returns generated URLs on success
+  const handleGenerate = async (): Promise<string[] | null> => {
+    setGeneratingSfx(true);
     setStatusMessage("Generating sound effects...");
 
     try {
@@ -106,19 +117,80 @@ export function SfxDraftEditor({
       });
 
       if (res.ok) {
+        const result = await res.json();
         setStatusMessage("Sound effects generated successfully!");
         onUpdate(); // Reload the stream
+        return result.generatedUrls; // Return URLs for autoplay
       } else {
         const error = await res.json();
         setStatusMessage(`Generation failed: ${error.error || "Unknown error"}`);
+        return null;
       }
     } catch (error) {
       console.error("Failed to generate sound effects:", error);
       setStatusMessage("Generation failed. Please try again.");
+      return null;
     } finally {
-      setIsGenerating(false);
+      setGeneratingSfx(false);
     }
   };
+
+  // Smart play: generate if needed, then play all SFX sequentially
+  const handlePlayAll = async () => {
+    const { playSequence, stopSequence } = useAudioPlaybackStore.getState();
+
+    // If already playing, stop
+    if (isPlaying) {
+      stopSequence();
+      return;
+    }
+
+    let urls = draftVersion.generatedUrls?.filter(Boolean) || [];
+
+    // Generate if no audio exists
+    if (urls.length === 0) {
+      const generatedUrls = await handleGenerate();
+      if (!generatedUrls || generatedUrls.length === 0) return; // Generation failed
+      urls = generatedUrls;
+    }
+
+    // Play all SFX sequentially
+    playSequence(urls, {
+      type: "sfx-preview",
+      versionId: draftVersionId,
+    });
+  };
+
+  // Send generated SFX to mixer
+  const handleSendToMixer = () => {
+    const { clearTracks, addTrack } = useMixerStore.getState();
+    clearTracks("soundfx");
+
+    soundFxPrompts.forEach((prompt, index) => {
+      const url = draftVersion.generatedUrls?.[index];
+      if (url) {
+        addTrack({
+          id: `sfx-${draftVersionId}-${index}`,
+          url,
+          label: prompt.description?.slice(0, 30) || `SFX ${index + 1}`,
+          type: "soundfx",
+          playAfter: prompt.placement?.type === "start" ? "start" : "end",
+          metadata: {
+            promptText: prompt.description,
+            placementIntent: prompt.placement,
+            originalDuration: prompt.duration,
+          },
+        });
+      }
+    });
+  };
+
+  // Expose functions to parent via refs
+  useEffect(() => {
+    if (onPlayAllRef) onPlayAllRef.current = handlePlayAll;
+    if (onSendToMixerRef) onSendToMixerRef.current = handleSendToMixer;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [soundFxPrompts, draftVersion, isPlaying]);
 
   // Reset form (not used in draft mode)
   const resetForm = () => {

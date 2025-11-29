@@ -19,6 +19,7 @@ import {
   MusicVersion,
   SfxVersion,
   AdMetadata,
+  MixerState,
 } from "@/types/versions";
 
 // ============ Key Builders ============
@@ -399,4 +400,59 @@ export async function deleteVersion(
   await redis.del(versionKey);
 
   console.log(`✅ Deleted ${streamType} version ${versionId} from ad ${adId}`);
+}
+
+// ============ Mixer State ============
+
+/**
+ * Get mixer state for an ad
+ *
+ * @param adId - Advertisement ID
+ * @returns Mixer state or null if not found
+ */
+export async function getMixerState(adId: string): Promise<MixerState | null> {
+  const redis = getRedisV3();
+  const mixerKey = AD_KEYS.mixer(adId);
+
+  const data = await redis.get(mixerKey);
+
+  if (!data) {
+    return null;
+  }
+
+  return typeof data === "string" ? JSON.parse(data) : data;
+}
+
+/**
+ * Update mixer state (partial update, merges with existing)
+ *
+ * @param adId - Advertisement ID
+ * @param updates - Partial mixer state to merge
+ * @returns Updated mixer state
+ */
+export async function updateMixerState(
+  adId: string,
+  updates: Partial<MixerState>
+): Promise<MixerState> {
+  const redis = getRedisV3();
+  const mixerKey = AD_KEYS.mixer(adId);
+
+  // Load existing state or create default
+  const existing = await getMixerState(adId);
+  const merged: MixerState = {
+    tracks: [],
+    volumes: {},
+    calculatedTracks: [],
+    totalDuration: 0,
+    lastCalculated: Date.now(),
+    activeVersions: { voices: null, music: null, sfx: null },
+    ...existing,
+    ...updates,
+  };
+
+  await redis.set(mixerKey, JSON.stringify(merged));
+
+  console.log(`✅ Updated mixer state for ad ${adId}`);
+
+  return merged;
 }

@@ -23,7 +23,7 @@ import {
   mockAdId,
 } from "@/test/fixtures/versions";
 import { createMockRedis } from "@/test/utils";
-import type { AdMetadata } from "@/types/versions";
+import type { AdMetadata, VoiceVersion } from "@/types/versions";
 
 // Mock the Redis V3 module
 vi.mock("../../redis-v3", () => ({
@@ -161,7 +161,7 @@ describe("getVersion", () => {
 
     await createVersion(mockAdId, "voices", testData);
 
-    const version = await getVersion(mockAdId, "voices", "v1");
+    const version = await getVersion(mockAdId, "voices", "v1") as VoiceVersion | null;
 
     expect(version).toEqual(testData);
     expect(version?.voiceTracks[0].text).toBe("Custom test text");
@@ -268,7 +268,7 @@ describe("updateVersion", () => {
       generatedUrls: ["https://example.com/audio.mp3"],
     });
 
-    const version = await getVersion(mockAdId, "voices", "v1");
+    const version = await getVersion(mockAdId, "voices", "v1") as VoiceVersion | null;
     expect(version?.generatedUrls).toEqual(["https://example.com/audio.mp3"]);
   });
 
@@ -338,9 +338,18 @@ describe("deleteVersion", () => {
 describe("Ad Metadata", () => {
   const mockMetadata: AdMetadata = {
     name: "Test Ad",
-    brief: {},
+    brief: {
+      clientDescription: "Test client",
+      creativeBrief: "Test brief",
+      campaignFormat: "ad_read",
+      selectedLanguage: "en",
+      selectedProvider: "elevenlabs",
+      adDuration: 30,
+      selectedAccent: null,
+      selectedAiModel: "openai",
+    },
     createdAt: Date.now(),
-    updatedAt: Date.now(),
+    lastModified: Date.now(),
     owner: "test-session-123",
   };
 

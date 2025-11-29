@@ -1,11 +1,14 @@
 /**
- * Mixer API - Get Current State
+ * Mixer API
  *
- * GET /api/ads/{adId}/mixer - Get current mixer state
+ * GET   /api/ads/{adId}/mixer - Get current mixer state
+ * PATCH /api/ads/{adId}/mixer - Update mixer state (partial)
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getMixerState } from "@/lib/mixer/rebuilder";
+import { updateMixerState } from "@/lib/redis/versions";
+import type { MixerState } from "@/types/versions";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
@@ -60,6 +63,43 @@ export async function GET(
     return NextResponse.json(
       {
         error: "Failed to get mixer state",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/ads/{adId}/mixer
+ *
+ * Update mixer state (partial update, merges with existing)
+ *
+ * Request body: Partial<MixerState>
+ * Response: Updated MixerState
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: adId } = await params;
+    const updates: Partial<MixerState> = await request.json();
+
+    console.log(`✏️ Updating mixer state for ad ${adId}`, {
+      hasTrackUpdates: !!updates.tracks,
+      hasVolumeUpdates: !!updates.volumes,
+      hasMixedAudioUrl: !!updates.mixedAudioUrl,
+    });
+
+    const updated = await updateMixerState(adId, updates);
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("❌ Error updating mixer state:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to update mixer state",
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }

@@ -24,31 +24,22 @@ import type {
 export async function searchVoices(
   params: SearchVoicesParams
 ): Promise<SearchVoicesResult> {
-  const { language, gender, accent, style, count = 10 } = params;
+  const { provider, language, gender, accent, count = 10 } = params;
 
-  // Get voices from catalogue
+  // Get voices from catalogue for the specified provider
   const allVoices = await voiceCatalogue.getVoicesForProvider(
-    "any" as Provider,
+    provider as Provider,
     language as Language,
     accent,
     true // requireApproval
   );
 
   // Filter by gender if specified
-  let filtered = gender
+  const filtered = gender
     ? allVoices.filter((v) => v.gender.toLowerCase() === gender.toLowerCase())
     : allVoices;
 
-  // Filter by style if specified (check voice.style or voice.use_case)
-  if (style) {
-    filtered = filtered.filter(
-      (v) =>
-        v.style?.toLowerCase().includes(style.toLowerCase()) ||
-        v.use_case?.toLowerCase().includes(style.toLowerCase())
-    );
-  }
-
-  // Take first N voices
+  // Take first N voices (no style filtering - LLM picks based on personality descriptions)
   const selected = filtered.slice(0, count);
 
   // Enrich with metadata
@@ -58,7 +49,7 @@ export async function searchVoices(
     language: v.language,
     gender: v.gender,
     accent: v.accent,
-    style: v.style || v.use_case,
+    style: v.styles?.join(", ") || v.personality,
     provider: v.provider,
   }));
 
@@ -76,21 +67,50 @@ export async function createVoiceDraft(
 ): Promise<DraftCreationResult> {
   const { adId, tracks } = params;
 
-  // Build voice version object with required metadata
-  // Note: voiceId will be resolved to a full Voice object by the LLM or caller
-  // For now, we create minimal Voice objects that satisfy the type system
+  // Resolve voice IDs to full Voice objects from catalogue
+  const resolvedTracks = await Promise.all(
+    tracks.map(async (track, index) => {
+      // Try to find voice in catalogue by ID
+      const catalogueVoice = await voiceCatalogue.getVoiceById(track.voiceId);
+
+      // Use catalogue voice if found, otherwise fallback to minimal object
+      // Map UnifiedVoice fields to Voice type
+      // Note: UnifiedVoice.gender includes "neutral" but Voice.gender doesn't
+      const mapGender = (g: "male" | "female" | "neutral"): "male" | "female" | null =>
+        g === "neutral" ? null : g;
+
+      const voice: Voice = catalogueVoice
+        ? {
+            id: catalogueVoice.id,
+            name: catalogueVoice.name,
+            gender: mapGender(catalogueVoice.gender),
+            language: catalogueVoice.language,
+            accent: catalogueVoice.accent,
+            provider: catalogueVoice.provider,
+            style: catalogueVoice.styles?.join(", ") || catalogueVoice.personality,
+            description: catalogueVoice.personality,
+          }
+        : {
+            id: track.voiceId,
+            name: track.voiceId, // Fallback if not found
+            gender: null,
+          };
+
+      return {
+        voice,
+        text: track.text,
+        playAfter: track.playAfter || (index === 0 ? "start" : `track-${index - 1}`),
+        overlap: track.overlap ?? 0,
+        speed: 1.0,
+        // Provider-specific fields
+        description: track.description, // ElevenLabs baseline tone
+        voiceInstructions: track.voiceInstructions, // OpenAI voice guidance
+      };
+    })
+  );
+
   const voiceVersion: VoiceVersion = {
-    voiceTracks: tracks.map((track, index) => ({
-      voice: {
-        id: track.voiceId,
-        name: track.voiceId, // Will be enriched later
-        gender: null
-      } as Voice,
-      text: track.text,
-      playAfter: track.playAfter || (index === 0 ? "start" : `track-${index - 1}`),
-      overlap: track.overlap ?? 0,
-      speed: 1.0, // Default speed
-    })),
+    voiceTracks: resolvedTracks,
     generatedUrls: [], // No audio generated yet for draft
     createdAt: Date.now(),
     createdBy: "llm",
@@ -112,14 +132,23 @@ export async function createVoiceDraft(
 export async function createMusicDraft(
   params: CreateMusicDraftParams
 ): Promise<DraftCreationResult> {
-  const { adId, prompt, provider = "loudly", duration = 30 } = params;
+  const {
+    adId,
+    prompt,
+    elevenlabs,
+    loudly,
+    mubert,
+    provider = "loudly",
+    duration = 30,
+  } = params;
 
+  // Use provider-specific prompts if provided, otherwise fallback to base prompt
   const musicVersion: MusicVersion = {
     musicPrompt: prompt,
     musicPrompts: {
-      loudly: provider === "loudly" ? prompt : "",
-      mubert: provider === "mubert" ? prompt : "",
-      elevenlabs: provider === "elevenlabs" ? prompt : "",
+      loudly: loudly || prompt || "",
+      mubert: mubert || prompt || "",
+      elevenlabs: elevenlabs || prompt || "",
     },
     provider: provider as MusicProvider,
     duration,

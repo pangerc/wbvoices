@@ -6,13 +6,18 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     function: {
       name: "search_voices",
       description:
-        "Search voice database by language, gender, accent, or style. Use this to find suitable voices instead of asking user for voice list.",
+        "Search voice database by provider, language, gender, and accent. Returns voices with personality descriptions - pick the ones that best fit the creative direction.",
       parameters: {
         type: "object",
         properties: {
+          provider: {
+            type: "string",
+            enum: ["elevenlabs", "openai", "lovo", "qwen", "bytedance"],
+            description: "Voice provider to search (REQUIRED - use the provider specified in the brief)",
+          },
           language: {
             type: "string",
-            description: "Language code (e.g., 'thai', 'indonesian', 'polish')",
+            description: "ISO 639-1 language code (e.g., 'fr', 'de', 'es', 'th', 'id', 'pl', 'en')",
           },
           gender: {
             type: "string",
@@ -21,12 +26,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           },
           accent: {
             type: "string",
-            description: "Accent filter (optional, e.g., 'US', 'British')",
-          },
-          style: {
-            type: "string",
-            description:
-              "Voice style filter (optional, e.g., 'calm', 'energetic')",
+            description: "Accent filter (optional) - only use if user explicitly specified an accent",
           },
           count: {
             type: "number",
@@ -34,7 +34,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             default: 10,
           },
         } as Record<string, unknown>,
-        required: ["language"],
+        required: ["provider", "language"],
       },
     },
   },
@@ -61,7 +61,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                   type: "string",
                   description: "Voice ID from search_voices",
                 },
-                text: { type: "string", description: "Text to be spoken" },
+                text: {
+                  type: "string",
+                  description:
+                    "Script text. For ElevenLabs: include [emotional tags] inline. For OpenAI: plain text.",
+                },
                 playAfter: {
                   type: "string",
                   description:
@@ -70,6 +74,16 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 overlap: {
                   type: "number",
                   description: "Overlap in seconds (can be negative for gap)",
+                },
+                description: {
+                  type: "string",
+                  description:
+                    "ElevenLabs baseline tone (REQUIRED for ElevenLabs voices): cheerful, excited, calm, professional, energetic, warm, serious, etc.",
+                },
+                voiceInstructions: {
+                  type: "string",
+                  description:
+                    "OpenAI voice guidance (REQUIRED for OpenAI voices): 'Voice Affect: ...; Tone: ...; Pacing: ...; Emotion: ...; Emphasis: ...; Pronunciation: ...; Pauses: ...'",
                 },
               },
               required: ["voiceId", "text"],
@@ -89,10 +103,29 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         type: "object",
         properties: {
           adId: { type: "string", description: "The ad ID" },
-          prompt: { type: "string", description: "Music generation prompt" },
+          prompt: {
+            type: "string",
+            description:
+              "Base music concept (1 sentence, used as fallback)",
+          },
+          elevenlabs: {
+            type: "string",
+            description:
+              "ElevenLabs prompt (100-200 words): Detailed instrumental descriptions, NO artist names. Focus on instruments, tempo, playing techniques.",
+          },
+          loudly: {
+            type: "string",
+            description:
+              "Loudly prompt (100-200 words): Detailed descriptions WITH artist/band references. Include contextual framing like 'feels like...' or 'for...'",
+          },
+          mubert: {
+            type: "string",
+            description:
+              "Mubert prompt (8-12 words): Structured vibe storytelling. Format: genre, energy, optional instrument, setting, vibe/activity. Example: 'Indie rock, energetic, summer, full of life, fun day with friends'",
+          },
           provider: {
             type: "string",
-            enum: ["loudly", "mubert"],
+            enum: ["loudly", "mubert", "elevenlabs"],
             description: "Music provider (default: loudly)",
           },
           duration: {
@@ -155,7 +188,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     function: {
       name: "get_current_state",
       description:
-        "Get current active/draft version IDs and summaries for an ad. Use this if conversation is too long and you need to refresh context.",
+        "Get current ad state. ONLY use this when continuing a previous conversation about an existing ad. Do NOT call for new ad creation - go straight to search_voices instead.",
       parameters: {
         type: "object",
         properties: {
@@ -166,3 +199,24 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
 ];
+
+/**
+ * Tool set types for different use cases
+ * - initial_generation: Excludes search_voices (voices are prefetched)
+ * - chat_refinement: Full tool set (user may want to recast)
+ */
+export type ToolSet = "initial_generation" | "chat_refinement";
+
+/**
+ * Get tool definitions for a specific use case
+ * - initial_generation: Excludes search_voices (voices are prefetched into prompt)
+ * - chat_refinement: Full tool set including search_voices for recasting
+ */
+export function getToolDefinitions(toolSet: ToolSet): ToolDefinition[] {
+  if (toolSet === "initial_generation") {
+    // Exclude search_voices - voices are injected via prefetch
+    return TOOL_DEFINITIONS.filter((t) => t.function.name !== "search_voices");
+  }
+  // chat_refinement: return all tools including search_voices
+  return TOOL_DEFINITIONS;
+}

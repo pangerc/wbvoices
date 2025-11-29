@@ -1,51 +1,51 @@
 /**
- * 🎯 SINGLE SOURCE OF TRUTH FOR AI MODELS
- * All AI model configuration lives here - types, labels, descriptions, preferences
+ * 🎯 SINGLE SOURCE OF TRUTH FOR AI PROVIDERS
+ * Simplified: 3 providers (OpenAI, Qwen, KIMI), reasoning effort is task-dependent
  */
 
 export const AI_MODEL_REGISTRY = [
   {
-    value: 'gpt5-premium',
-    label: 'GPT 5 Premium',
-    description: 'Full reasoning mode - highest quality, slower, best for complex creative direction',
-    technicalDetails: 'gpt-5 • high reasoning',
+    value: 'openai',
+    label: 'OpenAI GPT-5.1',
+    description: 'Best for most languages - high quality creative generation',
+    technicalDetails: 'gpt-5.1 • Responses API',
     category: 'default' as const,
   },
   {
-    value: 'gpt5-fast',
-    label: 'GPT 5 Fast',
-    description: 'Minimal reasoning - fastest iteration, good for simple briefs',
-    technicalDetails: 'gpt-5 • minimal reasoning',
-    category: 'default' as const,
-  },
-  {
-    value: 'gpt5-balanced',
-    label: 'GPT 5 Balanced',
-    description: 'Medium reasoning - recommended for most projects',
-    technicalDetails: 'gpt-5-mini • medium reasoning',
+    value: 'qwen',
+    label: 'Qwen-Max',
+    description: 'Excellent for APAC languages and multilingual content',
+    technicalDetails: 'qwen-max • Chat Completions',
     category: 'default' as const,
   },
   {
     value: 'moonshot',
     label: 'Moonshot KIMI',
-    description: 'Chinese LLM optimized for multilingual content',
-    technicalDetails: 'kimi-latest',
-    category: 'chinese' as const,
-  },
-  {
-    value: 'qwen',
-    label: 'Qwen-Max',
-    description: "Alibaba's multilingual AI model",
-    technicalDetails: 'qwen-max',
+    description: 'Optimized for Chinese content',
+    technicalDetails: 'kimi-latest • Chat Completions',
     category: 'chinese' as const,
   },
 ] as const;
 
+// Legacy model values that map to new providers (for backwards compatibility)
+const LEGACY_MODEL_MAP: Record<string, string> = {
+  'gpt5-premium': 'openai',
+  'gpt5-fast': 'openai',
+  'gpt5-balanced': 'openai',
+};
+
+/**
+ * Normalize model value (handles legacy values)
+ */
+export function normalizeAIModel(model: string): AIModel {
+  return (LEGACY_MODEL_MAP[model] || model) as AIModel;
+}
+
 // Export the AIModel type derived from the registry
 export type AIModel = typeof AI_MODEL_REGISTRY[number]['value'];
 
-// Default AI model for new projects
-export const DEFAULT_AI_MODEL: AIModel = 'gpt5-balanced';
+// Default AI provider for new projects
+export const DEFAULT_AI_MODEL: AIModel = 'openai';
 
 // Helper functions to get model metadata
 export function getAiModelLabel(model: AIModel): string {
@@ -61,91 +61,77 @@ export function getAiModelTechnicalDetails(model: AIModel): string {
 }
 
 /**
- * 🎯 AI MODEL LANGUAGE PREFERENCES
- * Configurable preferences for AI model selection based on language
+ * 🎯 AI PROVIDER LANGUAGE DEFAULTS
+ * Suggested defaults based on language - user can always override
  */
-export const AI_MODEL_PREFERENCES = {
-  chinese: AI_MODEL_REGISTRY.filter(m => m.category === 'chinese').map(m => m.value),
-  default: AI_MODEL_REGISTRY.filter(m => m.category === 'default').map(m => m.value),
-} as const;
+export const AI_PROVIDER_DEFAULTS: Record<string, AIModel> = {
+  // Chinese languages → KIMI
+  'zh': 'moonshot',
+  'zh-CN': 'moonshot',
+  'zh-TW': 'moonshot',
+  // Default for everything else → OpenAI
+  'default': 'openai',
+};
 
 /**
- * Intelligently select an AI model based on language preference
- * 
- * @param language - The selected language code (e.g., "zh", "zh-CN", "en")  
+ * Get suggested AI provider based on language
+ * Returns a sensible default - user can always override in UI
+ *
+ * @param language - The selected language code (e.g., "zh", "zh-CN", "en")
  * @param availableModels - Array of currently available AI models
- * @returns Selected AI model or null if none available
+ * @returns Selected AI model or default
  */
 export function selectAIModelForLanguage(
   language: string,
   availableModels: AIModel[]
 ): AIModel | null {
-  const isChineseLanguage = language === 'zh' || language.startsWith('zh-');
-  
-  // Choose candidate models based on language
-  const preferredModels = isChineseLanguage 
-    ? AI_MODEL_PREFERENCES.chinese 
-    : AI_MODEL_PREFERENCES.default;
-  
-  // Filter to only models that are actually available
-  const availableCandidates = preferredModels.filter(model => 
-    availableModels.includes(model)
-  );
-  
-  // Random selection from available candidates
-  if (availableCandidates.length === 0) {
-    console.log(`⚠️ No preferred AI models available for language: ${language}`);
-    return null;
+  // Check for exact match first, then prefix match
+  let suggested = AI_PROVIDER_DEFAULTS[language];
+
+  if (!suggested && language.includes('-')) {
+    // Try base language (e.g., "zh" from "zh-CN")
+    const baseLang = language.split('-')[0];
+    suggested = AI_PROVIDER_DEFAULTS[baseLang];
   }
-  
-  const selectedModel = availableCandidates[
-    Math.floor(Math.random() * availableCandidates.length)
-  ];
-  
-  console.log(`🎯 Auto-selected AI model "${selectedModel}" for language "${language}" from ${availableCandidates.length} candidates`);
-  return selectedModel;
+
+  // Fall back to default
+  if (!suggested) {
+    suggested = AI_PROVIDER_DEFAULTS['default'];
+  }
+
+  // Verify it's available
+  if (!availableModels.includes(suggested)) {
+    console.log(`⚠️ Suggested provider "${suggested}" not available for language: ${language}`);
+    // Return first available model
+    return availableModels[0] || null;
+  }
+
+  console.log(`🎯 Suggested AI provider "${suggested}" for language "${language}"`);
+  return suggested;
 }
 
 /**
- * Check if a model should trigger auto-selection
- * Only auto-select if user is using a "default" model (not manually chosen)
+ * Check if a model value is a known provider
  */
-export function shouldAutoSelectAIModel(currentModel: AIModel): boolean {
-  const allDefaultModels = [
-    ...AI_MODEL_PREFERENCES.chinese,
-    ...AI_MODEL_PREFERENCES.default
-  ];
-  
-  // If current model is in our preference system, respect user choice
-  // Only auto-select if they're using something completely different
-  return !allDefaultModels.includes(currentModel);
+export function isValidAIModel(model: string): model is AIModel {
+  const validValues = AI_MODEL_REGISTRY.map(m => m.value) as readonly string[];
+  return validValues.includes(model) || model in LEGACY_MODEL_MAP;
 }
 
 /**
- * Get display-friendly reason for AI model selection
+ * Get display-friendly reason for AI provider selection
  */
 export function getAIModelSelectionReason(model: AIModel, language: string): string {
   const isChineseLanguage = language === 'zh' || language.startsWith('zh-');
+  const registryEntry = AI_MODEL_REGISTRY.find(m => m.value === model);
 
-  if (isChineseLanguage) {
-    switch (model) {
-      case 'moonshot':
-        return 'Auto-selected Moonshot KIMI for Chinese content optimization';
-      case 'qwen':
-        return 'Auto-selected Qwen-Max for Chinese language expertise';
-      default:
-        return `Selected ${model} for Chinese content`;
-    }
+  if (isChineseLanguage && model === 'moonshot') {
+    return 'Suggested Moonshot KIMI for Chinese content optimization';
   }
 
-  switch (model) {
-    case 'gpt5-premium':
-      return 'Selected GPT 5 Premium for highest quality creative generation';
-    case 'gpt5-fast':
-      return 'Selected GPT 5 Fast for faster creative generation';
-    case 'gpt5-balanced':
-      return 'Selected GPT 5 Balanced for balanced creative generation';
-    default:
-      return `Selected ${model} for optimal creative generation`;
+  if (registryEntry) {
+    return `Using ${registryEntry.label} - ${registryEntry.description}`;
   }
+
+  return `Using ${model} for creative generation`;
 }

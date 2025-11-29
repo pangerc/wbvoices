@@ -44,7 +44,7 @@ export function useRegionConfig() {
           isAmericas: true,
           isEurope: false,
           defaultLanguage: 'en' as Language,
-          availableAIModels: ['gpt5-premium', 'gpt5-fast', 'gpt5-balanced'],
+          availableAIModels: ['openai', 'qwen', 'moonshot'],
           needsOpenAIProxy: false
         });
       } finally {
@@ -65,7 +65,7 @@ export function useRegionConfig() {
     isAmericas: config?.isAmericas ?? true,
     isEurope: config?.isEurope ?? false,
     defaultLanguage: config?.defaultLanguage ?? ('en' as Language),
-    availableAIModels: config?.availableAIModels ?? ['gpt5-premium', 'gpt5-fast', 'gpt5-balanced'] as const,
+    availableAIModels: config?.availableAIModels ?? ['openai', 'qwen', 'moonshot'] as const,
     needsOpenAIProxy: config?.needsOpenAIProxy ?? false
   };
 }

@@ -97,7 +97,7 @@ export function VoiceCombobox({
 
           {/* Dropdown options */}
           {!loading && filteredVoices.length > 0 && (
-            <ComboboxOptions className="absolute z-10 mt-1 w-full overflow-auto rounded-xl py-2 text-base shadow-lg focus:outline-hidden bg-white/10 backdrop-blur-sm border border-white/10">
+            <ComboboxOptions className="absolute z-50 mt-1 w-full overflow-auto rounded-xl py-2 text-base shadow-lg focus:outline-hidden bg-gray-900 border border-white/20">
               <div className="max-h-80 overflow-auto">
                 {filteredVoices.map((voice) => (
                   <ComboboxOption
@@ -175,7 +175,7 @@ export function VoiceCombobox({
           {!loading && query && filteredVoices.length === 0 && (
             <ComboboxOptions
               static
-              className="absolute z-10 mt-1 w-full rounded-xl py-2 text-base shadow-lg bg-white/10 backdrop-blur-sm border border-white/10"
+              className="absolute z-50 mt-1 w-full rounded-xl py-2 text-base shadow-lg bg-gray-900 border border-white/20"
             >
               <div className="px-4 py-2 text-sm text-gray-400">
                 No voices found matching &quot;{query}&quot;

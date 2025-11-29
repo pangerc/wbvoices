@@ -1,297 +1,266 @@
+/**
+ * AI Creative Generation Endpoint (V3 Agentic Tool-Calling)
+ *
+ * Replaces the old JSON-parsing approach with agentic tool-calling.
+ * The LLM now uses tools to:
+ * 1. Search for voices from the database
+ * 2. Create voice drafts directly in Redis
+ * 3. Create music drafts directly in Redis
+ * 4. Create SFX drafts directly in Redis
+ *
+ * No more JSON parsing errors - the LLM writes directly via tools.
+ *
+ * Uses modular knowledge architecture for provider-specific guidance:
+ * - ElevenLabs: Emotional tags + baseline tones
+ * - OpenAI: voiceInstructions format
+ * - Music: Provider-specific prompts (elevenlabs, loudly, mubert)
+ * - SFX: Short, English descriptions
+ */
+
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
-import { Voice } from "@/types";
+import { runAgentLoop, type Provider } from "@/lib/tool-calling";
+import { prefetchVoices } from "@/lib/tool-calling/voicePrefetch";
+import { normalizeAIModel } from "@/utils/aiModelSelection";
 import { getLanguageName } from "@/utils/language";
-import {
-  PromptStrategyFactory,
-  type PromptContext,
-} from "@/lib/prompt-strategies";
+import { setAdMetadata } from "@/lib/redis/versions";
+import { ensureAdExists } from "@/lib/redis/ensureAd";
+import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
+import type { ProjectBrief, Language, Provider as VoiceProvider } from "@/types";
 
-// Initialize OpenAI client with server-side key
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // No NEXT_PUBLIC_ prefix
-});
+/**
+ * Build the user message from the brief data
+ */
+function buildUserMessage(params: {
+  language: string;
+  languageName: string;
+  clientDescription: string;
+  creativeBrief: string;
+  campaignFormat: string;
+  duration: number;
+  region?: string;
+  accent?: string;
+  cta?: string;
+  pacing?: string;
+  adId: string;
+  voiceProvider: string;
+}): string {
+  const {
+    languageName,
+    clientDescription,
+    creativeBrief,
+    campaignFormat,
+    duration,
+    region,
+    accent,
+    cta,
+    pacing,
+    adId,
+    voiceProvider,
+  } = params;
 
-// Initialize Moonshot KIMI client with OpenAI-compatible interface
-const moonshot = new OpenAI({
-  apiKey: process.env.MOONSHOT_API_KEY,
-  baseURL: "https://api.moonshot.ai/v1",
-});
+  let dialectNote = "";
+  if (accent && accent !== "neutral") {
+    dialectNote = `\n- Dialect/Accent: ${accent}`;
+    if (region) {
+      dialectNote += ` (${region})`;
+    }
+  } else if (region) {
+    dialectNote = `\n- Region: ${region} (use local expressions)`;
+  }
 
-// Initialize Qwen-Max client with OpenAI-compatible interface
-const qwen = new OpenAI({
-  apiKey: process.env.QWEN_API_KEY,
-  baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-});
+  let pacingNote = "";
+  if (pacing && pacing !== "normal") {
+    pacingNote = `\n- Pacing: ${pacing}`;
+  }
+
+  let ctaNote = "";
+  if (cta) {
+    ctaNote = `\n- Call to Action: ${cta}`;
+  }
+
+  return `Create a ${duration}-second ${campaignFormat} audio ad.
+
+## Brief Details
+- Ad ID: ${adId}
+- Language: ${languageName}
+- Voice Provider: ${voiceProvider} (REQUIRED - only search for voices from this provider)
+- Client: ${clientDescription}
+- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}
+
+Please search for suitable voices in ${languageName} from ${voiceProvider}, then create the voice tracks, music, and sound effects.`;
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      aiModel,
+      adId,
+      sessionId,
+      aiModel: rawAiModel,
       language,
       clientDescription,
       creativeBrief,
       campaignFormat,
-      filteredVoices,
       duration = 60,
-      provider,
       region,
       accent,
       cta,
       pacing,
+      selectedProvider: rawSelectedProvider,
     } = body;
 
+    // Voice provider - default to elevenlabs if not specified
+    const voiceProvider = rawSelectedProvider || "elevenlabs";
+
     // Validate required fields
-    if (
-      !language ||
-      !clientDescription ||
-      !creativeBrief ||
-      !campaignFormat ||
-      !filteredVoices
-    ) {
+    if (!adId) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "adId is required for agentic generation" },
         { status: 400 }
       );
     }
 
-    const aiProvider =
-      aiModel === "moonshot"
-        ? "Moonshot KIMI"
-        : aiModel === "qwen"
-        ? "Qwen-Max"
-        : "OpenAI";
-    console.log(
-      `Generating creative copy with ${aiModel} (${aiProvider}) for ${provider}...`
-    );
-    console.log(
-      `🗣️ Received ${filteredVoices.length} voices from SINGLE provider: ${provider}`
-    );
-
-    // 🔥 NEW: Use strategy pattern to build prompts (replaces 230+ lines of switch/case chaos)
-    const strategy = PromptStrategyFactory.create(provider);
-
-    // Convert language code to readable name for LLM
-    const languageName = getLanguageName(language);
-
-    // Build dialect instructions if region/accent specified
-    let dialectInstructions = "";
-    if (accent && accent !== "neutral") {
-      dialectInstructions = ` using ${accent} dialect/accent`;
-      if (region) {
-        dialectInstructions += ` from ${region}`;
-      }
-    } else if (region) {
-      dialectInstructions = ` using regional expressions and terminology from ${region}`;
+    if (!language || !clientDescription || !creativeBrief || !campaignFormat) {
+      return NextResponse.json(
+        { error: "Missing required fields: language, clientDescription, creativeBrief, campaignFormat" },
+        { status: 400 }
+      );
     }
 
-    // Build prompt context
-    const promptContext: PromptContext = {
+    // Normalize AI model to provider
+    const provider = normalizeAIModel(rawAiModel || "openai") as Provider;
+
+    // Check API key availability
+    if (provider === "openai" && !process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { error: "OpenAI API key not configured" },
+        { status: 500 }
+      );
+    }
+    if (provider === "moonshot" && !process.env.MOONSHOT_API_KEY) {
+      return NextResponse.json(
+        { error: "Moonshot API key not configured" },
+        { status: 500 }
+      );
+    }
+    if (provider === "qwen" && !process.env.QWEN_API_KEY) {
+      return NextResponse.json(
+        { error: "Qwen API key not configured" },
+        { status: 500 }
+      );
+    }
+
+    console.log(`[/api/ai/generate] Starting agentic generation for ad ${adId}`);
+    console.log(`[/api/ai/generate] LLM Provider: ${provider}, Voice Provider: ${voiceProvider}, Language: ${language}`);
+
+    // Build prompts with knowledge context
+    const languageName = getLanguageName(language);
+    const knowledgeContext: KnowledgeContext = {
+      pacing: pacing === "fast" ? "fast" : "normal",
+      accent: accent || undefined,
+      region: region || undefined,
+      language: language,
+      voiceProvider: voiceProvider,
+      campaignFormat: campaignFormat as "dialog" | "ad_read",
+    };
+
+    // Build user message first (used for intent detection in buildSystemPrompt)
+    const userMessage = buildUserMessage({
       language,
       languageName,
-      provider,
-      voices: filteredVoices as Voice[],
-      campaignFormat,
-      duration,
       clientDescription,
       creativeBrief,
+      campaignFormat,
+      duration,
       region,
       accent,
       cta,
-      dialectInstructions,
-      pacing: pacing || undefined, // Convert null to undefined for "normal" pacing
+      pacing,
+      adId,
+      voiceProvider,
+    });
+
+    // Prefetch voices BEFORE LLM call to eliminate search_voices round-trip
+    console.log(`[/api/ai/generate] Prefetching voices for ${voiceProvider}/${language}`);
+    let prefetchedVoices = await prefetchVoices(
+      voiceProvider as VoiceProvider,
+      language as Language,
+      accent || undefined
+    );
+
+    // Fallback: if accent is too specific and yields no voices, try without accent
+    if (prefetchedVoices.totalCount === 0 && accent) {
+      console.log(`[/api/ai/generate] No voices for accent "${accent}", retrying without accent filter`);
+      prefetchedVoices = await prefetchVoices(
+        voiceProvider as VoiceProvider,
+        language as Language
+      );
+    }
+
+    console.log(`[/api/ai/generate] Prefetched ${prefetchedVoices.totalCount} voices (${prefetchedVoices.maleVoices.length} male, ${prefetchedVoices.femaleVoices.length} female)`);
+
+    // Build system prompt with modular knowledge AND prefetched voices
+    const systemPrompt = buildSystemPrompt(userMessage, knowledgeContext, prefetchedVoices);
+    console.log(`[/api/ai/generate] Built system prompt with knowledge modules + voice context`);
+
+    // Run the agent loop with initial_generation tool set (no search_voices)
+    const result = await runAgentLoop(systemPrompt, userMessage, {
+      adId,
+      provider,
+      reasoningEffort: "medium", // Medium reasoning for quality creative output
+      maxIterations: 5, // Reduced since we expect 1 iteration with prefetch
+      continueConversation: false, // Fresh conversation for new generation
+      toolSet: "initial_generation", // Excludes search_voices since voices are prefetched
+    });
+
+    console.log(`[/api/ai/generate] Agent completed with ${result.toolCallHistory.length} tool calls`);
+    console.log(`[/api/ai/generate] Drafts created:`, result.drafts);
+
+    // Generate a title from client description
+    const adTitle = `${clientDescription.slice(0, 30)}${clientDescription.length > 30 ? '...' : ''} - ${languageName}`;
+
+    // Build brief object from request params
+    const brief: ProjectBrief = {
+      clientDescription,
+      creativeBrief,
+      campaignFormat,
+      adDuration: duration,
+      selectedLanguage: language,
+      selectedRegion: region || null,
+      selectedAccent: accent || null,
+      selectedPacing: pacing || null,
+      selectedCTA: cta || null,
+      selectedAiModel: rawAiModel || "openai",
+      selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
     };
 
-    // Generate prompts using strategy (includes gender fix!)
-    const { systemPrompt, userPrompt } = strategy.buildPrompt(promptContext);
+    // Ensure ad exists (lazy creation) then update with title and brief
+    const effectiveSessionId = sessionId || "default-session";
+    const existingMeta = await ensureAdExists(adId, effectiveSessionId, brief);
 
-    // Select appropriate client and model based on aiModel
-    let client: OpenAI;
-    let model: string;
-    let temperature: number;
-    let completionParams: {
-      model: string;
-      messages: Array<{ role: "system" | "user"; content: string }>;
-      temperature: number;
-      max_tokens?: number;
-      max_completion_tokens?: number;
-    };
+    await setAdMetadata(adId, {
+      ...existingMeta,
+      name: adTitle,
+      brief, // Persist brief for page reload!
+      lastModified: Date.now(),
+    });
+    console.log(`[/api/ai/generate] Updated ad title and brief`);
 
-    if (aiModel === "moonshot") {
-      if (!process.env.MOONSHOT_API_KEY) {
-        return NextResponse.json(
-          { error: "Moonshot API key not configured" },
-          { status: 500 }
-        );
-      }
-
-      console.log(
-        "Using Moonshot with API key:",
-        process.env.MOONSHOT_API_KEY?.substring(0, 10) + "..."
-      );
-
-      client = moonshot;
-      model = "kimi-latest"; // Use the latest stable model
-      temperature = 0.7;
-      completionParams = {
-        model,
-        messages: [
-          { role: "system" as const, content: systemPrompt },
-          { role: "user" as const, content: userPrompt },
-        ],
-        temperature,
-        max_tokens: 2000,
-      };
-    } else if (aiModel === "qwen") {
-      if (!process.env.QWEN_API_KEY) {
-        return NextResponse.json(
-          { error: "Qwen API key not configured" },
-          { status: 500 }
-        );
-      }
-
-      console.log(
-        "Using Qwen with API key:",
-        process.env.QWEN_API_KEY?.substring(0, 10) + "..."
-      );
-
-      client = qwen;
-      model = "qwen-max"; // Use Qwen-Max model
-      temperature = 0.7;
-      completionParams = {
-        model,
-        messages: [
-          { role: "system" as const, content: systemPrompt },
-          { role: "user" as const, content: userPrompt },
-        ],
-        temperature,
-        max_tokens: 2000,
-      };
-    } else {
-      // OpenAI GPT-5 models - use Responses API
-      client = openai;
-
-      // Determine model and reasoning effort
-      let reasoningEffort: "minimal" | "low" | "medium" | "high";
-      if (aiModel === "gpt5-premium") {
-        model = "gpt-5";
-        reasoningEffort = "high";
-      } else if (aiModel === "gpt5-fast") {
-        model = "gpt-5";
-        reasoningEffort = "minimal";
-      } else {
-        // gpt5-balanced
-        model = "gpt-5-mini";
-        reasoningEffort = "medium";
-      }
-
-      console.log(
-        `Attempting ${aiProvider} Responses API call with model: ${model}, reasoning: ${reasoningEffort}`
-      );
-
-      // Use Responses API for GPT-5
-      const response = await client.responses.create({
-        model,
-        input: `${systemPrompt}\n\n${userPrompt}`,
-        reasoning: { effort: reasoningEffort },
-        max_output_tokens: 10000,
-      });
-
-      console.log(`${aiProvider} response:`, response);
-
-      const content = response.output_text || "";
-      console.log(
-        `Raw ${aiProvider} response content:`,
-        JSON.stringify(content)
-      );
-      console.log("Content length:", content.length);
-
-      if (!content || content.trim() === "") {
-        console.error(`Empty response from ${aiProvider}`);
-        throw new Error("AI returned empty response");
-      }
-
-      // Clean up the response if it contains markdown
-      let cleanedContent = content.trim();
-      if (cleanedContent.startsWith("```")) {
-        cleanedContent = cleanedContent
-          .replace(/^```(?:json)?\s*\n/, "")
-          .replace(/\n```\s*$/, "");
-      }
-
-      console.log("Cleaned content:", JSON.stringify(cleanedContent));
-
-      // Validate it's valid JSON
-      try {
-        const parsed = JSON.parse(cleanedContent);
-        console.log("Successfully parsed JSON:", parsed);
-      } catch (jsonError) {
-        console.error("Invalid JSON response:", cleanedContent);
-        console.error("JSON parse error:", jsonError);
-        throw new Error(
-          `AI returned invalid JSON format: ${
-            jsonError instanceof Error
-              ? jsonError.message
-              : "Unknown parsing error"
-          }`
-        );
-      }
-
-      return NextResponse.json({ content: cleanedContent });
-    }
-
-    console.log(`Attempting ${aiProvider} API call with model: ${model}`);
-
-    const response = await client.chat.completions.create(completionParams);
-
-    console.log(`${aiProvider} response status:`, response);
-    console.log("Response choices:", response.choices?.length);
-
-    const content = response.choices[0]?.message?.content || "";
-    console.log(`Raw ${aiProvider} response content:`, JSON.stringify(content));
-    console.log("Content length:", content.length);
-
-    if (!content || content.trim() === "") {
-      console.error(`Empty response from ${aiProvider}`);
-      throw new Error("AI returned empty response");
-    }
-
-    // Clean up the response if it contains markdown
-    let cleanedContent = content.trim();
-    if (cleanedContent.startsWith("```")) {
-      cleanedContent = cleanedContent
-        .replace(/^```(?:json)?\s*\n/, "")
-        .replace(/\n```\s*$/, "");
-    }
-
-    console.log("Cleaned content:", JSON.stringify(cleanedContent));
-
-    // Validate it's valid JSON
-    try {
-      const parsed = JSON.parse(cleanedContent);
-      console.log("Successfully parsed JSON:", parsed);
-    } catch (jsonError) {
-      console.error("Invalid JSON response:", cleanedContent);
-      console.error("JSON parse error:", jsonError);
-      throw new Error(
-        `AI returned invalid JSON format: ${
-          jsonError instanceof Error
-            ? jsonError.message
-            : "Unknown parsing error"
-        }`
-      );
-    }
-
-    return NextResponse.json({ content: cleanedContent });
+    // Return the result
+    return NextResponse.json({
+      conversationId: result.conversationId,
+      drafts: result.drafts,
+      message: result.message,
+      provider: result.provider,
+      toolCalls: result.toolCallHistory.length,
+      usage: result.totalUsage,
+      adName: adTitle, // Return for frontend to update Header
+    });
   } catch (error) {
-    console.error("Error in AI generation:", error);
+    console.error("[/api/ai/generate] Error:", error);
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to generate creative copy",
+        error: error instanceof Error ? error.message : "Failed to generate creative",
         details: error instanceof Error ? error.stack : undefined,
       },
       { status: 500 }

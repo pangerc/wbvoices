@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Voice, VoiceTrack, Provider } from "@/types";
 import type { VoiceTrackGenerationStatus } from "@/types/versions";
+import { getEffectiveProvider } from "@/lib/voice-utils";
 import {
   GlassyTextarea,
   VoiceCombobox,
-  TestVoiceButton,
   VoiceInstructionsDialog,
 } from "./ui";
 type ScripterPanelProps = {
@@ -23,10 +23,12 @@ type ScripterPanelProps = {
   hasRegions: boolean;
   resetForm: () => void;
   overrideVoices?: Voice[] | null;
-  // Per-track generation (optional, for draft mode)
-  onGenerateTrack?: (index: number) => void;
+  // Per-track play (smart: plays existing or generates + plays)
+  onPlay?: (index: number) => void;
   trackGenerationStatus?: VoiceTrackGenerationStatus[];
   generateButtonText?: string;
+  // Allow showing only first track in minimal mode
+  minimalMode?: boolean;
 };
 
 export function ScripterPanel({
@@ -45,44 +47,27 @@ export function ScripterPanel({
   hasRegions,
   resetForm,
   overrideVoices,
-  onGenerateTrack,
+  onPlay,
   trackGenerationStatus,
   generateButtonText,
+  minimalMode,
 }: ScripterPanelProps) {
   const [editingInstructionsIndex, setEditingInstructionsIndex] = useState<
     number | null
   >(null);
 
-  // 🔥 Clean server-side voice loading (matching BriefPanel architecture)
-  // Load voices for both ElevenLabs and OpenAI to support mixed-provider scripts
-  const [elevenLabsVoices, setElevenLabsVoices] = useState<Voice[]>([]);
-  const [openAIVoices, setOpenAIVoices] = useState<Voice[]>([]);
+  // Voice loading - only load for the VERSION's provider (not all providers)
+  const [voices, setVoices] = useState<Voice[]>([]);
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
 
-  // Get voices for a specific provider (used by voice picker)
-  const getVoicesForProvider = (provider: Provider): Voice[] => {
+  // Helper to get voices for a track (handles overrideVoices and deduplication)
+  const getVoicesForTrack = (): Voice[] => {
     if (overrideVoices) return overrideVoices;
 
-    switch (provider) {
-      case "elevenlabs":
-        return elevenLabsVoices;
-      case "openai":
-        return openAIVoices;
-      default:
-        return elevenLabsVoices; // Default to ElevenLabs
-    }
-  };
-
-  // Helper function to get deduplicated voices for a specific track
-  const getVoicesForTrack = (trackProvider?: Provider): Voice[] => {
-    const provider = trackProvider || (selectedProvider as Provider);
-    const rawVoices = overrideVoices || getVoicesForProvider(provider);
-
-    // Apply deduplication logic
+    // Deduplicate voices
     const seen = new Set<string>();
-    return rawVoices.filter((voice) => {
+    return voices.filter((voice) => {
       if (seen.has(voice.id)) {
-        console.warn(`⚠️ ScripterPanel: Removing duplicate voice ${voice.id}`);
         return false;
       }
       seen.add(voice.id);
@@ -90,85 +75,65 @@ export function ScripterPanel({
     });
   };
 
-  // 🔥 Load voices from server for BOTH providers to support mixed-provider scripts
+  // Load voices for the VERSION's provider only (not both providers)
   useEffect(() => {
-    // If we have overrideVoices (project restoration), skip server loading
     if (overrideVoices) {
-      console.log(
-        "🎯 ScripterPanel using overrideVoices, skipping server load"
-      );
+      console.log("🎯 ScripterPanel using overrideVoices, skipping server load");
       return;
     }
 
-    const loadVoicesForProvider = async (
-      provider: "elevenlabs" | "openai"
-    ): Promise<Voice[]> => {
+    const loadVoices = async () => {
+      setIsLoadingVoices(true);
+
+      // Use the version's provider - "any" shouldn't reach here but handle gracefully
+      const effectiveProvider = selectedProvider === "any" ? "elevenlabs" : selectedProvider;
+
       try {
         const url = new URL("/api/voice-catalogue", window.location.origin);
         url.searchParams.set("operation", "filtered-voices");
         url.searchParams.set("language", selectedLanguage);
+        url.searchParams.set("provider", effectiveProvider);
+        url.searchParams.set("campaignFormat", campaignFormat);
+        url.searchParams.set("requireApproval", "true");
 
-        // Only set region if it's not "all" and has regions
         if (selectedRegion && selectedRegion !== "all" && hasRegions) {
           url.searchParams.set("region", selectedRegion);
         }
-
-        // Set accent if not neutral
         if (selectedAccent && selectedAccent !== "neutral") {
           url.searchParams.set("accent", selectedAccent);
         }
 
-        url.searchParams.set("provider", provider);
-        url.searchParams.set("campaignFormat", campaignFormat);
-        url.searchParams.set("exclude", "lovo"); // Exclude Lovo (poor quality)
-        url.searchParams.set("requireApproval", "true"); // Filter out blacklisted voices
-
         const response = await fetch(url);
         const data = await response.json();
 
-        if (data.error) {
-          console.error(
-            `❌ ScripterPanel failed to load ${provider} voices:`,
-            data.error
-          );
-          return [];
+        if (!data.error) {
+          // Ensure provider field is set on each voice
+          const loadedVoices = (data.voices || []).map((v: Voice) => ({
+            ...v,
+            provider: effectiveProvider,
+          }));
+          setVoices(loadedVoices);
+          console.log(`✅ ScripterPanel loaded ${loadedVoices.length} ${effectiveProvider} voices`);
+        } else {
+          console.error(`❌ ScripterPanel voice load error:`, data.error);
+          setVoices([]);
         }
-
-        console.log(`✅ ScripterPanel loaded ${data.count} ${provider} voices`);
-
-        // Ensure each voice has the provider field set for correct API routing
-        const voices = data.voices || [];
-        return voices.map((v: Voice) => ({ ...v, provider }));
       } catch (error) {
-        console.error(`ScripterPanel ${provider} voice loading error:`, error);
-        return [];
+        console.error("ScripterPanel voice loading error:", error);
+        setVoices([]);
       }
-    };
 
-    const loadAllVoices = async () => {
-      setIsLoadingVoices(true);
-      console.log(
-        `🔄 ScripterPanel loading voices for both providers: ${selectedLanguage}/${campaignFormat}`
-      );
-
-      // Load voices for both providers in parallel
-      const [elevenLabsData, openAIData] = await Promise.all([
-        loadVoicesForProvider("elevenlabs"),
-        loadVoicesForProvider("openai"),
-      ]);
-
-      setElevenLabsVoices(elevenLabsData);
-      setOpenAIVoices(openAIData);
       setIsLoadingVoices(false);
     };
 
-    loadAllVoices();
+    loadVoices();
   }, [
     selectedLanguage,
     selectedRegion,
     selectedAccent,
     campaignFormat,
     hasRegions,
+    selectedProvider,
     overrideVoices,
   ]);
 
@@ -200,7 +165,7 @@ export function ScripterPanel({
                   }
                   value={track.voice}
                   onChange={(voice) => updateVoiceTrack(index, { voice })}
-                  voices={getVoicesForTrack(track.trackProvider)}
+                  voices={getVoicesForTrack()}
                   disabled={isLoadingVoices}
                   loading={isLoadingVoices}
                 />
@@ -349,26 +314,34 @@ export function ScripterPanel({
                       minRows={3}
                     />
                   </div>
-                  {/* Action buttons in 2x2 grid */}
-                  <div className="grid grid-cols-2 gap-2 w-[100px]">
-                    <label className="col-span-2 block mb-2 text-white opacity-0 pointer-events-none">
+                  {/* Action buttons - Play + Config */}
+                  <div className="flex flex-col gap-2 w-10">
+                    <label className="block mb-2 text-white opacity-0 pointer-events-none">
                       &nbsp;
                     </label>
 
-                    {/* Row 1, Col 1: Generate button */}
-                    {onGenerateTrack && trackGenerationStatus && (
+                    {/* Play button (smart: plays existing or generates + plays) */}
+                    {onPlay && trackGenerationStatus && (
                       <button
-                        onClick={() => onGenerateTrack(index)}
+                        onClick={() => onPlay(index)}
                         disabled={
                           !track.voice ||
                           !track.text.trim() ||
                           trackGenerationStatus[index]?.isGenerating
                         }
-                        className="p-2 rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed text-wb-blue hover:text-blue-400 hover:bg-wb-blue/10 border-wb-blue/20 hover:border-wb-blue/30"
+                        className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                          trackGenerationStatus[index]?.isPlaying
+                            ? "text-red-400 hover:text-red-300 hover:bg-red-500/10 border-red-500/20 hover:border-red-500/30"
+                            : trackGenerationStatus[index]?.hasAudio
+                              ? "text-green-400 hover:text-green-300 hover:bg-green-500/10 border-green-500/20 hover:border-green-500/30"
+                              : "text-wb-blue hover:text-blue-400 hover:bg-wb-blue/10 border-wb-blue/20 hover:border-wb-blue/30"
+                        }`}
                         title={
-                          trackGenerationStatus[index]?.hasAudio
-                            ? "Regenerate this track"
-                            : "Generate this track"
+                          trackGenerationStatus[index]?.isPlaying
+                            ? "Stop playback"
+                            : trackGenerationStatus[index]?.hasAudio
+                              ? "Play this track"
+                              : "Generate and play this track"
                         }
                       >
                         {trackGenerationStatus[index]?.isGenerating ? (
@@ -391,6 +364,14 @@ export function ScripterPanel({
                               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                             />
                           </svg>
+                        ) : trackGenerationStatus[index]?.isPlaying ? (
+                          <svg
+                            className="w-4 h-4"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <rect x="6" y="6" width="12" height="12" />
+                          </svg>
                         ) : (
                           <svg
                             className="w-4 h-4"
@@ -399,56 +380,18 @@ export function ScripterPanel({
                             stroke="currentColor"
                             strokeWidth={2}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M13 10V3L4 14h7v7l9-11h-7z"
-                            />
+                            <polygon points="5 3 19 12 5 21 5 3" />
                           </svg>
                         )}
                       </button>
                     )}
 
-                    {/* Row 1, Col 2: Play button */}
-                    <TestVoiceButton
-                      voice={track.voice}
-                      text={track.text}
-                      style={track.style}
-                      useCase={track.useCase}
-                      voiceInstructions={track.voiceInstructions}
-                      provider={selectedProvider as Provider}
-                      disabled={!track.voice || !track.text.trim()}
-                    />
-
-                    {/* Row 2, Col 1: Delete button */}
-                    {voiceTracks.length > 1 && (
-                      <button
-                        onClick={() => removeVoiceTrack(index)}
-                        className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
-                        title="Delete this voice track"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </button>
-                    )}
-
-                    {/* Row 2, Col 2: Configure button */}
+                    {/* Configure button */}
                     {(selectedProvider === "openai" ||
                       selectedProvider === "elevenlabs") && (
                       <button
                         onClick={() => setEditingInstructionsIndex(index)}
-                        className={`p-2 rounded-lg border transition-all ${
+                        className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
                           track.speed !== undefined || track.voiceInstructions
                             ? "text-wb-blue bg-wb-blue/10 border-wb-blue/20"
                             : "text-gray-500 hover:text-wb-blue hover:bg-wb-blue/10 border-transparent hover:border-wb-blue/20"
@@ -510,7 +453,7 @@ export function ScripterPanel({
           }
           targetDuration={voiceTracks[editingInstructionsIndex]?.targetDuration}
           provider={selectedProvider as Provider}
-          trackProvider={voiceTracks[editingInstructionsIndex]?.trackProvider}
+          trackProvider={getEffectiveProvider(voiceTracks[editingInstructionsIndex], selectedProvider as Provider)}
           voiceDescription={
             voiceTracks[editingInstructionsIndex]?.voice?.description
           }
@@ -537,6 +480,11 @@ export function ScripterPanel({
               voice: providerChanged ? null : currentTrack.voice,
             });
           }}
+          onDelete={
+            voiceTracks.length > 1
+              ? () => removeVoiceTrack(editingInstructionsIndex)
+              : undefined
+          }
         />
       )}
     </div>

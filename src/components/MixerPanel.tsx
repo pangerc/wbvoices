@@ -9,7 +9,6 @@ import {
 import { ResetButton } from "@/components/ui/ResetButton";
 import { VolumeToggleButton } from "@/components/ui/VolumeToggleButton";
 import { PlayButton } from "@/components/ui/PlayButton";
-import { useProjectHistoryStore } from "@/store/projectHistoryStore";
 import { useParams } from "next/navigation";
 import { uploadMixedAudioToBlob } from "@/utils/blob-storage";
 
@@ -36,8 +35,7 @@ export function MixerPanel({
   onRemoveTrack,
 }: MixerPanelProps) {
   const params = useParams();
-  const projectId = params.id as string;
-  const { updateProject } = useProjectHistoryStore();
+  const adId = params.id as string;
 
   // Get data and actions from store
   const {
@@ -241,60 +239,51 @@ export function MixerPanel({
     };
   }, [tracks, audioErrors]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Helper function to upload mixed audio and update project
+  // Helper function to upload mixed audio and save to V3 Redis
   const uploadAndUpdateProject = async (blob: Blob, localPreviewUrl: string) => {
-    if (!projectId) {
-      console.warn('No project ID available for mixed audio upload');
+    if (!adId) {
+      console.warn('No ad ID available for mixed audio upload');
       return { permanentUrl: localPreviewUrl, downloadUrl: localPreviewUrl };
     }
 
     try {
       console.log('📤 Uploading mixed audio to Vercel blob storage...');
-      const { url: permanentUrl, downloadUrl } = await uploadMixedAudioToBlob(blob, projectId);
+      const { url: permanentUrl, downloadUrl } = await uploadMixedAudioToBlob(blob, adId);
       console.log('✅ Mixed audio uploaded to blob:', permanentUrl);
       console.log('✅ Download URL generated:', downloadUrl);
 
-      // Load current project to get existing preview data
-      const { loadProjectFromRedis } = useProjectHistoryStore.getState();
-      const currentProject = await loadProjectFromRedis(projectId);
+      // Save mixer state to V3 Redis
+      const mixerUpdate = {
+        tracks: calculatedTracks.map(track => ({
+          id: track.id,
+          url: track.url,
+          label: track.label,
+          type: track.type,
+          duration: track.actualDuration,
+          volume: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
+          startTime: track.actualStartTime,
+        })),
+        volumes: trackVolumes,
+        totalDuration,
+        mixedAudioUrl: permanentUrl,
+        lastCalculated: Date.now(),
+      };
 
-      if (currentProject) {
-        // Update project with the permanent mixed audio URL AND mixer state with volumes
-        await updateProject(projectId, {
-          preview: {
-            brandName: currentProject.preview?.brandName || "",
-            slogan: currentProject.preview?.slogan || "",
-            destinationUrl: currentProject.preview?.destinationUrl || "",
-            cta: currentProject.preview?.cta || "Learn More",
-            logoUrl: currentProject.preview?.logoUrl,
-            visualUrl: currentProject.preview?.visualUrl,
-            mixedAudioUrl: permanentUrl,
-          },
-          mixerState: {
-            tracks: calculatedTracks.map(track => ({
-              id: track.id,
-              url: track.url,
-              label: track.label,
-              type: track.type,
-              duration: track.actualDuration,
-              volume: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
-              startTime: track.actualStartTime,
-            })),
-            totalDuration,
-          },
-          lastModified: Date.now(),
-        });
-        console.log('✅ Project updated with permanent mixed audio URL and volume settings');
+      const response = await fetch(`/api/ads/${adId}/mixer`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mixerUpdate),
+      });
+
+      if (!response.ok) {
+        console.error('❌ Failed to save mixer state to V3 Redis');
       } else {
-        console.warn('⚠️ Could not load current project, only updating lastModified');
-        await updateProject(projectId, {
-          lastModified: Date.now(),
-        });
+        console.log('✅ Mixer state saved to V3 Redis');
       }
 
       return { permanentUrl, downloadUrl };
     } catch (error) {
-      console.error('❌ Failed to upload mixed audio or update project:', error);
+      console.error('❌ Failed to upload mixed audio:', error);
       // Return the local preview URL as fallback
       return { permanentUrl: localPreviewUrl, downloadUrl: localPreviewUrl };
     }
