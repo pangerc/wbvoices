@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   CampaignFormat,
-  AIModel,
   Language,
   Provider,
   Pacing,
@@ -9,14 +8,12 @@ import {
 } from "@/types";
 import { getFlagCode } from "@/utils/language";
 import { useBriefOptions, useLanguageOptions } from "@/hooks/useBriefOptions";
-import { selectAIModelForLanguage, AI_MODEL_REGISTRY, getAiModelLabel, getAiModelTechnicalDetails } from "@/utils/aiModelSelection";
 import {
   GlassyTextarea,
   GlassyListbox,
   GlassySlider,
   GlassyCombobox,
   ProviderSelectionModal,
-  AIModelSelectionModal,
 } from "./ui";
 
 // SVG Icons for Ad Format
@@ -265,25 +262,7 @@ const RabbitIcon = () => (
   </svg>
 );
 
-// SVG Icons for settings (AI Model, Voice Provider)
-const PenIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 10 10"
-    height="12"
-    width="12"
-  >
-    <path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M6.353 0.149a0.5 0.5 0 0 0 -0.77 0.076L4.522 1.817l3.661 3.661 1.592 -1.06a0.5 0.5 0 0 0 0.076 -0.77L6.353 0.147Zm1.428 6.34L3.51 2.22l-1.357 0.151A1.5 1.5 0 0 0 0.838 3.627L0.015 8.84a0.997 0.997 0 0 0 0.02 0.416L2.844 6.45l-0.346 -0.346a0.5 0.5 0 0 1 0.707 -0.708l0.694 0.694 0.005 0.006 0.006 0.006 0.694 0.693a0.5 0.5 0 0 1 -0.708 0.707l-0.345 -0.345L0.743 9.964c0.13 0.035 0.27 0.044 0.416 0.021l5.214 -0.823A1.5 1.5 0 0 0 7.63 7.846l0.15 -1.356Z"
-      clipRule="evenodd"
-      strokeWidth="1"
-    />
-  </svg>
-);
-
+// SVG Icons for settings (Voice Provider)
 const VoiceMailIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -320,13 +299,6 @@ const ExternalLinkIcon = () => (
   </svg>
 );
 
-// Use single source of truth from registry
-const allAiModelOptions = AI_MODEL_REGISTRY.map(model => ({
-  value: model.value,
-  label: model.label,
-  description: model.description,
-}));
-
 /**
  * BRIEF PANEL V3 - REDIS-FIRST!
  *
@@ -355,19 +327,22 @@ export type BriefPanelV3Props = {
     sfx?: string;
     adName?: string;
   }) => void;
+
+  // Optional callback when generation state changes (for MatrixBackground animation)
+  onGeneratingChange?: (isGenerating: boolean) => void;
 };
 
 export function BriefPanelV3({
   adId,
   initialBrief,
   onDraftsCreated,
+  onGeneratingChange,
 }: BriefPanelV3Props) {
   // Form state - initialized from initialBrief if provided
   const [clientDescription, setClientDescription] = useState(initialBrief?.clientDescription || "");
   const [creativeBrief, setCreativeBrief] = useState(initialBrief?.creativeBrief || "");
   const [campaignFormat, setCampaignFormat] = useState<CampaignFormat>(initialBrief?.campaignFormat || "ad_read");
   const [adDuration, setAdDuration] = useState(initialBrief?.adDuration || 30);
-  const [selectedAiModel, setSelectedAiModel] = useState<AIModel>(initialBrief?.selectedAiModel || "openai");
   const [selectedCTA, setSelectedCTA] = useState<string | null>(initialBrief?.selectedCTA || null);
   const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(initialBrief?.selectedPacing || null);
 
@@ -413,7 +388,6 @@ export function BriefPanelV3({
       if (initialBrief.creativeBrief) setCreativeBrief(initialBrief.creativeBrief);
       if (initialBrief.campaignFormat) setCampaignFormat(initialBrief.campaignFormat);
       if (initialBrief.adDuration) setAdDuration(initialBrief.adDuration);
-      if (initialBrief.selectedAiModel) setSelectedAiModel(initialBrief.selectedAiModel);
       if (initialBrief.selectedCTA !== undefined) setSelectedCTA(initialBrief.selectedCTA);
       if (initialBrief.selectedPacing !== undefined) setSelectedPacing(initialBrief.selectedPacing);
       // Voice selection state
@@ -433,7 +407,6 @@ export function BriefPanelV3({
         creativeBrief,
         campaignFormat,
         adDuration,
-        selectedAiModel,
         selectedCTA: selectedCTA || null,
         selectedPacing: selectedPacing || null,
         selectedLanguage,
@@ -458,7 +431,7 @@ export function BriefPanelV3({
     }
   }, [
     adId, clientDescription, creativeBrief, campaignFormat, adDuration,
-    selectedAiModel, selectedCTA, selectedPacing,
+    selectedCTA, selectedPacing,
     selectedLanguage, selectedRegion, selectedAccent, selectedProvider
   ]);
 
@@ -491,7 +464,7 @@ export function BriefPanelV3({
   }, [
     initialBrief, // Add to deps so we re-evaluate when it loads
     clientDescription, creativeBrief, campaignFormat, adDuration,
-    selectedAiModel, selectedCTA, selectedPacing,
+    selectedCTA, selectedPacing,
     selectedLanguage, selectedRegion, selectedAccent, selectedProvider,
     saveBriefToRedis
   ]);
@@ -503,10 +476,6 @@ export function BriefPanelV3({
 
   // Modal state
   const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
-  const [isAiModelModalOpen, setIsAiModelModalOpen] = useState(false);
-
-  // Use all AI models without regional filtering
-  const aiModelOptions = allAiModelOptions;
 
   // Auto-select suggested provider when language changes (novice UX)
   // Track which language we last auto-selected provider FOR (not the previous value)
@@ -535,38 +504,6 @@ export function BriefPanelV3({
       }
     }
   }, [availableAccents, selectedAccent]);
-
-  // AI Model auto-selection for Chinese language
-  const previousLanguageForAiRef = useRef(selectedLanguage);
-  useEffect(() => {
-    const languageChanged = previousLanguageForAiRef.current !== selectedLanguage;
-
-    if (!languageChanged) {
-      return;
-    }
-
-    previousLanguageForAiRef.current = selectedLanguage;
-
-    const isChineseLanguage =
-      selectedLanguage === "zh" || selectedLanguage.startsWith("zh-");
-
-    if (isChineseLanguage) {
-      const chineseModels = ["moonshot", "qwen"];
-      const isUsingChineseModel = chineseModels.includes(selectedAiModel);
-
-      if (!isUsingChineseModel) {
-        const availableModels = aiModelOptions.map((option) => option.value);
-        const suggestedModel = selectAIModelForLanguage(
-          selectedLanguage,
-          availableModels
-        );
-
-        if (suggestedModel && suggestedModel !== selectedAiModel) {
-          setSelectedAiModel(suggestedModel);
-        }
-      }
-    }
-  }, [selectedLanguage, selectedAiModel, aiModelOptions]);
 
   // Warnings
   const shouldWarnAboutDialog = !dialogReady && campaignFormat === "dialog";
@@ -599,6 +536,7 @@ export function BriefPanelV3({
     }
 
     setIsGenerating(true);
+    onGeneratingChange?.(true);
     setError(null);
 
     try {
@@ -613,7 +551,6 @@ export function BriefPanelV3({
         body: JSON.stringify({
           adId,                              // Required! Tools need this to write drafts
           sessionId,                         // Required for lazy ad creation
-          aiModel: selectedAiModel,
           language: selectedLanguage,
           clientDescription,
           creativeBrief,
@@ -653,6 +590,7 @@ export function BriefPanelV3({
       );
     } finally {
       setIsGenerating(false);
+      onGeneratingChange?.(false);
     }
   };
 
@@ -762,6 +700,7 @@ export function BriefPanelV3({
                 label: r.displayName,
               }))}
               disabled={isLoading || availableRegions.length === 0}
+              loading={isLoadingOptions}
             />
           ) : (
             <div className="bg-white/5 backdrop-blur-sm rounded-xl py-3 px-4 text-sm text-gray-400">
@@ -784,6 +723,7 @@ export function BriefPanelV3({
                 label: a.displayName,
               }))}
               disabled={isLoading || availableAccents.length === 0}
+              loading={isLoadingOptions}
             />
           ) : (
             <div className="bg-white/5 backdrop-blur-sm rounded-xl py-3 px-4 text-sm text-gray-400">
@@ -793,7 +733,7 @@ export function BriefPanelV3({
         </div>
       </div>
 
-      {/* Row 3: Ad Format, CTA, and AI Model link */}
+      {/* Row 3: Ad Format, CTA, and Voice Provider */}
       <div className="grid grid-cols-3 gap-6 mb-6">
         {/* Column 1: Ad Format */}
         <div>
@@ -874,106 +814,6 @@ export function BriefPanelV3({
           />
         </div>
 
-        {/* Column 3: AI Model link */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            AI Model
-          </label>
-          <button
-            onClick={() => setIsAiModelModalOpen(true)}
-            className="flex items-center gap-2 text-sm text-wb-blue hover:text-wb-blue/80 transition-colors"
-          >
-            <PenIcon />
-            <div className="flex flex-col items-start">
-              <span>{getAiModelLabel(selectedAiModel)}</span>
-              <span className="text-xs text-white/40">
-                {getAiModelTechnicalDetails(selectedAiModel)}
-              </span>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Row 4: Pacing, Duration, and Voice Provider link */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
-        {/* Column 1: Pacing */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Pacing
-          </label>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
-            {/* Normal option */}
-            <div
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
-                selectedPacing === null
-                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                  : "bg-transparent hover:bg-white/10 text-gray-300"
-              }`}
-              onClick={() => setSelectedPacing(null)}
-              title="Normal - Standard delivery pace"
-            >
-              <TurtleIcon />
-              <span className="text-xs">Normal</span>
-            </div>
-
-            {/* Fast option */}
-            <div
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
-                selectedPacing === "fast"
-                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                  : "bg-transparent hover:bg-white/10 text-gray-300"
-              }`}
-              onClick={() => setSelectedPacing("fast")}
-              title="Fast - Energetic, urgent delivery"
-            >
-              <RabbitIcon />
-              <span className="text-xs">Fast</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Column 2: Duration */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
-            Ad Duration{" "}
-            <span className="text-sm text-gray-400">
-              {adDuration} seconds
-            </span>
-          </label>
-          <GlassySlider
-            label={null}
-            value={adDuration}
-            onChange={setAdDuration}
-            min={10}
-            max={60}
-            step={5}
-            tickMarks={[
-              { value: 10, label: "10s" },
-              { value: 15, label: "15s" },
-              { value: 20, label: "20s" },
-              { value: 25, label: "25s" },
-              { value: 30, label: "30s" },
-              { value: 35, label: "35s" },
-              { value: 40, label: "40s" },
-              { value: 45, label: "45s" },
-              { value: 50, label: "50s" },
-              { value: 55, label: "55s" },
-              { value: 60, label: "60s" },
-            ]}
-          />
-
-          {/* Spotify Compliance Warning */}
-          <div className="mt-3 text-xs text-gray-500">
-            Spotify: Standard ads max 30s. Long-form (60s) in select markets
-            only.
-            {adDuration > 30 && (
-              <span className="text-red-900 ml-1">
-                Duration exceeds 30s standard.
-              </span>
-            )}
-          </div>
-        </div>
-
         {/* Column 3: Voice Provider link */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -1015,6 +855,87 @@ export function BriefPanelV3({
         </div>
       </div>
 
+      {/* Row 4: Pacing and Duration */}
+      <div className="grid grid-cols-3 gap-6 mb-6">
+        {/* Column 1: Pacing */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Pacing
+          </label>
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
+            {/* Normal option */}
+            <div
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
+                selectedPacing === null
+                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                  : "bg-transparent hover:bg-white/10 text-gray-300"
+              }`}
+              onClick={() => setSelectedPacing(null)}
+              title="Normal - Standard delivery pace"
+            >
+              <TurtleIcon />
+              <span className="text-xs">Normal</span>
+            </div>
+
+            {/* Fast option */}
+            <div
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
+                selectedPacing === "fast"
+                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                  : "bg-transparent hover:bg-white/10 text-gray-300"
+              }`}
+              onClick={() => setSelectedPacing("fast")}
+              title="Fast - Energetic, urgent delivery"
+            >
+              <RabbitIcon />
+              <span className="text-xs">Fast</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Column 2-3: Duration (spans 2 columns) */}
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Ad Duration{" "}
+            <span className="text-sm text-gray-400">
+              {adDuration} seconds
+            </span>
+          </label>
+          <GlassySlider
+            label={null}
+            value={adDuration}
+            onChange={setAdDuration}
+            min={10}
+            max={60}
+            step={5}
+            tickMarks={[
+              { value: 10, label: "10s" },
+              { value: 15, label: "15s" },
+              { value: 20, label: "20s" },
+              { value: 25, label: "25s" },
+              { value: 30, label: "30s" },
+              { value: 35, label: "35s" },
+              { value: 40, label: "40s" },
+              { value: 45, label: "45s" },
+              { value: 50, label: "50s" },
+              { value: 55, label: "55s" },
+              { value: 60, label: "60s" },
+            ]}
+          />
+
+          {/* Spotify Compliance Warning */}
+          <div className="mt-3 text-xs text-gray-500">
+            Spotify: Standard ads max 30s. Long-form (60s) in select markets
+            only.
+            {adDuration > 30 && (
+              <span className="text-red-900 ml-1">
+                Duration exceeds 30s standard.
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Error message */}
       {error && (
         <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
@@ -1029,13 +950,6 @@ export function BriefPanelV3({
         selectedProvider={selectedProvider}
         onSelectProvider={setSelectedProvider}
         voiceCounts={voiceCounts}
-      />
-
-      <AIModelSelectionModal
-        isOpen={isAiModelModalOpen}
-        onClose={() => setIsAiModelModalOpen(false)}
-        selectedAiModel={selectedAiModel}
-        onSelectAiModel={setSelectedAiModel}
       />
     </div>
   );

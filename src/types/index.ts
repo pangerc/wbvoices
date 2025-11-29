@@ -1,5 +1,4 @@
 import { Language } from "@/utils/language";
-import type { AIModel as AIModelType } from '@/utils/aiModelSelection';
 
 export type Provider = "any" | "lovo" | "elevenlabs" | "openai" | "qwen" | "bytedance";
 
@@ -27,9 +26,6 @@ export type PronunciationDictionary = {
   description?: string;
   createdAt: string;
 };
-
-// Import AIModel from single source of truth
-export type AIModel = AIModelType;
 
 export type Voice = {
   id: string;
@@ -128,7 +124,7 @@ export type ProjectBrief = {
   selectedRegion?: string | null; // Optional for backwards compatibility
   adDuration: number;
   selectedAccent: string | null;
-  selectedAiModel: AIModel;
+  selectedAiModel?: string; // DEPRECATED: V3 uses GPT-5.1 only, kept for backwards compat
   musicProvider?: MusicProvider; // Optional for backwards compatibility
   selectedCTA?: string | null; // Optional for backwards compatibility
   selectedPacing?: Pacing | null; // Optional for backwards compatibility

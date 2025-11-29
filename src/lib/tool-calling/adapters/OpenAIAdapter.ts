@@ -10,64 +10,35 @@
  */
 
 import OpenAI from "openai";
-import { BaseToolCallingAdapter } from "../ToolCallingAdapter";
 import type {
   AdapterRequest,
   AdapterResponse,
-  ProviderCapabilities,
   ConversationMessage,
   ToolCall,
 } from "../types";
 
-export class OpenAIAdapter extends BaseToolCallingAdapter {
-  readonly capabilities: ProviderCapabilities = {
-    name: "openai",
-    supportsToolCalling: true,
-    supportsStreaming: true,
-    supportsCaching: true,
-    maxContextTokens: 128000,
-    features: {
-      reasoning: true,
-      extendedCaching: true,
-      supportsCoTContinuity: true,
-    },
-  };
-
+export class OpenAIAdapter {
   private client: OpenAI;
 
   constructor() {
-    super();
     this.client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
   }
 
   async invoke(request: AdapterRequest): Promise<AdapterResponse> {
-    const {
-      messages,
-      tools,
-      options = {},
-    } = request;
+    const { messages, tools, options = {}, currentToolResults } = request;
+    const { reasoningEffort = "medium", previousResponseId } = options;
 
-    const {
-      reasoningEffort = "high",
-      verbosity = "medium",
-      maxTokens = 10000,
-      previousResponseId,
-    } = options;
+    const input = this.buildInput(messages, !!previousResponseId, currentToolResults);
 
-    // Build input from messages
-    const input = this.messagesToInput(messages);
-
-    // Build response params
-    // Note: GPT-5.1 supports "none" reasoning effort but SDK types may not be updated yet
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const responseParams: any = {
       model: "gpt-5.1",
       input,
       reasoning: { effort: reasoningEffort },
-      text: { verbosity },
-      max_output_tokens: maxTokens,
+      text: { verbosity: "medium" },
+      max_output_tokens: 10000,
     };
 
     // Add tools if provided
@@ -86,8 +57,9 @@ export class OpenAIAdapter extends BaseToolCallingAdapter {
       responseParams.previous_response_id = previousResponseId;
     }
 
+    const inputType = Array.isArray(input) ? `array[${input.length}]` : "string";
     console.log(
-      `[OpenAIAdapter] Invoking GPT-5.1 with reasoning=${reasoningEffort}, tools=${tools.length}`
+      `[OpenAIAdapter] Invoking GPT-5.1 with reasoning=${reasoningEffort}, tools=${tools.length}, input=${inputType}${previousResponseId ? ", CoT=ON" : ""}`
     );
 
     const response = await this.client.responses.create(responseParams);
@@ -117,19 +89,30 @@ export class OpenAIAdapter extends BaseToolCallingAdapter {
   }
 
   /**
-   * Convert conversation messages to Responses API input format
+   * Build input for Responses API
+   * - First call: simple string (system + user message)
+   * - Subsequent calls with tool results: structured array with function_call_output items
    */
-  private messagesToInput(messages: ConversationMessage[]): string {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private buildInput(
+    messages: ConversationMessage[],
+    hasCoT: boolean,
+    currentToolResults?: Array<{ call_id: string; output: string }>
+  ): any {
+    // With CoT continuity + explicit tool results - use only current iteration's results
+    // (avoids stale call_ids from previous sessions in Redis)
+    if (hasCoT && currentToolResults?.length) {
+      return currentToolResults.map((tr) => ({
+        type: "function_call_output",
+        call_id: tr.call_id,
+        output: tr.output,
+      }));
+    }
+
+    // First call or no tool results - send conversation as string
     return messages
-      .map((msg) => {
-        if (msg.role === "system") {
-          return msg.content;
-        }
-        if (msg.role === "tool") {
-          return `Tool result (${msg.tool_call_id}): ${msg.content}`;
-        }
-        return `\n\n${msg.role}: ${msg.content}`;
-      })
+      .filter((m) => m.role !== "tool" && m.role !== "assistant")
+      .map((msg) => (msg.role === "system" ? msg.content : `\n\n${msg.role}: ${msg.content}`))
       .join("");
   }
 

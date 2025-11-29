@@ -13,49 +13,30 @@ V3 replaces the brittle JSON-parsing LLM integration with **agentic tool-calling
 - LLM calls tools instead of returning JSON
 - Redis is single source of truth (no FormManager)
 - Immutable version streams for voices, music, SFX
-- Multi-provider support (OpenAI, Qwen, Moonshot)
+- Single orchestrator: OpenAI GPT-5.1 with Chain-of-Thought continuity
 
 ---
 
 ## Architecture
 
-### Two-Flow Model
+### Trust the Conductor
 
-V3 uses different flows for initial generation vs chat refinements:
+V3 uses **GPT-5.1 as the sole orchestrator**. We trust its Chain-of-Thought reasoning via `previous_response_id` continuity instead of building manual guardrails.
 
-**Initial Generation (fast path ~30-45s):**
+**Philosophy:** The best code is code deleted. We removed ~900 lines of guardrail code (duplicate draft detection, loop detection, context-aware feedback injection) and let CoT handle it.
+
+**Generation Flow:**
 ```
 User Brief
     ↓
 BriefPanelV3 → POST /api/ai/generate
     ↓
-prefetchVoices() → inject into prompt
+prefetchVoices() → inject into system prompt
     ↓
-AgentExecutor (toolSet: "initial_generation")
-    ↓
-┌─────────────────────────────────────────┐
-│ Tools (search_voices EXCLUDED):          │
-│ • create_voice_draft(adId, tracks)      │
-│ • create_music_draft(adId, prompt)      │
-│ • create_sfx_draft(adId, effects)       │
-│ • get_current_state(adId)               │
-└─────────────────────────────────────────┘
-    ↓
-1 iteration: all 3 drafts created in parallel
-    ↓
-Redis (V3_REDIS_URL)
-```
-
-**Chat Refinement (full tools):**
-```
-User Message ("find me a more mature voice")
-    ↓
-POST /api/ads/[id]/chat
-    ↓
-AgentExecutor (toolSet: "chat_refinement")
+runAgentLoop() with OpenAIAdapter
     ↓
 ┌─────────────────────────────────────────┐
-│ Tools (FULL SET):                        │
+│ Tools:                                   │
 │ • search_voices(language, gender, ...)  │
 │ • create_voice_draft(adId, tracks)      │
 │ • create_music_draft(adId, prompt)      │
@@ -63,8 +44,12 @@ AgentExecutor (toolSet: "chat_refinement")
 │ • get_current_state(adId)               │
 └─────────────────────────────────────────┘
     ↓
+GPT-5.1 decides when complete (CoT continuity)
+    ↓
 Redis (V3_REDIS_URL)
 ```
+
+**Chat Refinement:** Same flow via `/api/ads/[id]/chat`, continues existing conversation from Redis.
 
 ---
 
@@ -101,15 +86,19 @@ This prevents "Untitled Ad" spam from casual visits or refreshes. Implementation
 
 ---
 
-## LLM Providers
+## LLM Provider
 
-| Provider | Status | Use Case |
-|----------|--------|----------|
-| OpenAI | ✅ Working | Default, tested with tool-calling |
-| Qwen-Max | 🔴 Untested | APAC markets |
-| Moonshot KIMI | 🔴 Untested | Chinese market |
+**Single orchestrator:** OpenAI GPT-5.1 via Responses API
 
-Provider selection: `src/lib/tool-calling/ProviderFactory.ts`
+| Feature | Implementation |
+|---------|----------------|
+| Model | `gpt-5.1` |
+| Tool calling | Native function calling |
+| Reasoning | `reasoning.effort: "medium"` |
+| Continuity | `previous_response_id` for CoT |
+| Caching | 24-hour prompt caching built-in |
+
+**No multi-provider abstraction.** If APAC localization needed later, add `localize_script` tool that calls Qwen/Kimi for text generation only (not orchestration).
 
 ---
 
@@ -120,12 +109,13 @@ Provider selection: `src/lib/tool-calling/ProviderFactory.ts`
 | **Tool Definitions** | `src/lib/tools/definitions.ts` |
 | **Tool Implementations** | `src/lib/tools/implementations.ts` |
 | **Tool Executor** | `src/lib/tools/executor.ts` |
-| **Agent Loop** | `src/lib/tool-calling/AgentExecutor.ts` |
+| **Agent Loop** | `src/lib/tool-calling/AgentExecutor.ts` (~120 lines) |
+| **OpenAI Adapter** | `src/lib/tool-calling/adapters/OpenAIAdapter.ts` |
 | **Voice Prefetch** | `src/lib/tool-calling/voicePrefetch.ts` |
-| **Provider Adapters** | `src/lib/tool-calling/adapters/*.ts` |
 | **Prompt Builder** | `src/lib/knowledge/builder.ts` |
 | **Knowledge Modules** | `src/lib/knowledge/modules/*.ts` |
 | **Redis Operations** | `src/lib/redis/versions.ts` |
+| **Conversation Store** | `src/lib/redis/conversation.ts` |
 | **V3 Redis Client** | `src/lib/redis-v3.ts` |
 | **Generate API** | `src/app/api/ai/generate/route.ts` |
 | **Chat API** | `src/app/api/ads/[id]/chat/route.ts` |
@@ -140,9 +130,7 @@ Provider selection: `src/lib/tool-calling/ProviderFactory.ts`
 ### Completed
 - ✅ Redis schema with flat keys
 - ✅ 15 API endpoints for version streams
-- ✅ AgentExecutor with tool loop
 - ✅ All 5 tools implemented
-- ✅ OpenAI adapter with tool-calling
 - ✅ Knowledge modules for dynamic prompts
 - ✅ BriefPanelV3 integration
 - ✅ Provider auto-selection by language
@@ -156,47 +144,47 @@ Provider selection: `src/lib/tool-calling/ProviderFactory.ts`
 - ✅ BriefPanelV3 auto-save race condition fixed (waits for initial load)
 - ✅ Lazy ad creation (no Redis spam from page visits)
 
-**Performance Optimizations (Nov 29, 2025):**
-- ✅ Voice prefetch eliminates search_voices round-trip (~7 iterations → 1)
-- ✅ Tool set filtering: `initial_generation` excludes search_voices
-- ✅ Parallel tool execution (Promise.all instead of sequential)
-- ✅ Duplicate draft guard (blocks create_*_draft if draft already exists)
-- ✅ Early exit check at start of loop (prevents wasted LLM calls)
-- ✅ Lower reasoning effort (`"low"` instead of `"medium"`)
-- ✅ Two-flow model: fast initial gen, full tools for chat refinement
+**Simplification (Nov 29, 2025):**
+- ✅ Single orchestrator: OpenAI GPT-5.1 only (deleted Qwen/Kimi adapters)
+- ✅ CoT continuity via `previous_response_id` (no manual guardrails)
+- ✅ Deleted ~900 lines: ProviderFactory, ToolCallingAdapter, loop detection, feedback injection
+- ✅ AgentExecutor: 335 → 120 lines
+- ✅ Voice prefetch eliminates search_voices round-trip
+- ✅ Duration constraint with word count guidance (~2.5 words/sec)
+- ✅ Responses API fix: structured `function_call_output` for tool results
 
 ### Pending
 - ⏳ Mixer rebuild from V3 version data
 - ⏳ LLM conversation UI for iterations
-- ⏳ Qwen-Max adapter testing
-- ⏳ Moonshot KIMI adapter testing
 
 ### Known Issues
 - ScripterPanel still reloads voices on accordion expand (component remount)
 
 ### Resolved Issues
-- ~~Initial generation took ~5 minutes (7 iterations)~~ → Now ~30-45s (1 iteration)
+- ~~Initial generation took ~5 minutes (7 iterations)~~ → Now single iteration
+- ~~Ads running over duration budget~~ → Word count constraint added
 
 ---
 
 ## Next Steps
 
-**A. Test Performance** (immediate)
-- Verify initial generation completes in < 60 seconds
-- Monitor iteration count (target: 1)
-
-**B. Per-Track Generation** (next)
+**A. Per-Track Generation**
 - Save generated audio URLs back to Redis version record
 - Enable preview playback from persisted URLs
 
-**C. Pipeline to Mixer**
+**B. Pipeline to Mixer**
 - Activate version → rebuild mixer → display timeline
 - Prove end-to-end architecture works
 
-**D. Conversation UI** (later)
+**C. Conversation UI**
 - Chat interface for iterative refinement (`/api/ads/[id]/chat`)
 - Create new drafts, archive previous versions
 - `search_voices` available for recasting requests
+
+**D. APAC Localization (if needed)**
+- Add `localize_script` tool for Thai/Vietnamese/Chinese
+- Simple Qwen/Kimi text generation (not orchestration)
+- GPT-5.1 remains sole conductor
 
 ---
 

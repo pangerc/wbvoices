@@ -31,6 +31,7 @@ export { detectIntent, describeIntent } from "./selector";
 export {
   buildSystemPrompt,
   buildSystemPromptWithIntent,
+  buildIterationSystemPrompt,
   getModuleContent,
   getModulesById,
 } from "./builder";

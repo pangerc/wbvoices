@@ -8,6 +8,7 @@ import { generateAndPersistTrack } from "@/lib/voice-utils";
 import { useMixerStore } from "@/store/mixerStore";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useVoicePlaybackState, usePlaybackActions } from "@/hooks/useAudioPlayback";
+import { VersionIterationInput } from "@/components/ui";
 
 /**
  * Migrate old format (generatedUrls[]) to new format (voiceTracks[].generatedUrl)
@@ -425,7 +426,8 @@ export function VoiceDraftEditor({
   };
 
   return (
-    <ScripterPanel
+    <>
+      <ScripterPanel
         voiceTracks={voiceTracks}
         updateVoiceTrack={updateVoiceTrack}
         addVoiceTrack={addVoiceTrack}
@@ -445,5 +447,22 @@ export function VoiceDraftEditor({
         trackGenerationStatus={trackGenerationStatus}
         generateButtonText={getGenerateButtonText()}
       />
+      <VersionIterationInput
+        adId={adId}
+        stream="voices"
+        parentVersionId={draftVersionId}
+        onNewVersion={onUpdate}
+        disabled={!voiceTracks.every(t => !!t.generatedUrl)}
+        onActivateDraft={async () => {
+          const res = await fetch(`/api/ads/${adId}/voices/${draftVersionId}/activate`, {
+            method: "POST",
+          });
+          if (!res.ok) {
+            throw new Error(`Failed to activate: ${res.status}`);
+          }
+          await onUpdate(); // Refresh stream to show frozen version in VersionAccordion
+        }}
+      />
+    </>
   );
 }

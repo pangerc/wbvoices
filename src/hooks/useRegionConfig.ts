@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AIModel, Language } from '@/types';
+import { Language } from '@/types';
 
 export type RegionConfig = {
   region: 'apac' | 'americas' | 'europe';
@@ -7,7 +7,6 @@ export type RegionConfig = {
   isAmericas: boolean;
   isEurope: boolean;
   defaultLanguage: Language;
-  availableAIModels: readonly AIModel[];
   needsOpenAIProxy: boolean;
 };
 
@@ -44,7 +43,6 @@ export function useRegionConfig() {
           isAmericas: true,
           isEurope: false,
           defaultLanguage: 'en' as Language,
-          availableAIModels: ['openai', 'qwen', 'moonshot'],
           needsOpenAIProxy: false
         });
       } finally {
@@ -59,13 +57,12 @@ export function useRegionConfig() {
     config,
     isLoading,
     error,
-    
+
     // Convenience getters
     isAPAC: config?.isAPAC ?? false,
     isAmericas: config?.isAmericas ?? true,
     isEurope: config?.isEurope ?? false,
     defaultLanguage: config?.defaultLanguage ?? ('en' as Language),
-    availableAIModels: config?.availableAIModels ?? ['openai', 'qwen', 'moonshot'] as const,
     needsOpenAIProxy: config?.needsOpenAIProxy ?? false
   };
 }

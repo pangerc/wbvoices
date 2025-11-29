@@ -4,16 +4,43 @@
  * Allows users to refine an existing ad through conversation.
  * Uses lower reasoning effort since we're making targeted changes.
  *
- * Examples:
- * - "Make the music more upbeat"
- * - "Change the second voice to be more energetic"
- * - "Add a whoosh sound effect at the start"
+ * Supports stream-focused iterations:
+ * - stream: "voices" | "music" | "sfx" - constrains agent to only modify this stream
+ * - parentVersionId: version being iterated from (for lineage tracking)
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { continueConversation, type Provider } from "@/lib/tool-calling";
-import { normalizeAIModel } from "@/utils/aiModelSelection";
+import { continueConversation } from "@/lib/tool-calling";
 import { hasConversation } from "@/lib/redis/conversation";
+import { updateVersionMetadata } from "@/lib/redis/versions";
+import type { StreamType } from "@/types/versions";
+
+const STREAM_NAMES: Record<StreamType, string> = {
+  voices: "VOICE",
+  music: "MUSIC",
+  sfx: "SOUND EFFECTS",
+};
+
+/**
+ * Build a focused message that constrains the agent to a single stream
+ */
+function buildFocusedMessage(
+  message: string,
+  stream?: StreamType,
+  parentVersionId?: string
+): string {
+  if (!stream) return message;
+
+  const streamName = STREAM_NAMES[stream];
+  const parentContext = parentVersionId
+    ? ` You are iterating from version ${parentVersionId}.`
+    : "";
+
+  return `[${streamName} ONLY] ${message}
+
+IMPORTANT: Only modify the ${streamName} track. Do NOT touch other streams.${parentContext}
+Create a new ${stream === "voices" ? "voice" : stream === "music" ? "music" : "sfx"} draft with the requested changes.`;
+}
 
 export async function POST(
   req: NextRequest,
@@ -22,9 +49,12 @@ export async function POST(
   try {
     const { id: adId } = await params;
     const body = await req.json();
-    const { message, aiModel: rawAiModel } = body;
+    const { message, stream, parentVersionId } = body as {
+      message: string;
+      stream?: StreamType;
+      parentVersionId?: string;
+    };
 
-    // Validate required fields
     if (!message || message.trim() === "") {
       return NextResponse.json(
         { error: "message is required" },
@@ -32,10 +62,13 @@ export async function POST(
       );
     }
 
-    // Normalize AI model to provider
-    const provider = normalizeAIModel(rawAiModel || "openai") as Provider;
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { error: "OpenAI API key not configured" },
+        { status: 500 }
+      );
+    }
 
-    // Check if conversation exists
     const conversationExists = await hasConversation(adId);
     if (!conversationExists) {
       return NextResponse.json(
@@ -47,37 +80,31 @@ export async function POST(
       );
     }
 
-    // Check API key availability
-    if (provider === "openai" && !process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: "OpenAI API key not configured" },
-        { status: 500 }
-      );
-    }
-    if (provider === "moonshot" && !process.env.MOONSHOT_API_KEY) {
-      return NextResponse.json(
-        { error: "Moonshot API key not configured" },
-        { status: 500 }
-      );
-    }
-    if (provider === "qwen" && !process.env.QWEN_API_KEY) {
-      return NextResponse.json(
-        { error: "Qwen API key not configured" },
-        { status: 500 }
-      );
+    // Build focused message if stream specified
+    const focusedMessage = buildFocusedMessage(message, stream, parentVersionId);
+
+    console.log(`[/api/ads/${adId}/chat] Processing refinement: ${focusedMessage.substring(0, 100)}...`);
+    if (stream) {
+      console.log(`[/api/ads/${adId}/chat] Stream focus: ${stream}, parent: ${parentVersionId}`);
     }
 
-    console.log(`[/api/ads/${adId}/chat] Processing refinement request`);
-    console.log(`[/api/ads/${adId}/chat] Provider: ${provider}`);
-    console.log(`[/api/ads/${adId}/chat] Message: ${message.substring(0, 100)}...`);
-
-    // Continue the conversation with the new message
-    const result = await continueConversation(adId, message, provider);
+    const result = await continueConversation(adId, focusedMessage);
 
     console.log(`[/api/ads/${adId}/chat] Agent completed with ${result.toolCallHistory.length} tool calls`);
     console.log(`[/api/ads/${adId}/chat] New drafts:`, result.drafts);
 
-    // Return the result
+    // Update metadata on new versions (if stream was specified)
+    if (stream && parentVersionId) {
+      const newVersionId = result.drafts[stream];
+      if (newVersionId) {
+        await updateVersionMetadata(adId, stream, newVersionId, {
+          parentVersionId,
+          requestText: message, // Original message, not the focused one
+        });
+        console.log(`[/api/ads/${adId}/chat] Updated lineage: ${parentVersionId} → ${newVersionId}`);
+      }
+    }
+
     return NextResponse.json({
       conversationId: result.conversationId,
       drafts: result.drafts,

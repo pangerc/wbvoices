@@ -22,6 +22,7 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
   const [ads, setAds] = useState<Ad[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deletingAdId, setDeletingAdId] = useState<string | null>(null)
 
   // Load ads when drawer opens
   useEffect(() => {
@@ -76,6 +77,38 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
 
   const handleAdClick = (adId: string) => {
     window.location.href = `/ad/${adId}`
+  }
+
+  const handleDeleteAd = async (e: React.MouseEvent, adId: string) => {
+    e.stopPropagation() // Prevent navigation
+    if (!confirm('Delete this ad? This cannot be undone.')) return
+
+    setDeletingAdId(adId)
+    try {
+      const sessionId = typeof window !== 'undefined'
+        ? localStorage.getItem('universal-session') || 'default-session'
+        : 'default-session'
+
+      const res = await fetch(`/api/ads/${adId}`, {
+        method: 'DELETE',
+        headers: { 'x-session-id': sessionId }
+      })
+
+      if (res.ok) {
+        // If deleting current ad, redirect to home
+        if (currentAdId === adId) {
+          window.location.href = '/'
+        } else {
+          loadAds() // Refresh list
+        }
+      } else {
+        console.error('Failed to delete ad')
+      }
+    } catch (err) {
+      console.error('Error deleting ad:', err)
+    } finally {
+      setDeletingAdId(null)
+    }
   }
 
   return (
@@ -165,6 +198,7 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
                   className={`
                     group px-4 py-3 hover:bg-white/5 cursor-pointer transition-all
                     ${currentAdId === ad.adId ? 'bg-blue-500/10 border-l-2 border-l-blue-500' : ''}
+                    ${deletingAdId === ad.adId ? 'opacity-50 pointer-events-none' : ''}
                   `}
                 >
                   <div className="flex items-start justify-between">
@@ -187,6 +221,23 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
                         </span>
                       </div>
                     </div>
+
+                    {/* Delete button */}
+                    <button
+                      onClick={(e) => handleDeleteAd(e, ad.adId)}
+                      disabled={deletingAdId === ad.adId}
+                      className="flex-shrink-0 ml-2 p-1.5 opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded transition-all disabled:opacity-50"
+                      aria-label="Delete ad"
+                    >
+                      {deletingAdId === ad.adId ? (
+                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                 </div>
               ))}

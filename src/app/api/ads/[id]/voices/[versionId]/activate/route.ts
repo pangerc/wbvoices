@@ -51,14 +51,15 @@ export async function POST(
     }
 
     // Validate: Check if all voice tracks have generated audio
+    // Check embedded generatedUrl (new format) or legacy generatedUrls[] (migration)
     const voiceVersion = version as VoiceVersion;
-    const hasAllAudio = voiceVersion.voiceTracks.every((_, index) => {
-      return !!voiceVersion.generatedUrls?.[index];
+    const hasAllAudio = voiceVersion.voiceTracks.every((track, index) => {
+      return !!track.generatedUrl || !!voiceVersion.generatedUrls?.[index];
     });
 
     if (!hasAllAudio) {
-      const missingCount = voiceVersion.voiceTracks.filter((_, index) => {
-        return !voiceVersion.generatedUrls?.[index];
+      const missingCount = voiceVersion.voiceTracks.filter((track, index) => {
+        return !track.generatedUrl && !voiceVersion.generatedUrls?.[index];
       }).length;
 
       return NextResponse.json(

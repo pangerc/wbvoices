@@ -1,16 +1,31 @@
 import React from "react";
 import type { VoiceVersion } from "@/types/versions";
+import { VersionLineage, VersionIterationInput } from "@/components/ui";
 
 export interface VoiceVersionContentProps {
   version: VoiceVersion;
+  versionId: string;
+  adId: string;
   isActive?: boolean;
+  onNewVersion?: (versionId: string) => void;
+  onParentClick?: (versionId: string) => void;
 }
 
 export function VoiceVersionContent({
   version,
+  versionId,
+  adId,
+  onNewVersion,
+  onParentClick,
 }: VoiceVersionContentProps) {
   return (
     <div className="space-y-0">
+      {/* Lineage display */}
+      <VersionLineage
+        requestText={version.requestText}
+        parentVersionId={version.parentVersionId}
+        onParentClick={onParentClick}
+      />
       {version.voiceTracks.map((track, index) => {
         // Use embedded URL first, fall back to legacy parallel array
         const audioUrl = track.generatedUrl || version.generatedUrls?.[index];
@@ -122,6 +137,16 @@ export function VoiceVersionContent({
         <span>Created: {new Date(version.createdAt).toLocaleString()}</span>
         <span className="capitalize">Source: {version.createdBy}</span>
       </div>
+
+      {/* Iteration input */}
+      {onNewVersion && (
+        <VersionIterationInput
+          adId={adId}
+          stream="voices"
+          parentVersionId={versionId}
+          onNewVersion={onNewVersion}
+        />
+      )}
     </div>
   );
 }

@@ -3,8 +3,16 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { SpotifyPreview } from "@/components/SpotifyPreview";
-import { useProjectHistoryStore } from "@/store/projectHistoryStore";
-import { Project } from "@/types";
+
+interface PreviewData {
+  brandName: string;
+  slogan: string;
+  cta: string;
+  destinationUrl: string;
+  logoUrl?: string;
+  visualUrl?: string;
+  mixedAudioUrl?: string;
+}
 
 interface PreviewPageProps {
   params: Promise<{
@@ -15,40 +23,45 @@ interface PreviewPageProps {
 export default function PreviewPage({ params }: PreviewPageProps) {
   const resolvedParams = React.use(params);
   const { projectId } = resolvedParams;
-  const { loadProjectFromRedis } = useProjectHistoryStore();
-  const [project, setProject] = useState<Project | null>(null);
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load project data
+  // Load preview data via V3 API
   useEffect(() => {
     if (!projectId) return;
 
-    const loadProject = async () => {
+    const loadPreview = async () => {
       try {
-        const loadedProject = await loadProjectFromRedis(projectId);
-        setProject(loadedProject);
+        const response = await fetch(`/api/ads/${projectId}/preview`);
+        if (response.ok) {
+          const data = await response.json();
+          setPreviewData(data);
+        }
       } catch (error) {
-        console.error("Failed to load project for preview:", error);
+        console.error("Failed to load preview:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadProject();
-  }, [projectId, loadProjectFromRedis]);
+    loadPreview();
+  }, [projectId]);
 
-  // Refresh project when page becomes visible (e.g., switching back from another tab)
+  // Refresh preview when page becomes visible (e.g., switching back from another tab)
   useEffect(() => {
     if (!projectId) return;
 
     const handleVisibilityChange = async () => {
       if (!document.hidden) {
-        console.log("🔄 Preview page visible, refreshing project data...");
+        console.log("🔄 Preview page visible, refreshing preview data...");
         try {
-          const loadedProject = await loadProjectFromRedis(projectId);
-          setProject(loadedProject);
+          const response = await fetch(`/api/ads/${projectId}/preview`);
+          if (response.ok) {
+            const data = await response.json();
+            setPreviewData(data);
+          }
         } catch (error) {
-          console.error("Failed to refresh project:", error);
+          console.error("Failed to refresh preview:", error);
         }
       }
     };
@@ -56,7 +69,7 @@ export default function PreviewPage({ params }: PreviewPageProps) {
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [projectId, loadProjectFromRedis]);
+  }, [projectId]);
 
   if (loading) {
     return (
@@ -66,11 +79,11 @@ export default function PreviewPage({ params }: PreviewPageProps) {
     );
   }
 
-  if (!project) {
+  if (!previewData) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center text-white">
-          <h1 className="text-2xl mb-2">Project not found</h1>
+          <h1 className="text-2xl mb-2">Preview not found</h1>
           <p className="text-gray-400">
             The preview you&apos;re looking for doesn&apos;t exist.
           </p>
@@ -95,15 +108,12 @@ export default function PreviewPage({ params }: PreviewPageProps) {
       {/* Main Preview */}
       <div className="flex-1 flex items-center justify-center">
         <SpotifyPreview
-          brand={project.preview?.brandName}
-          slogan={project.preview?.slogan}
-          cta={project.preview?.cta}
-          logo={project.preview?.logoUrl}
-          adImage={project.preview?.visualUrl}
-          audioSrc={
-            project.preview?.mixedAudioUrl || // Use permanent mixed audio if available
-            project.generatedTracks?.musicUrl // Fallback to music-only track
-          }
+          brand={previewData.brandName}
+          slogan={previewData.slogan}
+          cta={previewData.cta}
+          logo={previewData.logoUrl}
+          adImage={previewData.visualUrl}
+          audioSrc={previewData.mixedAudioUrl}
         />
       </div>
     </div>

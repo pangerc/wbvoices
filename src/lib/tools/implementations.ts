@@ -234,33 +234,48 @@ export async function getCurrentState(
     return data ? { id: latestId, data } : null;
   }
 
-  // Get latest voices version
+  // Get latest voices version - include full track data for iteration support
   const voicesLatest = await getLatestVersion("voices");
   if (voicesLatest) {
     const vv = voicesLatest.data as VoiceVersion;
     result.voices = {
       versionId: voicesLatest.id,
       summary: `${vv.voiceTracks.length} voice tracks`,
+      // Include actual track data so LLM can preserve content during iterations
+      tracks: vv.voiceTracks.map((t, i) => ({
+        index: i,
+        voiceId: t.voice?.id,
+        voiceName: t.voice?.name,
+        text: t.text,
+        voiceInstructions: t.voiceInstructions,
+      })),
     };
   }
 
-  // Get latest music version
+  // Get latest music version - include full prompt for iteration support
   const musicLatest = await getLatestVersion("music");
   if (musicLatest) {
     const mv = musicLatest.data as MusicVersion;
     result.music = {
       versionId: musicLatest.id,
       summary: `${mv.provider} - "${mv.musicPrompt.slice(0, 50)}..."`,
+      prompt: mv.musicPrompt,
+      provider: mv.provider,
     };
   }
 
-  // Get latest sfx version
+  // Get latest sfx version - include full prompts for iteration support
   const sfxLatest = await getLatestVersion("sfx");
   if (sfxLatest) {
     const sv = sfxLatest.data as SfxVersion;
     result.sfx = {
       versionId: sfxLatest.id,
       summary: `${sv.soundFxPrompts.length} sound effects`,
+      prompts: sv.soundFxPrompts.map((p, i) => ({
+        index: i,
+        description: p.description,
+        placement: p.placement,
+      })),
     };
   }
 

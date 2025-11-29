@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
+import { MatrixBackground } from "@/components";
 import { VersionAccordion, DraftAccordion } from "@/components/ui";
 import { VoiceVersionContent } from "@/components/version-content/VoiceVersionContent";
 import { MusicVersionContent } from "@/components/version-content/MusicVersionContent";
@@ -12,7 +13,9 @@ import { MusicDraftEditor } from "@/components/draft-editors/MusicDraftEditor";
 import { SfxDraftEditor } from "@/components/draft-editors/SfxDraftEditor";
 import { BriefPanelV3 } from "@/components/BriefPanelV3";
 import { MixerPanel } from "@/components/MixerPanel";
+import { PreviewPanel } from "@/components/PreviewPanel";
 import { useMixerStore } from "@/store/mixerStore";
+import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import type {
   VoiceVersion,
   MusicVersion,
@@ -45,6 +48,10 @@ export default function AdWorkspace() {
 
   // Header tab state (0=Brief, 1=Voice, 2=Music, 3=SFX, 4=Mix, 5=Preview)
   const [selectedTab, setSelectedTab] = useState(0);
+
+  // Generation state tracking for MatrixBackground animation
+  const [isBriefGenerating, setIsBriefGenerating] = useState(false);
+  const { generatingMusic, generatingSfx } = useAudioPlaybackStore();
 
   // Refs to expose draft editor functions for DraftAccordion header buttons
   const voicePlayAllRef = useRef<(() => Promise<void>) | null>(null);
@@ -166,16 +173,17 @@ export default function AdWorkspace() {
   // Load mixer state from Redis on mount (Issue #4 fix: persistence on reload)
   useEffect(() => {
     const loadMixerState = async () => {
+      const { clearTracks, addTrack, setTrackVolume } = useMixerStore.getState();
+
+      // ALWAYS clear mixer when navigating to a different ad
+      // This prevents stale tracks from previous ads bleeding through
+      clearTracks();
+
       try {
         const res = await fetch(`/api/ads/${adId}/mixer`);
         if (res.ok) {
           const mixerState = await res.json();
           if (mixerState.tracks && mixerState.tracks.length > 0) {
-            const { clearTracks, addTrack, setTrackVolume } = useMixerStore.getState();
-
-            // Clear existing tracks first
-            clearTracks();
-
             // Hydrate tracks from Redis
             mixerState.tracks.forEach((track: { id: string; url: string; label: string; type: "voice" | "music" | "soundfx"; volume?: number }) => {
               addTrack(track);
@@ -610,8 +618,12 @@ export default function AdWorkspace() {
         projectName={adName}
       />
 
-      <div className="flex-1 overflow-auto bg-black">
-        <div className="container mx-auto px-4 py-8">
+      <div className="flex-1 overflow-auto bg-black relative">
+        {/* Dynamic Matrix Background - animates during generation */}
+        <MatrixBackground
+          isAnimating={isBriefGenerating || generatingMusic || generatingSfx}
+        />
+        <div className="container mx-auto px-4 py-8 relative z-10">
 
           {/* Brief - Tab 0 */}
           {selectedTab === 0 && (
@@ -619,6 +631,7 @@ export default function AdWorkspace() {
               adId={adId}
               initialBrief={briefData}
               onDraftsCreated={handleDraftsCreated}
+              onGeneratingChange={setIsBriefGenerating}
             />
           )}
 
@@ -695,7 +708,16 @@ export default function AdWorkspace() {
                 renderContent={(version, isActive) => (
                   <VoiceVersionContent
                     version={version as VoiceVersion}
+                    versionId={version.id}
+                    adId={adId}
                     isActive={isActive}
+                    onNewVersion={async (newVersionId) => {
+                      // Refresh voice stream to show new version
+                      const updated = await fetch(`/api/ads/${adId}/voices`);
+                      if (updated.ok) {
+                        setVoiceStream(await updated.json());
+                      }
+                    }}
                   />
                 )}
               />
@@ -774,7 +796,16 @@ export default function AdWorkspace() {
                 renderContent={(version, isActive) => (
                   <MusicVersionContent
                     version={version as MusicVersion}
+                    versionId={version.id}
+                    adId={adId}
                     isActive={isActive}
+                    onNewVersion={async (newVersionId) => {
+                      // Refresh music stream to show new version
+                      const updated = await fetch(`/api/ads/${adId}/music`);
+                      if (updated.ok) {
+                        setMusicStream(await updated.json());
+                      }
+                    }}
                   />
                 )}
               />
@@ -854,7 +885,16 @@ export default function AdWorkspace() {
                 renderContent={(version, isActive) => (
                   <SfxVersionContent
                     version={version as SfxVersion}
+                    versionId={version.id}
+                    adId={adId}
                     isActive={isActive}
+                    onNewVersion={async (newVersionId) => {
+                      // Refresh sfx stream to show new version
+                      const updated = await fetch(`/api/ads/${adId}/sfx`);
+                      if (updated.ok) {
+                        setSfxStream(await updated.json());
+                      }
+                    }}
                   />
                 )}
               />
@@ -872,6 +912,11 @@ export default function AdWorkspace() {
               onChangeMusic={() => setSelectedTab(2)}
               onChangeSoundFx={() => setSelectedTab(3)}
             />
+          )}
+
+          {/* Preview - Tab 5 */}
+          {selectedTab === 5 && (
+            <PreviewPanel projectId={adId} />
           )}
         </div>
       </div>

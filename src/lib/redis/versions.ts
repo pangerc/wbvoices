@@ -45,6 +45,9 @@ export const AD_KEYS = {
 
   /** Mixer state: ad:{adId}:mixer */
   mixer: (adId: string) => `ad:${adId}:mixer`,
+
+  /** Preview data: ad:{adId}:preview */
+  preview: (adId: string) => `ad:${adId}:preview`,
 } as const;
 
 // ============ Version Creation ============
@@ -327,6 +330,27 @@ export async function updateVersion(
   console.log(`✅ Updated ${streamType} version ${versionId} for ad ${adId}`);
 }
 
+/**
+ * Update version lineage metadata (parentVersionId, requestText)
+ * Used after agent creates a version to track iteration history
+ *
+ * @param adId - Advertisement ID
+ * @param streamType - Which stream
+ * @param versionId - Version ID to update
+ * @param metadata - Lineage metadata
+ */
+export async function updateVersionMetadata(
+  adId: string,
+  streamType: StreamType,
+  versionId: VersionId,
+  metadata: { parentVersionId?: string; requestText?: string }
+): Promise<void> {
+  await updateVersion(adId, streamType, versionId, metadata);
+  console.log(
+    `✅ Updated metadata for ${streamType} ${versionId}: parent=${metadata.parentVersionId}, request="${metadata.requestText?.slice(0, 50)}..."`
+  );
+}
+
 // ============ Ad Metadata ============
 
 /**
@@ -455,4 +479,120 @@ export async function updateMixerState(
   console.log(`✅ Updated mixer state for ad ${adId}`);
 
   return merged;
+}
+
+// ============ Preview Data ============
+
+/**
+ * Preview data shape for Spotify ad preview
+ */
+export interface PreviewData {
+  brandName: string;
+  slogan: string;
+  cta: string;
+  destinationUrl: string;
+  logoUrl?: string;
+  visualUrl?: string;
+}
+
+/**
+ * Get preview data for an ad
+ *
+ * @param adId - Advertisement ID
+ * @returns Preview data or null if not found
+ */
+export async function getPreviewData(adId: string): Promise<PreviewData | null> {
+  const redis = getRedisV3();
+  const previewKey = AD_KEYS.preview(adId);
+
+  const data = await redis.get(previewKey);
+
+  if (!data) {
+    return null;
+  }
+
+  return typeof data === "string" ? JSON.parse(data) : data;
+}
+
+/**
+ * Set preview data for an ad (partial update, merges with existing)
+ *
+ * @param adId - Advertisement ID
+ * @param data - Partial preview data to merge
+ * @returns Updated preview data
+ */
+export async function setPreviewData(
+  adId: string,
+  data: Partial<PreviewData>
+): Promise<PreviewData> {
+  const redis = getRedisV3();
+  const previewKey = AD_KEYS.preview(adId);
+
+  // Load existing or create default
+  const existing = await getPreviewData(adId);
+  const merged: PreviewData = {
+    brandName: "",
+    slogan: "",
+    cta: "Learn More",
+    destinationUrl: "",
+    ...existing,
+    ...data,
+  };
+
+  await redis.set(previewKey, JSON.stringify(merged));
+
+  console.log(`✅ Updated preview data for ad ${adId}`);
+
+  return merged;
+}
+
+// ============ Ad Deletion ============
+
+/**
+ * Delete an ad and all its associated data from Redis
+ *
+ * Cleans up:
+ * - Ad metadata
+ * - All version streams (voices, music, sfx) including individual versions
+ * - Mixer state
+ * - Preview data
+ * - Session index entry
+ *
+ * @param adId - Advertisement ID to delete
+ * @param sessionId - Session ID to remove from index
+ */
+export async function deleteAd(adId: string, sessionId: string): Promise<void> {
+  const redis = getRedisV3();
+
+  const streamTypes: StreamType[] = ["voices", "music", "sfx"];
+  const keysToDelete: string[] = [
+    AD_KEYS.meta(adId),
+    AD_KEYS.mixer(adId),
+    AD_KEYS.preview(adId),
+  ];
+
+  // Collect all version-related keys for each stream
+  for (const streamType of streamTypes) {
+    // Add version list and active pointer keys
+    keysToDelete.push(AD_KEYS.versions(adId, streamType));
+    keysToDelete.push(AD_KEYS.active(adId, streamType));
+
+    // Get all version IDs and add their individual keys
+    const versionIds = await listVersions(adId, streamType);
+    for (const vId of versionIds) {
+      keysToDelete.push(AD_KEYS.version(adId, streamType, vId));
+    }
+  }
+
+  // Delete all keys in one operation
+  if (keysToDelete.length > 0) {
+    await redis.del(...keysToDelete);
+  }
+
+  // Remove from session index
+  await redis.lrem(`session:${sessionId}:ads`, 0, adId);
+
+  console.log(
+    `✅ Deleted ad ${adId} (${keysToDelete.length} keys + session index)`
+  );
 }

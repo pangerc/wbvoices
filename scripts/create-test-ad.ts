@@ -29,7 +29,6 @@ const testBrief = {
   selectedProvider: "elevenlabs" as const,
   adDuration: 30,
   selectedAccent: null,
-  selectedAiModel: "openai" as const,
   musicProvider: "loudly" as const,
   selectedCTA: "Try Premium free for 1 month",
   selectedPacing: null,

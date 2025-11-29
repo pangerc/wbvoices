@@ -70,8 +70,11 @@ export interface VoiceVersion {
   /** Optional: Original LLM prompt that generated this version */
   promptContext?: string;
 
-  /** Optional: Parent version ID if this was forked */
+  /** Optional: Parent version ID if this was iterated from */
   parentVersionId?: VersionId;
+
+  /** Optional: User request that created this iteration */
+  requestText?: string;
 }
 
 /**
@@ -122,6 +125,12 @@ export interface MusicVersion {
 
   /** Current lifecycle status */
   status: VersionStatus;
+
+  /** Optional: Parent version ID if this was iterated from */
+  parentVersionId?: VersionId;
+
+  /** Optional: User request that created this iteration */
+  requestText?: string;
 }
 
 // ============ Sound Effects Version Stream ============
@@ -145,6 +154,12 @@ export interface SfxVersion {
 
   /** Current lifecycle status */
   status: VersionStatus;
+
+  /** Optional: Parent version ID if this was iterated from */
+  parentVersionId?: VersionId;
+
+  /** Optional: User request that created this iteration */
+  requestText?: string;
 }
 
 // ============ Ad Metadata ============

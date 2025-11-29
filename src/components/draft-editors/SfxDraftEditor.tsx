@@ -7,6 +7,7 @@ import type { SoundFxPrompt } from "@/types";
 import { useMixerStore } from "@/store/mixerStore";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useSfxDraftState, usePlaybackActions } from "@/hooks/useAudioPlayback";
+import { VersionIterationInput } from "@/components/ui";
 
 export interface SfxDraftEditorProps {
   adId: string;
@@ -198,16 +199,34 @@ export function SfxDraftEditor({
   };
 
   return (
-    <SoundFxPanel
-      onGenerate={handleGenerate}
-      isGenerating={isGenerating}
-      statusMessage={statusMessage}
-      soundFxPrompts={soundFxPrompts}
-      onUpdatePrompt={updatePrompt}
-      onRemovePrompt={removePrompt}
-      onAddPrompt={addPrompt}
-      adDuration={adDuration}
-      resetForm={resetForm}
-    />
+    <>
+      <SoundFxPanel
+        onGenerate={handleGenerate}
+        isGenerating={isGenerating}
+        statusMessage={statusMessage}
+        soundFxPrompts={soundFxPrompts}
+        onUpdatePrompt={updatePrompt}
+        onRemovePrompt={removePrompt}
+        onAddPrompt={addPrompt}
+        adDuration={adDuration}
+        resetForm={resetForm}
+      />
+      <VersionIterationInput
+        adId={adId}
+        stream="sfx"
+        parentVersionId={draftVersionId}
+        onNewVersion={onUpdate}
+        disabled={!draftVersion.generatedUrls?.length || draftVersion.generatedUrls.filter(Boolean).length < soundFxPrompts.length}
+        onActivateDraft={async () => {
+          const res = await fetch(`/api/ads/${adId}/sfx/${draftVersionId}/activate`, {
+            method: "POST",
+          });
+          if (!res.ok) {
+            throw new Error(`Failed to activate: ${res.status}`);
+          }
+          await onUpdate(); // Refresh stream to show frozen version in VersionAccordion
+        }}
+      />
+    </>
   );
 }

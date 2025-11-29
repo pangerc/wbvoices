@@ -89,7 +89,33 @@ export interface DraftCreationResult {
 }
 
 export interface CurrentStateResult {
-  voices?: { versionId: string; summary: string };
-  music?: { versionId: string; summary: string };
-  sfx?: { versionId: string; summary: string };
+  voices?: {
+    versionId: string;
+    summary: string;
+    /** Actual track data so LLM can preserve existing content during iterations */
+    tracks?: Array<{
+      index: number;
+      voiceId?: string;
+      voiceName?: string;
+      text: string;
+      voiceInstructions?: string;
+    }>;
+  };
+  music?: {
+    versionId: string;
+    summary: string;
+    /** Full prompts so LLM can preserve during iterations */
+    prompt?: string;
+    provider?: string;
+  };
+  sfx?: {
+    versionId: string;
+    summary: string;
+    /** Full SFX descriptions so LLM can preserve during iterations */
+    prompts?: Array<{
+      index: number;
+      description: string;
+      placement?: { type: string; index?: number };
+    }>;
+  };
 }

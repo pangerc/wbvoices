@@ -1,18 +1,34 @@
 import React from "react";
 import type { MusicVersion } from "@/types/versions";
+import { VersionLineage, VersionIterationInput } from "@/components/ui";
 
 export interface MusicVersionContentProps {
   version: MusicVersion;
+  versionId: string;
+  adId: string;
   isActive?: boolean;
+  onNewVersion?: (versionId: string) => void;
+  onParentClick?: (versionId: string) => void;
 }
 
 export function MusicVersionContent({
   version,
+  versionId,
+  adId,
+  onNewVersion,
+  onParentClick,
 }: MusicVersionContentProps) {
   const hasAudio = version.generatedUrl && version.generatedUrl.length > 0;
 
   return (
     <div className="space-y-3">
+      {/* Lineage display */}
+      <VersionLineage
+        requestText={version.requestText}
+        parentVersionId={version.parentVersionId}
+        onParentClick={onParentClick}
+      />
+
       {/* Music prompt */}
       <div className="text-white leading-relaxed">
         {version.musicPrompt || (
@@ -49,6 +65,16 @@ export function MusicVersionContent({
         <span>Created: {new Date(version.createdAt).toLocaleString()}</span>
         <span className="capitalize">Source: {version.createdBy}</span>
       </div>
+
+      {/* Iteration input */}
+      {onNewVersion && (
+        <VersionIterationInput
+          adId={adId}
+          stream="music"
+          parentVersionId={versionId}
+          onNewVersion={onNewVersion}
+        />
+      )}
     </div>
   );
 }

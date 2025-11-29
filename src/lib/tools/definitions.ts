@@ -200,23 +200,3 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
 ];
 
-/**
- * Tool set types for different use cases
- * - initial_generation: Excludes search_voices (voices are prefetched)
- * - chat_refinement: Full tool set (user may want to recast)
- */
-export type ToolSet = "initial_generation" | "chat_refinement";
-
-/**
- * Get tool definitions for a specific use case
- * - initial_generation: Excludes search_voices (voices are prefetched into prompt)
- * - chat_refinement: Full tool set including search_voices for recasting
- */
-export function getToolDefinitions(toolSet: ToolSet): ToolDefinition[] {
-  if (toolSet === "initial_generation") {
-    // Exclude search_voices - voices are injected via prefetch
-    return TOOL_DEFINITIONS.filter((t) => t.function.name !== "search_voices");
-  }
-  // chat_refinement: return all tools including search_voices
-  return TOOL_DEFINITIONS;
-}

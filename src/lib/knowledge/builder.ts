@@ -122,15 +122,21 @@ Select ONE voice that best matches the brand personality and target audience.`;
 /**
  * Get format-specific guidance based on campaign format
  * Only injects guidance for the selected format to avoid confusing the LLM
+ *
+ * @param hasPrefetchedVoices - If true, voices are pre-loaded so don't mention searching
  */
-function getFormatGuidance(campaignFormat?: string): string {
+function getFormatGuidance(campaignFormat?: string, hasPrefetchedVoices?: boolean): string {
   if (campaignFormat === "dialog") {
+    const searchNote = hasPrefetchedVoices
+      ? "Select one voice from the Male Voices section and one from Female Voices above."
+      : "Search for voices by gender to find suitable male and female voices.";
+
     return `## FORMAT: DIALOGUE
 Create a dialogue between TWO DIFFERENT voices having a natural conversation about the product/service.
 CRITICAL: You MUST select two different voice IDs - never use the same voice twice!
 The voices should have contrasting but complementary personalities (e.g., one enthusiastic and one calm, or different genders).
 Ensure each voice gets roughly equal speaking time.
-Search for voices TWICE - once for male, once for female - to ensure variety.`;
+${searchNote}`;
   }
   return `## FORMAT: SINGLE VOICE
 Create a single-voice narration that directly addresses the listener.
@@ -140,9 +146,31 @@ Select ONE voice that best matches the brand personality.`;
 
 /**
  * Base system prompt - common across all intents
+ *
+ * @param hasPrefetchedVoices - If true, voices are pre-loaded in the prompt (initial generation)
  */
-function getBaseSystemPrompt(context?: KnowledgeContext): string {
-  const formatGuidance = getFormatGuidance(context?.campaignFormat);
+function getBaseSystemPrompt(context?: KnowledgeContext, hasPrefetchedVoices?: boolean): string {
+  const formatGuidance = getFormatGuidance(context?.campaignFormat, hasPrefetchedVoices);
+
+  // Different process instructions based on whether voices are prefetched
+  const processInstructions = hasPrefetchedVoices
+    ? `## Your Process - FOLLOW EXACTLY
+
+1. Review the AVAILABLE VOICES section above - voices are pre-loaded for you
+2. Select appropriate voices and call create_voice_draft
+   - For dialogue: pick TWO different voices (male + female)
+   - For single voice: pick ONE voice that fits the brief
+3. After voice draft, call create_music_draft
+4. After music draft, call create_sfx_draft with 1-2 sound effects
+5. STOP - do not make any more tool calls`
+    : `## Your Process - FOLLOW EXACTLY
+
+1. Search for voices using search_voices (language required, gender optional)
+   - For dialogue: search twice - once for male, once for female
+2. Once you have suitable voices, call create_voice_draft
+3. After voice draft, call create_music_draft
+4. After music draft, call create_sfx_draft with 1-2 sound effects
+5. STOP - do not make any more tool calls`;
 
   return `You are an expert audio ad creative director specializing in creating compelling radio and podcast advertisements.
 
@@ -158,23 +186,13 @@ Your job is to create or modify audio ad elements using the tools available to y
 
 ${formatGuidance}
 
-## Your Process - FOLLOW EXACTLY
-
-1. Search for voices using search_voices (language required, gender optional)
-2. Once voices are found (count > 0), IMMEDIATELY call create_voice_draft
-   - Do NOT search again
-   - Do NOT call get_current_state
-   - Use the voices you found
-3. After voice draft, call create_music_draft
-4. After music draft, call create_sfx_draft with 1-2 sound effects
-5. STOP - do not make any more tool calls
+${processInstructions}
 
 ## CRITICAL RULES
 - ONLY search for voices from the provider specified in the user brief (Voice Provider field)
 - Do NOT use voices from other providers even if you know them
-- get_current_state is ONLY for continuing existing conversations, not for new ads
-- Once search_voices returns voices, you MUST create drafts with them
-- Do NOT keep searching for "better" voices - use what you found
+- get_current_state is useful for understanding the current ad state before making changes
+- Do NOT keep searching for "better" voices endlessly - make a decision and proceed
 - Do NOT call the same tool twice in a row
 
 ## Voice Casting Guidelines
@@ -199,7 +217,13 @@ ${formatGuidance}
 
 - Do NOT return JSON - use the tools to create drafts
 - Be conversational in your responses
-- Follow the provider-specific guidance below for voice formatting`;
+- Follow the provider-specific guidance below for voice formatting
+
+## TOOL CALLING PREAMBLE
+
+Before calling any tool, briefly explain your reasoning (1 sentence). Example:
+"I'll create the voice draft with these two speakers matching the dialogue format." → [calls create_voice_draft]
+This helps with debugging and ensures you're making deliberate choices.`;
 }
 
 /**
@@ -234,7 +258,13 @@ export function buildSystemPrompt(
     moduleIds = MODULE_MAPPING[intent];
   }
 
-  const basePrompt = getBaseSystemPrompt(context);
+  // Determine if we have prefetched voices for this intent
+  const hasPrefetchedVoices =
+    prefetchedVoices &&
+    prefetchedVoices.totalCount > 0 &&
+    intent === "initial_generation";
+
+  const basePrompt = getBaseSystemPrompt(context, hasPrefetchedVoices);
   const moduleContent = moduleIds
     .map((id) => {
       const module = MODULE_REGISTRY[id];
@@ -244,13 +274,9 @@ export function buildSystemPrompt(
 
   // Inject voice context for initial generation when prefetched voices are provided
   let voiceContext = "";
-  if (
-    prefetchedVoices &&
-    prefetchedVoices.totalCount > 0 &&
-    intent === "initial_generation"
-  ) {
+  if (hasPrefetchedVoices) {
     voiceContext = formatVoiceContext(
-      prefetchedVoices,
+      prefetchedVoices!,
       context?.campaignFormat || "ad_read"
     );
   }
@@ -260,6 +286,48 @@ export function buildSystemPrompt(
     return `${basePrompt}\n\n${voiceContext}\n\n---\n\n${moduleContent}`;
   }
   return `${basePrompt}\n\n---\n\n${moduleContent}`;
+}
+
+/**
+ * Build system prompt for iteration/conversation continuation
+ *
+ * Unlike initial generation, iterations:
+ * - Do NOT have prefetched voices (stale data issue)
+ * - CAN call search_voices to find new voices
+ * - Focus on modifying specific streams (voice/music/sfx)
+ */
+export function buildIterationSystemPrompt(context?: KnowledgeContext): string {
+  // Get all voice modules to support any provider
+  const moduleIds: (keyof typeof MODULE_REGISTRY)[] = [
+    "elevenlabs-voice",
+    "openai-voice",
+    "music-generation",
+    "sfx-generation",
+    "creative-alignment",
+  ];
+
+  // No prefetched voices - LLM should search if needed
+  const basePrompt = getBaseSystemPrompt(context, false);
+  const moduleContent = moduleIds
+    .map((id) => {
+      const module = MODULE_REGISTRY[id];
+      return module.getContent(context);
+    })
+    .join("\n\n---\n\n");
+
+  return `${basePrompt}
+
+## ITERATION MODE
+
+You are continuing an existing conversation about an ad. The user wants to make changes.
+
+**Key differences from initial generation:**
+- Use get_current_state to understand what already exists
+- Use search_voices if you need to find new voices (they are NOT pre-loaded)
+- Only create drafts for the streams the user wants to change
+- Preserve existing work unless explicitly asked to change it
+
+${moduleContent}`;
 }
 
 /**

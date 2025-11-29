@@ -5,9 +5,7 @@ import Image from "next/image";
 import { GlassyInput, GenerateButton } from "./ui";
 import { FileUpload, useFileUpload } from "./ui/FileUpload";
 import { SpotifyPreview } from "./SpotifyPreview";
-import { useProjectHistoryStore } from "@/store/projectHistoryStore";
 import { useMixerStore } from "@/store/mixerStore";
-import { Project } from "@/types";
 
 interface PreviewPanelProps {
   projectId?: string;
@@ -18,6 +16,9 @@ interface PreviewData {
   slogan: string;
   destinationUrl: string;
   cta: string;
+  logoUrl?: string;
+  visualUrl?: string;
+  mixedAudioUrl?: string;
 }
 
 export function PreviewPanel({ projectId }: PreviewPanelProps) {
@@ -28,7 +29,6 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
     handleUploadComplete,
     handleUploadError,
   } = useFileUpload();
-  const { loadProjectFromRedis, updateProject } = useProjectHistoryStore();
   const { previewUrl, isUploadingMix } = useMixerStore();
 
   const [previewData, setPreviewData] = useState<PreviewData>({
@@ -38,7 +38,6 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
     cta: "Learn More",
   });
 
-  const [project, setProject] = useState<Project | null>(null);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Debug logging
@@ -46,177 +45,103 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
     console.log("🎵 Preview audio sources:", {
       isUploadingMix,
       previewUrl,
-      redisPreviewUrl: project?.preview?.mixedAudioUrl,
-      musicUrl: project?.generatedTracks?.musicUrl,
-      finalAudioSrc:
-        previewUrl ||
-        project?.preview?.mixedAudioUrl ||
-        project?.generatedTracks?.musicUrl,
+      redisPreviewUrl: previewData.mixedAudioUrl,
+      finalAudioSrc: previewUrl || previewData.mixedAudioUrl,
     });
-  }, [
-    isUploadingMix,
-    previewUrl,
-    project?.preview?.mixedAudioUrl,
-    project?.generatedTracks?.musicUrl,
-  ]);
+  }, [isUploadingMix, previewUrl, previewData.mixedAudioUrl]);
 
-  // Custom upload handlers that auto-save to project
+  // Custom upload handlers that auto-save via API
   const handleLogoUpload = async (result: { url: string; filename: string }) => {
     handleUploadComplete("logo")(result);
 
-    // Auto-save logo URL to project
+    // Auto-save logo URL via API
     if (projectId) {
-      // Load fresh project from Redis to avoid race conditions
-      const currentProject = await loadProjectFromRedis(projectId);
-      if (!currentProject) return;
+      try {
+        const response = await fetch(`/api/ads/${projectId}/preview`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ logoUrl: result.url }),
+        });
 
-      const updatedPreview = {
-        ...currentProject.preview, // Use fresh data, not stale local state
-        brandName: previewData.brandName,
-        slogan: previewData.slogan,
-        destinationUrl: previewData.destinationUrl,
-        cta: previewData.cta,
-        logoUrl: result.url,
-        visualUrl: currentProject.preview?.visualUrl || uploadedFiles.visual?.url,
-      };
-
-      await updateProject(projectId, {
-        preview: updatedPreview,
-        lastModified: Date.now(),
-      });
-
-      // Update local state with fresh merged data
-      setProject({
-        ...currentProject,
-        preview: updatedPreview,
-        lastModified: Date.now(),
-      });
+        if (response.ok) {
+          const updated = await response.json();
+          setPreviewData((prev) => ({ ...prev, logoUrl: updated.logoUrl }));
+        }
+      } catch (error) {
+        console.error("Failed to save logo URL:", error);
+      }
     }
   };
 
   const handleVisualUpload = async (result: { url: string; filename: string }) => {
     handleUploadComplete("visual")(result);
 
-    // Auto-save visual URL to project
+    // Auto-save visual URL via API
     if (projectId) {
-      // Load fresh project from Redis to avoid race conditions
-      const currentProject = await loadProjectFromRedis(projectId);
-      if (!currentProject) return;
+      try {
+        const response = await fetch(`/api/ads/${projectId}/preview`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ visualUrl: result.url }),
+        });
 
-      const updatedPreview = {
-        ...currentProject.preview, // Use fresh data, not stale local state
-        brandName: previewData.brandName,
-        slogan: previewData.slogan,
-        destinationUrl: previewData.destinationUrl,
-        cta: previewData.cta,
-        logoUrl: currentProject.preview?.logoUrl || uploadedFiles.logo?.url,
-        visualUrl: result.url,
-      };
-
-      await updateProject(projectId, {
-        preview: updatedPreview,
-        lastModified: Date.now(),
-      });
-
-      // Update local state with fresh merged data
-      setProject({
-        ...currentProject,
-        preview: updatedPreview,
-        lastModified: Date.now(),
-      });
+        if (response.ok) {
+          const updated = await response.json();
+          setPreviewData((prev) => ({ ...prev, visualUrl: updated.visualUrl }));
+        }
+      } catch (error) {
+        console.error("Failed to save visual URL:", error);
+      }
     }
   };
 
-  // Load project data on mount
+  // Load preview data on mount via V3 API
   useEffect(() => {
     if (!projectId) return;
 
-    const loadProject = async () => {
+    const loadPreview = async () => {
       try {
-        const loadedProject = await loadProjectFromRedis(projectId);
-        if (loadedProject) {
-          setProject(loadedProject);
-
-          // Initialize preview data from project (preview data takes precedence, fallback to brief data)
-          const briefCTA =
-            loadedProject.brief?.selectedCTA?.replace(/-/g, " ") || "";
-          // Extract brand name from client description (first few words, up to punctuation)
-          const briefBrandName =
-            loadedProject.brief?.clientDescription
-              ?.split(
-                /[.,]|(\s+is\s+)|(\s+offers\s+)|(\s+provides\s+)|(\s+sells\s+)/
-              )[0] // Split on punctuation or common separators
-              ?.trim() || "";
-
-          // Helper function to capitalize text (for both CTA and brand names)
-          const capitalizeText = (text: string) => {
-            return text
-              .split(" ")
-              .map(
-                (word) =>
-                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-              )
-              .join(" ");
-          };
-
-          const finalCTA =
-            loadedProject.preview?.cta &&
-            loadedProject.preview.cta !== "Learn More"
-              ? loadedProject.preview.cta
-              : briefCTA || "Learn More";
-
+        const response = await fetch(`/api/ads/${projectId}/preview`);
+        if (response.ok) {
+          const data = await response.json();
           setPreviewData({
-            brandName:
-              loadedProject.preview?.brandName ||
-              (briefBrandName ? capitalizeText(briefBrandName) : ""),
-            slogan: loadedProject.preview?.slogan || "",
-            destinationUrl: loadedProject.preview?.destinationUrl || "",
-            cta: capitalizeText(finalCTA),
+            brandName: data.brandName || "",
+            slogan: data.slogan || "",
+            destinationUrl: data.destinationUrl || "",
+            cta: data.cta || "Learn More",
+            logoUrl: data.logoUrl,
+            visualUrl: data.visualUrl,
+            mixedAudioUrl: data.mixedAudioUrl,
           });
         }
       } catch (error) {
-        console.error("Failed to load project:", error);
+        console.error("Failed to load preview:", error);
       }
     };
 
-    loadProject();
-  }, [projectId, loadProjectFromRedis]);
+    loadPreview();
+  }, [projectId]);
 
-  // Debounced update function
-  const debouncedUpdateProject = useCallback(
-    async (updatedPreviewData: PreviewData) => {
+  // Debounced update function via V3 API
+  const debouncedUpdatePreview = useCallback(
+    async (updates: Partial<PreviewData>) => {
       if (!projectId) return;
 
-      // Load fresh project from Redis to avoid race conditions
-      const currentProject = await loadProjectFromRedis(projectId);
-      if (!currentProject) return;
+      try {
+        const response = await fetch(`/api/ads/${projectId}/preview`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        });
 
-      const updatedPreview = {
-        ...currentProject.preview, // Use fresh data, not stale local state
-        ...updatedPreviewData,
-        logoUrl: uploadedFiles.logo?.url || currentProject.preview?.logoUrl,
-        visualUrl: uploadedFiles.visual?.url || currentProject.preview?.visualUrl,
-      };
-
-      await updateProject(projectId, {
-        preview: updatedPreview,
-        lastModified: Date.now(),
-      });
-
-      // Update local state with fresh merged data
-      setProject({
-        ...currentProject,
-        preview: updatedPreview,
-        lastModified: Date.now(),
-      });
+        if (!response.ok) {
+          console.error("Failed to update preview:", response.statusText);
+        }
+      } catch (error) {
+        console.error("Failed to update preview:", error);
+      }
     },
-    [
-      projectId,
-      uploadedFiles.logo?.url,
-      uploadedFiles.visual?.url,
-      loadProjectFromRedis,
-      updateProject,
-    ]
+    [projectId]
   );
 
   const handleInputChange = (field: keyof PreviewData, value: string) => {
@@ -230,7 +155,7 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
 
     // Set new timeout for debounced update (500ms delay)
     debounceTimeoutRef.current = setTimeout(() => {
-      debouncedUpdateProject(newPreviewData);
+      debouncedUpdatePreview({ [field]: value });
     }, 500);
   };
 
@@ -243,8 +168,8 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
     };
   }, []);
 
-  const logoUrl = uploadedFiles.logo?.url || project?.preview?.logoUrl;
-  const visualUrl = uploadedFiles.visual?.url || project?.preview?.visualUrl;
+  const logoUrl = uploadedFiles.logo?.url || previewData.logoUrl;
+  const visualUrl = uploadedFiles.visual?.url || previewData.visualUrl;
 
   const generatePreviewUrl = () => {
     if (!projectId) return "";
@@ -424,9 +349,8 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
               logo={logoUrl}
               adImage={visualUrl}
               audioSrc={
-                previewUrl || // Use current preview URL from store
-                project?.preview?.mixedAudioUrl || // Or permanent URL from Redis
-                project?.generatedTracks?.musicUrl // Fallback to music-only
+                previewUrl || // Use current preview URL from mixer store
+                previewData.mixedAudioUrl // Or permanent URL from Redis
               }
               isGenerating={isUploadingMix}
             />

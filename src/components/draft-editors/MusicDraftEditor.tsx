@@ -7,6 +7,7 @@ import type { MusicProvider } from "@/types";
 import { useMixerStore } from "@/store/mixerStore";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useMusicDraftState, usePlaybackActions } from "@/hooks/useAudioPlayback";
+import { VersionIterationInput } from "@/components/ui";
 
 export interface MusicDraftEditorProps {
   adId: string;
@@ -169,15 +170,33 @@ export function MusicDraftEditor({
   };
 
   return (
-    <MusicPanel
-      onGenerate={handleGenerate}
-      isGenerating={isGenerating}
-      statusMessage={statusMessage}
-      adDuration={adDuration}
-      musicProvider={musicProvider}
-      setMusicProvider={handleProviderChange}
-      resetForm={resetForm}
-      initialPrompts={draftVersion.musicPrompts}
-    />
+    <>
+      <MusicPanel
+        onGenerate={handleGenerate}
+        isGenerating={isGenerating}
+        statusMessage={statusMessage}
+        adDuration={adDuration}
+        musicProvider={musicProvider}
+        setMusicProvider={handleProviderChange}
+        resetForm={resetForm}
+        initialPrompts={draftVersion.musicPrompts}
+      />
+      <VersionIterationInput
+        adId={adId}
+        stream="music"
+        parentVersionId={draftVersionId}
+        onNewVersion={onUpdate}
+        disabled={!draftVersion.generatedUrl}
+        onActivateDraft={async () => {
+          const res = await fetch(`/api/ads/${adId}/music/${draftVersionId}/activate`, {
+            method: "POST",
+          });
+          if (!res.ok) {
+            throw new Error(`Failed to activate: ${res.status}`);
+          }
+          await onUpdate(); // Refresh stream to show frozen version in VersionAccordion
+        }}
+      />
+    </>
   );
 }

@@ -18,9 +18,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { runAgentLoop, type Provider } from "@/lib/tool-calling";
+import { runAgentLoop } from "@/lib/tool-calling";
 import { prefetchVoices } from "@/lib/tool-calling/voicePrefetch";
-import { normalizeAIModel } from "@/utils/aiModelSelection";
 import { getLanguageName } from "@/utils/language";
 import { setAdMetadata } from "@/lib/redis/versions";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
@@ -78,6 +77,10 @@ function buildUserMessage(params: {
     ctaNote = `\n- Call to Action: ${cta}`;
   }
 
+  // Calculate word count targets based on duration (~2.5 words/sec)
+  const totalWords = Math.round(duration * 2.5);
+  const wordsPerSpeaker = campaignFormat === "dialog" ? Math.round(totalWords / 2) : totalWords;
+
   return `Create a ${duration}-second ${campaignFormat} audio ad.
 
 ## Brief Details
@@ -86,6 +89,13 @@ function buildUserMessage(params: {
 - Voice Provider: ${voiceProvider} (REQUIRED - only search for voices from this provider)
 - Client: ${clientDescription}
 - Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}
+
+## DURATION CONSTRAINT (CRITICAL)
+- STRICT LIMIT: Script MUST fit within ${duration} seconds when read at natural pace
+- Target word count: ~${totalWords} words total
+${campaignFormat === "dialog" ? `- For dialogue: ~${wordsPerSpeaker} words per speaker (2-4 exchanges max)` : ""}
+- Leave 2-3 seconds for pauses and transitions
+- SHORTER IS BETTER - err on the side of brevity
 
 Please search for suitable voices in ${languageName} from ${voiceProvider}, then create the voice tracks, music, and sound effects.`;
 }
@@ -96,7 +106,6 @@ export async function POST(req: NextRequest) {
     const {
       adId,
       sessionId,
-      aiModel: rawAiModel,
       language,
       clientDescription,
       creativeBrief,
@@ -127,31 +136,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Normalize AI model to provider
-    const provider = normalizeAIModel(rawAiModel || "openai") as Provider;
-
-    // Check API key availability
-    if (provider === "openai" && !process.env.OPENAI_API_KEY) {
+    // Check OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: "OpenAI API key not configured" },
         { status: 500 }
       );
     }
-    if (provider === "moonshot" && !process.env.MOONSHOT_API_KEY) {
-      return NextResponse.json(
-        { error: "Moonshot API key not configured" },
-        { status: 500 }
-      );
-    }
-    if (provider === "qwen" && !process.env.QWEN_API_KEY) {
-      return NextResponse.json(
-        { error: "Qwen API key not configured" },
-        { status: 500 }
-      );
-    }
 
     console.log(`[/api/ai/generate] Starting agentic generation for ad ${adId}`);
-    console.log(`[/api/ai/generate] LLM Provider: ${provider}, Voice Provider: ${voiceProvider}, Language: ${language}`);
+    console.log(`[/api/ai/generate] Voice Provider: ${voiceProvider}, Language: ${language}`);
 
     // Build prompts with knowledge context
     const languageName = getLanguageName(language);
@@ -203,14 +197,11 @@ export async function POST(req: NextRequest) {
     const systemPrompt = buildSystemPrompt(userMessage, knowledgeContext, prefetchedVoices);
     console.log(`[/api/ai/generate] Built system prompt with knowledge modules + voice context`);
 
-    // Run the agent loop with initial_generation tool set (no search_voices)
+    // Run the agent loop
     const result = await runAgentLoop(systemPrompt, userMessage, {
       adId,
-      provider,
-      reasoningEffort: "medium", // Medium reasoning for quality creative output
-      maxIterations: 5, // Reduced since we expect 1 iteration with prefetch
-      continueConversation: false, // Fresh conversation for new generation
-      toolSet: "initial_generation", // Excludes search_voices since voices are prefetched
+      reasoningEffort: "medium",
+      maxIterations: 5,
     });
 
     console.log(`[/api/ai/generate] Agent completed with ${result.toolCallHistory.length} tool calls`);
@@ -230,7 +221,6 @@ export async function POST(req: NextRequest) {
       selectedAccent: accent || null,
       selectedPacing: pacing || null,
       selectedCTA: cta || null,
-      selectedAiModel: rawAiModel || "openai",
       selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
     };
 

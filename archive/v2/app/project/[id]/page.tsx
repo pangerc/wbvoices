@@ -6,7 +6,6 @@ import {
   CampaignFormat,
   SoundFxPrompt,
   ProjectBrief,
-  AIModel,
   MusicProvider,
   MusicPrompts,
   VoiceTrack,
@@ -53,7 +52,7 @@ import {
   PreviewPanel,
   MatrixBackground,
 } from "@/components";
-import { BriefPanel } from "@/components/BriefPanel";
+import { BriefPanelV3 } from "@/components/BriefPanelV3";
 import { Header } from "@/components/Header";
 import { useMixerStore } from "@/store/mixerStore";
 import { useVoiceManagerV2 } from "@/hooks/useVoiceManagerV2";
@@ -63,7 +62,6 @@ import { AudioService } from "@/services/audioService";
 import { generateProjectId } from "@/utils/projectId";
 import { hasRegionalAccents, getLanguageRegions } from "@/utils/language";
 import { ErrorDetails } from "@/lib/providers/BaseAudioProvider";
-import { DEFAULT_AI_MODEL } from "@/utils/aiModelSelection";
 
 export default function ProjectWorkspace() {
   const params = useParams();
@@ -84,7 +82,6 @@ export default function ProjectWorkspace() {
   const [campaignFormat, setCampaignFormat] =
     useState<CampaignFormat>("dialog");
   const [adDuration, setAdDuration] = useState(25);
-  const [selectedAiModel, setSelectedAiModel] = useState<AIModel>(DEFAULT_AI_MODEL);
   const [musicProvider, setMusicProvider] = useState<MusicProvider>("loudly");
   const [selectedCTA, setSelectedCTA] = useState<string | null>(null);
   const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(null);
@@ -136,7 +133,6 @@ export default function ProjectWorkspace() {
           setCreativeBrief(project.brief.creativeBrief);
           setCampaignFormat(project.brief.campaignFormat);
           setAdDuration(project.brief.adDuration);
-          setSelectedAiModel(project.brief.selectedAiModel || DEFAULT_AI_MODEL);
           setMusicProvider(project.brief.musicProvider || "loudly");
           setSelectedCTA(project.brief.selectedCTA || null);
           setSelectedPacing(project.brief.selectedPacing || null);
@@ -416,7 +412,6 @@ export default function ProjectWorkspace() {
           selectedRegion: voiceManager.selectedRegion,
           adDuration,
           selectedAccent: voiceManager.selectedAccent,
-          selectedAiModel,
           musicProvider,
           selectedCTA,
           selectedPacing,
@@ -448,7 +443,6 @@ export default function ProjectWorkspace() {
       clientDescription,
       creativeBrief,
       musicProvider,
-      selectedAiModel,
       selectedCTA,
       selectedPacing,
       tracks.length,
@@ -679,7 +673,6 @@ export default function ProjectWorkspace() {
         selectedProvider: voiceManager.selectedProvider,
         adDuration,
         selectedAccent: voiceManager.selectedAccent,
-        selectedAiModel,
         musicProvider,
         selectedCTA,
         selectedPacing,
@@ -1103,25 +1096,23 @@ export default function ProjectWorkspace() {
         {/* Tab panels */}
         <div className="flex-1 overflow-hidden container mx-auto relative z-10">
           {selectedTab === 0 && (
-            <BriefPanel
-              clientDescription={clientDescription}
-              setClientDescription={setClientDescription}
-              creativeBrief={creativeBrief}
-              setCreativeBrief={setCreativeBrief}
-              campaignFormat={campaignFormat}
-              setCampaignFormat={setCampaignFormat}
-              adDuration={adDuration}
-              setAdDuration={setAdDuration}
-              selectedAiModel={selectedAiModel}
-              setSelectedAiModel={setSelectedAiModel}
-              selectedCTA={selectedCTA}
-              setSelectedCTA={setSelectedCTA}
-              selectedPacing={selectedPacing}
-              setSelectedPacing={setSelectedPacing}
-              voiceManager={voiceManager}
-              onGenerateCreative={handleGenerateCreative}
-              onGenerateCreativeAuto={handleGenerateCreativeAuto}
-              setIsGeneratingCreative={formManager.setIsGeneratingCreative}
+            <BriefPanelV3
+              adId={projectId}
+              initialBrief={{
+                clientDescription,
+                creativeBrief,
+                campaignFormat,
+                selectedLanguage: voiceManager.selectedLanguage,
+                selectedProvider: voiceManager.selectedProvider,
+                adDuration,
+                selectedAccent: voiceManager.selectedAccent,
+                selectedCTA,
+                selectedPacing,
+              }}
+              onDraftsCreated={() => {
+                // Reload to get new versions
+                setSelectedTab(1);
+              }}
             />
           )}
 
