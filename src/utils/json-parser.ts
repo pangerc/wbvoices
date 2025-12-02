@@ -100,8 +100,18 @@ function parsePlayAfterToIntent(playAfter?: string): SoundFxPlacementIntent | un
     return { type: "end" };
   }
 
+  // New explicit placement types from LLM
+  if (playAfter === "beforeVoices") {
+    return { type: "beforeVoices" };
+  }
+
+  if (playAfter === "withFirstVoice") {
+    return { type: "withFirstVoice" };
+  }
+
+  // Legacy "start" maps to sequential intro (beforeVoices)
   if (playAfter === "start") {
-    return { type: "start" };
+    return { type: "beforeVoices" };
   }
 
   if (playAfter === "previous") {

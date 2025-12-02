@@ -320,16 +320,15 @@ Sound effect examples by theme (keep the description as short and concise, don't
 IMPORTANT: Do NOT include duration info in sound effect descriptions (e.g., don't write "2s" or "short"). Use the separate "duration" field instead.
 
 Sound effect placement guidelines:
-- Use "playAfter": "start" for INTRO sounds that set the scene (e.g., car engine starting, door opening, notification chime)
-- Use "playAfter": "previous" for OUTRO sounds that follow the last voice (e.g., door closing, satisfying click)
-- Intro sounds create anticipation and context BEFORE the voice speaks
-- Outro sounds reinforce the message AFTER the voice finishes
-- Consider: Does this sound introduce the ad (start) or conclude it (previous)?
+- Use "playAfter": "beforeVoices" for SEQUENTIAL intro sounds (SFX finishes completely, then voices begin)
+  Examples: dramatic whoosh before announcement, door opening before speaker enters, car engine starting
+- Use "playAfter": "withFirstVoice" for CONCURRENT intro sounds (SFX plays alongside first voice)
+  Examples: background ambience during narration, subtle chime with greeting, soft music bed
+- Use "playAfter": "previous" for OUTRO sounds (after all voices finish)
+  Examples: door closing, satisfying click, cash register, car door closing
 
-Examples of intro (start) vs outro (previous) sounds:
-- Automotive: car engine starting (start) vs car door closing (previous)
-- Tech: notification arriving (start) vs keyboard confirm sound (previous)
-- Food: sizzle starting (start) vs satisfying bite sound (previous)
-- Retail: door chime (start) vs cash register (previous)`;
+When to choose each intro type:
+- "beforeVoices": Creates anticipation, establishes context, dramatic impact - the sound THEN the voice
+- "withFirstVoice": Creates atmosphere, subtle enhancement, less intrusive - sound WITH voice simultaneously`;
   }
 }

@@ -120,7 +120,7 @@ You MUST respond with a valid JSON object with this structure:
   "soundFxPrompts": [
     {
       "description": "Sound effect description (in English)",
-      "playAfter": "start",
+      "playAfter": "beforeVoices | withFirstVoice | previous",
       "overlap": 0
     }
   ]
