@@ -18,25 +18,40 @@ export type LegacyCalculationResult = {
   totalDuration: number;
 };
 
+// Resolved placement result with concurrent flag
+type ResolvedPlacement = {
+  playAfter: string | undefined;
+  isConcurrent: boolean;
+};
+
 export class LegacyTimelineCalculator {
   /**
    * Resolve placement intent to actual track ID or special placement string
    * @param intent - The placement intent to resolve
    * @param voiceTracks - Array of voice tracks (for resolving index-based placement)
-   * @returns Resolved playAfter value (track ID, "start", or undefined for end)
+   * @returns Resolved playAfter value and concurrent flag
    */
   private static resolvePlacementIntent(
     intent: SoundFxPlacementIntent | undefined,
     voiceTracks: LegacyCalculatedTrack[]
-  ): string | undefined {
+  ): ResolvedPlacement {
     if (!intent) {
-      // No intent specified - default to end placement
-      return undefined;
+      // No intent specified - default to end placement (sequential)
+      return { playAfter: undefined, isConcurrent: false };
     }
 
     switch (intent.type) {
+      case "beforeVoices":
+        // Sequential: SFX plays first, then voices start after it finishes
+        return { playAfter: "start", isConcurrent: false };
+
+      case "withFirstVoice":
+        // Concurrent: SFX plays at same time as first voice
+        return { playAfter: "withFirstVoice", isConcurrent: true };
+
       case "start":
-        return "start";
+        // DEPRECATED: Map to beforeVoices (sequential) for backward compatibility
+        return { playAfter: "start", isConcurrent: false };
 
       case "afterVoice": {
         // Find the voice track by index
@@ -47,7 +62,7 @@ export class LegacyTimelineCalculator {
           console.log(
             `Resolved placement intent afterVoice[${intent.index}] to track "${targetVoice.label}" (${targetVoice.id})`
           );
-          return targetVoice.id;
+          return { playAfter: targetVoice.id, isConcurrent: false };
         }
 
         // Fallback: if voice track doesn't exist, try adjacent tracks
@@ -59,23 +74,23 @@ export class LegacyTimelineCalculator {
           console.warn(
             `Voice track at index ${intent.index} not found, falling back to "${fallbackVoice.label}"`
           );
-          return fallbackVoice.id;
+          return { playAfter: fallbackVoice.id, isConcurrent: false };
         }
 
         // No voice tracks available - place at end
         console.warn(
           `Voice track at index ${intent.index} not found and no fallback available, placing at end`
         );
-        return undefined;
+        return { playAfter: undefined, isConcurrent: false };
       }
 
       case "end":
         // Place at end (after all voices)
-        return undefined;
+        return { playAfter: undefined, isConcurrent: false };
 
       case "legacy":
         // Use legacy playAfter value directly
-        return intent.playAfter;
+        return { playAfter: intent.playAfter, isConcurrent: false };
 
       default:
         // Exhaustiveness check
@@ -162,10 +177,24 @@ export class LegacyTimelineCalculator {
       (track) => track.type === "soundfx"
     );
 
-    // First, handle sound effects with "playAfter: start"
-    const introSoundFxTracks = soundFxTracks.filter(
-      (track) => track.playAfter === "start"
-    );
+    // First, handle sound effects that should play BEFORE voices (sequential intro)
+    // This includes tracks with playAfter: "start" OR placement intent: beforeVoices/start
+    const introSoundFxTracks = soundFxTracks.filter((track) => {
+      // Check explicit playAfter
+      if (track.playAfter === "start") return true;
+
+      // Check placement intent for sequential intro placement
+      const intent = track.metadata?.placementIntent as SoundFxPlacementIntent | undefined;
+      if (intent?.type === "beforeVoices" || intent?.type === "start") return true;
+
+      return false;
+    });
+
+    // Detect concurrent SFX (withFirstVoice) - these play AT THE SAME TIME as first voice
+    const concurrentSfxTracks = soundFxTracks.filter((track) => {
+      const intent = track.metadata?.placementIntent as SoundFxPlacementIntent | undefined;
+      return intent?.type === "withFirstVoice";
+    });
 
     let startingOffset = 0;
 
@@ -256,11 +285,27 @@ export class LegacyTimelineCalculator {
         const firstVoice = voiceTracks[0];
         const actualDuration = getTrackDuration(firstVoice);
 
-        // Check if this track has an explicit startTime property
-        const explicitStartTime =
-          firstVoice.startTime !== undefined && !isNaN(firstVoice.startTime)
-            ? firstVoice.startTime
-            : startingOffset;
+        // CRITICAL FIX: Voice start time depends on intro SFX presence
+        // - If intro SFX exists (startingOffset > 0): voices start after SFX
+        // - If no intro SFX (startingOffset === 0): voices start at 0
+        //   (ignoring stale startTime from previous sequential placement)
+        let explicitStartTime: number;
+        if (startingOffset > 0) {
+          // Intro SFX exists - voices must start after it
+          explicitStartTime = startingOffset;
+          console.log(
+            `Intro SFX exists (offset: ${startingOffset}s) - voices start after SFX`
+          );
+        } else {
+          // No intro SFX - first voice always starts at 0
+          // This handles the case where SFX placement changed from sequential to concurrent
+          explicitStartTime = 0;
+          if (firstVoice.startTime !== undefined && firstVoice.startTime > 0) {
+            console.log(
+              `No intro SFX - resetting first voice from ${firstVoice.startTime}s to 0s`
+            );
+          }
+        }
 
         result.push({
           ...firstVoice,
@@ -272,6 +317,27 @@ export class LegacyTimelineCalculator {
         console.log(
           `Positioned first voice track "${firstVoice.label}" at ${explicitStartTime}s with duration ${actualDuration}s (ends at ${lastVoiceEndTime}s)`
         );
+
+        // Position concurrent SFX (withFirstVoice) at the SAME time as first voice
+        if (concurrentSfxTracks.length > 0) {
+          console.log(
+            `Found ${concurrentSfxTracks.length} concurrent SFX to play WITH first voice at ${explicitStartTime}s`
+          );
+          for (const sfxTrack of concurrentSfxTracks) {
+            if (trackStartTimes.has(sfxTrack.id)) continue; // Skip if already positioned
+
+            const sfxDuration = getTrackDuration(sfxTrack);
+            result.push({
+              ...sfxTrack,
+              actualStartTime: explicitStartTime, // Same start time as first voice
+              actualDuration: sfxDuration,
+            });
+            trackStartTimes.set(sfxTrack.id, explicitStartTime);
+            console.log(
+              `Positioned concurrent SFX "${sfxTrack.label}" at ${explicitStartTime}s (WITH first voice)`
+            );
+          }
+        }
       }
 
       // Process remaining voice tracks in sequence
@@ -489,20 +555,29 @@ export class LegacyTimelineCalculator {
     // For now, SFX placement options work but create overlays, not gaps.
     //
     soundFxTracks.forEach((track) => {
-      // Skip already processed tracks (like intro sound effects)
+      // Skip already processed tracks (intro SFX, concurrent SFX)
       if (trackStartTimes.has(track.id)) return;
 
       // Resolve placement intent if present
       let resolvedPlayAfter = track.playAfter;
+      let isConcurrent = false;
+
       if (track.metadata?.placementIntent) {
         const voiceTracksCalculated = result.filter(t => t.type === "voice");
-        resolvedPlayAfter = this.resolvePlacementIntent(
+        const resolved = this.resolvePlacementIntent(
           track.metadata.placementIntent as SoundFxPlacementIntent,
           voiceTracksCalculated
         );
+        resolvedPlayAfter = resolved.playAfter;
+        isConcurrent = resolved.isConcurrent;
         console.log(
-          `Resolved placement for sound effect "${track.label}": ${JSON.stringify(track.metadata.placementIntent)} → "${resolvedPlayAfter || 'end'}"`
+          `Resolved placement for sound effect "${track.label}": ${JSON.stringify(track.metadata.placementIntent)} → "${resolvedPlayAfter || 'end'}" (concurrent: ${isConcurrent})`
         );
+      }
+
+      // Skip concurrent tracks - they were already processed with first voice
+      if (isConcurrent) {
+        return;
       }
 
       // Process tracks with explicit start times
@@ -519,9 +594,14 @@ export class LegacyTimelineCalculator {
 
       // Handle tracks that should play after another track
       if (resolvedPlayAfter) {
-        // Skip "start" case - we already handled those earlier
+        // Skip "start" case - we already handled those earlier (intro SFX)
         if (resolvedPlayAfter === "start") {
           return; // Skip because we already processed intro sound effects
+        }
+
+        // Skip "withFirstVoice" - these were handled earlier (concurrent SFX)
+        if (resolvedPlayAfter === "withFirstVoice") {
+          return;
         }
 
         // Handle "previous" case - play after previous track in list

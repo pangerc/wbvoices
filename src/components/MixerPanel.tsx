@@ -279,6 +279,10 @@ export function MixerPanel({
               duration: track.actualDuration,
               volume: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
               startTime: track.actualStartTime,
+              // Preserve playAfter and metadata for proper timeline recalculation on restore
+              playAfter: track.playAfter,
+              overlap: track.overlap,
+              metadata: track.metadata,
             })),
             totalDuration,
           },

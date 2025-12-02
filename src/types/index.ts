@@ -94,9 +94,11 @@ export type SoundFxTrack = {
 
 // Sound effect placement intent - stores semantic placement that gets resolved at timeline calculation
 export type SoundFxPlacementIntent =
-  | { type: "start" }  // Before all voice tracks
-  | { type: "afterVoice"; index: number }  // After voice track N (0-indexed)
+  | { type: "beforeVoices" }  // Sequential: SFX finishes, then all voices start
+  | { type: "withFirstVoice" }  // Concurrent: SFX plays simultaneously with first voice
+  | { type: "afterVoice"; index: number }  // Sequential: After voice track N (0-indexed)
   | { type: "end" }  // After all voice tracks
+  | { type: "start" }  // DEPRECATED: Maps to "beforeVoices" for backward compatibility
   | { type: "legacy"; playAfter: string };  // Backwards compatibility with old format
 
 export type SoundFxPrompt = {
@@ -170,6 +172,16 @@ export type Project = {
       duration?: number;
       volume?: number;
       startTime?: number;
+      playAfter?: string;
+      overlap?: number;
+      metadata?: {
+        placementIntent?: SoundFxPlacementIntent;
+        voiceId?: string;
+        voiceProvider?: string;
+        scriptText?: string;
+        promptText?: string;
+        originalDuration?: number;
+      };
     }>;
     totalDuration?: number;
   };

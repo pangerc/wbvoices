@@ -230,6 +230,14 @@ export class AudioService {
         audio.load();
       });
 
+      // Derive playAfter from placement intent for backward compatibility
+      let derivedPlayAfter: string | undefined = soundFxPrompt?.playAfter;
+      const placementType = soundFxPrompt?.placement?.type;
+      if (placementType === "beforeVoices" || placementType === "start") {
+        derivedPlayAfter = "start"; // Sequential intro
+      }
+      // Note: "withFirstVoice" doesn't set playAfter - it's handled by placementIntent
+
       const mixerTrack: MixerTrack = {
         id: `soundfx-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         url,
@@ -238,10 +246,7 @@ export class AudioService {
         }" (${actualDuration.toFixed(1)}s)`,
         type: "soundfx",
         duration: actualDuration,
-        // Convert placement intent to playAfter for timeline calculator
-        playAfter: soundFxPrompt?.placement?.type === "start"
-          ? "start"
-          : soundFxPrompt?.playAfter,
+        playAfter: derivedPlayAfter,
         overlap: soundFxPrompt?.overlap,
         metadata: {
           promptText: prompt,

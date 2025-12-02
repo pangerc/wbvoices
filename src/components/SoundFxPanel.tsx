@@ -32,8 +32,15 @@ const DEFAULT_SOUND_FX_DURATION = 3; // 3 seconds is a reasonable default for mo
 
 // Convert placement option string to placement intent
 function placementOptionToIntent(option: string): SoundFxPlacementIntent {
+  if (option === "beforeVoices") {
+    return { type: "beforeVoices" };
+  }
+  if (option === "withFirstVoice") {
+    return { type: "withFirstVoice" };
+  }
   if (option === "start") {
-    return { type: "start" };
+    // Legacy: map to beforeVoices for backward compatibility
+    return { type: "beforeVoices" };
   }
   if (option === "end") {
     return { type: "end" };
@@ -97,7 +104,9 @@ export function SoundFxPanel({
   // Helper to convert placement intent to string option for listbox
   const placementIntentToOption = (placement?: SoundFxPlacementIntent): string => {
     if (!placement) return "end";
-    if (placement.type === "start") return "start";
+    if (placement.type === "beforeVoices") return "beforeVoices";
+    if (placement.type === "withFirstVoice") return "withFirstVoice";
+    if (placement.type === "start") return "beforeVoices"; // Legacy migration
     if (placement.type === "afterVoice" && placement.index !== undefined) {
       return `afterVoice-${placement.index}`;
     }
@@ -196,7 +205,8 @@ export function SoundFxPanel({
                     })
                   }
                   options={[
-                    { value: "start", label: "At beginning (before all voices)" },
+                    { value: "beforeVoices", label: "Before voices (sequential)" },
+                    { value: "withFirstVoice", label: "With first voice (overlapping)" },
                     ...(voiceTrackPreviews && voiceTrackPreviews.length > 0
                       ? voiceTrackPreviews.map((preview, voiceIndex) => ({
                           value: `afterVoice-${voiceIndex}`,
