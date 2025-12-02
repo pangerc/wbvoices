@@ -17,6 +17,7 @@ export interface SfxDraftEditorProps {
   // Refs for parent to call header button actions
   onPlayAllRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
+  onNewBlankVersion?: () => void;
 }
 
 export function SfxDraftEditor({
@@ -26,11 +27,17 @@ export function SfxDraftEditor({
   onUpdate,
   onPlayAllRef,
   onSendToMixerRef,
+  onNewBlankVersion,
 }: SfxDraftEditorProps) {
   const [soundFxPrompts, setSoundFxPrompts] = useState<SoundFxPrompt[]>(
     draftVersion.soundFxPrompts
   );
   const [statusMessage, setStatusMessage] = useState("");
+
+  // Sync local state when draftVersion prop changes (e.g., after iteration creates new draft)
+  useEffect(() => {
+    setSoundFxPrompts(draftVersion.soundFxPrompts);
+  }, [draftVersion]);
 
   // Use centralized audio playback store for state
   const { isGenerating, isPlaying } = useSfxDraftState(draftVersionId);
@@ -191,7 +198,7 @@ export function SfxDraftEditor({
     if (onPlayAllRef) onPlayAllRef.current = handlePlayAll;
     if (onSendToMixerRef) onSendToMixerRef.current = handleSendToMixer;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [soundFxPrompts, draftVersion, isPlaying]);
+  }, [soundFxPrompts, draftVersion, isPlaying, draftVersionId]);
 
   // Reset form (not used in draft mode)
   const resetForm = () => {
@@ -216,16 +223,9 @@ export function SfxDraftEditor({
         stream="sfx"
         parentVersionId={draftVersionId}
         onNewVersion={onUpdate}
+        onNewBlankVersion={onNewBlankVersion}
         disabled={!draftVersion.generatedUrls?.length || draftVersion.generatedUrls.filter(Boolean).length < soundFxPrompts.length}
-        onActivateDraft={async () => {
-          const res = await fetch(`/api/ads/${adId}/sfx/${draftVersionId}/activate`, {
-            method: "POST",
-          });
-          if (!res.ok) {
-            throw new Error(`Failed to activate: ${res.status}`);
-          }
-          await onUpdate(); // Refresh stream to show frozen version in VersionAccordion
-        }}
+        disabledReason="Generate all sound effects before requesting changes"
       />
     </>
   );

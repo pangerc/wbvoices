@@ -17,6 +17,7 @@ export interface MusicDraftEditorProps {
   // Refs for parent to call header button actions
   onPlayAllRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
+  onNewBlankVersion?: () => void;
 }
 
 export function MusicDraftEditor({
@@ -26,11 +27,17 @@ export function MusicDraftEditor({
   onUpdate,
   onPlayAllRef,
   onSendToMixerRef,
+  onNewBlankVersion,
 }: MusicDraftEditorProps) {
   const [musicProvider, setMusicProvider] = useState<MusicProvider>(
     draftVersion.provider
   );
   const [statusMessage, setStatusMessage] = useState("");
+
+  // Sync local state when draftVersion prop changes (e.g., after iteration creates new draft)
+  useEffect(() => {
+    setMusicProvider(draftVersion.provider);
+  }, [draftVersion]);
 
   // Use centralized audio playback store for state
   const { isGenerating, isPlaying } = useMusicDraftState(draftVersionId);
@@ -162,7 +169,7 @@ export function MusicDraftEditor({
     if (onPlayAllRef) onPlayAllRef.current = handlePlayAll;
     if (onSendToMixerRef) onSendToMixerRef.current = handleSendToMixer;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftVersion, musicProvider, isPlaying]);
+  }, [draftVersion, musicProvider, isPlaying, draftVersionId]);
 
   // Reset form (not used in draft mode)
   const resetForm = () => {
@@ -186,16 +193,9 @@ export function MusicDraftEditor({
         stream="music"
         parentVersionId={draftVersionId}
         onNewVersion={onUpdate}
+        onNewBlankVersion={onNewBlankVersion}
         disabled={!draftVersion.generatedUrl}
-        onActivateDraft={async () => {
-          const res = await fetch(`/api/ads/${adId}/music/${draftVersionId}/activate`, {
-            method: "POST",
-          });
-          if (!res.ok) {
-            throw new Error(`Failed to activate: ${res.status}`);
-          }
-          await onUpdate(); // Refresh stream to show frozen version in VersionAccordion
-        }}
+        disabledReason="Generate music before requesting changes"
       />
     </>
   );

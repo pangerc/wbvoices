@@ -4,12 +4,13 @@ import {
   CreateVoiceDraftParams,
   CreateMusicDraftParams,
   CreateSfxDraftParams,
-  GetCurrentStateParams,
+  ReadAdStateParams,
   DraftCreationResult,
-  CurrentStateResult,
+  ReadAdStateResult,
+  VoiceHistorySummary,
 } from "./types";
 import { voiceCatalogue } from "@/services/voiceCatalogueService";
-import { createVersion, listVersions, getVersion } from "@/lib/redis/versions";
+import { createVersion, listVersions, getVersion, getAllVersionsWithData } from "@/lib/redis/versions";
 import type { Language, Provider, Voice, MusicProvider, SoundFxPlacementIntent } from "@/types";
 import type {
   VoiceVersion,
@@ -211,15 +212,16 @@ export async function createSfxDraft(
 }
 
 /**
- * Get current state for an ad
- * Returns the most recent draft version for each stream type
+ * Read complete ad state from Redis
+ * Returns FULL version data - not summaries - so LLM can see exactly what exists
+ * and make informed decisions about what to preserve/modify
  */
-export async function getCurrentState(
-  params: GetCurrentStateParams
-): Promise<CurrentStateResult> {
+export async function readAdState(
+  params: ReadAdStateParams
+): Promise<ReadAdStateResult> {
   const { adId } = params;
 
-  const result: CurrentStateResult = {};
+  const result: ReadAdStateResult = {};
 
   // Helper to get latest version from a stream
   async function getLatestVersion(
@@ -234,48 +236,54 @@ export async function getCurrentState(
     return data ? { id: latestId, data } : null;
   }
 
-  // Get latest voices version - include full track data for iteration support
+  // Get latest voices version - return FULL data
   const voicesLatest = await getLatestVersion("voices");
   if (voicesLatest) {
-    const vv = voicesLatest.data as VoiceVersion;
     result.voices = {
+      ...(voicesLatest.data as VoiceVersion),
       versionId: voicesLatest.id,
-      summary: `${vv.voiceTracks.length} voice tracks`,
-      // Include actual track data so LLM can preserve content during iterations
-      tracks: vv.voiceTracks.map((t, i) => ({
-        index: i,
-        voiceId: t.voice?.id,
-        voiceName: t.voice?.name,
-        text: t.text,
-        voiceInstructions: t.voiceInstructions,
-      })),
     };
   }
 
-  // Get latest music version - include full prompt for iteration support
+  // Build voice history summaries (to help LLM avoid reusing previously tried voices)
+  const allVoiceVersions = await getAllVersionsWithData(adId, "voices");
+  const voiceVersionEntries = Object.entries(allVoiceVersions);
+  if (voiceVersionEntries.length > 1) {
+    result.voiceHistory = voiceVersionEntries
+      .filter(([vId]) => vId !== voicesLatest?.id) // Exclude current version
+      .map(([vId, data]): VoiceHistorySummary => {
+        const v = data as VoiceVersion;
+        // Extract unique voice IDs and names from this version
+        const uniqueVoices = new Map<string, string>();
+        v.voiceTracks.forEach((t) => {
+          if (t.voice?.id) {
+            uniqueVoices.set(t.voice.id, t.voice.name || t.voice.id);
+          }
+        });
+        return {
+          versionId: vId,
+          voiceIds: Array.from(uniqueVoices.keys()),
+          voiceNames: Array.from(uniqueVoices.values()),
+          requestText: v.requestText || null,
+        };
+      });
+  }
+
+  // Get latest music version - return FULL data
   const musicLatest = await getLatestVersion("music");
   if (musicLatest) {
-    const mv = musicLatest.data as MusicVersion;
     result.music = {
+      ...(musicLatest.data as MusicVersion),
       versionId: musicLatest.id,
-      summary: `${mv.provider} - "${mv.musicPrompt.slice(0, 50)}..."`,
-      prompt: mv.musicPrompt,
-      provider: mv.provider,
     };
   }
 
-  // Get latest sfx version - include full prompts for iteration support
+  // Get latest sfx version - return FULL data
   const sfxLatest = await getLatestVersion("sfx");
   if (sfxLatest) {
-    const sv = sfxLatest.data as SfxVersion;
     result.sfx = {
+      ...(sfxLatest.data as SfxVersion),
       versionId: sfxLatest.id,
-      summary: `${sv.soundFxPrompts.length} sound effects`,
-      prompts: sv.soundFxPrompts.map((p, i) => ({
-        index: i,
-        description: p.description,
-        placement: p.placement,
-      })),
     };
   }
 

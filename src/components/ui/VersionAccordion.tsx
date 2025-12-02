@@ -1,11 +1,36 @@
 import React, { ReactNode } from "react";
 import * as Accordion from "@radix-ui/react-accordion";
-import * as Checkbox from "@radix-ui/react-checkbox";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { PlayIcon, EllipsisVerticalIcon, TrashIcon } from "@heroicons/react/24/outline";
-import { CheckIcon, DocumentDuplicateIcon } from "@heroicons/react/24/solid";
+import { DocumentDuplicateIcon } from "@heroicons/react/24/solid";
 import type { VersionId, VersionStatus, CreatedBy } from "@/types/versions";
+
+// Custom send-to-mixer icon
+function SendToMixerIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className={className}>
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeMiterlimit="10" strokeWidth="1.5"
+        d="m11.124 19.495 7.885-7.593-7.885-7.593v4.283H8.982C4.602 8.593 1 12.195 1 16.575v2.628c0 .292.195.487.487.487h.097c.195 0 .39-.195.39-.39.194-2.238 2.044-4.088 4.38-4.088h4.673v4.283h.097Z" />
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeMiterlimit="10" strokeWidth="1.5"
+        d="M15.018 19.495 23 11.903l-7.982-7.593" />
+    </svg>
+  );
+}
+
+// AI Redo Spark icon for "Request a change"
+function RequestChangeIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className={className}>
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"
+        d="M6.25195 11.9986c2.86519 -0.576 5.17205 -2.91087 5.74885 -5.85016 0.5769 2.93929 2.8832 5.27416 5.7484 5.85016m0 0.0033c-2.8652 0.576 -5.172 2.9109 -5.7489 5.8502 -0.5769 -2.9393 -2.88316 -5.2742 -5.74835 -5.8502" />
+      <path stroke="currentColor" strokeLinecap="round" strokeWidth="1.5"
+        d="M22.5659 10.0961c0.5991 3.3416 -0.3926 6.9125 -2.9751 9.495 -4.1925 4.1925 -10.98981 4.1925 -15.18228 0 -4.192469 -4.1924 -4.192469 -10.98977 0 -15.18224 4.19247 -4.192468 10.98978 -4.192468 15.18228 0l0.8782 0.87817" />
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"
+        d="M16.6836 5.41016h3.8395V1.57061" />
+    </svg>
+  );
+}
 
 export interface BaseVersionItem {
   id: VersionId;
@@ -17,23 +42,30 @@ export interface BaseVersionItem {
 export interface VersionAccordionProps<T extends BaseVersionItem> {
   versions: T[];
   activeVersionId: VersionId | null;
-  onActivate: (versionId: VersionId) => void;
   onPreview: (versionId: VersionId) => void;
   onClone: (versionId: VersionId) => void;
   onDelete: (versionId: VersionId) => void;
+  onSendToMixer?: (versionId: VersionId) => void;
+  onRequestChange?: (versionId: VersionId) => void;
   renderContent: (version: T, isActive: boolean) => ReactNode;
   hasAudio?: (version: T) => boolean;
+  // Controlled state props for accordion coordination
+  openVersionId?: VersionId | null;
+  onOpenChange?: (versionId: VersionId | null) => void;
 }
 
 export function VersionAccordion<T extends BaseVersionItem>({
   versions,
   activeVersionId,
-  onActivate,
   onPreview,
   onClone,
   onDelete,
+  onSendToMixer,
+  onRequestChange,
   renderContent,
   hasAudio,
+  openVersionId,
+  onOpenChange,
 }: VersionAccordionProps<T>) {
   // Sort versions in descending order (newest first)
   const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
@@ -41,11 +73,16 @@ export function VersionAccordion<T extends BaseVersionItem>({
   // Get the newest version ID for default expanded state
   const newestVersionId = sortedVersions[0]?.id;
 
+  // Controlled vs uncontrolled mode
+  const accordionProps = openVersionId !== undefined
+    ? { value: openVersionId || "", onValueChange: (val: string) => onOpenChange?.(val || null) }
+    : { defaultValue: newestVersionId };
+
   return (
     <Accordion.Root
       type="single"
       collapsible
-      defaultValue={newestVersionId}
+      {...accordionProps}
       className="space-y-3"
     >
       {sortedVersions.map((version) => {
@@ -63,44 +100,15 @@ export function VersionAccordion<T extends BaseVersionItem>({
             }`}
           >
             <Accordion.Header className="flex items-center gap-2 px-4 py-3">
-              {/* LEFT: Activate Checkbox */}
-              <Checkbox.Root
-                checked={isActive}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    onActivate(version.id);
-                  }
-                }}
-                className="w-5 h-5 rounded border-2 border-white/40 bg-white/10 backdrop-blur-sm hover:border-wb-blue hover:bg-wb-blue/20 data-[state=checked]:bg-wb-blue data-[state=checked]:border-wb-blue transition-all flex items-center justify-center"
-                aria-label="Activate this version"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Checkbox.Indicator>
-                  <CheckIcon className="w-4 h-4 text-white" />
-                </Checkbox.Indicator>
-              </Checkbox.Root>
-
-              {/* MIDDLE: Trigger with title + chevron column */}
-              <Accordion.Trigger className="flex-1 flex items-center justify-between text-left group">
-                {/* Title + Badge */}
-                <div className="flex items-center gap-3">
-                  <span className="text-white font-mono text-sm">{version.id}</span>
-                  {isActive && (
-                    <span className="px-2 py-0.5 text-xs font-medium text-wb-blue bg-wb-blue/20 border border-wb-blue/30 rounded-full">
-                      ACTIVE
-                    </span>
-                  )}
-                </div>
-
-                {/* Chevron - fixed width column for vertical alignment */}
-                <div className="w-12 flex justify-center">
-                  <ChevronDownIcon className="w-5 h-5 text-white/50 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                </div>
+              {/* Trigger - title area only */}
+              <Accordion.Trigger className="flex-1 text-left group">
+                <span className="text-white font-mono text-sm">{version.id}</span>
               </Accordion.Trigger>
 
-              {/* RIGHT: Action buttons (OUTSIDE trigger to avoid nesting) */}
+              {/* Action buttons - OUTSIDE trigger to avoid nested buttons */}
+              {/* Order: Play → Send → 3-dots */}
               <div className="flex items-center gap-2">
-                {/* Play Button - always shown, disabled when no audio */}
+                {/* Play Button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -110,18 +118,35 @@ export function VersionAccordion<T extends BaseVersionItem>({
                   }}
                   disabled={!versionHasAudio}
                   className="p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/10"
-                  aria-label={versionHasAudio ? "Preview audio" : "No audio available"}
+                  title="Preview"
                 >
                   <PlayIcon className="w-4 h-4 text-white" />
                 </button>
 
-                {/* Dropdown Menu - Clone & Delete actions */}
+                {/* Send to Mixer Button */}
+                {onSendToMixer && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (versionHasAudio) {
+                        onSendToMixer(version.id);
+                      }
+                    }}
+                    disabled={!versionHasAudio}
+                    className="p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/10"
+                    title="Send to mixer"
+                  >
+                    <SendToMixerIcon className="w-4 h-4 text-wb-blue" />
+                  </button>
+                )}
+
+                {/* Dropdown Menu - Clone, Delete, Request Change */}
                 <DropdownMenu.Root>
                   <DropdownMenu.Trigger asChild>
                     <button
                       onClick={(e) => e.stopPropagation()}
                       className="p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all"
-                      aria-label="More actions"
+                      title="More actions"
                     >
                       <EllipsisVerticalIcon className="w-4 h-4 text-white" />
                     </button>
@@ -132,6 +157,16 @@ export function VersionAccordion<T extends BaseVersionItem>({
                       className="min-w-[160px] bg-gray-900 border border-white/20 rounded-lg shadow-lg p-1 z-50"
                       sideOffset={5}
                     >
+                      {onRequestChange && (
+                        <DropdownMenu.Item
+                          className="flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/10 rounded cursor-pointer outline-none"
+                          onSelect={() => onRequestChange(version.id)}
+                        >
+                          <RequestChangeIcon className="w-4 h-4" />
+                          Request change
+                        </DropdownMenu.Item>
+                      )}
+
                       <DropdownMenu.Item
                         className="flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/10 rounded cursor-pointer outline-none"
                         onSelect={() => onClone(version.id)}
@@ -151,6 +186,11 @@ export function VersionAccordion<T extends BaseVersionItem>({
                   </DropdownMenu.Portal>
                 </DropdownMenu.Root>
               </div>
+
+              {/* Chevron trigger - separate trigger at far right */}
+              <Accordion.Trigger className="p-1 group">
+                <ChevronDownIcon className="w-5 h-5 text-white/50 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+              </Accordion.Trigger>
             </Accordion.Header>
 
             <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">

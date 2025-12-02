@@ -4,7 +4,7 @@ import {
   createVoiceDraft,
   createMusicDraft,
   createSfxDraft,
-  getCurrentState,
+  readAdState,
 } from "./implementations";
 
 /**
@@ -38,8 +38,8 @@ export async function executeToolCall(call: ToolCall): Promise<ToolResult> {
         result = await createSfxDraft(args);
         break;
 
-      case "get_current_state":
-        result = await getCurrentState(args);
+      case "read_ad_state":
+        result = await readAdState(args);
         break;
 
       default:

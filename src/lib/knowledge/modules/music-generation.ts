@@ -57,12 +57,14 @@ Problems: "evoking the feeling", "Spanish terrace", "Coca-Cola vibe" - music gen
 
 Example: "Uplifting indie pop song with bright, jangly electric guitars, fast rhythmic strumming, light bouncy drums. Catchy summery vibe, energetic but laid-back, with tambourine accents and walking bassline."
 
-**2. loudly** (100-200 words WITH artist/band references):
-- Detailed descriptions WITH band references + optional contextual framing
-- "feels like [mood/scene]" - adds emotional/contextual anchor
-- "for [use case or scenario]" - adds purpose-driven context
+**2. loudly** (1 sentence, ~15-25 words):
+- Short, concise description with duration, genre, mood, and optional artist reference
+- Keep it simple - Loudly works best with brief, clear prompts
 
-Example: "Uplifting indie pop track that feels like a summer road trip with friends, featuring bright jangly electric guitars reminiscent of The Strokes, fast rhythmic strumming similar to early Phoenix albums, light bouncy drums with tambourine accents and walking bassline in the style of Vampire Weekend. Perfect for energetic lifestyle content."
+Examples:
+- "A 90-second energetic house track with tropical vibes and a melodic flute line"
+- "A 30-second upbeat indie pop track in the style of Phoenix with jangly guitars"
+- "A 25-second chill lo-fi beat with soft piano and warm vinyl texture"
 
 **3. mubert** (8-12 WORDS TARGET):
 - Structure: Genre, Energy/Moods, Key Instrument (optional), Time/Setting, Vibe/Activity
@@ -80,7 +82,7 @@ BAD example (too many redundant terms):
 
 ### Validation Checklist
 - elevenlabs: 100-200 words, NO artist names, detailed instrumental descriptions
-- loudly: 100-200 words WITH artist/band names, optional contextual framing
+- loudly: 1 sentence (~15-25 words), duration + genre + mood, optional artist reference
 - mubert: 8-12 words, structured storytelling with multi-word phrases
 - All: Concrete musical terms, avoid experiential language
 

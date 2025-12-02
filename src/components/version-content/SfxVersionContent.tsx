@@ -1,15 +1,16 @@
 import React from "react";
 import type { SfxVersion } from "@/types/versions";
 import type { SoundFxPlacementIntent } from "@/types";
-import { VersionLineage, VersionIterationInput } from "@/components/ui";
+import { VersionIterationInput, VersionLineage } from "@/components/ui";
 
 export interface SfxVersionContentProps {
   version: SfxVersion;
   versionId: string;
   adId: string;
   isActive?: boolean;
-  onNewVersion?: (versionId: string) => void;
   onParentClick?: (versionId: string) => void;
+  onNewVersion?: (versionId: string) => void;
+  onNewBlankVersion?: () => void;
 }
 
 function formatPlacement(placement?: SoundFxPlacementIntent | string): string {
@@ -34,8 +35,9 @@ export function SfxVersionContent({
   version,
   versionId,
   adId,
-  onNewVersion,
   onParentClick,
+  onNewVersion,
+  onNewBlankVersion,
 }: SfxVersionContentProps) {
   return (
     <div className="space-y-4">
@@ -99,13 +101,14 @@ export function SfxVersionContent({
         <span className="capitalize">Source: {version.createdBy}</span>
       </div>
 
-      {/* Iteration input */}
+      {/* Iteration input for frozen versions */}
       {onNewVersion && (
         <VersionIterationInput
           adId={adId}
           stream="sfx"
           parentVersionId={versionId}
           onNewVersion={onNewVersion}
+          onNewBlankVersion={onNewBlankVersion}
         />
       )}
     </div>

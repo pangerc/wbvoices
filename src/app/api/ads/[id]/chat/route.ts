@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { continueConversation } from "@/lib/tool-calling";
 import { hasConversation } from "@/lib/redis/conversation";
-import { updateVersionMetadata } from "@/lib/redis/versions";
+import { updateVersionMetadata, setActiveVersion } from "@/lib/redis/versions";
 import type { StreamType } from "@/types/versions";
 
 const STREAM_NAMES: Record<StreamType, string> = {
@@ -49,10 +49,11 @@ export async function POST(
   try {
     const { id: adId } = await params;
     const body = await req.json();
-    const { message, stream, parentVersionId } = body as {
+    const { message, stream, parentVersionId, freezeParent } = body as {
       message: string;
       stream?: StreamType;
       parentVersionId?: string;
+      freezeParent?: boolean;
     };
 
     if (!message || message.trim() === "") {
@@ -86,6 +87,12 @@ export async function POST(
     console.log(`[/api/ads/${adId}/chat] Processing refinement: ${focusedMessage.substring(0, 100)}...`);
     if (stream) {
       console.log(`[/api/ads/${adId}/chat] Stream focus: ${stream}, parent: ${parentVersionId}`);
+    }
+
+    // Freeze parent version atomically before creating new draft
+    if (freezeParent && parentVersionId && stream) {
+      await setActiveVersion(adId, stream, parentVersionId);
+      console.log(`[/api/ads/${adId}/chat] Froze parent version ${parentVersionId}`);
     }
 
     const result = await continueConversation(adId, focusedMessage);

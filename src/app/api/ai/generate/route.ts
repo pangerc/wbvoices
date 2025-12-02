@@ -19,12 +19,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { runAgentLoop } from "@/lib/tool-calling";
-import { prefetchVoices } from "@/lib/tool-calling/voicePrefetch";
 import { getLanguageName } from "@/utils/language";
 import { setAdMetadata } from "@/lib/redis/versions";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
 import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
-import type { ProjectBrief, Language, Provider as VoiceProvider } from "@/types";
+import type { ProjectBrief } from "@/types";
 
 /**
  * Build the user message from the brief data
@@ -174,28 +173,10 @@ export async function POST(req: NextRequest) {
       voiceProvider,
     });
 
-    // Prefetch voices BEFORE LLM call to eliminate search_voices round-trip
-    console.log(`[/api/ai/generate] Prefetching voices for ${voiceProvider}/${language}`);
-    let prefetchedVoices = await prefetchVoices(
-      voiceProvider as VoiceProvider,
-      language as Language,
-      accent || undefined
-    );
-
-    // Fallback: if accent is too specific and yields no voices, try without accent
-    if (prefetchedVoices.totalCount === 0 && accent) {
-      console.log(`[/api/ai/generate] No voices for accent "${accent}", retrying without accent filter`);
-      prefetchedVoices = await prefetchVoices(
-        voiceProvider as VoiceProvider,
-        language as Language
-      );
-    }
-
-    console.log(`[/api/ai/generate] Prefetched ${prefetchedVoices.totalCount} voices (${prefetchedVoices.maleVoices.length} male, ${prefetchedVoices.femaleVoices.length} female)`);
-
-    // Build system prompt with modular knowledge AND prefetched voices
-    const systemPrompt = buildSystemPrompt(userMessage, knowledgeContext, prefetchedVoices);
-    console.log(`[/api/ai/generate] Built system prompt with knowledge modules + voice context`);
+    // Build system prompt with modular knowledge
+    // LLM will call read_ad_state + search_voices as needed
+    const systemPrompt = buildSystemPrompt(userMessage, knowledgeContext);
+    console.log(`[/api/ai/generate] Built system prompt with knowledge modules`);
 
     // Run the agent loop
     const result = await runAgentLoop(systemPrompt, userMessage, {

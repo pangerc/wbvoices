@@ -1,22 +1,24 @@
 import React from "react";
 import type { MusicVersion } from "@/types/versions";
-import { VersionLineage, VersionIterationInput } from "@/components/ui";
+import { VersionIterationInput, VersionLineage } from "@/components/ui";
 
 export interface MusicVersionContentProps {
   version: MusicVersion;
   versionId: string;
   adId: string;
   isActive?: boolean;
-  onNewVersion?: (versionId: string) => void;
   onParentClick?: (versionId: string) => void;
+  onNewVersion?: (versionId: string) => void;
+  onNewBlankVersion?: () => void;
 }
 
 export function MusicVersionContent({
   version,
   versionId,
   adId,
-  onNewVersion,
   onParentClick,
+  onNewVersion,
+  onNewBlankVersion,
 }: MusicVersionContentProps) {
   const hasAudio = version.generatedUrl && version.generatedUrl.length > 0;
 
@@ -66,13 +68,14 @@ export function MusicVersionContent({
         <span className="capitalize">Source: {version.createdBy}</span>
       </div>
 
-      {/* Iteration input */}
+      {/* Iteration input for frozen versions */}
       {onNewVersion && (
         <VersionIterationInput
           adId={adId}
           stream="music"
           parentVersionId={versionId}
           onNewVersion={onNewVersion}
+          onNewBlankVersion={onNewBlankVersion}
         />
       )}
     </div>

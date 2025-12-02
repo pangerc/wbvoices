@@ -116,7 +116,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           loudly: {
             type: "string",
             description:
-              "Loudly prompt (100-200 words): Detailed descriptions WITH artist/band references. Include contextual framing like 'feels like...' or 'for...'",
+              "Loudly prompt (1 sentence, ~15-25 words): Short description with duration, genre, mood. Optional artist reference. Example: 'A 30-second upbeat indie pop track in the style of Phoenix'",
           },
           mubert: {
             type: "string",
@@ -186,13 +186,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     type: "function",
     function: {
-      name: "get_current_state",
+      name: "read_ad_state",
       description:
-        "Get current ad state. ONLY use this when continuing a previous conversation about an existing ad. Do NOT call for new ad creation - go straight to search_voices instead.",
+        "Read the complete current state of an ad from Redis. Returns full version data for the latest voices, music, and SFX streams, plus voiceHistory showing which voices were used in previous versions. ALWAYS call this first. When iterating, check voiceHistory to avoid reusing previously tried voices unless explicitly requested.",
       parameters: {
         type: "object",
         properties: {
-          adId: { type: "string", description: "The ad ID" },
+          adId: { type: "string", description: "The ad ID to read state for" },
         } as Record<string, unknown>,
         required: ["adId"],
       },

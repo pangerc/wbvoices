@@ -51,6 +51,7 @@ export type VoiceTrack = {
   isConcurrent?: boolean;
   style?: string;
   useCase?: string;
+  description?: string; // ElevenLabs baseline tone (cheerful, excited, calm, etc.)
   voiceInstructions?: string; // OpenAI-specific voice control instructions
   speed?: number; // Per-track speed multiplier (OpenAI: 0.25-4.0, ElevenLabs: 0.7-1.2)
   postProcessingSpeedup?: number; // Post-processing time-stretch speedup (1.0-1.6x, ElevenLabs only)

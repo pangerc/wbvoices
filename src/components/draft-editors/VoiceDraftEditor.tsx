@@ -40,6 +40,7 @@ export interface VoiceDraftEditorProps {
   onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
   /** @deprecated State now comes from centralized audioPlaybackStore */
   playAllState?: React.MutableRefObject<{ isPlaying: boolean; isGenerating: boolean } | null>;
+  onNewBlankVersion?: () => void;
 }
 
 export function VoiceDraftEditor({
@@ -51,12 +52,18 @@ export function VoiceDraftEditor({
   onPlayAllRef,
   onSendToMixerRef,
   playAllState,
+  onNewBlankVersion,
 }: VoiceDraftEditorProps) {
   // Migrate on load if needed
   const [voiceTracks, setVoiceTracks] = useState<VoiceTrack[]>(() =>
     migrateVoiceTracks(draftVersion)
   );
   const [statusMessage, setStatusMessage] = useState("");
+
+  // Sync local state when draftVersion prop changes (e.g., after iteration creates new draft)
+  useEffect(() => {
+    setVoiceTracks(migrateVoiceTracks(draftVersion));
+  }, [draftVersion]);
 
   // Use centralized audio playback store - THIS IS THE KEY FIX for state sync issues!
   const { isPlaying, isPlayingAll, isGenerating, generatingTrackIndex, playingTrackIndex } =
@@ -404,7 +411,7 @@ export function VoiceDraftEditor({
       playAllState.current = { isPlaying: isPlayingAll, isGenerating };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onPlayAllRef, onSendToMixerRef, playAllState, isPlayingAll, isGenerating]);
+  }, [onPlayAllRef, onSendToMixerRef, playAllState, isPlayingAll, isGenerating, draftVersionId]);
 
   // Reset form (not used in draft mode)
   const resetForm = () => {
@@ -452,16 +459,9 @@ export function VoiceDraftEditor({
         stream="voices"
         parentVersionId={draftVersionId}
         onNewVersion={onUpdate}
+        onNewBlankVersion={onNewBlankVersion}
         disabled={!voiceTracks.every(t => !!t.generatedUrl)}
-        onActivateDraft={async () => {
-          const res = await fetch(`/api/ads/${adId}/voices/${draftVersionId}/activate`, {
-            method: "POST",
-          });
-          if (!res.ok) {
-            throw new Error(`Failed to activate: ${res.status}`);
-          }
-          await onUpdate(); // Refresh stream to show frozen version in VersionAccordion
-        }}
+        disabledReason="Generate all voice tracks before requesting changes"
       />
     </>
   );

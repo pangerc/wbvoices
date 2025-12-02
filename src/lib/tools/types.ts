@@ -1,3 +1,5 @@
+import type { VoiceVersion, MusicVersion, SfxVersion } from "@/types/versions";
+
 // Core tool call types (OpenAI-compatible)
 export interface ToolCall {
   id: string;
@@ -66,8 +68,29 @@ export interface CreateSfxDraftParams {
   }>;
 }
 
-export interface GetCurrentStateParams {
+export interface ReadAdStateParams {
   adId: string;
+}
+
+// Lightweight summary of voices used in a version (for history tracking)
+export interface VoiceHistorySummary {
+  versionId: string;
+  voiceIds: string[];
+  voiceNames: string[];
+  requestText: string | null;
+}
+
+// ReadAdStateResult returns FULL Redis data - no summaries, no lossy abstraction
+// The LLM sees exactly what's in Redis so it can make informed decisions
+export interface ReadAdStateResult {
+  /** Full voice version data if exists */
+  voices?: VoiceVersion & { versionId: string };
+  /** History of voices used in previous versions (to avoid duplicates) */
+  voiceHistory?: VoiceHistorySummary[];
+  /** Full music version data if exists */
+  music?: MusicVersion & { versionId: string };
+  /** Full SFX version data if exists */
+  sfx?: SfxVersion & { versionId: string };
 }
 
 // Tool result types
@@ -86,36 +109,4 @@ export interface SearchVoicesResult {
 export interface DraftCreationResult {
   versionId: string;
   status: "draft";
-}
-
-export interface CurrentStateResult {
-  voices?: {
-    versionId: string;
-    summary: string;
-    /** Actual track data so LLM can preserve existing content during iterations */
-    tracks?: Array<{
-      index: number;
-      voiceId?: string;
-      voiceName?: string;
-      text: string;
-      voiceInstructions?: string;
-    }>;
-  };
-  music?: {
-    versionId: string;
-    summary: string;
-    /** Full prompts so LLM can preserve during iterations */
-    prompt?: string;
-    provider?: string;
-  };
-  sfx?: {
-    versionId: string;
-    summary: string;
-    /** Full SFX descriptions so LLM can preserve during iterations */
-    prompts?: Array<{
-      index: number;
-      description: string;
-      placement?: { type: string; index?: number };
-    }>;
-  };
 }

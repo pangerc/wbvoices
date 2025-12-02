@@ -38,6 +38,7 @@
     "react-dom": "^19.0.0",
     "react-textarea-autosize": "^8.5.9",
     "soundtouchjs": "^0.2.1",
+    "swr": "^2.3.7",
     "uuid": "^11.1.0",
     "zustand": "^5.0.4"
   },

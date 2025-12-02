@@ -1,22 +1,24 @@
 import React from "react";
 import type { VoiceVersion } from "@/types/versions";
-import { VersionLineage, VersionIterationInput } from "@/components/ui";
+import { VersionIterationInput, VersionLineage } from "@/components/ui";
 
 export interface VoiceVersionContentProps {
   version: VoiceVersion;
   versionId: string;
   adId: string;
   isActive?: boolean;
-  onNewVersion?: (versionId: string) => void;
   onParentClick?: (versionId: string) => void;
+  onNewVersion?: (versionId: string) => void;
+  onNewBlankVersion?: () => void;
 }
 
 export function VoiceVersionContent({
   version,
   versionId,
   adId,
-  onNewVersion,
   onParentClick,
+  onNewVersion,
+  onNewBlankVersion,
 }: VoiceVersionContentProps) {
   return (
     <div className="space-y-0">
@@ -105,6 +107,17 @@ export function VoiceVersionContent({
                 )}
               </div>
 
+              {/* Voice instructions (OpenAI) or baseline tone (ElevenLabs) */}
+              {(track.voiceInstructions || track.description) && (
+                <div className="mt-2 text-xs text-gray-400 italic">
+                  {track.voiceInstructions ? (
+                    <span>Instructions: {track.voiceInstructions}</span>
+                  ) : track.description ? (
+                    <span>Tone: {track.description}</span>
+                  ) : null}
+                </div>
+              )}
+
               {/* Timing info below script */}
               {(track.playAfter !== "start" ||
                 track.overlap !== 0 ||
@@ -138,13 +151,14 @@ export function VoiceVersionContent({
         <span className="capitalize">Source: {version.createdBy}</span>
       </div>
 
-      {/* Iteration input */}
+      {/* Iteration input for frozen versions */}
       {onNewVersion && (
         <VersionIterationInput
           adId={adId}
           stream="voices"
           parentVersionId={versionId}
           onNewVersion={onNewVersion}
+          onNewBlankVersion={onNewBlankVersion}
         />
       )}
     </div>

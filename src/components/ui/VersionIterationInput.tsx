@@ -1,23 +1,38 @@
 /**
  * VersionIterationInput
  *
- * Inline iteration input that appears at the bottom of each version accordion.
- * Allows users to request changes to spawn a new version.
+ * Inline iteration input that appears in draft accordions.
+ * When submitted, atomically freezes the parent draft AND creates a new draft.
  */
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type { StreamType } from "@/types/versions";
+import { GlassyModal } from "./GlassyModal";
+
+// AI Redo Spark icon for "Request a change"
+function RequestChangeIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className={className}>
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"
+        d="M6.25195 11.9986c2.86519 -0.576 5.17205 -2.91087 5.74885 -5.85016 0.5769 2.93929 2.8832 5.27416 5.7484 5.85016m0 0.0033c-2.8652 0.576 -5.172 2.9109 -5.7489 5.8502 -0.5769 -2.9393 -2.88316 -5.2742 -5.74835 -5.8502" />
+      <path stroke="currentColor" strokeLinecap="round" strokeWidth="1.5"
+        d="M22.5659 10.0961c0.5991 3.3416 -0.3926 6.9125 -2.9751 9.495 -4.1925 4.1925 -10.98981 4.1925 -15.18228 0 -4.192469 -4.1924 -4.192469 -10.98977 0 -15.18224 4.19247 -4.192468 10.98978 -4.192468 15.18228 0l0.8782 0.87817" />
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"
+        d="M16.6836 5.41016h3.8395V1.57061" />
+    </svg>
+  );
+}
 
 interface VersionIterationInputProps {
   adId: string;
   stream: StreamType;
   parentVersionId: string;
   onNewVersion: (versionId: string) => void;
+  onNewBlankVersion?: () => void;
   disabled?: boolean;
-  /** For drafts: called before expanding to freeze the draft first */
-  onActivateDraft?: () => Promise<void>;
+  disabledReason?: string;
 }
 
 export function VersionIterationInput({
@@ -25,29 +40,22 @@ export function VersionIterationInput({
   stream,
   parentVersionId,
   onNewVersion,
+  onNewBlankVersion,
   disabled = false,
-  onActivateDraft,
+  disabledReason,
 }: VersionIterationInputProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isActivating, setIsActivating] = useState(false);
   const [request, setRequest] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDisabledAlert, setShowDisabledAlert] = useState(false);
 
-  const handleTriggerClick = async () => {
-    if (onActivateDraft) {
-      setIsActivating(true);
-      try {
-        await onActivateDraft();
-      } catch (err) {
-        setError("Failed to freeze draft");
-        setIsActivating(false);
-        return;
-      }
-      setIsActivating(false);
-    }
-    setIsExpanded(true);
-  };
+  // Reset form when a new draft version is created
+  useEffect(() => {
+    setIsExpanded(false);
+    setRequest("");
+    setError(null);
+  }, [parentVersionId]);
 
   const handleSubmit = async () => {
     if (!request.trim() || isLoading) return;
@@ -56,6 +64,7 @@ export function VersionIterationInput({
     setError(null);
 
     try {
+      // Atomic: freezes parent + creates new draft in one call
       const response = await fetch(`/api/ads/${adId}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,6 +72,7 @@ export function VersionIterationInput({
           message: request,
           stream,
           parentVersionId,
+          freezeParent: true,
         }),
       });
 
@@ -93,47 +103,56 @@ export function VersionIterationInput({
     }
   };
 
-  // Collapsed state: show "Request a change" trigger
+  // Handle click on disabled button
+  const handleDisabledClick = () => {
+    if (disabled && disabledReason) {
+      setShowDisabledAlert(true);
+    }
+  };
+
+  // Collapsed state: show "Request a change" and "New version (blank)" links
   if (!isExpanded) {
     return (
       <div className="mt-4 pt-4 border-t border-white/10">
-        <button
-          onClick={handleTriggerClick}
-          disabled={disabled || isActivating}
-          className="text-sm text-gray-400 hover:text-wb-blue transition-colors flex items-center gap-1 disabled:opacity-50"
-        >
-          {isActivating ? (
-            <>
-              <svg
-                className="animate-spin h-3 w-3"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              <span>Preparing...</span>
-            </>
-          ) : (
-            <>
-              <span>Request a change</span>
+        <div className="flex justify-between items-center">
+          <button
+            onClick={disabled ? handleDisabledClick : () => setIsExpanded(true)}
+            className={`text-sm transition-colors flex items-center gap-1.5 ${
+              disabled ? "text-gray-500 cursor-not-allowed" : "text-wb-blue hover:text-blue-400"
+            }`}
+          >
+            <RequestChangeIcon className="w-4 h-4" />
+            <span>Request a change</span>
+            <span>→</span>
+          </button>
+
+          {onNewBlankVersion && (
+            <button
+              onClick={onNewBlankVersion}
+              className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+            >
+              <span>New version (blank)</span>
               <span>→</span>
-            </>
+            </button>
           )}
-        </button>
+        </div>
         {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+
+        {/* Alert dialog for disabled state */}
+        <GlassyModal
+          isOpen={showDisabledAlert}
+          onClose={() => setShowDisabledAlert(false)}
+          title="Cannot Request Changes Yet"
+          maxWidth="sm"
+        >
+          <p className="text-gray-300">{disabledReason}</p>
+          <button
+            onClick={() => setShowDisabledAlert(false)}
+            className="mt-4 w-full px-4 py-2 text-sm font-medium rounded-lg bg-wb-blue/20 text-wb-blue border border-wb-blue/30 hover:bg-wb-blue/30 transition-colors"
+          >
+            OK
+          </button>
+        </GlassyModal>
       </div>
     );
   }

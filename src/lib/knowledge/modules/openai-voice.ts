@@ -110,30 +110,38 @@ Include accent in Pronunciation field: "${accent}${region ? ` (${region})` : ""}
 
     return `## OpenAI TTS Voice Guidance
 
-For OpenAI voices, provide detailed "voiceInstructions" string using this structure (in English):
+OpenAI TTS processes each track INDEPENDENTLY. Each track's voiceInstructions must be self-contained - describing only THAT track's delivery, not the overall ad concept.
 
-### voiceInstructions Format
+### voiceInstructions Format (required for each track)
 \`\`\`
-Voice Affect: <detailed description of overall voice character and personality>
-Tone: <specific emotional tone with context and nuance>
-Pacing: <precise speed description with tempo changes and rhythm details>${pacingGuidance}
-Emotion: <emotional delivery style with specific feelings and expressions>
-Emphasis: <specific words/phrases to highlight and exact delivery method>
-Pronunciation: <articulation style, clarity level, and speech characteristics>
-Pauses: <exact placement and duration of pauses with purpose>
+Voice Affect: <this track's voice character>
+Tone: <this track's emotional tone>
+Pacing: <this track's speed>${pacingGuidance}
+Emotion: <this track's emotional delivery>
+Emphasis: <words to highlight in this track>
+Pronunciation: <articulation style, accent if needed>
+Pauses: <pause placement for this track>
 \`\`\`
 
-### Example voiceInstructions
-"Voice Affect: Calm, composed, and reassuring; Tone: Sincere, empathetic, and gently authoritative; Pacing: Steady and moderate; unhurried yet professional; Emotion: Genuine empathy and understanding; Emphasis: Clear emphasis on key reassurances and benefits; Pronunciation: Clear and precise, emphasizing important words; Pauses: Brief pauses after offering assistance, highlighting willingness to listen."
+### Good vs Bad Examples
 
-Consider commercial pacing needs - fast for urgency, moderate for all other contexts.
+✅ CORRECT - Track-specific, self-contained:
+"Voice Affect: Energetic and enthusiastic; Tone: Excited, upbeat; Pacing: Quick, punchy; Emotion: Genuine excitement; Emphasis: 'amazing' and 'today'; Pronunciation: Clear, crisp; Pauses: Brief pause before the reveal."
+
+❌ WRONG - Contains ad-wide creative direction:
+"Voice Affect: The first speaker in this energetic dialogue about summer drinks, setting up the playful banter..."
+
+❌ WRONG - Contains inline tags (will appear as literal text):
+"[excited]Check out our amazing sale!"
+→ Use voiceInstructions field instead: "Emotion: excited and enthusiastic"
 ${arabicGuidance}${accentGuidance}
 
-### Key Principles
-1. voiceInstructions field is REQUIRED for OpenAI voices
-2. Keep it concise but complete - all fields should be addressed
-3. Match affect and tone to the brand personality
-4. Specify pacing explicitly based on ad requirements
-5. Pronunciation field should include any accent/dialect requirements`;
+### Key Rules
+1. voiceInstructions is REQUIRED - no plain text style control
+2. Each track is independent - no references to "other speaker" or "dialogue flow"
+3. NO inline tags like [happy], [laughs], [excited] - these render as literal text
+4. Script text should be PLAIN TEXT only
+5. Match affect/tone to the brand, but describe only this track's delivery`;
+
   },
 };

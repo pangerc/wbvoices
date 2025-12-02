@@ -167,7 +167,7 @@ export const useAudioPlaybackStore = create<AudioPlaybackState>((set, get) => ({
     const audio = getOrCreateAudioElement();
     audio.pause();
     audio.currentTime = 0;
-    audio.src = ""; // Clear source
+    // Note: Don't set audio.src = "" as it triggers a browser error event
 
     set({
       isPlaying: false,
