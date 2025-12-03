@@ -180,8 +180,13 @@ export async function createSfxDraft(
       // Convert placement to proper typed format
       let placement: SoundFxPlacementIntent | undefined;
       if (p.placement) {
-        if (p.placement.type === "start") {
-          placement = { type: "start" };
+        if (p.placement.type === "beforeVoices") {
+          placement = { type: "beforeVoices" };
+        } else if (p.placement.type === "withFirstVoice") {
+          placement = { type: "withFirstVoice" };
+        } else if (p.placement.type === "start") {
+          // Legacy: map to sequential intro
+          placement = { type: "beforeVoices" };
         } else if (p.placement.type === "end") {
           placement = { type: "end" };
         } else if (p.placement.type === "afterVoice" && p.placement.index !== undefined) {

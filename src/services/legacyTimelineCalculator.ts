@@ -35,7 +35,16 @@ export class LegacyTimelineCalculator {
     }
 
     switch (intent.type) {
+      case "beforeVoices":
+        // Sequential intro: SFX finishes, then voices start
+        return "start";
+
+      case "withFirstVoice":
+        // Concurrent intro: SFX plays with first voice (handled specially in timeline)
+        return "concurrent-start";
+
       case "start":
+        // Legacy: maps to sequential intro (beforeVoices)
         return "start";
 
       case "afterVoice": {
@@ -162,9 +171,14 @@ export class LegacyTimelineCalculator {
       (track) => track.type === "soundfx"
     );
 
-    // First, handle sound effects with "playAfter: start"
+    // First, handle sound effects with "playAfter: start" (sequential intro)
     const introSoundFxTracks = soundFxTracks.filter(
       (track) => track.playAfter === "start"
+    );
+
+    // Handle concurrent intro SFX (plays WITH first voice, not before)
+    const concurrentSfxTracks = soundFxTracks.filter(
+      (track) => track.playAfter === "concurrent-start"
     );
 
     let startingOffset = 0;
@@ -209,6 +223,33 @@ export class LegacyTimelineCalculator {
       console.log(
         `Setting voice tracks to start at offset ${startingOffset}s due to intro sound effects`
       );
+    }
+
+    // Process concurrent SFX (plays at time 0, same as first voice)
+    if (concurrentSfxTracks.length > 0) {
+      console.log(
+        `Found ${concurrentSfxTracks.length} concurrent sound effects that play with first voice`
+      );
+
+      concurrentSfxTracks.forEach((track) => {
+        if (trackStartTimes.has(track.id)) return; // Skip if already positioned
+
+        const actualDuration = getTrackDuration(track);
+
+        // Concurrent SFX starts at same time as first voice (startingOffset, or 0 if no intro SFX)
+        const startTime = startingOffset;
+
+        result.push({
+          ...track,
+          actualStartTime: startTime,
+          actualDuration,
+        });
+
+        trackStartTimes.set(track.id, startTime);
+        console.log(
+          `Positioned concurrent sound effect "${track.label}" at ${startTime}s (plays with first voice)`
+        );
+      });
     }
 
     let lastVoiceEndTime = startingOffset;
@@ -391,7 +432,7 @@ export class LegacyTimelineCalculator {
       if (trackStartTimes.has(track.id)) return;
 
       // Estimate based on playAfter relationships
-      if (track.playAfter === "start" || track.playAfter === "previous") {
+      if (track.playAfter === "start" || track.playAfter === "concurrent-start" || track.playAfter === "previous") {
         // These are positioned relative to start or previous SFX
         // They'll likely be near the beginning, not affecting music fade
         const duration = getTrackDuration(track);
@@ -519,8 +560,8 @@ export class LegacyTimelineCalculator {
 
       // Handle tracks that should play after another track
       if (resolvedPlayAfter) {
-        // Skip "start" case - we already handled those earlier
-        if (resolvedPlayAfter === "start") {
+        // Skip "start" and "concurrent-start" cases - we already handled those earlier
+        if (resolvedPlayAfter === "start" || resolvedPlayAfter === "concurrent-start") {
           return; // Skip because we already processed intro sound effects
         }
 

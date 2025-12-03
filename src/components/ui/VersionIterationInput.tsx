@@ -7,7 +7,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { StreamType } from "@/types/versions";
 import { GlassyModal } from "./GlassyModal";
 
@@ -33,6 +33,8 @@ interface VersionIterationInputProps {
   onNewBlankVersion?: () => void;
   disabled?: boolean;
   disabledReason?: string;
+  /** Ref to expose expand function for external triggering (e.g., from accordion menu) */
+  expandRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export function VersionIterationInput({
@@ -43,12 +45,15 @@ export function VersionIterationInput({
   onNewBlankVersion,
   disabled = false,
   disabledReason,
+  expandRef,
 }: VersionIterationInputProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [request, setRequest] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDisabledAlert, setShowDisabledAlert] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Reset form when a new draft version is created
   useEffect(() => {
@@ -56,6 +61,24 @@ export function VersionIterationInput({
     setRequest("");
     setError(null);
   }, [parentVersionId]);
+
+  // Expose expand function via ref for external triggering
+  useEffect(() => {
+    if (expandRef) {
+      expandRef.current = () => {
+        if (disabled) {
+          setShowDisabledAlert(true);
+        } else {
+          setIsExpanded(true);
+          // Scroll into view and focus after expansion
+          setTimeout(() => {
+            containerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+            inputRef.current?.focus();
+          }, 100);
+        }
+      };
+    }
+  }, [expandRef, disabled]);
 
   const handleSubmit = async () => {
     if (!request.trim() || isLoading) return;
@@ -113,7 +136,7 @@ export function VersionIterationInput({
   // Collapsed state: show "Request a change" and "New version (blank)" links
   if (!isExpanded) {
     return (
-      <div className="mt-4 pt-4 border-t border-white/10">
+      <div ref={containerRef} className="mt-4 pt-4 border-t border-white/10">
         <div className="flex justify-between items-center">
           <button
             onClick={disabled ? handleDisabledClick : () => setIsExpanded(true)}
@@ -159,9 +182,10 @@ export function VersionIterationInput({
 
   // Expanded state: show input + button
   return (
-    <div className="mt-4 pt-4 border-t border-white/10">
+    <div ref={containerRef} className="mt-4 pt-4 border-t border-white/10">
       <div className="flex gap-2">
         <input
+          ref={inputRef}
           type="text"
           value={request}
           onChange={(e) => setRequest(e.target.value)}

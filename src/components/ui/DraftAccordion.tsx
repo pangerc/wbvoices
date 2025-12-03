@@ -6,6 +6,7 @@ import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { PlayIcon, StopIcon, EllipsisVerticalIcon, DocumentPlusIcon } from "@heroicons/react/24/outline";
 import { LockClosedIcon } from "@heroicons/react/24/solid";
 import { useDraftAccordionState } from "@/hooks/useAudioPlayback";
+import { Tooltip } from "./Tooltip";
 
 // Custom send-to-mixer icon
 function SendToMixerIcon({ className }: { className?: string }) {
@@ -122,23 +123,23 @@ export function DraftAccordion({
           {/* Order: Play → Send → 3-dots */}
           <div className="flex items-center gap-2">
             {/* Smart PLAY button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (handlePlay) {
-                  handlePlay();
-                }
-              }}
-              disabled={!handlePlay || isGenerating}
-              className={`p-2 flex items-center justify-center rounded-lg backdrop-blur-sm border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                isPlaying
-                  ? "bg-red-500/20 border-red-500/30 hover:bg-red-500/30"
-                  : isGenerating
-                    ? "bg-yellow-500/20 border-yellow-500/30"
-                    : "bg-white/10 border-white/20 hover:bg-white/20"
-              }`}
-              title={isPlaying ? "Stop" : isGenerating ? "Generating..." : "Preview"}
-            >
+            <Tooltip content={isPlaying ? "Stop" : isGenerating ? "Generating..." : "Preview"}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (handlePlay) {
+                    handlePlay();
+                  }
+                }}
+                disabled={!handlePlay || isGenerating}
+                className={`p-2 flex items-center justify-center rounded-lg backdrop-blur-sm border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                  isPlaying
+                    ? "bg-red-500/20 border-red-500/30 hover:bg-red-500/30"
+                    : isGenerating
+                      ? "bg-yellow-500/20 border-yellow-500/30"
+                      : "bg-white/10 border-white/20 hover:bg-white/20"
+                }`}
+              >
               {isGenerating ? (
                 <svg className="w-4 h-4 text-yellow-400 animate-spin" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -149,30 +150,32 @@ export function DraftAccordion({
               ) : (
                 <PlayIcon className="w-4 h-4 text-white" />
               )}
-            </button>
+              </button>
+            </Tooltip>
 
             {/* SEND to Mixer button */}
             {onSendToMixer && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSendToMixer();
-                }}
-                disabled={!canSend}
-                className="p-2 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Send to mixer"
-              >
-                <SendToMixerIcon className="w-4 h-4 text-wb-blue" />
-              </button>
+              <Tooltip content="Send to mixer">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSendToMixer();
+                  }}
+                  disabled={!canSend}
+                  className="p-2 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <SendToMixerIcon className="w-4 h-4 text-wb-blue" />
+                </button>
+              </Tooltip>
             )}
 
             {/* Dropdown Menu - Freeze & Request Change */}
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
                 <button
+                  title="More actions"
                   onClick={(e) => e.stopPropagation()}
                   className="p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all"
-                  title="More actions"
                 >
                   <EllipsisVerticalIcon className="w-4 h-4 text-white" />
                 </button>

@@ -53,10 +53,13 @@ export default function AdWorkspace() {
   // Refs for draft editor imperative handles (DraftAccordion header buttons)
   const voicePlayAllRef = useRef<(() => Promise<void>) | null>(null);
   const voiceSendToMixerRef = useRef<(() => void) | null>(null);
+  const voiceRequestChangeRef = useRef<(() => void) | null>(null);
   const musicPlayAllRef = useRef<(() => Promise<void>) | null>(null);
   const musicSendToMixerRef = useRef<(() => void) | null>(null);
+  const musicRequestChangeRef = useRef<(() => void) | null>(null);
   const sfxPlayAllRef = useRef<(() => Promise<void>) | null>(null);
   const sfxSendToMixerRef = useRef<(() => void) | null>(null);
+  const sfxRequestChangeRef = useRef<(() => void) | null>(null);
 
   // Derived loading state
   const isLoading = voice.isLoading && music.isLoading && sfx.isLoading;
@@ -229,6 +232,7 @@ export default function AdWorkspace() {
                     voiceSendToMixerRef.current?.();
                     setSelectedTab(4);
                   }}
+                  onRequestChange={() => voiceRequestChangeRef.current?.()}
                   hasTracksWithAudio={voiceDraft.version.voiceTracks.some(t => !!t.generatedUrl)}
                   onNewBlankVersion={voice.createDraft}
                 >
@@ -240,6 +244,7 @@ export default function AdWorkspace() {
                     onUpdate={() => voice.mutate()}
                     onPlayAllRef={voicePlayAllRef}
                     onSendToMixerRef={voiceSendToMixerRef}
+                    onRequestChangeRef={voiceRequestChangeRef}
                     onNewBlankVersion={voice.createDraft}
                   />
                 </DraftAccordion>
@@ -310,6 +315,7 @@ export default function AdWorkspace() {
                     musicSendToMixerRef.current?.();
                     setSelectedTab(4);
                   }}
+                  onRequestChange={() => musicRequestChangeRef.current?.()}
                   hasTracksWithAudio={!!musicDraft.version.generatedUrl}
                   onNewBlankVersion={music.createDraft}
                 >
@@ -321,6 +327,7 @@ export default function AdWorkspace() {
                     onUpdate={() => music.mutate()}
                     onPlayAllRef={musicPlayAllRef}
                     onSendToMixerRef={musicSendToMixerRef}
+                    onRequestChangeRef={musicRequestChangeRef}
                     onNewBlankVersion={music.createDraft}
                   />
                 </DraftAccordion>
@@ -391,6 +398,7 @@ export default function AdWorkspace() {
                     sfxSendToMixerRef.current?.();
                     setSelectedTab(4);
                   }}
+                  onRequestChange={() => sfxRequestChangeRef.current?.()}
                   hasTracksWithAudio={(sfxDraft.version.generatedUrls?.length || 0) > 0}
                   onNewBlankVersion={sfx.createDraft}
                 >
@@ -402,6 +410,7 @@ export default function AdWorkspace() {
                     onUpdate={() => sfx.mutate()}
                     onPlayAllRef={sfxPlayAllRef}
                     onSendToMixerRef={sfxSendToMixerRef}
+                    onRequestChangeRef={sfxRequestChangeRef}
                     onNewBlankVersion={sfx.createDraft}
                   />
                 </DraftAccordion>

@@ -43,26 +43,36 @@ export const sfxGenerationModule: KnowledgeModule = {
 
 ### Placement Guidelines
 
-**Use "playAfter": "start" for INTRO sounds** that set the scene:
+**Use placement type "beforeVoices" for SEQUENTIAL intro sounds** (SFX finishes completely, then voices begin):
+- Dramatic whoosh before announcement
+- Door opening before speaker enters
 - Car engine starting
-- Door opening
-- Notification chime
 → Creates anticipation and context BEFORE the voice speaks
 
-**Use "playAfter": "previous" for OUTRO sounds** that follow the last voice:
+**Use placement type "withFirstVoice" for CONCURRENT intro sounds** (SFX plays alongside first voice):
+- Background ambience during narration
+- Subtle chime with greeting
+- Soft atmospheric bed
+→ Creates atmosphere, less intrusive - sound plays WITH voice simultaneously
+
+**Use placement type "end" for OUTRO sounds** (after all voices finish):
 - Car door closing
 - Satisfying click
 - Cash register
-→ Reinforces the message AFTER the voice finishes
+→ Reinforces the message AFTER all voices finish
 
-### Examples: Intro vs Outro
+### When to Choose Each Intro Type
+- **"beforeVoices"**: Dramatic impact, scene-setting, attention-grabbing - the sound THEN the voice
+- **"withFirstVoice"**: Subtle enhancement, atmospheric, non-intrusive - sound WITH voice simultaneously
 
-| Category | Intro (start) | Outro (previous) |
-|----------|---------------|------------------|
-| Automotive | car engine starting | car door closing |
-| Tech | notification arriving | keyboard confirm sound |
-| Food | sizzle starting | satisfying bite sound |
-| Retail | door chime | cash register |
+### Examples by Category
+
+| Category | Sequential Intro (beforeVoices) | Concurrent Intro (withFirstVoice) | Outro (end) |
+|----------|--------------------------------|-----------------------------------|-------------|
+| Automotive | car engine starting | road ambience | car door closing |
+| Tech | notification chime | subtle keyboard clicks | confirm sound |
+| Food | pan sizzle | restaurant ambience | satisfying bite |
+| Retail | door chime | store background | cash register |
 
 ### What NOT to Do
 - Don't use long, descriptive prompts

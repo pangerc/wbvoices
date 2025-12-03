@@ -161,8 +161,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                   properties: {
                     type: {
                       type: "string",
-                      enum: ["start", "end", "afterVoice"],
-                      description: "Placement type",
+                      enum: ["beforeVoices", "withFirstVoice", "afterVoice", "end"],
+                      description: "Placement type: beforeVoices (sequential intro), withFirstVoice (concurrent intro), afterVoice (after specific voice), end (outro)",
                     },
                     index: {
                       type: "number",

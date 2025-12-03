@@ -38,6 +38,7 @@ export interface VoiceDraftEditorProps {
   // Callbacks to expose playAll and sendToMixer to parent (for DraftAccordion header buttons)
   onPlayAllRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
+  onRequestChangeRef?: React.MutableRefObject<(() => void) | null>;
   /** @deprecated State now comes from centralized audioPlaybackStore */
   playAllState?: React.MutableRefObject<{ isPlaying: boolean; isGenerating: boolean } | null>;
   onNewBlankVersion?: () => void;
@@ -51,9 +52,12 @@ export function VoiceDraftEditor({
   onGenerateAll,
   onPlayAllRef,
   onSendToMixerRef,
+  onRequestChangeRef,
   playAllState,
   onNewBlankVersion,
 }: VoiceDraftEditorProps) {
+  // Ref to expose VersionIterationInput's expand function
+  const iterationExpandRef = useRef<(() => void) | null>(null);
   // Migrate on load if needed
   const [voiceTracks, setVoiceTracks] = useState<VoiceTrack[]>(() =>
     migrateVoiceTracks(draftVersion)
@@ -397,7 +401,7 @@ export function VoiceDraftEditor({
     setStatusMessage("Voices sent to mixer!");
   };
 
-  // Expose handlePlayAll and handleSendToMixer to parent via refs
+  // Expose handlePlayAll, handleSendToMixer, and requestChange to parent via refs
   // Note: playAllState ref is deprecated - state now comes from centralized audioPlaybackStore
   useEffect(() => {
     if (onPlayAllRef) {
@@ -406,12 +410,15 @@ export function VoiceDraftEditor({
     if (onSendToMixerRef) {
       onSendToMixerRef.current = handleSendToMixer;
     }
+    if (onRequestChangeRef) {
+      onRequestChangeRef.current = () => iterationExpandRef.current?.();
+    }
     // Backwards compat: still update ref for any legacy consumers, but prefer using the hook
     if (playAllState) {
       playAllState.current = { isPlaying: isPlayingAll, isGenerating };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onPlayAllRef, onSendToMixerRef, playAllState, isPlayingAll, isGenerating, draftVersionId]);
+  }, [onPlayAllRef, onSendToMixerRef, onRequestChangeRef, playAllState, isPlayingAll, isGenerating, draftVersionId]);
 
   // Reset form (not used in draft mode)
   const resetForm = () => {
@@ -462,6 +469,7 @@ export function VoiceDraftEditor({
         onNewBlankVersion={onNewBlankVersion}
         disabled={!voiceTracks.every(t => !!t.generatedUrl)}
         disabledReason="Generate all voice tracks before requesting changes"
+        expandRef={iterationExpandRef}
       />
     </>
   );

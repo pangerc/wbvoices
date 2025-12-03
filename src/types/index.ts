@@ -92,9 +92,11 @@ export type SoundFxTrack = {
 
 // Sound effect placement intent - stores semantic placement that gets resolved at timeline calculation
 export type SoundFxPlacementIntent =
-  | { type: "start" }  // Before all voice tracks
+  | { type: "beforeVoices" }  // Sequential: SFX finishes, then voices start
+  | { type: "withFirstVoice" }  // Concurrent: SFX plays with first voice
   | { type: "afterVoice"; index: number }  // After voice track N (0-indexed)
   | { type: "end" }  // After all voice tracks
+  | { type: "start" }  // DEPRECATED: Maps to beforeVoices for backward compatibility
   | { type: "legacy"; playAfter: string };  // Backwards compatibility with old format
 
 export type SoundFxPrompt = {

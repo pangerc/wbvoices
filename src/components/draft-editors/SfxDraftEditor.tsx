@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { SoundFxPanel } from "@/components/SoundFxPanel";
 import type { SfxVersion, VersionId } from "@/types/versions";
 import type { SoundFxPrompt } from "@/types";
@@ -17,6 +17,7 @@ export interface SfxDraftEditorProps {
   // Refs for parent to call header button actions
   onPlayAllRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
+  onRequestChangeRef?: React.MutableRefObject<(() => void) | null>;
   onNewBlankVersion?: () => void;
 }
 
@@ -27,8 +28,11 @@ export function SfxDraftEditor({
   onUpdate,
   onPlayAllRef,
   onSendToMixerRef,
+  onRequestChangeRef,
   onNewBlankVersion,
 }: SfxDraftEditorProps) {
+  // Ref to expose VersionIterationInput's expand function
+  const iterationExpandRef = useRef<(() => void) | null>(null);
   const [soundFxPrompts, setSoundFxPrompts] = useState<SoundFxPrompt[]>(
     draftVersion.soundFxPrompts
   );
@@ -197,6 +201,7 @@ export function SfxDraftEditor({
   useEffect(() => {
     if (onPlayAllRef) onPlayAllRef.current = handlePlayAll;
     if (onSendToMixerRef) onSendToMixerRef.current = handleSendToMixer;
+    if (onRequestChangeRef) onRequestChangeRef.current = () => iterationExpandRef.current?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [soundFxPrompts, draftVersion, isPlaying, draftVersionId]);
 
@@ -226,6 +231,7 @@ export function SfxDraftEditor({
         onNewBlankVersion={onNewBlankVersion}
         disabled={!draftVersion.generatedUrls?.length || draftVersion.generatedUrls.filter(Boolean).length < soundFxPrompts.length}
         disabledReason="Generate all sound effects before requesting changes"
+        expandRef={iterationExpandRef}
       />
     </>
   );

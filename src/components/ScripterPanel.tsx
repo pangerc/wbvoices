@@ -6,6 +6,7 @@ import {
   GlassyTextarea,
   VoiceCombobox,
   VoiceInstructionsDialog,
+  Tooltip,
 } from "./ui";
 type ScripterPanelProps = {
   voiceTracks: VoiceTrack[];
@@ -322,21 +323,8 @@ export function ScripterPanel({
 
                     {/* Play button (smart: plays existing or generates + plays) */}
                     {onPlay && trackGenerationStatus && (
-                      <button
-                        onClick={() => onPlay(index)}
-                        disabled={
-                          !track.voice ||
-                          !track.text.trim() ||
-                          trackGenerationStatus[index]?.isGenerating
-                        }
-                        className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                          trackGenerationStatus[index]?.isPlaying
-                            ? "text-red-400 hover:text-red-300 hover:bg-red-500/10 border-red-500/20 hover:border-red-500/30"
-                            : trackGenerationStatus[index]?.hasAudio
-                              ? "text-green-400 hover:text-green-300 hover:bg-green-500/10 border-green-500/20 hover:border-green-500/30"
-                              : "text-wb-blue hover:text-blue-400 hover:bg-wb-blue/10 border-wb-blue/20 hover:border-wb-blue/30"
-                        }`}
-                        title={
+                      <Tooltip
+                        content={
                           trackGenerationStatus[index]?.isPlaying
                             ? "Stop playback"
                             : trackGenerationStatus[index]?.hasAudio
@@ -344,6 +332,21 @@ export function ScripterPanel({
                               : "Generate and play this track"
                         }
                       >
+                        <button
+                          onClick={() => onPlay(index)}
+                          disabled={
+                            !track.voice ||
+                            !track.text.trim() ||
+                            trackGenerationStatus[index]?.isGenerating
+                          }
+                          className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                            trackGenerationStatus[index]?.isPlaying
+                              ? "text-red-400 hover:text-red-300 hover:bg-red-500/10 border-red-500/20 hover:border-red-500/30"
+                              : trackGenerationStatus[index]?.hasAudio
+                                ? "text-green-400 hover:text-green-300 hover:bg-green-500/10 border-green-500/20 hover:border-green-500/30"
+                                : "text-wb-blue hover:text-blue-400 hover:bg-wb-blue/10 border-wb-blue/20 hover:border-wb-blue/30"
+                          }`}
+                        >
                         {trackGenerationStatus[index]?.isGenerating ? (
                           <svg
                             className="w-4 h-4 animate-spin"
@@ -383,40 +386,42 @@ export function ScripterPanel({
                             <polygon points="5 3 19 12 5 21 5 3" />
                           </svg>
                         )}
-                      </button>
+                        </button>
+                      </Tooltip>
                     )}
 
                     {/* Configure button */}
                     {(selectedProvider === "openai" ||
                       selectedProvider === "elevenlabs") && (
-                      <button
-                        onClick={() => setEditingInstructionsIndex(index)}
-                        className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
-                          track.speed !== undefined || track.voiceInstructions
-                            ? "text-wb-blue bg-wb-blue/10 border-wb-blue/20"
-                            : "text-gray-500 hover:text-wb-blue hover:bg-wb-blue/10 border-transparent hover:border-wb-blue/20"
-                        }`}
-                        title="Configure voice settings (instructions & speed)"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
+                      <Tooltip content="Configure voice settings">
+                        <button
+                          onClick={() => setEditingInstructionsIndex(index)}
+                          className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
+                            track.speed !== undefined || track.voiceInstructions
+                              ? "text-wb-blue bg-wb-blue/10 border-wb-blue/20"
+                              : "text-gray-500 hover:text-wb-blue hover:bg-wb-blue/10 border-transparent hover:border-wb-blue/20"
+                          }`}
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                        </svg>
-                      </button>
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                          </svg>
+                        </button>
+                      </Tooltip>
                     )}
                   </div>
                 </div>
@@ -424,12 +429,14 @@ export function ScripterPanel({
             </div>
           );
         })}
-        <button
-          onClick={addVoiceTrack}
-          className="mt-8 px-2.5 py-1.5 text-sm border-b border-sky-800 bg-gradient-to-t from-sky-900/50 to-transparent  w-full text-sky-700 hover:bg-gradient-to-t  hover:text-white "
-        >
-          + Add Voice Track
-        </button>
+        <Tooltip content="Add another voice track" side="bottom">
+          <button
+            onClick={addVoiceTrack}
+            className="mt-8 px-2.5 py-1.5 text-sm border-b border-sky-800 bg-gradient-to-t from-sky-900/50 to-transparent  w-full text-sky-700 hover:bg-gradient-to-t  hover:text-white "
+          >
+            + Add Voice Track
+          </button>
+        </Tooltip>
 
         {statusMessage && (
           <p className="text-center  text-gray-500 pt-8">{statusMessage}</p>

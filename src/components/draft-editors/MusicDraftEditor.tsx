@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { MusicPanel } from "@/components/MusicPanel";
 import type { MusicVersion, VersionId } from "@/types/versions";
 import type { MusicProvider } from "@/types";
@@ -17,6 +17,7 @@ export interface MusicDraftEditorProps {
   // Refs for parent to call header button actions
   onPlayAllRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
+  onRequestChangeRef?: React.MutableRefObject<(() => void) | null>;
   onNewBlankVersion?: () => void;
 }
 
@@ -27,8 +28,11 @@ export function MusicDraftEditor({
   onUpdate,
   onPlayAllRef,
   onSendToMixerRef,
+  onRequestChangeRef,
   onNewBlankVersion,
 }: MusicDraftEditorProps) {
+  // Ref to expose VersionIterationInput's expand function
+  const iterationExpandRef = useRef<(() => void) | null>(null);
   const [musicProvider, setMusicProvider] = useState<MusicProvider>(
     draftVersion.provider
   );
@@ -168,6 +172,7 @@ export function MusicDraftEditor({
   useEffect(() => {
     if (onPlayAllRef) onPlayAllRef.current = handlePlayAll;
     if (onSendToMixerRef) onSendToMixerRef.current = handleSendToMixer;
+    if (onRequestChangeRef) onRequestChangeRef.current = () => iterationExpandRef.current?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftVersion, musicProvider, isPlaying, draftVersionId]);
 
@@ -196,6 +201,7 @@ export function MusicDraftEditor({
         onNewBlankVersion={onNewBlankVersion}
         disabled={!draftVersion.generatedUrl}
         disabledReason="Generate music before requesting changes"
+        expandRef={iterationExpandRef}
       />
     </>
   );
