@@ -1,5 +1,495 @@
 [
   {
+    "voiceId": "hmMWXCj9K7N5mCPcRkfC",
+    "voiceName": "Rory",
+    "description": "A young-adult, Dublin voice with natural warmth and lively energy. His casual, conversational tone carries an authentic Irish lilt without overdoing it. Perfect for podcasts, narration, and friendly explainers where you need a relatable voice that keeps listeners engaged."
+  },
+  {
+    "voiceId": "B5jEZPqk2OJ2vkPw3wBM",
+    "voiceName": "Cillian",
+    "description": "A low, calm, and authentic Irish voice for conversation and narration."
+  },
+  {
+    "voiceId": "N8RXoLEWQWUCCrT8uDK7",
+    "voiceName": "Emilia Roth",
+    "description": "Dynamic and Upbeat: Professional Austrian Commercials. This voice talent is great for TV/radio commercials and brand campaigns. Authentic, energetic delivery that sells. Warm, confident, versatile. Austrian commercial voice, Werbesprecher Österreich, German voice over Austria, radio spot narrator, TV commercial, Austrian."
+  },
+  {
+    "voiceId": "MpbYQvoTmXjHkaxtLiSh",
+    "voiceName": "Anet 2.0",
+    "description": "Young female voice ideal for commercial voiceovers."
+  },
+  {
+    "voiceId": "egBwWoDtXGCSMgwiS3vn",
+    "voiceName": "Lucy Fennek",
+    "description": "Sound Trending. Effortlessly. Nail that main character energy in your vids. Peppy, TikTok-native, and crushing it on down to spill tea influencer vox for celeb recaps, thirst traps, or roasting FYP fails. Use if you make: TikTok dubs, ‘No time to record’ YouTube Shorts, Aesthetic tutorials (GRWM, fitspo, deep dives). Stop stressing that voiceover. Start trending."
+  },
+  {
+    "voiceId": "Rwqd9wksd18jej9ZWfbo",
+    "voiceName": "Christian Plasa",
+    "description": "Dynamic and professional voice-over talent for Entertainment & TV, specializing in promos, trailers, show narrations, and character performances. Perfect for game shows, reality TV, animations, documentaries, and commercials. Delivering vibrant, engaging, and impactful voice work with clarity, energy, and charisma. Featuring a versatile range to suit any broadcast need, this voice captivates audiences and elevates content. Ideal for creating memorable on-screen moments with authenticity and style."
+  },
+  {
+    "voiceId": "RT0Ws4wraMnx4S5vInNL",
+    "voiceName": "Christian Plasa",
+    "description": "Middle-aged male voice. Ideal for Commercial Voice-Over."
+  },
+  {
+    "voiceId": "FvmvwvObRqIHojkEGh5N",
+    "voiceName": "Adina",
+    "description": "Clear voice of a young professional French woman. Suitable for Social Media."
+  },
+  {
+    "voiceId": "KxGkxCicfy28RgQTZuHk",
+    "voiceName": "Oana",
+    "description": "A professional voice that brings life to commercials, advertisements & social media content. With a dynamic, clear & captivating tone, it delivers messages in a memorable & persuasive way. The voice adapts effortlessly to various types of projects, from promotional campaigns to commercial spots and digital content. It is the ideal choice for brands looking to create an authentic and strong connection with their audience."
+  },
+  {
+    "voiceId": "qjGjxc5szbbTGfofS1qy",
+    "voiceName": "Sonia",
+    "description": "A truly versatile voice that brings a touch of magic to commercials, advertisements, and digital content. Its dynamic and captivating tone transforms every message into a memorable journey, effortlessly adapting to diverse projects. Effortlessly adaptable to a variety of projects, from promotional campaigns and Youtube channels, to digital media and commercial spots, this voice is the perfect choice for brands aiming to build a genuine & genuine connection with their audience."
+  },
+  {
+    "voiceId": "4zwat5xS9O6SetLUEbxv",
+    "voiceName": "Delia",
+    "description": "A young adult Romanian female voice with a confident tone. Perfect for podcasts, commercials, audiobooks and shows."
+  },
+  {
+    "voiceId": "urzoE6aZYmSRdFQ6215h",
+    "voiceName": "Ana Maria",
+    "description": "A warm Romanian female voice, versatile and comforting, ideal for storytelling, commercials, and advertisements. This voice excels in delivering emotional depth and authenticity, making it perfect for engaging audiences and enhancing any narrative."
+  },
+  {
+    "voiceId": "ELipIT4gf7mqOUIdVqNN",
+    "voiceName": "Oliver Brown",
+    "description": "A polish male voice characterized by a warm, gentle, and subtle tone. This voice is perfect for projects that require a calm and soothing delivery, such as meditation apps, audiobooks, or instructional content. Its soft and engaging nature makes it suitable for professional narrations, voiceovers for commercials, or e-learning materials. With a clear and articulate sound, it can effectively convey messages while maintaining a relaxed and inviting atmosphere."
+  },
+  {
+    "voiceId": "GgOV3MkF7QFhOvQ6HX40",
+    "voiceName": "Ryszard B",
+    "description": "Ryszard B’s voice is deep, energetic, and highly interactive—ideal for social media videos, influencer reels, YouTube shorts, or engaging product explainers. His friendly tone and powerful presence make him perfect for brands targeting a younger, digital-savvy audience. Great fit for platforms like Instagram, TikTok, and YouTube, especially in lifestyle, tech, or viral formats."
+  },
+  {
+    "voiceId": "lehrjHysCyPSvjt0uSy6",
+    "voiceName": "Marta",
+    "description": "A professional, warm, and feminine voice with a calm, gentle, and emotionally expressive tone, perfect for narrations, presentations, and heartfelt storytelling."
+  },
+  {
+    "voiceId": "IQjnnInWsKbdAesop75D",
+    "voiceName": "The Critic",
+    "description": "A gifted Irish raconteur; male, late-thirties."
+  },
+  {
+    "voiceId": "TtRFBnwQdH1k01vR0hMz",
+    "voiceName": "Arthur",
+    "description": "A vibrant, fun, and dynamic young adult American Male voice. Perfect for social media videos, YouTube content, TikToks, and any project where you need to bring the energy! Arthur's voice is lively and engaging, making it ideal for grabbing attention and keeping your audience hooked."
+  },
+  {
+    "voiceId": "k5eTzx1VYYlp6BE39Qrj",
+    "voiceName": "Aita",
+    "description": "Middle-aged Calm, Gentle Soft, Deep, Friendly, Clear Indonesia female voice. Great for informative content."
+  },
+  {
+    "voiceId": "WALVsLZpjUuIGhgYInuz",
+    "voiceName": "Marizka",
+    "description": "An energetic, deep, and clear voice that feels naturally friendly and casual. Perfect for bringing stories to life in audiobooks and delivering powerful messages in product ads."
+  },
+  {
+    "voiceId": "I7sakys8pBZ1Z5f0UhT9",
+    "voiceName": "Putri Maharani",
+    "description": "The voice that transforms words into unforgettable experiences. With a warm, expressive tone and a storytelling style that captivates hearts, Putri Maharani voice will brings your projects to life. Whether you’re crafting an enchanting children’s tale, an edge-of-your-seat audiobook, or an inspiring documentary, Putri Maharani voice connects with listeners on an emotional level. Putri Maharani ability to evoke emotion ensures your audience stays engaged and inspired."
+  },
+  {
+    "voiceId": "KCHV5BA8cqcKnJPRmrOK",
+    "voiceName": "Jose Colombian guy",
+    "description": "A Colombian man between 35-40 years old with a thick Colombian accent. Ideal for news, podcasts and entertainment. Speaking at a normal pace, clear and warm, making every word engaging and easy to connect with."
+  },
+  {
+    "voiceId": "qdU62IMovREYmfk9SQ4K",
+    "voiceName": "Yohan A.",
+    "description": "Middle-aged Latin Spanish male voice. Great for conversation."
+  },
+  {
+    "voiceId": "W1hAcdh0RNsPYUA7fkJh",
+    "voiceName": "El Faraon",
+    "description": "A deep and powerful voice but also warm and close"
+  },
+  {
+    "voiceId": "sdxJtmxpzgSLekrYUGIu",
+    "voiceName": "Damian Tutorial",
+    "description": "Colombian male voice. Perfect for Tutorial & Narration."
+  },
+  {
+    "voiceId": "Ux2YbCNfurnKHnzlBHGX",
+    "voiceName": "Leo",
+    "description": "A young adult male with a Colombian accent. Good for Narrations."
+  },
+  {
+    "voiceId": "ztZBipzb4WQJRDayep3G",
+    "voiceName": "Alex Berlin",
+    "description": "Mega Stimme. Perfect for Podcasts, Youtube, TikTok, Instagram and any content that requires a really nice voice. Certified - 100% nice!"
+  },
+  {
+    "voiceId": "o2vbTbO3g4GrKUg7rehy",
+    "voiceName": "Cristian sanchez",
+    "description": "A 24-year-old Colombian paisa architect."
+  },
+  {
+    "voiceId": "4ClPfGRNxnfy7Zzp4OId",
+    "voiceName": "ARMANDO GOMEZ",
+    "description": "2y"
+  },
+  {
+    "voiceId": "57D8YIbQSuE3REDPO6Vm",
+    "voiceName": "Horacio",
+    "description": "Horacio combines a natural, authoritative presence with a warm, friendly tone that instantly inspires confidence. Its tone is clear and balanced, ideal for transmitting important messages with a perfect mix of security and closeness. Horacio has the ability to adapt to different contexts, whether professional, educational or advertising, always maintaining a genuine connection with his audience. His precise diction and conversational pace make him easy to listen to."
+  },
+  {
+    "voiceId": "d2Cxiyh5zS7CQNTlRrdT",
+    "voiceName": "Andres Felipe",
+    "description": "A sales voice, with a neutral accent, enthusiastic, for commercials, VSLs and fluid conversations."
+  },
+  {
+    "voiceId": "hzAlwTOTRZ88s2r1VJzw",
+    "voiceName": "Josh 2",
+    "description": "perfect audio quality"
+  },
+  {
+    "voiceId": "GX24INgi2044lB4dOvxC",
+    "voiceName": "Josh",
+    "description": "An Emirati man in his late 30s with a thick Gulf Arabic accent. She is masculine, youthful and has a charming voice, ideal for podcasts, advice videos, lifestyle content and any topic in general. His tone is tender, friendly and charismatic, capable of conveying closeness and confidence in every word. Every message sounds like a conversation with your best friend: natural, warm and authentic."
+  },
+  {
+    "voiceId": "f1lLwZU7rSbvKzRMcGXi",
+    "voiceName": "Clarisa",
+    "description": "An Emirati woman in her 30s with a thick Gulf Arabic accent. Ideal for news, podcasts and entertainment. Speaking at a normal pace, clear and warm, making every word engaging and easy to connect with."
+  },
+  {
+    "voiceId": "a1KZUXKFVFDOb33I1uqr",
+    "voiceName": "Salma",
+    "description": "Salma is a young and talented artist from Dubai. Her extensive experience is not just in voice but also in the Arabic language. You will hear all that experience in her voice. Do give it a try and you will love it as it is Perfect for voiceovers, audiobooks, commercials, podcasts, and language learning content"
+  },
+  {
+    "voiceId": "G1QUjBCuRBbLbAmYlTgl",
+    "voiceName": "abu salem Kuwaiti",
+    "description": "I’m Abu Salem Al-Kuwaiti, a professional voice-over artist known for delivering powerful, clear, and emotionally engaging performances. I specialize in storytelling, advertisements, news reports, and social media voiceovers."
+  },
+  {
+    "voiceId": "HB9mvaNVvJJ6kqrMfBWa",
+    "voiceName": "Danny",
+    "description": "An Emirati woman in her late 30s with a thick Gulf Arabic accent. She is feminine, youthful and charming voice, ideal for podcasts, advice videos, lifestyle content and any topic in general. Her tone is tender, friendly and charismatic, capable of conveying closeness and confidence in every word. Every message sounds like a conversation with your best friend: natural, warm and authentic."
+  },
+  {
+    "voiceId": "WmHXQOTjiCUs20R3x4rv",
+    "voiceName": "Stephen Emirati man",
+    "description": "An Emirati man in his 30s with a thick Gulf Arabic accent. Ideal for news, podcasts and entertainment. Speaking at a normal pace, clear and warm, making every word engaging and easy to connect with."
+  },
+  {
+    "voiceId": "byUMwK5g6S7DBhq5HUR7",
+    "voiceName": "Zarah Young Emirati Woman",
+    "description": "A young Emirati woman in her late 20s with a thick Gulf Arabic accent, warm and relatable, speaking at a normal pace, clear and warm, making every word engaging and easy to connect with. Perfect for social media content. Studio quality recording."
+  },
+  {
+    "voiceId": "LTRhsadUMaCJlNyRt16p",
+    "voiceName": "Zara Young Emirati woman",
+    "description": "A young Emirati woman in her 20s with a thick Gulf Arabic accent, warm and professional, speaking at a normal pace, enerfetic, clear and articulate. Studio quality recording."
+  },
+  {
+    "voiceId": "eESTQeTcGUli0jYysKtx",
+    "voiceName": "Senandika",
+    "description": "Meet the voice of today. A young, confident, and incredibly clear male voice with a fresh edge. This voice is designed for the digital age, delivering every word with a modern, dynamic flair. Whether you need an engaging narrator for your next commercial, a relatable host for a podcast, or a compelling speaker for social media content, this voice offers a unique blend of clarity and contemporary style that cuts through the noise."
+  },
+  {
+    "voiceId": "TfevL8tqOhb9PBTrfU9u",
+    "voiceName": "Sahl",
+    "description": "Arabic adult male voice."
+  },
+  {
+    "voiceId": "MSsKJV9ZON0v7tZR6NlP",
+    "voiceName": "Solana",
+    "description": "Suitable for storytelling and social media."
+  },
+  {
+    "voiceId": "WQ4h6sgS9p2XXvLsESBT",
+    "voiceName": "Selina",
+    "description": "Warm and clear female Indonesian voice. Suitable for narration, commercials, audiobooks, and educational content."
+  },
+  {
+    "voiceId": "dDU5VfWXOm9eAwl9oqA1",
+    "voiceName": "Om Tobi NOBAR",
+    "description": "Middle-aged male Indonesian voice. Suitable for entertainment & TV"
+  },
+  {
+    "voiceId": "iWydkXKoiVtvdn4vLKp9",
+    "voiceName": "Cahaya",
+    "description": "A trendy young Indonesian female voice, perfect for narration and social media with a fresh, engaging tone."
+  },
+  {
+    "voiceId": "plgKUYgnlZ1DCNh54DwJ",
+    "voiceName": "Dakocan",
+    "description": "An Indonesian young adult male voice with casual tone. Applicable for podcast, casual voice over and storytelling."
+  },
+  {
+    "voiceId": "NPDHDOOQCSyifTJZOe6J",
+    "voiceName": "Nilasari",
+    "description": "Indonesian voice over with clear articulation and natural tone. Suitable for educational content, promotions, video narration, and storytelling on various platforms such as YouTube, TikTok, and podcasts. Flexible for professional and creative needs."
+  },
+  {
+    "voiceId": "W98P5TTtcHAH6zHkf7ul",
+    "voiceName": "Raya Fie",
+    "description": "A bright, engaging, and captivating female voice, perfectly suited for podcasts, affiliate content, and narrating vlogs, designed to resonate with your audience and effectively showcase your products."
+  },
+  {
+    "voiceId": "7WNWm0yUcEolHsfg5Bhk",
+    "voiceName": "Truong Van Sang 8",
+    "description": "Middle-aged Vietnamese male voice. Suitable for Social media."
+  },
+  {
+    "voiceId": "QocxxnxEa0x8mrL2d4VT",
+    "voiceName": "Zara",
+    "description": "A clear Central Vietnamese accent from Da Nang. Warm, natural and expressive, with the ability to shift between soft, gentle storytelling tones and powerful, persuasive delivery. Suitable for narration, news reading, meditation, advertising, and emotional monologues"
+  },
+  {
+    "voiceId": "3VnrjnYrskPMDsapTr8X",
+    "voiceName": "VietNam DangTungDuy 2",
+    "description": "A deep, warm voice of a Vietnamese man in his early 30s—perfect for communication, education, storytelling, and short videos. His voice exudes clarity and warmth, making every word engaging and easy to connect with."
+  },
+  {
+    "voiceId": "bPMKpgEe88vKSwusXTMU",
+    "voiceName": "Bryan",
+    "description": "A warm and confident American male voice, perfect for bringing your stories to life. With his professional tone and natural charisma, Bryan adds sparkle to narration, radio, television, and video projects. Elevate your content with a voice that delivers your message with impact."
+  },
+  {
+    "voiceId": "5Spsi3mCH9e7futpnGE5",
+    "voiceName": "Fares",
+    "description": "My voice is Gulf Arabic, clear and balanced, characterized by warmth and professionalism. It is perfectly suited for advertisements and automated response systems, combining appeal with a professional tone."
+  },
+  {
+    "voiceId": "9f9KY15dSvN8oi5shT8z",
+    "voiceName": "Clodagh",
+    "description": "A adult Irish female voice with a calm and authoritative tone. Perfect for information giving or narration."
+  },
+  {
+    "voiceId": "E393dkE75hqtz1LO2aEJ",
+    "voiceName": "Megan",
+    "description": "An AI voice of a young Northern Irish girl captures the warm, melodic tones and distinct lilt of the region, bringing a sense of charm and authenticity to interactions. This voice could be used in a variety of applications, such as virtual assistants, educational platforms, storytelling apps, and customer service, offering a friendly, relatable experience. Its unique accent adds character and cultural richness, enhancing engagement in both local and global contexts."
+  },
+  {
+    "voiceId": "sgk995upfe3tYLvoGcBN",
+    "voiceName": "Labhaoise",
+    "description": "A casual Irish woman's voice is that is warm and grounded with a lilting rhythm. Great for conversations or stories."
+  },
+  {
+    "voiceId": "84Fal4DSXWfp7nJ8emqQ",
+    "voiceName": "Motivational Coach",
+    "description": "Middle aged American confident male voice. Perfect for Motivational videos."
+  },
+  {
+    "voiceId": "4YYIPFl9wE5c4L2eu2Gb",
+    "voiceName": "Burt Reynolds™",
+    "description": "ElevenLabs' Iconic Voice"
+  },
+  {
+    "voiceId": "Bj9UqZbhQsanLzgalpEG",
+    "voiceName": "Austin",
+    "description": "Good ol' boy, goes to the state fair every year, low, deep gravelly voice, proud of his state, can get intimate with a fireside talk, but can get loud when he's drinkin' with the boys. Served with a heapin' side of STRONG Texas accent and collard greens."
+  },
+  {
+    "voiceId": "Cz0K1kOv9tD8l0b5Qu53",
+    "voiceName": "Jon",
+    "description": "A relaxed, approachable American voice — natural, clear, and easygoing. Ideal for explainer videos, e-learning, podcasts, and casual commercials where authenticity matters. Jon is also the unmistakable voice of National Geographic’s World’s Weirdest and World’s Deadliest (1.5B+ streams on YouTube), and has voiced campaigns for Jeep, Aleve, Domino’s, Toyota RAV4, Purina, and more. Nearly 90,000 users and 600M+ characters have already chosen Jon’s voice on ElevenLabs in just 2½ months."
+  },
+  {
+    "voiceId": "zNsotODqUhvbJ5wMG7Ei",
+    "voiceName": "Charles",
+    "description": "An expressive voice of a mature English gentleman, speaking with an old fashioned British RP accent. Ideal for narration and audiobooks."
+  },
+  {
+    "voiceId": "OUBnvvuqEKdDWtapoJFn",
+    "voiceName": "Tia Mirza",
+    "description": "A crisp, commanding voice built for tough customer interactions, recovery calls, and straight-talking service bots. Tia Mirza’s tone is firm, quick, and assertively clear—perfect for payment recovery agents, strict IVRs, BFSI collections, and no-frills customer care workflows. Whether it’s a follow-up, reminder, or escalation, Tia cuts through the noise and gets the job done. Ideal for fintech apps, debt collection systems, insurance support, and serious-service voice agents."
+  },
+  {
+    "voiceId": "Tzf8K1T8bC5nay312fzF",
+    "voiceName": "Virginia",
+    "description": "Strong, determined, and resolute voice. Works well for Narration & Storytelling."
+  },
+  {
+    "voiceId": "TRnaQb7q41oL7sV0w6Bu",
+    "voiceName": "Simran – Bright, Fun, and Friendly BFF Voice for Gen Z Gossip",
+    "description": "A bubbly, expressive voice that sounds just like your favorite friend spilling tea over texts. Simran’s tone is light, fast-paced, and full of playful energy—perfect for Gen Z-focused content, AI BFFs, social media storytelling, and voice-based gossip apps. Whether it's for YouTube shorts, Instagram reels, Snapchat series, or interactive voice chats, Simran brings that ultra-relatable, “girl-next-door” charm that hooks listeners instantly."
+  },
+  {
+    "voiceId": "VmejBeYhbrcTPwDniox7",
+    "voiceName": "Lina",
+    "description": "A warm, natural, and versatile young Colombian female voice. Ideal for narrations, conversational content, and compelling call-to-action videos."
+  },
+  {
+    "voiceId": "86V9x9hrQds83qf7zaGn",
+    "voiceName": "Marcela",
+    "description": "Native Colombian female speaker with a natural, engaging tone, perfect for podcasts and conversational content."
+  },
+  {
+    "voiceId": "x6LHvMgpXmty838MUqHh",
+    "voiceName": "Pilar Durán",
+    "description": "A middle age LatinAmerican female voice that carries the depth and resonance of a mature woman, yet retains the sweetness and clarity of a younger one. Perfect for heartfelt storytelling, podcasts, documentaries, audiobooks, and educational content, Pilar brings impeccable diction, steady rhythm, and authentic interpretation to every project."
+  },
+  {
+    "voiceId": "J4vZAFDEcpenkMp3f3R9",
+    "voiceName": "Valentina",
+    "description": "Young Colombian woman from Medellín with a warm, conversational, and friendly tone that feels natural and engaging."
+  },
+  {
+    "voiceId": "x5IDPSl4ZUbhosMmVFTk",
+    "voiceName": "Lumina",
+    "description": "A neutral and versatile female voice, characterized by its clarity and a soft and direct tone. Lúminā conveys content with precision and elegance, making it perfect for narration, stories, advertisements and educational materials. Whether guiding you through complex information or narrating a moving story, this voice adapts effortlessly, ensuring every word is clear and impactful."
+  },
+  {
+    "voiceId": "TsKSGPuG26FpNj0JzQBq",
+    "voiceName": "Linda Gomez.",
+    "description": "Colombian voice specialized in sales and advertising."
+  },
+  {
+    "voiceId": "b2htR0pMe28pYwCY9gnP",
+    "voiceName": "Sofía – Soft & Warm",
+    "description": "Sofía's voice is warm and authentic, with a soft Medellín accent. Designed to connect with Latin American audiences, she's perfect for social media sales and customer service. Friendly and professional, she conveys calmness and builds trusting relationships."
+  },
+  {
+    "voiceId": "scn1gPWkdVd8FhODJoei",
+    "voiceName": "Maria",
+    "description": "Young female voice for Narrations, advertisements, audiobooks, and stories."
+  },
+  {
+    "voiceId": "oK6mHoBJSrcLlTyeOykK",
+    "voiceName": "Natalia",
+    "description": "Vibrant, elegant, and enriched with the warm cadence of Colombian Spanish, Natalia’s voice feels confident yet inviting. From commercials that sparkle with energy to podcasts that flow like real conversation, from meditations that soothe to e-learning that empowers, she connects with every listener. Authentic and versatile, Natalia makes each message unforgettable."
+  },
+  {
+    "voiceId": "zQzvQBubVkDWYuqJYMFn",
+    "voiceName": "B. Hardscrabble Oxley",
+    "description": "Intimate baritone of a weathered man whose soul has been sculpted by hardship.Suitable for Entertainment & TV."
+  },
+  {
+    "voiceId": "suMMgpGbVcnihP1CcgFS",
+    "voiceName": "Emily",
+    "description": "A young Irish female voice, with a slight coarseness, perfect for podcasts and audiobooks."
+  },
+  {
+    "voiceId": "rOnL0oCXRCiCFsoSTxSB",
+    "voiceName": "Kasia Pro",
+    "description": "Middle-aged Female voice. Great for Informative content."
+  },
+  {
+    "voiceId": "1e9Gn3OQenGu4rjQ3Du1",
+    "voiceName": "Niamh",
+    "description": "A young Irish female with a soft, authentic Irish accent with a friendly nature and slight lilt. Works well for Informative videos."
+  },
+  {
+    "voiceId": "nBGpwX2gxJKzCm2Z6Oxj",
+    "voiceName": "Receptionist Bec",
+    "description": "A soft clear friendly receptionist voice who handles patient queries."
+  },
+  {
+    "voiceId": "t6WJWTYTryhcQnrBHdCr",
+    "voiceName": "Louisamay",
+    "description": "A warm and engaging Irish voice with a friendly and approachable tone. Naturally upbeat and positive, it conveys energy and enthusiasm while maintaining clarity and professionalism. The voice has a curious and inquisitive quality, making conversations feel genuine and personal. Ideal for outbound calling, it balances friendliness with confidence, ensuring the listener feels both at ease and engaged."
+  },
+  {
+    "voiceId": "tlKpUDfYaDGG10tLVOrH",
+    "voiceName": "Shannon",
+    "description": "A female Irish voice, measured and calm."
+  },
+  {
+    "voiceId": "mFgXOmlOfXfr6suoQkRH",
+    "voiceName": "Frances",
+    "description": "Soft, warm, calm Irish accent with husky tones."
+  },
+  {
+    "voiceId": "odyUrTN5HMVKujvVAgWW",
+    "voiceName": "Influencer Emily",
+    "description": "An upbeat Northern Irish voice great for social media, voiceovers, tutorials and reviews."
+  },
+  {
+    "voiceId": "gbTn1bmCvNgk0QEAVyfM",
+    "voiceName": "Enrique M. Nieto",
+    "description": "Middle aged male with a Mexican Spanish accent. Great for Narrations."
+  },
+  {
+    "voiceId": "yytxkT3pNVMWDHn3KXrY",
+    "voiceName": "Rodrigo Dufey M",
+    "description": "A warm and welcoming voice that exudes professionalism and calmness. With a medium-low tone and balanced delivery, it maintains a moderate pace, ensuring clarity and articulation. The voice is naturally adaptive, carrying a soft yet precise quality that is both authentic and pleasant to the ear."
+  },
+  {
+    "voiceId": "prblQcKOdF08ozhxP2mk",
+    "voiceName": "Andrea Rabbit",
+    "description": "Middle-aged Warm, lovely female voice with a calm tone. Works great for Narration & Storytelling."
+  },
+  {
+    "voiceId": "OFrdGXwCzoE56a9sp1fk",
+    "voiceName": "Marco",
+    "description": "Great voice for conversational cases."
+  },
+  {
+    "voiceId": "0cheeVA5B3Cv6DGq65cT",
+    "voiceName": "Alejandro",
+    "description": "A casual voice that speaks naturally. Perfect for conversational AI applications."
+  },
+  {
+    "voiceId": "cLzIVykddLltvgkzos6C",
+    "voiceName": "Vale",
+    "description": "Young Chilean woman with a warm, natural, and inviting voice — friendly yet professional, ideal for conversational narration or commercial content."
+  },
+  {
+    "voiceId": "9ZVfdvBemUaGEWZgCiv0",
+    "voiceName": "Mateo Impactado",
+    "description": "Conversational male voice."
+  },
+  {
+    "voiceId": "nNS8uylvF9GBWVSiIt5h",
+    "voiceName": "Cristian Cornejo",
+    "description": "Middle-aged, sharp, Chilean accent. Suitable for Social media."
+  },
+  {
+    "voiceId": "s83SAGdFTflAwJcAV81K",
+    "voiceName": "Adeeb",
+    "description": "A well-modulated Arabic voice with rich tonal control and expressive delivery. Adeeb speaks with emotional depth, making him ideal for storytelling, voiceovers, and narrative-driven content. His voice blends precision with warmth — capable of shifting smoothly from calm reflection to dramatic impact. Perfect for Arabic audiobooks on Storytel & Audible, explainer videos on YouTube, poetic narration, educational content on platforms like Mawdoo3, and podcast storytelling on Spotify"
+  },
+  {
+    "voiceId": "gFqEbrURNHZpUOmMsx2f",
+    "voiceName": "Hakeem",
+    "description": "Hakeem, the therapist."
+  },
+  {
+    "voiceId": "3nav5pHC1EYvWOd5LmnA",
+    "voiceName": "Saud",
+    "description": "Clear deep voice with a formal tone, conveying a serious and trustworthy character, delivered in a steady and continuous manner. Suitable for voice-over in awareness and news content, with precise articulation and well-paced pauses."
+  },
+  {
+    "voiceId": "RjFuvnufLX42TYe37ekK",
+    "voiceName": "Adeeb – Arabic Customer Care Agent for Banks & Telcos",
+    "description": "Adeeb’s voice brings a warm, expressive, and confident tone that’s ideal for building trust and offering empathetic support in Arabic. Perfectly tuned for customer care in the UAE, his delivery strikes a balance between clarity and friendliness, making him ideal for telecom, government services, and financial institutions in the region. His voice works well across IVR systems, WhatsApp bots, voice assistants, and support flows for digital service platforms."
+  },
+  {
+    "voiceId": "Jez3JdhBInQTvlAvDOWR",
+    "voiceName": "Moncellence",
+    "description": "A warm, masculine Arabic voice with a calm, reassuring tone that reaches directly to the heart. Ideal for positive affirmations, meditation, audiobooks, motivational videos, or inspirational stories. It conveys a blend of comfort and confidence, giving the listener a sense of security and spiritual depth."
+  },
+  {
+    "voiceId": "VxSsN5NGusWQZXue7VE9",
+    "voiceName": "Hammam",
+    "description": "A warm, calm, and expressive Egyptian voice — perfect for storytelling, book narration, and advertising media. Skilled in delivering engaging slogans and emotionally balanced reads. The ideal choice for commercials, corporate narrations, and all types of Arabic voiceovers."
+  },
+  {
+    "voiceId": "sXXU5CoXEMsIqocfPUh2",
+    "voiceName": "Yash M",
+    "description": "This voice, brimming with energy, makes it ideal for engaging social media presence, ads, chatbots, audiobooks, podcasts, etc."
+  },
+  {
+    "voiceId": "FTNCalFNG5bRnkkaP5Ug",
+    "voiceName": "Otto",
+    "description": "A calm male German studio-quality voice. Perfect for German language and English with a German accent. Otto's clear, easy-to-understand narration is excellent for German voiceovers, audiobooks and podcasts, accurate video dubbing, advertising, and social media such as Reels, Stories, and YouTube."
+  },
+  {
     "voiceId": "yXEnnEln9armDCyhkXcA",
     "voiceName": "Jeddawi Echo",
     "description": "A deep, confident Saudi male voice from Jeddah, perfect for narration, commercials, podcasts, and storytelling. Warm, charismatic, and effortlessly professional — this voice brings every word to life with a modern Saudi flair."
@@ -53,11 +543,6 @@
     "voiceId": "ZpEtuMdTIlJXYXAhevhG",
     "voiceName": "Mia García- business, narrations and informative",
     "description": "Mia García is a Latin American Neutral Spanish voiceover who is passionate , natural, engaging and eloquent. Wonderful for business, narrations and informative."
-  },
-  {
-    "voiceId": "meAbY2VpJkt1q46qk56T",
-    "voiceName": "Hoda",
-    "description": "Middle aged female with Arabic-Egyptian accent,highly distinguished, expressive, and captivating.Ideal for narrations, commercials, audiobooks, and character voices."
   },
   {
     "voiceId": "IES4nrmZdUBHByLBde0P",
@@ -220,16 +705,6 @@
     "description": "Young male voice in Latin Spanish with an Argentine accent. Ideal for narrating news."
   },
   {
-    "voiceId": "EqIGWtLlCCOVlMhwe310",
-    "voiceName": "Laia",
-    "description": "Young - middle-aged female voice, Latin American Spanish. Perfect for your AI Receptionist and AI Call Agents; as well as YouTube videos, TikTok and Instagram shorts and reels, and podcasts."
-  },
-  {
-    "voiceId": "oWSxI36XAKnfMWmzmQok",
-    "voiceName": "Milena",
-    "description": "Young South American Latina Spanish with a beautiful, sweet, neutral voice perfect for commercials, narration, audiobooks, podcasts, YouTube, TikTok, Instagram, and ads. Natural bilingual flow in Spanish and English with a soft, melodic tone. Ideal for brands seeking authenticity, emotion, and connection. Perfect for Mexican, Colombian, Brazilian, Chilean, Argentine, Peru, Latin projects. Perfect for beauty, fashion, health, and educational brands."
-  },
-  {
     "voiceId": "8tm9IYjg8ybDoxe8w6Rk",
     "voiceName": "Daniela",
     "description": "Daniela has a feminine, youthful, and charming voice, ideal for podcasts, advice videos, fashion content, lifestyle content, and any topic in general. Her tone is tender, friendly, and charismatic, capable of conveying closeness and confidence in every word. With Daniela, every message sounds like a conversation with your best friend: natural, warm, and authentic."
@@ -300,24 +775,9 @@
     "description": "A youthful and bright Chinese female voice with a soft, friendly tone — warm, conversational, and effortlessly engaging, like a friend catching up with you over coffee."
   },
   {
-    "voiceId": "fQj4gJSexpu8RDE2Ii5m",
-    "voiceName": "Yu (Chinese)",
-    "description": "Yu is a vibrant, upbeat voice in Traditional Chinese with a youthful Taiwanese accent. It is characterized by its energetic tone and engaging delivery. Perfectly suited for tutorials, podcasts, calls, and classes, this voice ensures clarity and captures attention with a professional yet approachable vibe."
-  },
-  {
     "voiceId": "bhJUNIXWQQ94l8eI2VUf",
     "voiceName": "Amy",
     "description": "Amy's voice sounds young and natural, with a relaxed and friendly tone—like she's chatting with a friend. Her delivery is soft and approachable, perfect for casual conversations, lifestyle content, or social media."
-  },
-  {
-    "voiceId": "ByhETIclHirOlWnWKhHc",
-    "voiceName": "ShanShan",
-    "description": "A youthful Chinese female voice with lively energy. Suitable for narrating stories and creating content for social media videos."
-  },
-  {
-    "voiceId": "OjkyUe8dIihIFvOisuvM",
-    "voiceName": "Tung Wong",
-    "description": "A young, conversational and humorous male voice with a subtle Hong Kong accent. Perfect for content creators looking for a friendly and authentic tone with just the right touch of humor and regional charm."
   },
   {
     "voiceId": "QttbagfgqUCm9K0VgUyT",
@@ -328,10 +788,5 @@
     "voiceId": "vqoh9orw2tmOS3mY7D2p",
     "voiceName": "Sofi",
     "description": "A young Argentine woman with a great tone for Social Media, Storytelling and Education."
-  },
-  {
-    "voiceId": "9F4C8ztpNUmXkdDDbz3J",
-    "voiceName": "Dan Dan",
-    "description": "An upbeat and modulate voice. Great for shorts and social media."
   }
 ]

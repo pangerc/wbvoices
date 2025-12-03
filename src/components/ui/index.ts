@@ -24,3 +24,4 @@ export * from "./VersionAccordion";
 export * from "./VersionIterationInput";
 export * from "./VersionLineage";
 export * from "./Tooltip";
+export * from "./TruncatedText";

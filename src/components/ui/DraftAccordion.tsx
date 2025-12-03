@@ -37,6 +37,8 @@ function RequestChangeIcon({ className }: { className?: string }) {
 interface DraftAccordionProps {
   children: React.ReactNode;
   title?: string;
+  /** User's iteration request that created this draft */
+  requestText?: string;
   /** Stream type for reactive playback/generation state */
   type: "voice" | "music" | "sfx";
   /** Version ID for scoping playback state */
@@ -72,6 +74,7 @@ interface DraftAccordionProps {
 export function DraftAccordion({
   children,
   title = "DRAFT",
+  requestText,
   type,
   versionId,
   onGenerateAll,
@@ -106,17 +109,22 @@ export function DraftAccordion({
     <Accordion.Root type="single" collapsible {...accordionProps} className="mb-6">
       <Accordion.Item
         value="draft"
-        className="bg-white/5 backdrop-blur-sm"
+        className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/10"
       >
         <Accordion.Header className="flex items-center gap-2 px-4 py-3">
           {/* Trigger - title area only */}
-          <Accordion.Trigger className="flex-1 flex items-center gap-3 text-left group">
-            <span className="text-white font-mono text-sm font-medium">
+          <Accordion.Trigger className="flex-1 flex items-center gap-3 text-left group min-w-0">
+            <span className="text-white font-mono text-sm font-medium flex-shrink-0">
               {title}
             </span>
-            <span className="px-2 py-0.5 text-xs font-medium text-wb-blue bg-wb-blue/20 border border-wb-blue/30 rounded-full">
+            <span className="px-2 py-0.5 text-xs font-medium text-wb-blue bg-wb-blue/20 border border-wb-blue/30 rounded-full flex-shrink-0">
               EDITING
             </span>
+            {requestText && (
+              <span className="text-gray-400 text-xs italic truncate">
+                &ldquo;{requestText}&rdquo;
+              </span>
+            )}
           </Accordion.Trigger>
 
           {/* Action buttons - OUTSIDE trigger to avoid nested buttons */}

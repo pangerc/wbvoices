@@ -37,6 +37,7 @@ export interface BaseVersionItem {
   createdAt: number;
   createdBy: CreatedBy;
   status: VersionStatus;
+  requestText?: string;
 }
 
 export interface VersionAccordionProps<T extends BaseVersionItem> {
@@ -93,16 +94,21 @@ export function VersionAccordion<T extends BaseVersionItem>({
           <Accordion.Item
             key={version.id}
             value={version.id}
-            className={`transition-all duration-200 ${
+            className={`rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 transition-all duration-200 ${
               isActive
-                ? "bg-white/10"
-                : "bg-white/5"
+                ? "ring-1 ring-white/20"
+                : ""
             }`}
           >
             <Accordion.Header className="flex items-center gap-2 px-4 py-3">
               {/* Trigger - title area only */}
-              <Accordion.Trigger className="flex-1 text-left group">
-                <span className="text-white font-mono text-sm">{version.id}</span>
+              <Accordion.Trigger className="flex-1 text-left group flex items-center gap-2 min-w-0">
+                <span className="text-white font-mono text-sm flex-shrink-0">{version.id}</span>
+                {version.requestText && (
+                  <span className="text-gray-400 text-xs italic truncate">
+                    &ldquo;{version.requestText}&rdquo;
+                  </span>
+                )}
               </Accordion.Trigger>
 
               {/* Action buttons - OUTSIDE trigger to avoid nested buttons */}

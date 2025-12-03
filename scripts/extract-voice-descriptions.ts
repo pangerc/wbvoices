@@ -57,7 +57,7 @@ function extractVoiceId(testId: string): string | null {
  * Main extraction logic
  */
 async function extractVoiceDescriptions(): Promise<Map<string, VoiceDescription>> {
-  const htmlPath = path.join(process.cwd(), 'data', 'elevenlabs-voices-2.html');
+  const htmlPath = path.join(process.cwd(), 'data', '11lv5.html');
 
   console.log('📖 Reading HTML file...');
   const html = fs.readFileSync(htmlPath, 'utf-8');

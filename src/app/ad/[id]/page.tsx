@@ -201,7 +201,7 @@ export default function AdWorkspace() {
         projectName={adName}
       />
 
-      <div className="flex-1 overflow-auto bg-black relative">
+      <div className="flex-1 overflow-auto relative">
         <MatrixBackground
           isAnimating={isBriefGenerating || generatingMusic || generatingSfx}
         />
@@ -223,6 +223,7 @@ export default function AdWorkspace() {
               {voiceDraft && (
                 <DraftAccordion
                   title={voiceDraft.id}
+                  requestText={voiceDraft.version.requestText}
                   type="voice"
                   versionId={voiceDraft.id}
                   isOpen={openAccordion.voices === "draft"}
@@ -306,6 +307,7 @@ export default function AdWorkspace() {
               {musicDraft && (
                 <DraftAccordion
                   title={musicDraft.id}
+                  requestText={musicDraft.version.requestText}
                   type="music"
                   versionId={musicDraft.id}
                   isOpen={openAccordion.music === "draft"}
@@ -389,6 +391,7 @@ export default function AdWorkspace() {
               {sfxDraft && (
                 <DraftAccordion
                   title={sfxDraft.id}
+                  requestText={sfxDraft.version.requestText}
                   type="sfx"
                   versionId={sfxDraft.id}
                   isOpen={openAccordion.sfx === "draft"}

@@ -1,6 +1,6 @@
 import React from "react";
 import type { VoiceVersion } from "@/types/versions";
-import { VersionIterationInput, VersionLineage } from "@/components/ui";
+import { VersionIterationInput, VersionLineage, TruncatedText } from "@/components/ui";
 
 export interface VoiceVersionContentProps {
   version: VoiceVersion;
@@ -110,11 +110,11 @@ export function VoiceVersionContent({
               {/* Voice instructions (OpenAI) or baseline tone (ElevenLabs) */}
               {(track.voiceInstructions || track.description) && (
                 <div className="mt-2 text-xs text-gray-400 italic">
-                  {track.voiceInstructions ? (
-                    <span>Instructions: {track.voiceInstructions}</span>
-                  ) : track.description ? (
-                    <span>Tone: {track.description}</span>
-                  ) : null}
+                  <TruncatedText
+                    text={track.voiceInstructions || track.description || ""}
+                    label={track.voiceInstructions ? "Instructions: " : "Tone: "}
+                    maxLength={100}
+                  />
                 </div>
               )}
 
