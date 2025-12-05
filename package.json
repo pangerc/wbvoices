@@ -21,7 +21,7 @@
     "flag-icons": "^7.3.2",
     "jsonwebtoken": "^9.0.2",
     "liquid-glass-react": "^1.1.1",
-    "next": "15.5.2",
+    "next": "15.5.7",
     "openai": "^6.8.0",
     "playht": "^0.14.0",
     "postgres": "^3.4.7",
@@ -44,7 +44,7 @@
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.5",
     "eslint": "^9",
-    "eslint-config-next": "15.5.0",
+    "eslint-config-next": "15.5.7",
     "postcss": "^8",
     "tailwindcss": "^4.1.6",
     "typescript": "^5"
