@@ -213,7 +213,7 @@ export async function getActiveVersion(
  *
  * @param adId - Advertisement ID
  * @param streamType - Which stream
- * @param versionId - Version ID to activate
+ * @param versionId - Version ID to freeze and set as active
  */
 export async function setActiveVersion(
   adId: string,
@@ -226,7 +226,7 @@ export async function setActiveVersion(
   const version = await getVersion(adId, streamType, versionId);
   if (!version) {
     throw new Error(
-      `Cannot activate non-existent version: ${streamType} ${versionId}`
+      `Cannot freeze non-existent version: ${streamType} ${versionId}`
     );
   }
 
@@ -242,7 +242,24 @@ export async function setActiveVersion(
     await redis.set(versionKey, JSON.stringify(updatedVersion));
   }
 
-  console.log(`✅ Activated ${streamType} version ${versionId} for ad ${adId}`);
+  console.log(`✅ Froze ${streamType} version ${versionId} for ad ${adId}`);
+}
+
+/**
+ * Clear the active version pointer for a stream
+ * Used when removing a track type from the mixer entirely
+ *
+ * @param adId - Advertisement ID
+ * @param streamType - Which stream to deactivate
+ */
+export async function clearActiveVersion(
+  adId: string,
+  streamType: StreamType
+): Promise<void> {
+  const redis = getRedisV3();
+  const activeKey = AD_KEYS.active(adId, streamType);
+  await redis.del(activeKey);
+  console.log(`🗑️ Cleared active ${streamType} for ad ${adId}`);
 }
 
 // ============ Version Cloning ============
@@ -397,7 +414,7 @@ export async function getAdMetadata(adId: string): Promise<AdMetadata | null> {
 
 /**
  * Delete a version from a stream
- * NOTE: Cannot delete active version - must activate another first
+ * NOTE: Cannot delete active version - must select another first
  *
  * @param adId - Advertisement ID
  * @param streamType - Which stream

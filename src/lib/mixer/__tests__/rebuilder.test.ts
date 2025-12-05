@@ -194,7 +194,8 @@ describe("rebuildMixer", () => {
 
       expect(mixerState.tracks).toHaveLength(1);
       expect(mixerState.tracks[0].type).toBe("music");
-      expect(mixerState.tracks[0].label).toBe("Background Music");
+      // Label is "{Provider} - {prompt preview}" format
+      expect(mixerState.tracks[0].label).toContain("Loudly");
       expect(mixerState.tracks[0].duration).toBe(30);
     });
 

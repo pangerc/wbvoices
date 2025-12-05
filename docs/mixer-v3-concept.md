@@ -1,9 +1,10 @@
 # Mixer V3: Timeline Architecture Redesign
 
-**Status:** Proposal
+**Status:** In Progress (Foundation Laid)
 **Created:** 2025-10-03
+**Last Updated:** 2025-12-05
 **Author:** Architecture Team
-**Version:** 1.0
+**Version:** 1.1
 
 ---
 
@@ -18,6 +19,75 @@ The current mixer timeline system suffers from excessive recalculations (4+ per 
 - **Predictable behavior** with no reactive cascades
 - **Backward compatible** with existing Redis projects
 - **Foundation for manual editing** (drag-and-drop, undo/redo)
+
+---
+
+## Progress (Dec 2025)
+
+### Completed: Exact Duration Tracking
+
+A major source of hyper-reactivity has been eliminated: **audio duration measurement no longer triggers recalculations**.
+
+**What Changed:**
+- Added `generatedDuration` field to `VoiceTrack` type
+- Voice providers (ElevenLabs, Lovo) now measure actual audio duration using `music-metadata` package
+- Duration is stored in Redis at generation time, not measured client-side
+- Server uses real durations for timeline positioning (no more word-count estimation)
+
+**Impact on Cascade Problem:**
+```
+BEFORE (4+ calculations):
+Audio loads → setAudioDuration() → calculateTimings() → re-render → ...
+
+AFTER (0 client-side calculations from duration):
+Duration already in Redis → Server calculates once → Client hydrates
+```
+
+**Files:**
+- `src/types/versions.ts` - `VoiceTrack.generatedDuration` field
+- Voice provider routes - Duration measurement with `music-metadata`
+- `src/lib/mixer/rebuilder.ts` - Uses `generatedDuration` in timeline calculation
+
+### Completed: Server-Authoritative Mixer
+
+The mixer is now **server-authoritative** - calculations happen once on the server:
+
+```
+Version Activated
+    ↓
+rebuildMixer() (src/lib/mixer/rebuilder.ts)
+    ↓
+LegacyTimelineCalculator computes positions
+    ↓
+Redis: mixer state with calculatedTracks
+    ↓
+SWR: /api/ads/{id}/mixer
+    ↓
+MixerPanel: hydrates Zustand from SWR (no recalculation!)
+```
+
+**Key Behaviors:**
+- Hydration compares track **URLs**, not just IDs (handles re-generation with different providers)
+- Audio elements update `src` when URL changes
+- Server is source of truth; client doesn't recalculate timings
+
+**Files:**
+- `src/lib/mixer/rebuilder.ts` - Server-side calculation
+- `src/components/MixerPanel.tsx` - URL-aware hydration
+- `src/hooks/useMixerData.ts` - SWR subscription
+
+### Remaining Goals
+
+From the original proposal, these are still pending:
+
+| Feature | Status | Benefit |
+|---------|--------|---------|
+| Semantic IDs | ⏳ Pending | Relationships survive regeneration |
+| Command Pattern | ⏳ Pending | Atomic operations, undo/redo foundation |
+| Batching Layer | ⏳ Pending | Multiple changes → single calculation |
+| Manual Editing | ⏳ Pending | Drag-and-drop timeline positions |
+
+The duration tracking and server-authoritative model provide a **stable foundation** for these future enhancements.
 
 ---
 
@@ -1474,6 +1544,6 @@ The migration is designed to be **low-risk** (backward compatible, feature flagg
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-01-03
-**Status:** Awaiting Approval
+**Document Version:** 1.1
+**Last Updated:** 2025-12-05
+**Status:** Foundation Laid - Exact duration tracking and server-authoritative mixer implemented. Semantic IDs, command pattern, and manual editing remain as future enhancements.

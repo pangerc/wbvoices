@@ -1,21 +1,21 @@
 /**
- * Music Stream API - Activate Version
+ * Sound Effects Stream API - Freeze Version
  *
- * POST /api/ads/{adId}/music/{versionId}/activate - Activate a music version
+ * POST /api/ads/{adId}/sfx/{versionId}/freeze - Freeze a SFX version and send to mixer
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { setActiveVersion, getVersion } from "@/lib/redis/versions";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
-import { ActivateVersionResponse } from "@/types/versions";
+import { FreezeVersionResponse } from "@/types/versions";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
 
 /**
- * POST /api/ads/{adId}/music/{versionId}/activate
+ * POST /api/ads/{adId}/sfx/{versionId}/freeze
  *
- * Activate a music version (makes it current in mixer)
+ * Freeze a sound effects version and make it current in mixer
  */
 export async function POST(
   request: NextRequest,
@@ -24,10 +24,10 @@ export async function POST(
   try {
     const { id: adId, versionId } = await params;
 
-    console.log(`🎯 Activating music version ${versionId} for ad ${adId}`);
+    console.log(`🎯 Freezing SFX version ${versionId} for ad ${adId}`);
 
     // Verify version exists
-    const version = await getVersion(adId, "music", versionId);
+    const version = await getVersion(adId, "sfx", versionId);
     if (!version) {
       return NextResponse.json(
         {
@@ -39,23 +39,23 @@ export async function POST(
       );
     }
 
-    // Set as active version
-    await setActiveVersion(adId, "music", versionId);
+    // Freeze and set as active version
+    await setActiveVersion(adId, "sfx", versionId);
 
     // Rebuild mixer with new active version
     const mixer = await rebuildMixer(adId);
 
-    const response: ActivateVersionResponse = {
+    const response: FreezeVersionResponse = {
       active: versionId,
       mixer,
     };
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("❌ Error activating music version:", error);
+    console.error("❌ Error freezing SFX version:", error);
     return NextResponse.json(
       {
-        error: "Failed to activate music version",
+        error: "Failed to freeze SFX version",
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }

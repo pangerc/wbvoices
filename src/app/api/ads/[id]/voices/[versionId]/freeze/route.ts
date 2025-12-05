@@ -1,21 +1,21 @@
 /**
- * Voice Stream API - Activate Version
+ * Voice Stream API - Freeze Version
  *
- * POST /api/ads/{adId}/voices/{versionId}/activate - Activate a voice version
+ * POST /api/ads/{adId}/voices/{versionId}/freeze - Freeze a voice version and send to mixer
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { setActiveVersion, getVersion } from "@/lib/redis/versions";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
-import { ActivateVersionResponse, VoiceVersion } from "@/types/versions";
+import { FreezeVersionResponse, VoiceVersion } from "@/types/versions";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
 
 /**
- * POST /api/ads/{adId}/voices/{versionId}/activate
+ * POST /api/ads/{adId}/voices/{versionId}/freeze
  *
- * Activate a voice version (makes it current in mixer)
+ * Freeze a voice version and make it current in mixer
  * This triggers an automatic mixer rebuild
  *
  * Response:
@@ -35,7 +35,7 @@ export async function POST(
   try {
     const { id: adId, versionId } = await params;
 
-    console.log(`🎯 Activating voice version ${versionId} for ad ${adId}`);
+    console.log(`🎯 Freezing voice version ${versionId} for ad ${adId}`);
 
     // Verify version exists
     const version = await getVersion(adId, "voices", versionId);
@@ -64,30 +64,30 @@ export async function POST(
 
       return NextResponse.json(
         {
-          error: "Cannot activate draft with incomplete audio",
-          details: `${missingCount} track(s) missing audio. Generate audio for all tracks before activation.`,
+          error: "Cannot freeze draft with incomplete audio",
+          details: `${missingCount} track(s) missing audio. Generate audio for all tracks first.`,
         },
         { status: 400 }
       );
     }
 
-    // Set as active version (updates Redis pointer + version status)
+    // Freeze and set as active version (updates Redis pointer + version status)
     await setActiveVersion(adId, "voices", versionId);
 
     // Rebuild mixer with new active version
     const mixer = await rebuildMixer(adId);
 
-    const response: ActivateVersionResponse = {
+    const response: FreezeVersionResponse = {
       active: versionId,
       mixer,
     };
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("❌ Error activating voice version:", error);
+    console.error("❌ Error freezing voice version:", error);
     return NextResponse.json(
       {
-        error: "Failed to activate voice version",
+        error: "Failed to freeze voice version",
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }

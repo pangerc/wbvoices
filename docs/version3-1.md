@@ -1,7 +1,7 @@
 # Version 3: Agentic Tool-Calling Architecture
 
 **Status:** In Development
-**Last Updated:** November 29, 2025
+**Last Updated:** December 5, 2025
 
 ---
 
@@ -86,6 +86,68 @@ This prevents "Untitled Ad" spam from casual visits or refreshes. Implementation
 
 ---
 
+## Duration Tracking & Mixer
+
+### Accurate Duration Measurement
+
+Voice tracks now have **measured durations** instead of word-count estimation:
+
+```typescript
+// VoiceTrack type (src/types/versions.ts)
+interface VoiceTrack {
+  text: string;
+  voice: Voice;
+  generatedUrl?: string;
+  generatedDuration?: number;  // ← Actual duration in seconds
+  // ...
+}
+```
+
+**Flow:**
+1. Voice provider generates audio (ElevenLabs/Lovo)
+2. `music-metadata` package parses audio buffer
+3. `generatedDuration` saved to Redis with the track
+4. Mixer uses real duration for timeline positioning
+
+**Fallback:** Legacy data without `generatedDuration` uses word-count estimation (~2.5 words/sec).
+
+### Server-Authoritative Mixer
+
+The mixer state is calculated server-side and stored in Redis:
+
+```
+ad:{adId}:mixer → {
+  tracks: [...],           // Raw track data with URLs
+  calculatedTracks: [...], // Server-computed timings
+  activeVersions: { voices, music, sfx },
+  totalDuration: number
+}
+```
+
+**Data Flow:**
+```
+Version Activated
+    ↓
+rebuildMixer() (src/lib/mixer/rebuilder.ts)
+    ↓
+LegacyTimelineCalculator computes positions
+    ↓
+Redis: mixer state with calculatedTracks
+    ↓
+SWR: /api/ads/{id}/mixer
+    ↓
+MixerPanel: hydrates Zustand from SWR
+    ↓
+TimelineTrack: renders with server-computed timings
+```
+
+**Key Behaviors:**
+- Hydration compares track **URLs**, not just IDs (handles re-generation with different providers)
+- Audio elements update `src` when URL changes
+- Server is source of truth; client doesn't recalculate timings
+
+---
+
 ## LLM Provider
 
 **Single orchestrator:** OpenAI GPT-5.1 via Responses API
@@ -122,6 +184,10 @@ This prevents "Untitled Ad" spam from casual visits or refreshes. Implementation
 | **Version APIs** | `src/app/api/ads/[id]/{voices,music,sfx}/*` |
 | **Brief Panel** | `src/components/BriefPanelV3.tsx` |
 | **Scripter Panel** | `src/components/ScripterPanel.tsx` |
+| **Mixer Rebuilder** | `src/lib/mixer/rebuilder.ts` |
+| **Timeline Calculator** | `src/services/legacyTimelineCalculator.ts` |
+| **Mixer Panel** | `src/components/MixerPanel.tsx` |
+| **Mixer Data Hook** | `src/hooks/useMixerData.ts` |
 
 ---
 
@@ -153,8 +219,17 @@ This prevents "Untitled Ad" spam from casual visits or refreshes. Implementation
 - ✅ Duration constraint with word count guidance (~2.5 words/sec)
 - ✅ Responses API fix: structured `function_call_output` for tool results
 
+**Mixer & Duration (Dec 5, 2025):**
+- ✅ Accurate voice duration tracking via `generatedDuration` field
+- ✅ `music-metadata` package measures actual audio duration from voice providers
+- ✅ Mixer rebuild from V3 version data (`rebuildMixer` in `rebuilder.ts`)
+- ✅ Server-calculated timeline positions stored in `calculatedTracks`
+- ✅ MixerPanel hydrates from SWR (Redis as source of truth)
+- ✅ Hydration detects URL changes, not just track ID changes
+- ✅ Audio elements update `src` when track URL changes
+- ✅ Music track labels show provider + prompt preview
+
 ### Pending
-- ⏳ Mixer rebuild from V3 version data
 - ⏳ LLM conversation UI for iterations
 
 ### Known Issues
@@ -168,20 +243,12 @@ This prevents "Untitled Ad" spam from casual visits or refreshes. Implementation
 
 ## Next Steps
 
-**A. Per-Track Generation**
-- Save generated audio URLs back to Redis version record
-- Enable preview playback from persisted URLs
-
-**B. Pipeline to Mixer**
-- Activate version → rebuild mixer → display timeline
-- Prove end-to-end architecture works
-
-**C. Conversation UI**
+**A. Conversation UI**
 - Chat interface for iterative refinement (`/api/ads/[id]/chat`)
 - Create new drafts, archive previous versions
 - `search_voices` available for recasting requests
 
-**D. APAC Localization (if needed)**
+**B. APAC Localization (if needed)**
 - Add `localize_script` tool for Thai/Vietnamese/Chinese
 - Simple Qwen/Kimi text generation (not orchestration)
 - GPT-5.1 remains sole conductor

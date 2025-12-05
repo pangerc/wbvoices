@@ -3,7 +3,7 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
-import { PlayIcon, StopIcon, EllipsisVerticalIcon, DocumentPlusIcon } from "@heroicons/react/24/outline";
+import { PlayIcon, StopIcon, EllipsisVerticalIcon, DocumentPlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { LockClosedIcon } from "@heroicons/react/24/solid";
 import { useDraftAccordionState } from "@/hooks/useAudioPlayback";
 import { Tooltip } from "./Tooltip";
@@ -57,6 +57,7 @@ interface DraftAccordionProps {
   onFreeze?: () => void;
   onRequestChange?: () => void;
   onNewBlankVersion?: () => void;
+  onDelete?: () => void;
   /** @deprecated State now comes from useDraftAccordionState hook */
   playAllState?: { isPlaying: boolean; isGenerating: boolean };
   hasTracksWithAudio?: boolean;
@@ -88,6 +89,7 @@ export function DraftAccordion({
   onFreeze,
   onRequestChange,
   onNewBlankVersion,
+  onDelete,
   playAllState,
   hasTracksWithAudio = false,
   isOpen,
@@ -232,6 +234,19 @@ export function DraftAccordion({
                       <LockClosedIcon className="w-4 h-4" />
                       Freeze version
                     </DropdownMenu.Item>
+                  )}
+
+                  {onDelete && (
+                    <>
+                      <DropdownMenu.Separator className="h-px bg-white/10 my-1" />
+                      <DropdownMenu.Item
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded cursor-pointer outline-none"
+                        onSelect={onDelete}
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                        Delete draft
+                      </DropdownMenu.Item>
+                    </>
                   )}
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>

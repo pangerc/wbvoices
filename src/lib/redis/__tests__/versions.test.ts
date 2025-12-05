@@ -226,7 +226,7 @@ describe("getActiveVersion", () => {
 });
 
 describe("setActiveVersion", () => {
-  it("should set active version and update status", async () => {
+  it("should set active version pointer", async () => {
     await createVersion(mockAdId, "voices", mockVoiceVersionDraft);
 
     await setActiveVersion(mockAdId, "voices", "v1");
@@ -235,15 +235,15 @@ describe("setActiveVersion", () => {
     const activeId = await getActiveVersion(mockAdId, "voices");
     expect(activeId).toBe("v1");
 
-    // Check version status updated
+    // Drafts remain editable (not frozen) when sent to mixer
     const version = await getVersion(mockAdId, "voices", "v1");
-    expect(version?.status).toBe("frozen");
+    expect(version?.status).toBe("draft");
   });
 
-  it("should throw error when activating non-existent version", async () => {
+  it("should throw error when freezing non-existent version", async () => {
     await expect(
       setActiveVersion(mockAdId, "voices", "v999")
-    ).rejects.toThrow("Cannot activate non-existent version");
+    ).rejects.toThrow("Cannot freeze non-existent version");
   });
 
   it("should allow switching active version", async () => {

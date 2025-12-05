@@ -33,7 +33,7 @@ async function freezeExistingDraft(adId: string, streamType: StreamType): Promis
     if (version?.status === "draft") {
       await updateVersion(adId, streamType, vId, { status: "frozen" });
       console.log(`🧊 Froze ${streamType} draft ${vId} for ad ${adId}`);
-      break; // Only freeze the first draft found
+      // No break - freeze ALL existing drafts to ensure only one draft exists
     }
   }
 }

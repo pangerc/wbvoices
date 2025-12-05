@@ -1,12 +1,13 @@
 /**
- * Music Stream API - Get/Update Specific Version
+ * Music Stream API - Get/Update/Delete Specific Version
  *
  * GET /api/ads/{adId}/music/{versionId} - Get single music version
  * PATCH /api/ads/{adId}/music/{versionId} - Update draft version
+ * DELETE /api/ads/{adId}/music/{versionId} - Delete version
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getVersion, AD_KEYS } from "@/lib/redis/versions";
+import { getVersion, deleteVersion, AD_KEYS } from "@/lib/redis/versions";
 import { getRedisV3 } from "@/lib/redis-v3";
 import type { MusicVersion } from "@/types/versions";
 
@@ -103,6 +104,35 @@ export async function PATCH(
     return NextResponse.json(
       {
         error: "Failed to update music version",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/ads/{adId}/music/{versionId}
+ *
+ * Delete a music version (cannot delete active version)
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; versionId: string }> }
+) {
+  try {
+    const { id: adId, versionId } = await params;
+
+    console.log(`🗑️ Deleting music version ${versionId} for ad ${adId}`);
+
+    await deleteVersion(adId, "music", versionId);
+
+    return NextResponse.json({ success: true, versionId });
+  } catch (error) {
+    console.error("❌ Error deleting music version:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to delete music version",
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }

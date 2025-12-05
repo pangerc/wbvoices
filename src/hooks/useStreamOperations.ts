@@ -19,9 +19,24 @@ export function useStreamOperations(adId: string, stream: StreamType) {
 
   /**
    * Clone a version (create a copy as new draft)
+   * If a draft already exists, freezes it first (commits as frozen version)
    */
   const clone = async (versionId: VersionId) => {
     try {
+      const sessionId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("universal-session") || "default-session"
+          : "default-session";
+
+      // If draft exists, freeze it first (commits it as a frozen version)
+      const existingDraft = getDraft();
+      if (existingDraft) {
+        await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze`, {
+          method: "POST",
+          headers: { "x-session-id": sessionId },
+        });
+      }
+
       const res = await fetch(`/api/ads/${adId}/${stream}/${versionId}/clone`, {
         method: "POST",
       });
@@ -39,11 +54,18 @@ export function useStreamOperations(adId: string, stream: StreamType) {
   const remove = async (versionId: VersionId) => {
     if (!confirm(`Delete ${stream} version ${versionId}?`)) return;
     try {
+      console.log(`🗑️ Deleting ${stream} version ${versionId}...`);
       const res = await fetch(`/api/ads/${adId}/${stream}/${versionId}`, {
         method: "DELETE",
       });
+      console.log(`🗑️ Delete response: ok=${res.ok}, status=${res.status}`);
       if (res.ok) {
+        console.log(`🗑️ Refreshing ${stream} data...`);
         await mutate(); // Invalidate SWR cache
+        console.log(`🗑️ ${stream} data refreshed`);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.error(`🗑️ Delete failed:`, errorData);
       }
     } catch (error) {
       console.error(`Failed to delete ${stream} version:`, error);
@@ -52,7 +74,7 @@ export function useStreamOperations(adId: string, stream: StreamType) {
 
   /**
    * Create a new draft version.
-   * If a draft already exists, activates it first (commits as version).
+   * If a draft already exists, freezes it first (commits as version).
    */
   const createDraft = async () => {
     try {
@@ -61,10 +83,10 @@ export function useStreamOperations(adId: string, stream: StreamType) {
           ? localStorage.getItem("universal-session") || "default-session"
           : "default-session";
 
-      // If draft exists, activate it first (commits it as a version)
+      // If draft exists, freeze it first (commits it as a version)
       const existingDraft = getDraft();
       if (existingDraft) {
-        await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/activate`, {
+        await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze`, {
           method: "POST",
           headers: { "x-session-id": sessionId },
         });
@@ -92,10 +114,12 @@ export function useStreamOperations(adId: string, stream: StreamType) {
 
   /**
    * Get the current draft version (if any)
+   * Returns the NEWEST draft (last in versions array) to show most recent LLM iteration
    */
   const getDraft = (): { id: VersionId; version: VoiceVersion | MusicVersion | SfxVersion } | null => {
     if (!data) return null;
-    const draftId = data.versions.find(
+    // Use reverse to find newest draft (versions are ordered by creation time)
+    const draftId = [...data.versions].reverse().find(
       (vId) => data.versionsData[vId].status === "draft"
     );
     if (!draftId) return null;
@@ -107,20 +131,20 @@ export function useStreamOperations(adId: string, stream: StreamType) {
 
   /**
    * Send a version's tracks to the mixer.
-   * Activates the version in Redis and rebuilds mixer server-side.
+   * Freezes the version in Redis and rebuilds mixer server-side.
    * UI updates via SWR cache invalidation (no manual track building).
    */
   const sendToMixer = async (versionId: VersionId, switchToMixTab: () => void) => {
     if (!data) return;
 
     try {
-      const res = await fetch(`/api/ads/${adId}/${stream}/${versionId}/activate`, {
+      const res = await fetch(`/api/ads/${adId}/${stream}/${versionId}/freeze`, {
         method: "POST",
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error(`Activation failed:`, errorData);
+        console.error(`Freeze failed:`, errorData);
         // TODO: Show toast notification to user
         return;
       }

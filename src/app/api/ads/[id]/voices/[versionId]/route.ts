@@ -1,12 +1,13 @@
 /**
- * Voice Stream API - Get/Update Specific Version
+ * Voice Stream API - Get/Update/Delete Specific Version
  *
  * GET /api/ads/{adId}/voices/{versionId} - Get single voice version
  * PATCH /api/ads/{adId}/voices/{versionId} - Update draft version
+ * DELETE /api/ads/{adId}/voices/{versionId} - Delete version
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getVersion, AD_KEYS } from "@/lib/redis/versions";
+import { getVersion, deleteVersion, AD_KEYS } from "@/lib/redis/versions";
 import { getRedisV3 } from "@/lib/redis-v3";
 import type { VoiceVersion } from "@/types/versions";
 
@@ -123,6 +124,35 @@ export async function PATCH(
     return NextResponse.json(
       {
         error: "Failed to update voice version",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/ads/{adId}/voices/{versionId}
+ *
+ * Delete a voice version (cannot delete active version)
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; versionId: string }> }
+) {
+  try {
+    const { id: adId, versionId } = await params;
+
+    console.log(`🗑️ Deleting voice version ${versionId} for ad ${adId}`);
+
+    await deleteVersion(adId, "voices", versionId);
+
+    return NextResponse.json({ success: true, versionId });
+  } catch (error) {
+    console.error("❌ Error deleting voice version:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to delete voice version",
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }

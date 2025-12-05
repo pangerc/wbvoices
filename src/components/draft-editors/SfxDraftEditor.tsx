@@ -172,17 +172,17 @@ export function SfxDraftEditor({
     });
   };
 
-  // Send generated SFX to mixer via activate API
+  // Send generated SFX to mixer via freeze API
   // Uses the same flow as versions - Redis is source of truth
   const handleSendToMixer = async () => {
     try {
-      const res = await fetch(`/api/ads/${adId}/sfx/${draftVersionId}/activate`, {
+      const res = await fetch(`/api/ads/${adId}/sfx/${draftVersionId}/freeze`, {
         method: "POST",
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error("SFX activation failed:", errorData);
+        console.error("SFX freeze failed:", errorData);
         setStatusMessage("Failed to send to mixer");
         return;
       }

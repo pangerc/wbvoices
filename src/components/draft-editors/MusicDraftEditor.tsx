@@ -147,17 +147,17 @@ export function MusicDraftEditor({
     });
   };
 
-  // Send generated music to mixer via activate API
+  // Send generated music to mixer via freeze API
   // Uses the same flow as versions - Redis is source of truth
   const handleSendToMixer = async () => {
     try {
-      const res = await fetch(`/api/ads/${adId}/music/${draftVersionId}/activate`, {
+      const res = await fetch(`/api/ads/${adId}/music/${draftVersionId}/freeze`, {
         method: "POST",
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error("Music activation failed:", errorData);
+        console.error("Music freeze failed:", errorData);
         setStatusMessage("Failed to send to mixer");
         return;
       }

@@ -18,6 +18,7 @@ import { useMixerStore } from "@/store/mixerStore";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useUIStore } from "@/store/uiStore";
 import { useStreamOperations } from "@/hooks/useStreamOperations";
+import { useMixerData } from "@/hooks/useMixerData";
 import type {
   VoiceVersion,
   MusicVersion,
@@ -35,6 +36,9 @@ export default function AdWorkspace() {
   const voice = useStreamOperations(adId, "voices");
   const music = useStreamOperations(adId, "music");
   const sfx = useStreamOperations(adId, "sfx");
+
+  // Mixer data for revalidation after track removal
+  const { mutate: mutateMixer } = useMixerData(adId);
 
   // Accordion state from store
   const { openAccordion, setOpenAccordion } = useUIStore();
@@ -282,6 +286,7 @@ export default function AdWorkspace() {
                   onRequestChange={() => voiceRequestChangeRef.current?.()}
                   hasTracksWithAudio={voiceDraft.version.voiceTracks.some(t => !!t.generatedUrl)}
                   onNewBlankVersion={voice.createDraft}
+                  onDelete={() => voice.remove(voiceDraft.id)}
                 >
                   <VoiceDraftEditor
                     key={voiceDraft.id}
@@ -371,6 +376,7 @@ export default function AdWorkspace() {
                   onRequestChange={() => musicRequestChangeRef.current?.()}
                   hasTracksWithAudio={!!musicDraft.version.generatedUrl}
                   onNewBlankVersion={music.createDraft}
+                  onDelete={() => music.remove(musicDraft.id)}
                 >
                   <MusicDraftEditor
                     key={musicDraft.id}
@@ -456,6 +462,7 @@ export default function AdWorkspace() {
                   onRequestChange={() => sfxRequestChangeRef.current?.()}
                   hasTracksWithAudio={(sfxDraft.version.generatedUrls?.length || 0) > 0}
                   onNewBlankVersion={sfx.createDraft}
+                  onDelete={() => sfx.remove(sfxDraft.id)}
                 >
                   <SfxDraftEditor
                     key={sfxDraft.id}
@@ -530,6 +537,25 @@ export default function AdWorkspace() {
               onChangeVoice={() => setSelectedTab(1)}
               onChangeMusic={() => setSelectedTab(2)}
               onChangeSoundFx={() => setSelectedTab(3)}
+              onRemoveTrack={async (trackId: string) => {
+                // Parse track ID to determine stream type
+                const streamType = trackId.startsWith("sfx-")
+                  ? "sfx"
+                  : trackId.startsWith("music-")
+                    ? "music"
+                    : null;
+                if (!streamType) return;
+
+                // Call API to remove stream and rebuild mixer
+                await fetch(`/api/ads/${adId}/mixer/remove-stream`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ streamType }),
+                });
+
+                // Revalidate mixer data
+                mutateMixer();
+              }}
             />
           )}
 

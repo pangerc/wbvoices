@@ -215,11 +215,11 @@ export interface CreateVersionResponse {
 }
 
 /**
- * Response type for activating a version
- * Used by POST /api/ads/{adId}/voices|music|sfx/{versionId}/activate
+ * Response type for freezing a version
+ * Used by POST /api/ads/{adId}/voices|music|sfx/{versionId}/freeze
  */
-export interface ActivateVersionResponse {
-  /** Newly activated version ID */
+export interface FreezeVersionResponse {
+  /** Newly frozen/active version ID */
   active: VersionId;
 
   /** Rebuilt mixer state (optional, for immediate UI update) */

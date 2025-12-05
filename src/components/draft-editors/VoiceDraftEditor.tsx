@@ -430,17 +430,17 @@ export function VoiceDraftEditor({
     onUpdate();
   };
 
-  // Send voice tracks to the mixer via activate API
+  // Send voice tracks to the mixer via freeze API
   // Uses the same flow as versions - Redis is source of truth
   const handleSendToMixer = async () => {
     try {
-      const res = await fetch(`/api/ads/${adId}/voices/${draftVersionId}/activate`, {
+      const res = await fetch(`/api/ads/${adId}/voices/${draftVersionId}/freeze`, {
         method: "POST",
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error("Voice activation failed:", errorData);
+        console.error("Voice freeze failed:", errorData);
         setStatusMessage("Failed to send to mixer");
         return;
       }
