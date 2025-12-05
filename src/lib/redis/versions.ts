@@ -414,25 +414,28 @@ export async function getAdMetadata(adId: string): Promise<AdMetadata | null> {
 
 /**
  * Delete a version from a stream
- * NOTE: Cannot delete active version - must select another first
+ * If deleting the active version, clears the active pointer (removes from mixer)
  *
  * @param adId - Advertisement ID
  * @param streamType - Which stream
  * @param versionId - Version ID to delete
+ * @returns true if deleted version was active (caller may need to rebuild mixer)
  */
 export async function deleteVersion(
   adId: string,
   streamType: StreamType,
   versionId: VersionId
-): Promise<void> {
+): Promise<{ wasActive: boolean }> {
   const redis = getRedisV3();
 
-  // Prevent deleting active version
+  // Check if deleting the active version
   const activeId = await getActiveVersion(adId, streamType);
-  if (activeId === versionId) {
-    throw new Error(
-      `Cannot delete active version ${versionId}. Activate another version first.`
-    );
+  const wasActive = activeId === versionId;
+
+  if (wasActive) {
+    // Clear the active pointer - this removes the stream from the mixer
+    await clearActiveVersion(adId, streamType);
+    console.log(`🗑️ Cleared active ${streamType} pointer (was ${versionId})`);
   }
 
   // Remove from versions list
@@ -444,6 +447,8 @@ export async function deleteVersion(
   await redis.del(versionKey);
 
   console.log(`✅ Deleted ${streamType} version ${versionId} from ad ${adId}`);
+
+  return { wasActive };
 }
 
 // ============ Mixer State ============

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 import { MatrixBackground } from "@/components";
-import { VersionAccordion, DraftAccordion } from "@/components/ui";
+import { VersionAccordion, DraftAccordion, EmptyStreamState } from "@/components/ui";
 import { VoiceVersionContent } from "@/components/version-content/VoiceVersionContent";
 import { MusicVersionContent } from "@/components/version-content/MusicVersionContent";
 import { SfxVersionContent } from "@/components/version-content/SfxVersionContent";
@@ -37,8 +37,8 @@ export default function AdWorkspace() {
   const music = useStreamOperations(adId, "music");
   const sfx = useStreamOperations(adId, "sfx");
 
-  // Mixer data for revalidation after track removal
-  const { mutate: mutateMixer } = useMixerData(adId);
+  // Mixer data and operations
+  const { removeStream } = useMixerData(adId);
 
   // Accordion state from store
   const { openAccordion, setOpenAccordion } = useUIStore();
@@ -286,7 +286,12 @@ export default function AdWorkspace() {
                   onRequestChange={() => voiceRequestChangeRef.current?.()}
                   hasTracksWithAudio={voiceDraft.version.voiceTracks.some(t => !!t.generatedUrl)}
                   onNewBlankVersion={voice.createDraft}
-                  onDelete={() => voice.remove(voiceDraft.id)}
+                  onDelete={async () => {
+                    const deleted = await voice.remove(voiceDraft.id);
+                    if (deleted && openAccordion.voices === "draft") {
+                      setOpenAccordion("voices", null);
+                    }
+                  }}
                 >
                   <VoiceDraftEditor
                     key={voiceDraft.id}
@@ -303,21 +308,10 @@ export default function AdWorkspace() {
               )}
 
               {voice.data.versions.length === 0 ? (
-                <div className="p-8 rounded-xl bg-white/5 border border-white/10 text-center text-gray-400">
-                  <button
-                    onClick={() => setSelectedTab(0)}
-                    className="text-wb-blue hover:text-blue-400 transition-colors"
-                  >
-                    Share a brief
-                  </button>
-                  {" or start with a "}
-                  <button
-                    onClick={voice.createDraft}
-                    className="text-wb-blue hover:text-blue-400 transition-colors"
-                  >
-                    blank one
-                  </button>
-                </div>
+                <EmptyStreamState
+                  onGoToBrief={() => setSelectedTab(0)}
+                  onCreateBlank={voice.createDraft}
+                />
               ) : (
                 <VersionAccordion
                   versions={voice.data.versions
@@ -331,7 +325,13 @@ export default function AdWorkspace() {
                   onOpenChange={(versionId) => setOpenAccordion("voices", versionId)}
                   onPreview={handlePreview}
                   onClone={voice.clone}
-                  onDelete={voice.remove}
+                  onDelete={async (vId) => {
+                    const deleted = await voice.remove(vId);
+                    // Clear accordion state if we deleted the open version
+                    if (deleted && openAccordion.voices === deleted) {
+                      setOpenAccordion("voices", null);
+                    }
+                  }}
                   onSendToMixer={(vId) => voice.sendToMixer(vId, switchToMixTab)}
                   hasAudio={(v) => {
                     const voice = v as VoiceVersion;
@@ -376,7 +376,12 @@ export default function AdWorkspace() {
                   onRequestChange={() => musicRequestChangeRef.current?.()}
                   hasTracksWithAudio={!!musicDraft.version.generatedUrl}
                   onNewBlankVersion={music.createDraft}
-                  onDelete={() => music.remove(musicDraft.id)}
+                  onDelete={async () => {
+                    const deleted = await music.remove(musicDraft.id);
+                    if (deleted && openAccordion.music === "draft") {
+                      setOpenAccordion("music", null);
+                    }
+                  }}
                 >
                   <MusicDraftEditor
                     key={musicDraft.id}
@@ -393,21 +398,10 @@ export default function AdWorkspace() {
               )}
 
               {music.data.versions.length === 0 ? (
-                <div className="p-8 rounded-xl bg-white/5 border border-white/10 text-center text-gray-400">
-                  <button
-                    onClick={() => setSelectedTab(0)}
-                    className="text-wb-blue hover:text-blue-400 transition-colors"
-                  >
-                    Share a brief
-                  </button>
-                  {" or start with a "}
-                  <button
-                    onClick={music.createDraft}
-                    className="text-wb-blue hover:text-blue-400 transition-colors"
-                  >
-                    blank one
-                  </button>
-                </div>
+                <EmptyStreamState
+                  onGoToBrief={() => setSelectedTab(0)}
+                  onCreateBlank={music.createDraft}
+                />
               ) : (
                 <VersionAccordion
                   versions={music.data.versions
@@ -421,7 +415,12 @@ export default function AdWorkspace() {
                   onOpenChange={(versionId) => setOpenAccordion("music", versionId)}
                   onPreview={handlePreview}
                   onClone={music.clone}
-                  onDelete={music.remove}
+                  onDelete={async (vId) => {
+                    const deleted = await music.remove(vId);
+                    if (deleted && openAccordion.music === deleted) {
+                      setOpenAccordion("music", null);
+                    }
+                  }}
                   onSendToMixer={(vId) => music.sendToMixer(vId, switchToMixTab)}
                   hasAudio={(v) =>
                     !!(v as MusicVersion).generatedUrl &&
@@ -462,7 +461,12 @@ export default function AdWorkspace() {
                   onRequestChange={() => sfxRequestChangeRef.current?.()}
                   hasTracksWithAudio={(sfxDraft.version.generatedUrls?.length || 0) > 0}
                   onNewBlankVersion={sfx.createDraft}
-                  onDelete={() => sfx.remove(sfxDraft.id)}
+                  onDelete={async () => {
+                    const deleted = await sfx.remove(sfxDraft.id);
+                    if (deleted && openAccordion.sfx === "draft") {
+                      setOpenAccordion("sfx", null);
+                    }
+                  }}
                 >
                   <SfxDraftEditor
                     key={sfxDraft.id}
@@ -474,26 +478,16 @@ export default function AdWorkspace() {
                     onSendToMixerRef={sfxSendToMixerRef}
                     onRequestChangeRef={sfxRequestChangeRef}
                     onNewBlankVersion={sfx.createDraft}
+                    voiceStream={voice}
                   />
                 </DraftAccordion>
               )}
 
               {sfx.data.versions.length === 0 ? (
-                <div className="p-8 rounded-xl bg-white/5 border border-white/10 text-center text-gray-400">
-                  <button
-                    onClick={() => setSelectedTab(0)}
-                    className="text-wb-blue hover:text-blue-400 transition-colors"
-                  >
-                    Share a brief
-                  </button>
-                  {" or start with a "}
-                  <button
-                    onClick={sfx.createDraft}
-                    className="text-wb-blue hover:text-blue-400 transition-colors"
-                  >
-                    blank one
-                  </button>
-                </div>
+                <EmptyStreamState
+                  onGoToBrief={() => setSelectedTab(0)}
+                  onCreateBlank={sfx.createDraft}
+                />
               ) : (
                 <VersionAccordion
                   versions={sfx.data.versions
@@ -507,7 +501,12 @@ export default function AdWorkspace() {
                   onOpenChange={(versionId) => setOpenAccordion("sfx", versionId)}
                   onPreview={handlePreview}
                   onClone={sfx.clone}
-                  onDelete={sfx.remove}
+                  onDelete={async (vId) => {
+                    const deleted = await sfx.remove(vId);
+                    if (deleted && openAccordion.sfx === deleted) {
+                      setOpenAccordion("sfx", null);
+                    }
+                  }}
                   onSendToMixer={(vId) => sfx.sendToMixer(vId, switchToMixTab)}
                   hasAudio={(v) =>
                     (v as SfxVersion).generatedUrls &&
@@ -537,24 +536,10 @@ export default function AdWorkspace() {
               onChangeVoice={() => setSelectedTab(1)}
               onChangeMusic={() => setSelectedTab(2)}
               onChangeSoundFx={() => setSelectedTab(3)}
-              onRemoveTrack={async (trackId: string) => {
-                // Parse track ID to determine stream type
-                const streamType = trackId.startsWith("sfx-")
-                  ? "sfx"
-                  : trackId.startsWith("music-")
-                    ? "music"
-                    : null;
-                if (!streamType) return;
-
-                // Call API to remove stream and rebuild mixer
-                await fetch(`/api/ads/${adId}/mixer/remove-stream`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ streamType }),
-                });
-
-                // Revalidate mixer data
-                mutateMixer();
+              onRemoveTrack={(trackId: string) => {
+                const streamType = trackId.startsWith("sfx-") ? "sfx" :
+                                   trackId.startsWith("music-") ? "music" : null;
+                if (streamType) removeStream(streamType);
               }}
             />
           )}

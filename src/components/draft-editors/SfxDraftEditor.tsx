@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { SoundFxPanel } from "@/components/SoundFxPanel";
-import type { SfxVersion, VersionId } from "@/types/versions";
+import type { SfxVersion, VoiceVersion, VersionId } from "@/types/versions";
 import type { SoundFxPrompt } from "@/types";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useSfxDraftState, usePlaybackActions } from "@/hooks/useAudioPlayback";
 import { VersionIterationInput } from "@/components/ui";
+import type { useStreamOperations } from "@/hooks/useStreamOperations";
 
 export interface SfxDraftEditorProps {
   adId: string;
@@ -18,6 +19,8 @@ export interface SfxDraftEditorProps {
   onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
   onRequestChangeRef?: React.MutableRefObject<(() => void) | null>;
   onNewBlankVersion?: () => void;
+  // Voice stream data for SFX placement options (after voice X)
+  voiceStream?: ReturnType<typeof useStreamOperations>;
 }
 
 export function SfxDraftEditor({
@@ -29,6 +32,7 @@ export function SfxDraftEditor({
   onSendToMixerRef,
   onRequestChangeRef,
   onNewBlankVersion,
+  voiceStream,
 }: SfxDraftEditorProps) {
   // Ref to expose VersionIterationInput's expand function
   const iterationExpandRef = useRef<(() => void) | null>(null);
@@ -45,6 +49,24 @@ export function SfxDraftEditor({
   // Use centralized audio playback store for state
   const { isGenerating, isPlaying } = useSfxDraftState(draftVersionId);
   const { setGeneratingSfx } = usePlaybackActions();
+
+  // Compute voice track previews for SFX placement options (after voice X)
+  const voiceTrackPreviews = useMemo(() => {
+    if (!voiceStream?.data) return [];
+
+    // Prefer draft voice tracks, fall back to active version
+    const draft = voiceStream.getDraft();
+    const version = (draft?.version as VoiceVersion | undefined) ??
+      (voiceStream.data.active
+        ? voiceStream.data.versionsData[voiceStream.data.active] as VoiceVersion
+        : null);
+
+    if (!version?.voiceTracks) return [];
+    return version.voiceTracks.map(t => ({
+      name: t.voice?.name || "Voice",
+      text: t.text || ""
+    }));
+  }, [voiceStream?.data, voiceStream?.getDraft]);
 
   // Default ad duration (TODO: get from actual ad)
   const adDuration = 30;
@@ -228,6 +250,7 @@ export function SfxDraftEditor({
         onAddPrompt={addPrompt}
         adDuration={adDuration}
         resetForm={resetForm}
+        voiceTrackPreviews={voiceTrackPreviews}
       />
       <VersionIterationInput
         adId={adId}

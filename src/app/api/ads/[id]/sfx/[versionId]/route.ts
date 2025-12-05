@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVersion, deleteVersion, AD_KEYS } from "@/lib/redis/versions";
 import { getRedisV3 } from "@/lib/redis-v3";
+import { rebuildMixer } from "@/lib/mixer/rebuilder";
 import type { SfxVersion } from "@/types/versions";
 
 // Force Node.js runtime for Redis access
@@ -114,7 +115,7 @@ export async function PATCH(
 /**
  * DELETE /api/ads/{adId}/sfx/{versionId}
  *
- * Delete a SFX version (cannot delete active version)
+ * Delete a SFX version. If it was active in the mixer, removes from mixer.
  */
 export async function DELETE(
   request: NextRequest,
@@ -125,9 +126,15 @@ export async function DELETE(
 
     console.log(`🗑️ Deleting SFX version ${versionId} for ad ${adId}`);
 
-    await deleteVersion(adId, "sfx", versionId);
+    const { wasActive } = await deleteVersion(adId, "sfx", versionId);
 
-    return NextResponse.json({ success: true, versionId });
+    // If we deleted the active version, rebuild mixer without it
+    if (wasActive) {
+      console.log(`🔄 Rebuilding mixer after deleting active SFX version`);
+      await rebuildMixer(adId);
+    }
+
+    return NextResponse.json({ success: true, versionId, wasActive });
   } catch (error) {
     console.error("❌ Error deleting SFX version:", error);
     return NextResponse.json(

@@ -296,11 +296,12 @@ describe("updateVersion", () => {
 });
 
 describe("deleteVersion", () => {
-  it("should delete non-active version", async () => {
+  it("should delete non-active version and return wasActive: false", async () => {
     await createVersion(mockAdId, "voices", mockVoiceVersionDraft);
     await createVersion(mockAdId, "voices", mockVoiceVersionDraft);
 
-    await deleteVersion(mockAdId, "voices", "v1");
+    const result = await deleteVersion(mockAdId, "voices", "v1");
+    expect(result.wasActive).toBe(false);
 
     // Verify deleted
     const version = await getVersion(mockAdId, "voices", "v1");
@@ -311,13 +312,20 @@ describe("deleteVersion", () => {
     expect(versions).toEqual(["v2"]);
   });
 
-  it("should throw error when deleting active version", async () => {
+  it("should delete active version and clear active pointer", async () => {
     await createVersion(mockAdId, "voices", mockVoiceVersionDraft);
     await setActiveVersion(mockAdId, "voices", "v1");
 
-    await expect(deleteVersion(mockAdId, "voices", "v1")).rejects.toThrow(
-      "Cannot delete active version v1"
-    );
+    const result = await deleteVersion(mockAdId, "voices", "v1");
+    expect(result.wasActive).toBe(true);
+
+    // Verify deleted
+    const version = await getVersion(mockAdId, "voices", "v1");
+    expect(version).toBeNull();
+
+    // Verify active pointer is cleared
+    const active = await getActiveVersion(mockAdId, "voices");
+    expect(active).toBeNull();
   });
 
   it("should allow deleting version after switching active", async () => {
@@ -328,7 +336,8 @@ describe("deleteVersion", () => {
     await setActiveVersion(mockAdId, "voices", "v2");
 
     // Now v1 can be deleted
-    await deleteVersion(mockAdId, "voices", "v1");
+    const result = await deleteVersion(mockAdId, "voices", "v1");
+    expect(result.wasActive).toBe(false);
 
     const version = await getVersion(mockAdId, "voices", "v1");
     expect(version).toBeNull();

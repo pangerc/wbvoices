@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVersion, deleteVersion, AD_KEYS } from "@/lib/redis/versions";
 import { getRedisV3 } from "@/lib/redis-v3";
+import { rebuildMixer } from "@/lib/mixer/rebuilder";
 import type { VoiceVersion } from "@/types/versions";
 
 // Force Node.js runtime for Redis access
@@ -134,7 +135,7 @@ export async function PATCH(
 /**
  * DELETE /api/ads/{adId}/voices/{versionId}
  *
- * Delete a voice version (cannot delete active version)
+ * Delete a voice version. If it was active in the mixer, removes from mixer.
  */
 export async function DELETE(
   request: NextRequest,
@@ -145,9 +146,15 @@ export async function DELETE(
 
     console.log(`🗑️ Deleting voice version ${versionId} for ad ${adId}`);
 
-    await deleteVersion(adId, "voices", versionId);
+    const { wasActive } = await deleteVersion(adId, "voices", versionId);
 
-    return NextResponse.json({ success: true, versionId });
+    // If we deleted the active version, rebuild mixer without it
+    if (wasActive) {
+      console.log(`🔄 Rebuilding mixer after deleting active voice version`);
+      await rebuildMixer(adId);
+    }
+
+    return NextResponse.json({ success: true, versionId, wasActive });
   } catch (error) {
     console.error("❌ Error deleting voice version:", error);
     return NextResponse.json(

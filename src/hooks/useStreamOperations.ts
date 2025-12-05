@@ -50,9 +50,10 @@ export function useStreamOperations(adId: string, stream: StreamType) {
 
   /**
    * Delete a version
+   * @returns The deleted versionId if successful, null if cancelled/failed
    */
-  const remove = async (versionId: VersionId) => {
-    if (!confirm(`Delete ${stream} version ${versionId}?`)) return;
+  const remove = async (versionId: VersionId): Promise<VersionId | null> => {
+    if (!confirm(`Delete ${stream} version ${versionId}?`)) return null;
     try {
       console.log(`🗑️ Deleting ${stream} version ${versionId}...`);
       const res = await fetch(`/api/ads/${adId}/${stream}/${versionId}`, {
@@ -61,14 +62,18 @@ export function useStreamOperations(adId: string, stream: StreamType) {
       console.log(`🗑️ Delete response: ok=${res.ok}, status=${res.status}`);
       if (res.ok) {
         console.log(`🗑️ Refreshing ${stream} data...`);
-        await mutate(); // Invalidate SWR cache
+        // Force a full refetch from server (not just cache invalidation)
+        await mutate(undefined, { revalidate: true });
         console.log(`🗑️ ${stream} data refreshed`);
+        return versionId;
       } else {
         const errorData = await res.json().catch(() => ({}));
         console.error(`🗑️ Delete failed:`, errorData);
+        return null;
       }
     } catch (error) {
       console.error(`Failed to delete ${stream} version:`, error);
+      return null;
     }
   };
 
@@ -119,8 +124,9 @@ export function useStreamOperations(adId: string, stream: StreamType) {
   const getDraft = (): { id: VersionId; version: VoiceVersion | MusicVersion | SfxVersion } | null => {
     if (!data) return null;
     // Use reverse to find newest draft (versions are ordered by creation time)
+    // Use optional chaining for safety during SWR revalidation transitions
     const draftId = [...data.versions].reverse().find(
-      (vId) => data.versionsData[vId].status === "draft"
+      (vId) => data.versionsData[vId]?.status === "draft"
     );
     if (!draftId) return null;
     return {
