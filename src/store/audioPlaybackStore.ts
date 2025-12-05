@@ -53,6 +53,7 @@ type AudioPlaybackState = {
 
   // Sequential playback
   playSequence: (urls: string[], baseSource: Omit<AudioSource, "url">) => void;
+  appendToSequence: (url: string) => void; // Add track to playing sequence (or start if not playing)
   stopSequence: () => void;
 
   // Internal (called by audio element events)
@@ -225,6 +226,20 @@ export const useAudioPlaybackStore = create<AudioPlaybackState>((set, get) => ({
     get().stop();
   },
 
+  // Append a URL to an active sequence (or start sequence if not playing)
+  appendToSequence: (url) => {
+    const { isPlayingSequence, sequenceUrls, sequenceBaseSource } = get();
+
+    if (isPlayingSequence) {
+      // Add to existing sequence
+      set({ sequenceUrls: [...sequenceUrls, url] });
+    } else if (sequenceBaseSource) {
+      // We have base source from a previous sequence setup, restart with this URL
+      get().playSequence([url], sequenceBaseSource);
+    }
+    // If no base source, caller should use playSequence first
+  },
+
   // Internal event handlers
   _onTimeUpdate: (time) => {
     set({ currentTime: time });
@@ -252,6 +267,7 @@ export const useAudioPlaybackStore = create<AudioPlaybackState>((set, get) => ({
           ? { ...sequenceBaseSource, url: sequenceUrls[nextIndex], trackIndex: nextIndex }
           : null,
         currentTime: 0,
+        isPlaying: true, // Keep playback state active for sequence continuation
       });
 
       audio.play().catch(console.error);
@@ -264,7 +280,7 @@ export const useAudioPlaybackStore = create<AudioPlaybackState>((set, get) => ({
         isPlayingSequence: false,
         sequenceIndex: 0,
         sequenceUrls: [],
-        sequenceBaseSource: null,
+        // Keep sequenceBaseSource - appendToSequence may need it for late arrivals
       });
     }
   },

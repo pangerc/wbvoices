@@ -129,20 +129,24 @@ export function VersionAccordion<T extends BaseVersionItem>({
                   <PlayIcon className="w-4 h-4 text-white" />
                 </button>
 
-                {/* Send to Mixer Button */}
+                {/* Send to Mixer Button - inverted when in mixer */}
                 {onSendToMixer && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (versionHasAudio) {
+                      if (versionHasAudio && !isActive) {
                         onSendToMixer(version.id);
                       }
                     }}
-                    disabled={!versionHasAudio}
-                    className="p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/10"
-                    title="Send to mixer"
+                    disabled={!versionHasAudio || isActive}
+                    className={`p-2 rounded-lg backdrop-blur-sm border transition-all ${
+                      isActive
+                        ? "bg-wb-blue/20 border-wb-blue cursor-default"
+                        : "bg-white/10 border-white/20 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/10"
+                    }`}
+                    title={isActive ? "In mixer" : "Send to mixer"}
                   >
-                    <SendToMixerIcon className="w-4 h-4 text-wb-blue" />
+                    <SendToMixerIcon className={`w-4 h-4 ${isActive ? "text-wb-blue" : "text-wb-blue"}`} />
                   </button>
                 )}
 

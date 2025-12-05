@@ -183,6 +183,7 @@ export function usePlaybackActions() {
       stop: state.stop,
       seekTo: state.seekTo,
       playSequence: state.playSequence,
+      appendToSequence: state.appendToSequence,
       stopSequence: state.stopSequence,
       setGeneratingVoice: state.setGeneratingVoice,
       setGeneratingMusic: state.setGeneratingMusic,

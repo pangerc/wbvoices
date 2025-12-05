@@ -39,6 +39,13 @@ export default function AdWorkspace() {
   // Accordion state from store
   const { openAccordion, setOpenAccordion } = useUIStore();
 
+  // Reset accordion state when navigating to a different ad
+  useEffect(() => {
+    setOpenAccordion("voices", "draft");
+    setOpenAccordion("music", "draft");
+    setOpenAccordion("sfx", "draft");
+  }, [adId, setOpenAccordion]);
+
   // Ad metadata state (not part of streams)
   const [adName, setAdName] = useState<string>("");
   const [briefData, setBriefData] = useState<ProjectBrief | null | undefined>(undefined);
@@ -66,6 +73,10 @@ export default function AdWorkspace() {
 
   // Load ad metadata and brief
   useEffect(() => {
+    // Reset state immediately when adId changes
+    setAdName("");
+    setBriefData(undefined);
+
     const loadAdMetadata = async () => {
       try {
         const sessionId = typeof window !== 'undefined'
@@ -128,9 +139,38 @@ export default function AdWorkspace() {
     loadMixerState();
   }, [adId]);
 
-  // Handle preview
+  // Handle preview - plays all tracks from a frozen version
   const handlePreview = (versionId: VersionId) => {
-    console.log("Preview version:", versionId);
+    const { isPlaying, stop, playSequence } = useAudioPlaybackStore.getState();
+
+    // If already playing, stop
+    if (isPlaying) {
+      stop();
+      return;
+    }
+
+    // Find which stream this version belongs to and get audio URLs
+    const voiceVersion = voice.data?.versionsData[versionId] as VoiceVersion | undefined;
+    const musicVersion = music.data?.versionsData[versionId] as MusicVersion | undefined;
+    const sfxVersion = sfx.data?.versionsData[versionId] as SfxVersion | undefined;
+
+    if (voiceVersion) {
+      // Get all voice track URLs
+      const urls = voiceVersion.voiceTracks
+        .map((t, i) => t.generatedUrl || voiceVersion.generatedUrls?.[i])
+        .filter((url): url is string => !!url);
+
+      if (urls.length > 0) {
+        playSequence(urls, { type: "voice-all", versionId });
+      }
+    } else if (musicVersion?.generatedUrl) {
+      playSequence([musicVersion.generatedUrl], { type: "music-generated", versionId });
+    } else if (sfxVersion?.generatedUrls?.length) {
+      const urls = sfxVersion.generatedUrls.filter((url): url is string => !!url);
+      if (urls.length > 0) {
+        playSequence(urls, { type: "sfx-preview", versionId });
+      }
+    }
   };
 
   // Header handlers
@@ -170,6 +210,11 @@ export default function AdWorkspace() {
 
     // Invalidate all stream caches to show new drafts
     await Promise.all([voice.mutate(), music.mutate(), sfx.mutate()]);
+
+    // Open the draft accordions for newly created drafts
+    if (draftIds.voices) setOpenAccordion("voices", "draft");
+    if (draftIds.music) setOpenAccordion("music", "draft");
+    if (draftIds.sfx) setOpenAccordion("sfx", "draft");
 
     // Switch to Voice tab
     setSelectedTab(1);
@@ -226,6 +271,7 @@ export default function AdWorkspace() {
                   requestText={voiceDraft.version.requestText}
                   type="voice"
                   versionId={voiceDraft.id}
+                  activeVersionId={voice.data.active}
                   isOpen={openAccordion.voices === "draft"}
                   onOpenChange={(open) => setOpenAccordion("voices", open ? "draft" : null)}
                   onPlayAll={() => voicePlayAllRef.current?.()}
@@ -282,10 +328,14 @@ export default function AdWorkspace() {
                   onClone={voice.clone}
                   onDelete={voice.remove}
                   onSendToMixer={(vId) => voice.sendToMixer(vId, switchToMixTab)}
-                  hasAudio={(v) =>
-                    (v as VoiceVersion).voiceTracks.some(t => !!t.generatedUrl) ||
-                    !!((v as VoiceVersion).generatedUrls && (v as VoiceVersion).generatedUrls!.length > 0)
-                  }
+                  hasAudio={(v) => {
+                    const voice = v as VoiceVersion;
+                    // Match backend validation: ALL tracks must have audio
+                    return voice.voiceTracks.length > 0 &&
+                      voice.voiceTracks.every((t, i) =>
+                        !!t.generatedUrl || !!voice.generatedUrls?.[i]
+                      );
+                  }}
                   renderContent={(version, isActive) => (
                     <VoiceVersionContent
                       version={version as VoiceVersion}
@@ -310,6 +360,7 @@ export default function AdWorkspace() {
                   requestText={musicDraft.version.requestText}
                   type="music"
                   versionId={musicDraft.id}
+                  activeVersionId={music.data.active}
                   isOpen={openAccordion.music === "draft"}
                   onOpenChange={(open) => setOpenAccordion("music", open ? "draft" : null)}
                   onPlayAll={() => musicPlayAllRef.current?.()}
@@ -394,6 +445,7 @@ export default function AdWorkspace() {
                   requestText={sfxDraft.version.requestText}
                   type="sfx"
                   versionId={sfxDraft.id}
+                  activeVersionId={sfx.data.active}
                   isOpen={openAccordion.sfx === "draft"}
                   onOpenChange={(open) => setOpenAccordion("sfx", open ? "draft" : null)}
                   onPlayAll={() => sfxPlayAllRef.current?.()}

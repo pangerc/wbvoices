@@ -237,7 +237,7 @@ describe("setActiveVersion", () => {
 
     // Check version status updated
     const version = await getVersion(mockAdId, "voices", "v1");
-    expect(version?.status).toBe("active");
+    expect(version?.status).toBe("frozen");
   });
 
   it("should throw error when activating non-existent version", async () => {
@@ -280,17 +280,17 @@ describe("updateVersion", () => {
     await createVersion(mockAdId, "voices", originalData);
 
     await updateVersion(mockAdId, "voices", "v1", {
-      status: "active" as const,
+      status: "frozen" as const,
     });
 
     const version = await getVersion(mockAdId, "voices", "v1");
-    expect(version?.status).toBe("active");
+    expect(version?.status).toBe("frozen");
     expect(version?.createdBy).toBe("llm"); // Preserved
   });
 
   it("should throw error when updating non-existent version", async () => {
     await expect(
-      updateVersion(mockAdId, "voices", "v999", { status: "active" })
+      updateVersion(mockAdId, "voices", "v999", { status: "frozen" })
     ).rejects.toThrow("Version not found");
   });
 });

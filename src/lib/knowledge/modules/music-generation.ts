@@ -53,18 +53,20 @@ Problems: "evoking the feeling", "Spanish terrace", "Coca-Cola vibe" - music gen
 **1. elevenlabs** (100-200 words, NO artist names):
 - Detailed instrumental descriptions with concrete musical terms
 - Focus on: instruments, tempo, playing techniques, genres
-- Avoid: brand associations, social contexts, experiential feelings
+- NEVER mention: duration, "commercial", "ad", "voiceover", "dialogue", or mixing context
+- The music generator doesn't need to know how it will be used - just describe the music
 
-Example: "Uplifting indie pop song with bright, jangly electric guitars, fast rhythmic strumming, light bouncy drums. Catchy summery vibe, energetic but laid-back, with tambourine accents and walking bassline."
+Example: "Uplifting indie pop song with bright, jangly electric guitars, fast rhythmic strumming, light bouncy drums. Catchy summery vibe, energetic but laid-back, with tambourine accents and walking bassline. Clean modern mix with strong rhythmic drive."
 
 **2. loudly** (1 sentence, ~15-25 words):
-- Short, concise description with duration, genre, mood, and optional artist reference
+- Short, concise description with genre, mood, instruments, and optional artist reference
+- Do NOT include duration in the prompt - use the duration parameter instead
 - Keep it simple - Loudly works best with brief, clear prompts
 
 Examples:
-- "A 90-second energetic house track with tropical vibes and a melodic flute line"
-- "A 30-second upbeat indie pop track in the style of Phoenix with jangly guitars"
-- "A 25-second chill lo-fi beat with soft piano and warm vinyl texture"
+- "Energetic house track with tropical vibes and a melodic flute line"
+- "Upbeat indie pop track in the style of Phoenix with jangly guitars"
+- "Chill lo-fi beat with soft piano and warm vinyl texture"
 
 **3. mubert** (8-12 WORDS TARGET):
 - Structure: Genre, Energy/Moods, Key Instrument (optional), Time/Setting, Vibe/Activity
@@ -81,10 +83,10 @@ BAD example (too many redundant terms):
 "Indie rock, energetic, upbeat, summer, guitar, fast, drums, happy, melodic, bright, rhythmic, lively, clean, pop, bassline"
 
 ### Validation Checklist
-- elevenlabs: 100-200 words, NO artist names, detailed instrumental descriptions
-- loudly: 1 sentence (~15-25 words), duration + genre + mood, optional artist reference
+- elevenlabs: 100-200 words, NO artist names, NO duration/commercial context, detailed instrumental descriptions
+- loudly: 1 sentence (~15-25 words), genre + mood + instruments, NO duration in text, optional artist reference
 - mubert: 8-12 words, structured storytelling with multi-word phrases
-- All: Concrete musical terms, avoid experiential language
+- All: Concrete musical terms, avoid experiential language, NEVER mention intended use
 
 ### Key Principles
 1. Music generators understand: instruments, tempo, playing techniques, genres

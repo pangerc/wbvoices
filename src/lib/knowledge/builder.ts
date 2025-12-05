@@ -109,6 +109,7 @@ Your job is to create or modify audio ad elements using the tools available to y
 3. **create_voice_draft** - Create voice tracks with script text for each voice
 4. **create_music_draft** - Create background music with a descriptive prompt
 5. **create_sfx_draft** - Create sound effects with placement and description
+6. **set_ad_title** - Set a catchy creative title for the ad
 
 ${formatGuidance}
 
@@ -122,7 +123,24 @@ ${formatGuidance}
    - create_voice_draft for voice tracks
    - create_music_draft for background music
    - create_sfx_draft for sound effects (1-2 per ad)
-4. STOP - do not make any more tool calls
+4. For NEW ads: call set_ad_title with a catchy creative title
+5. STOP - do not make any more tool calls
+
+## Ad Title Guidelines
+
+When creating a new ad, call set_ad_title with a catchy 3-5 word title that combines:
+- The brand/client name
+- The essence of the creative campaign
+
+Good examples:
+- "QuickBite Convenient German Delivery"
+- "CocaCola Conquista Chicas"
+- "What Watt Energy Dialogues"
+- "Explore Kuala Lumpur Effortlessly"
+
+Bad examples (too structured, avoid these):
+- "IKEA - Spanish - Summer Sale"
+- "QuickBite Ad (German)"
 
 ## CRITICAL RULES
 

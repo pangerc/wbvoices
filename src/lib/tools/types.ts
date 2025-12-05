@@ -72,6 +72,16 @@ export interface ReadAdStateParams {
   adId: string;
 }
 
+export interface SetAdTitleParams {
+  adId: string;
+  title: string;
+}
+
+export interface SetAdTitleResult {
+  success: boolean;
+  title: string;
+}
+
 // Lightweight summary of voices used in a version (for history tracking)
 export interface VoiceHistorySummary {
   versionId: string;

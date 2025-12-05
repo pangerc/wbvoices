@@ -8,8 +8,20 @@ type Ad = {
     createdAt: number
     lastModified: number
     owner: string
+    brief?: {
+      selectedLanguage?: string
+      campaignFormat?: 'ad_read' | 'dialog'
+      selectedProvider?: string
+    }
   }
 }
+
+type ChatMessage = {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+type TabType = 'ads' | 'chat'
 
 type HistoryDrawerProps = {
   isOpen: boolean
@@ -23,6 +35,10 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deletingAdId, setDeletingAdId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<TabType>('ads')
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [isChatLoading, setIsChatLoading] = useState(false)
+  const [chatError, setChatError] = useState<string | null>(null)
 
   // Load ads when drawer opens
   useEffect(() => {
@@ -30,6 +46,34 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
       loadAds()
     }
   }, [isOpen])
+
+  // Load chat messages when switching to chat tab
+  useEffect(() => {
+    if (activeTab === 'chat' && currentAdId) {
+      loadChatHistory()
+    }
+  }, [activeTab, currentAdId])
+
+  const loadChatHistory = async () => {
+    if (!currentAdId) return
+
+    setIsChatLoading(true)
+    setChatError(null)
+    try {
+      const res = await fetch(`/api/ads/${currentAdId}/conversation`)
+      if (res.ok) {
+        const data = await res.json()
+        setChatMessages(data.messages || [])
+      } else {
+        setChatError('Failed to load chat history')
+      }
+    } catch (err) {
+      setChatError('Failed to load chat history')
+      console.error('Error loading chat history:', err)
+    } finally {
+      setIsChatLoading(false)
+    }
+  }
 
   const loadAds = async () => {
     setIsLoading(true)
@@ -133,8 +177,8 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
       >
         {/* Header */}
         <div className="sticky top-0 bg-black/90 backdrop-blur-md border-b border-white/10 z-10">
-          <div className="flex items-center justify-between p-4">
-            <h3 className="text-white font-medium text-lg">Ad History</h3>
+          <div className="flex items-center justify-between p-4 pb-2">
+            <h3 className="text-white font-medium text-lg">History</h3>
             <button
               onClick={onClose}
               className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all"
@@ -146,107 +190,240 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
               </svg>
             </button>
           </div>
+          {/* Tab bar */}
+          <div className="flex px-4 pb-2 gap-1">
+            <button
+              onClick={() => setActiveTab('ads')}
+              className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-lg transition-all ${
+                activeTab === 'ads'
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+              }`}
+            >
+              Ads
+            </button>
+            <button
+              onClick={() => setActiveTab('chat')}
+              disabled={!currentAdId}
+              className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-lg transition-all ${
+                activeTab === 'chat'
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+              } ${!currentAdId ? 'opacity-40 cursor-not-allowed' : ''}`}
+            >
+              Chat
+            </button>
+          </div>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          {/* Loading state */}
-          {isLoading && (
-            <div className="p-8 text-center">
-              <div className="animate-spin w-6 h-6 border-2 border-white/20 border-t-white rounded-full mx-auto"></div>
-              <p className="text-white/60 text-sm mt-2">Loading ads...</p>
-            </div>
-          )}
+          {/* Ads Tab */}
+          {activeTab === 'ads' && (
+            <>
+              {/* Loading state */}
+              {isLoading && (
+                <div className="p-8 text-center">
+                  <div className="animate-spin w-6 h-6 border-2 border-white/20 border-t-white rounded-full mx-auto"></div>
+                  <p className="text-white/60 text-sm mt-2">Loading ads...</p>
+                </div>
+              )}
 
-          {/* Error state */}
-          {error && (
-            <div className="p-4 text-center">
-              <p className="text-red-400 text-sm">{error}</p>
-            </div>
-          )}
+              {/* Error state */}
+              {error && (
+                <div className="p-4 text-center">
+                  <p className="text-red-400 text-sm">{error}</p>
+                </div>
+              )}
 
-          {/* Empty state */}
-          {!isLoading && !error && ads.length === 0 && (
-            <div className="p-12 text-center">
-              <svg
-                className="w-16 h-16 text-white/20 mx-auto mb-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <p className="text-white/60 text-base mb-1">No ads yet</p>
-              <p className="text-white/40 text-sm">
-                Create your first ad to see it here
-              </p>
-            </div>
-          )}
+              {/* Empty state */}
+              {!isLoading && !error && ads.length === 0 && (
+                <div className="p-12 text-center">
+                  <svg
+                    className="w-16 h-16 text-white/20 mx-auto mb-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <p className="text-white/60 text-base mb-1">No ads yet</p>
+                  <p className="text-white/40 text-sm">
+                    Create your first ad to see it here
+                  </p>
+                </div>
+              )}
 
-          {/* Ad list */}
-          {!isLoading && !error && ads.length > 0 && (
-            <div>
-              {ads.map((ad) => (
-                <div
-                  key={ad.adId}
-                  onClick={() => handleAdClick(ad.adId)}
-                  className={`
-                    group px-4 py-3 hover:bg-white/5 cursor-pointer transition-all
-                    ${currentAdId === ad.adId ? 'bg-blue-500/10 border-l-2 border-l-blue-500' : ''}
-                    ${deletingAdId === ad.adId ? 'opacity-50 pointer-events-none' : ''}
-                  `}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      {/* Ad name with current indicator */}
-                      <h4 className="text-white font-medium truncate pr-2 flex items-center gap-2">
-                        {ad.meta.name}
-                        {currentAdId === ad.adId && (
-                          <span className="flex-shrink-0 w-2 h-2 bg-blue-400 rounded-full"></span>
-                        )}
-                      </h4>
+              {/* Ad list */}
+              {!isLoading && !error && ads.length > 0 && (
+                <div>
+                  {ads.map((ad) => (
+                    <div
+                      key={ad.adId}
+                      onClick={() => handleAdClick(ad.adId)}
+                      className={`
+                        group px-4 py-3 hover:bg-white/5 cursor-pointer transition-all
+                        ${currentAdId === ad.adId ? 'bg-blue-500/10 border-l-2 border-l-blue-500' : ''}
+                        ${deletingAdId === ad.adId ? 'opacity-50 pointer-events-none' : ''}
+                      `}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          {/* Ad name with current indicator */}
+                          <h4 className="text-white font-medium truncate pr-2 flex items-center gap-2">
+                            {ad.meta.name}
+                            {currentAdId === ad.adId && (
+                              <span className="flex-shrink-0 w-2 h-2 bg-blue-400 rounded-full"></span>
+                            )}
+                          </h4>
 
-                      {/* Ad ID and timestamp */}
-                      <div className="flex items-center justify-between mt-1.5">
-                        <span className="text-white/50 text-xs font-mono">
-                          {ad.adId}
-                        </span>
-                        <span className="text-white/40 text-xs">
-                          {formatDistanceToNow(new Date(ad.meta.lastModified), { addSuffix: true })}
-                        </span>
+                          {/* Tags: language, format, provider */}
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            {ad.meta.brief?.selectedLanguage && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-white/10 text-white/70 rounded">
+                                {ad.meta.brief.selectedLanguage}
+                              </span>
+                            )}
+                            {ad.meta.brief?.campaignFormat && (
+                              <span className="text-white/50" title={ad.meta.brief.campaignFormat === 'dialog' ? 'Dialog' : 'Ad Read'}>
+                                {ad.meta.brief.campaignFormat === 'dialog' ? '💬' : '🔊'}
+                              </span>
+                            )}
+                            {ad.meta.brief?.selectedProvider && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-white/5 text-white/50 rounded">
+                                {ad.meta.brief.selectedProvider}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Timestamp */}
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-white/40 text-xs">
+                              {formatDistanceToNow(new Date(ad.meta.lastModified), { addSuffix: true })}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Delete button */}
+                        <button
+                          onClick={(e) => handleDeleteAd(e, ad.adId)}
+                          disabled={deletingAdId === ad.adId}
+                          className="flex-shrink-0 ml-2 p-1.5 opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded transition-all disabled:opacity-50"
+                          aria-label="Delete ad"
+                        >
+                          {deletingAdId === ad.adId ? (
+                            <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
                       </div>
                     </div>
-
-                    {/* Delete button */}
-                    <button
-                      onClick={(e) => handleDeleteAd(e, ad.adId)}
-                      disabled={deletingAdId === ad.adId}
-                      className="flex-shrink-0 ml-2 p-1.5 opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded transition-all disabled:opacity-50"
-                      aria-label="Delete ad"
-                    >
-                      {deletingAdId === ad.adId ? (
-                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
+          )}
+
+          {/* Chat Tab */}
+          {activeTab === 'chat' && (
+            <>
+              {/* Loading state */}
+              {isChatLoading && (
+                <div className="p-8 text-center">
+                  <div className="animate-spin w-6 h-6 border-2 border-white/20 border-t-white rounded-full mx-auto"></div>
+                  <p className="text-white/60 text-sm mt-2">Loading chat...</p>
+                </div>
+              )}
+
+              {/* Error state */}
+              {chatError && (
+                <div className="p-4 text-center">
+                  <p className="text-red-400 text-sm">{chatError}</p>
+                </div>
+              )}
+
+              {/* No ad selected */}
+              {!currentAdId && (
+                <div className="p-12 text-center">
+                  <svg
+                    className="w-16 h-16 text-white/20 mx-auto mb-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                  <p className="text-white/60 text-base mb-1">Select an ad</p>
+                  <p className="text-white/40 text-sm">
+                    Choose an ad to view its chat history
+                  </p>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!isChatLoading && !chatError && currentAdId && chatMessages.length === 0 && (
+                <div className="p-12 text-center">
+                  <svg
+                    className="w-16 h-16 text-white/20 mx-auto mb-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                  <p className="text-white/60 text-base mb-1">No chat history</p>
+                  <p className="text-white/40 text-sm">
+                    Conversations will appear here
+                  </p>
+                </div>
+              )}
+
+              {/* Chat messages */}
+              {!isChatLoading && !chatError && chatMessages.length > 0 && (
+                <div className="p-4 space-y-3">
+                  {chatMessages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[85%] px-3 py-2 rounded-xl text-sm ${
+                          msg.role === 'user'
+                            ? 'bg-blue-600 text-white rounded-br-sm'
+                            : 'bg-white/10 text-white/90 rounded-bl-sm'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
 
         {/* Footer - outside scrollable area */}
-        {!isLoading && !error && ads.length > 0 && (
+        {activeTab === 'ads' && !isLoading && !error && ads.length > 0 && (
           <div className="flex-shrink-0 p-4 border-t border-white/10 bg-black/90 backdrop-blur-md">
             <div className="flex items-center justify-between">
               <span className="text-white/60 text-sm">

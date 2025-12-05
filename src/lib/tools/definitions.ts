@@ -116,7 +116,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           loudly: {
             type: "string",
             description:
-              "Loudly prompt (1 sentence, ~15-25 words): Short description with duration, genre, mood. Optional artist reference. Example: 'A 30-second upbeat indie pop track in the style of Phoenix'",
+              "Loudly prompt (1 sentence, ~15-25 words): Genre, mood, instruments. NO duration - use duration parameter. Example: 'Upbeat indie pop track in the style of Phoenix with jangly guitars'",
           },
           mubert: {
             type: "string",
@@ -195,6 +195,26 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           adId: { type: "string", description: "The ad ID to read state for" },
         } as Record<string, unknown>,
         required: ["adId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "set_ad_title",
+      description:
+        "Set a catchy creative title for the ad. Call this after creating all drafts (voice, music, sfx).",
+      parameters: {
+        type: "object",
+        properties: {
+          adId: { type: "string", description: "The ad ID" },
+          title: {
+            type: "string",
+            description:
+              "Catchy 3-5 word title combining brand + campaign essence. Examples: 'QuickBite Convenient German Delivery', 'CocaCola Conquista Chicas', 'What Watt Energy Dialogues'",
+          },
+        } as Record<string, unknown>,
+        required: ["adId", "title"],
       },
     },
   },

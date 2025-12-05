@@ -1,6 +1,12 @@
+"use client";
+
 import React from "react";
 import type { VoiceVersion } from "@/types/versions";
-import { VersionIterationInput, VersionLineage, TruncatedText } from "@/components/ui";
+import { VersionIterationInput, VersionLineage, TruncatedText, Tooltip } from "@/components/ui";
+import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
+import { highlightElevenLabsTags } from "@/lib/highlightElevenLabsTags";
+import { useShallow } from "zustand/react/shallow";
+import { PlayIcon, StopIcon } from "@heroicons/react/24/outline";
 
 export interface VoiceVersionContentProps {
   version: VoiceVersion;
@@ -20,6 +26,37 @@ export function VoiceVersionContent({
   onNewVersion,
   onNewBlankVersion,
 }: VoiceVersionContentProps) {
+  // Get playback state and actions from centralized store
+  const { isPlaying, currentSource, play, stop } = useAudioPlaybackStore(
+    useShallow((state) => ({
+      isPlaying: state.isPlaying,
+      currentSource: state.currentSource,
+      play: state.play,
+      stop: state.stop,
+    }))
+  );
+
+  // Check if a specific track from this version is playing
+  const isTrackPlaying = (trackIndex: number) =>
+    isPlaying &&
+    currentSource?.type === "voice-track" &&
+    currentSource?.versionId === versionId &&
+    currentSource?.trackIndex === trackIndex;
+
+  // Handle track play/stop
+  const handleTrackPlay = (trackIndex: number, audioUrl: string) => {
+    if (isTrackPlaying(trackIndex)) {
+      stop();
+    } else {
+      play({
+        type: "voice-track",
+        url: audioUrl,
+        trackIndex,
+        versionId,
+      });
+    }
+  };
+
   return (
     <div className="space-y-0">
       {/* Lineage display */}
@@ -87,23 +124,31 @@ export function VoiceVersionContent({
               <div className="flex gap-2">
                 {/* Script text - flex-1 */}
                 <div className="flex-1 text-white leading-relaxed whitespace-pre-wrap">
-                  {track.text || (
+                  {track.text ? (
+                    highlightElevenLabsTags(track.text)
+                  ) : (
                     <span className="text-gray-500">No script</span>
                   )}
                 </div>
 
-                {/* Audio player on right (replaces action buttons column) */}
+                {/* Simple play button (matching draft editor style) */}
                 {hasAudio && audioUrl && (
-                  <div className="flex flex-col">
-                    <audio
-                      controls
-                      src={audioUrl}
-                      className="h-8"
-                      style={{
-                        filter: "invert(1) hue-rotate(180deg)",
-                      }}
-                    />
-                  </div>
+                  <Tooltip content={isTrackPlaying(index) ? "Stop" : "Play"}>
+                    <button
+                      onClick={() => handleTrackPlay(index, audioUrl)}
+                      className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
+                        isTrackPlaying(index)
+                          ? "text-red-400 hover:text-red-300 hover:bg-red-500/10 border-red-500/20 hover:border-red-500/30"
+                          : "text-green-400 hover:text-green-300 hover:bg-green-500/10 border-green-500/20 hover:border-green-500/30"
+                      }`}
+                    >
+                      {isTrackPlaying(index) ? (
+                        <StopIcon className="w-4 h-4" />
+                      ) : (
+                        <PlayIcon className="w-4 h-4" />
+                      )}
+                    </button>
+                  </Tooltip>
                 )}
               </div>
 

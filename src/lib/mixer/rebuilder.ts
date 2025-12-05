@@ -83,11 +83,16 @@ export async function rebuildMixer(adId: string): Promise<MixerState> {
       if (!url) return; // Skip if no audio generated yet
 
       const trackId = `voice-${activeVoiceId}-${index}`;
+
+      // Use actual measured duration if available, fall back to estimation for legacy data
+      const duration = voiceTrack.generatedDuration ?? estimateVoiceDuration(voiceTrack.text);
+
       const track: MixerTrack = {
         id: trackId,
         url,
         type: "voice",
         label: voiceTrack.voice?.name || `Voice ${index + 1}`,
+        duration, // Real duration from generation, or estimation for legacy
         playAfter: voiceTrack.playAfter,
         overlap: voiceTrack.overlap,
         isConcurrent: voiceTrack.isConcurrent,
@@ -99,22 +104,23 @@ export async function rebuildMixer(adId: string): Promise<MixerState> {
       };
 
       tracks.push(track);
-
-      // Try to get duration from track metadata or estimate
-      // TODO: In production, measure actual audio duration
-      const estimatedDuration = estimateVoiceDuration(voiceTrack.text);
-      audioDurations[trackId] = estimatedDuration;
+      audioDurations[trackId] = duration;
     });
   }
 
   // Add music track
   if (musicVersion && musicVersion.generatedUrl) {
     const trackId = `music-${activeMusicId}`;
+    // Build label from provider and prompt preview
+    const providerLabel = musicVersion.provider.charAt(0).toUpperCase() + musicVersion.provider.slice(1);
+    const promptPreview = musicVersion.musicPrompt
+      ? ` - ${musicVersion.musicPrompt.substring(0, 25)}${musicVersion.musicPrompt.length > 25 ? "..." : ""}`
+      : "";
     const track: MixerTrack = {
       id: trackId,
       url: musicVersion.generatedUrl,
       type: "music",
-      label: "Background Music",
+      label: `${providerLabel}${promptPreview}`,
       duration: musicVersion.duration,
       metadata: {
         promptText: musicVersion.musicPrompt,

@@ -234,10 +234,13 @@ export async function setActiveVersion(
   const activeKey = AD_KEYS.active(adId, streamType);
   await redis.set(activeKey, versionId);
 
-  // Update version status to "active"
-  const versionKey = AD_KEYS.version(adId, streamType, versionId);
-  const updatedVersion = { ...version, status: "active" as const };
-  await redis.set(versionKey, JSON.stringify(updatedVersion));
+  // Only freeze non-drafts - drafts should remain editable after sending to mixer
+  // This allows users to continue iterating on manual tweaks
+  if (version.status !== "draft") {
+    const versionKey = AD_KEYS.version(adId, streamType, versionId);
+    const updatedVersion = { ...version, status: "frozen" as const };
+    await redis.set(versionKey, JSON.stringify(updatedVersion));
+  }
 
   console.log(`✅ Activated ${streamType} version ${versionId} for ad ${adId}`);
 }

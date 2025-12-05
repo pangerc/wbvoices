@@ -40,14 +40,14 @@ export const mockVoiceVersionDraft: VoiceVersion = {
 };
 
 /**
- * Mock Voice Version (active, with generated URLs)
+ * Mock Voice Version (frozen, with generated URLs)
  */
-export const mockVoiceVersionActive: VoiceVersion = {
+export const mockVoiceVersionFrozen: VoiceVersion = {
   voiceTracks: [mockVoiceTrack],
   generatedUrls: ["https://blob.vercel-storage.com/voice-track-1.mp3"],
   createdAt: Date.now(),
   createdBy: "llm",
-  status: "active",
+  status: "frozen",
   promptContext: "Generate an energetic ad for Spotify Premium",
 };
 
@@ -70,9 +70,9 @@ export const mockMusicVersionDraft: MusicVersion = {
 };
 
 /**
- * Mock Music Version (active, with generated URL)
+ * Mock Music Version (frozen, with generated URL)
  */
-export const mockMusicVersionActive: MusicVersion = {
+export const mockMusicVersionFrozen: MusicVersion = {
   musicPrompt: "Upbeat electronic music, modern, energetic",
   musicPrompts: {
     loudly: "Upbeat electronic music, modern, energetic",
@@ -84,7 +84,7 @@ export const mockMusicVersionActive: MusicVersion = {
   provider: "loudly",
   createdAt: Date.now(),
   createdBy: "llm",
-  status: "active",
+  status: "frozen",
 };
 
 /**
@@ -112,14 +112,14 @@ export const mockSfxVersionDraft: SfxVersion = {
 };
 
 /**
- * Mock SFX Version (active, with generated URLs)
+ * Mock SFX Version (frozen, with generated URLs)
  */
-export const mockSfxVersionActive: SfxVersion = {
+export const mockSfxVersionFrozen: SfxVersion = {
   soundFxPrompts: [mockSoundFxPrompt],
   generatedUrls: ["https://blob.vercel-storage.com/sfx-1.mp3"],
   createdAt: Date.now(),
   createdBy: "user",
-  status: "active",
+  status: "frozen",
 };
 
 /**

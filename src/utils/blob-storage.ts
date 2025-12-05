@@ -1,4 +1,5 @@
 import { put, list } from '@vercel/blob';
+import * as mm from 'music-metadata';
 
 /**
  * Uploads a file to Vercel Blob storage and returns a permanent URL
@@ -103,25 +104,40 @@ export async function uploadMusicToBlob(
 }
 
 /**
- * Voice-specific blob upload helper  
+ * Voice-specific blob upload helper
+ * Measures actual audio duration from the blob
  */
 export async function uploadVoiceToBlob(
   audioBlob: Blob,
   voiceId: string,
   provider: 'elevenlabs' | 'lovo' | 'openai' | 'qwen' | 'bytedance',
   projectId?: string
-): Promise<{ url: string; downloadUrl: string }> {
+): Promise<{ url: string; downloadUrl: string; duration: number }> {
   const filename = generateBlobFilename(
     `voice-${provider}-${voiceId}`,
     'mp3',
     projectId
   );
-  
-  return uploadToBlob(
+
+  // Measure duration from audio blob before uploading
+  let duration = 0;
+  try {
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const metadata = await mm.parseBuffer(uint8Array, 'audio/mpeg');
+    duration = metadata.format.duration || 0;
+    console.log(`📏 Measured voice duration: ${duration.toFixed(2)}s`);
+  } catch (error) {
+    console.warn('Failed to measure voice duration:', error);
+  }
+
+  const result = await uploadToBlob(
     audioBlob,
     filename,
     'audio/mpeg'
   );
+
+  return { ...result, duration };
 }
 
 /**

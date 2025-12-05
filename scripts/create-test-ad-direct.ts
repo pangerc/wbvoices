@@ -128,7 +128,7 @@ async function createTestAd() {
         ],
         generatedUrls: ["/placeholder-voice-v2-0.mp3"],
         createdBy: "user",
-        status: "active",
+        status: "frozen",
         createdAt: now - 1800000,
       },
       {
@@ -180,7 +180,7 @@ async function createTestAd() {
         duration: 30,
         provider: "loudly",
         createdBy: "llm",
-        status: "active",
+        status: "frozen",
         createdAt: now - 3500000,
       },
       {
@@ -223,7 +223,7 @@ async function createTestAd() {
         ],
         generatedUrls: ["/placeholder-sfx-v1-0.mp3"],
         createdBy: "llm",
-        status: "active",
+        status: "frozen",
         createdAt: now - 3400000,
       },
       {

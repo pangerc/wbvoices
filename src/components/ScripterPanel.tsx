@@ -3,7 +3,7 @@ import { Voice, VoiceTrack, Provider } from "@/types";
 import type { VoiceTrackGenerationStatus } from "@/types/versions";
 import { getEffectiveProvider } from "@/lib/voice-utils";
 import {
-  GlassyTextarea,
+  HighlightedScriptTextarea,
   VoiceCombobox,
   VoiceInstructionsDialog,
   Tooltip,
@@ -304,14 +304,11 @@ export function ScripterPanel({
                 {/* Script + Preview + Remove Buttons */}
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <GlassyTextarea
+                    <HighlightedScriptTextarea
                       label="Script"
                       value={track.text}
-                      onChange={(e) =>
-                        updateVoiceTrack(index, { text: e.target.value })
-                      }
+                      onChange={(text) => updateVoiceTrack(index, { text })}
                       placeholder="Enter the script for this voice..."
-                      className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
                       minRows={3}
                     />
                   </div>

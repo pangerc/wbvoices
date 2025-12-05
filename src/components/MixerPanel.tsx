@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createMix, TrackTiming } from "@/utils/audio-mixer";
 import { useMixerStore, MixerTrack } from "@/store/mixerStore";
+import { useMixerData } from "@/hooks/useMixerData";
 import {
   TimelineTrack,
   TimelineTrackData,
@@ -37,6 +38,9 @@ export function MixerPanel({
   const params = useParams();
   const adId = params.id as string;
 
+  // Fetch mixer state from Redis via SWR (source of truth)
+  const { data: mixerSWR } = useMixerData(adId);
+
   // Get data and actions from store
   const {
     tracks,
@@ -60,6 +64,70 @@ export function MixerPanel({
     setUploadError,
     clearTracks,
   } = useMixerStore();
+
+  // Hydrate Zustand store from SWR data (Redis source of truth)
+  // This ensures mixer state is restored on page reload and after "send to mixer"
+  useEffect(() => {
+    if (!mixerSWR?.tracks || mixerSWR.tracks.length === 0) return;
+
+    // Only hydrate if Zustand store is empty or has different tracks
+    const currentTrackIds = new Set(tracks.map((t) => t.id));
+    const swrTrackIds = new Set(mixerSWR.tracks.map((t) => t.id));
+
+    // Build URL map for current tracks to detect URL changes
+    const currentTrackUrls = new Map(tracks.map((t) => [t.id, t.url]));
+
+    // Check if we need to hydrate (different track sets OR different URLs)
+    const hasUrlChanges = mixerSWR.tracks.some(
+      (swrTrack) => currentTrackUrls.get(swrTrack.id) !== swrTrack.url
+    );
+
+    const needsHydration =
+      tracks.length === 0 ||
+      currentTrackIds.size !== swrTrackIds.size ||
+      ![...swrTrackIds].every((id) => currentTrackIds.has(id)) ||
+      hasUrlChanges;
+
+    if (needsHydration) {
+      console.log("🔄 Hydrating mixer store from SWR data", {
+        swrTracks: mixerSWR.tracks.length,
+        storeTracks: tracks.length,
+        activeVersions: mixerSWR.activeVersions,
+      });
+
+      // Clear existing tracks and add SWR tracks
+      clearTracks();
+      const { addTrack, setAudioDuration } = useMixerStore.getState();
+
+      // Build a duration lookup from calculatedTracks (server-calculated, more accurate)
+      const calculatedDurations: Record<string, number> = {};
+      if (mixerSWR.calculatedTracks) {
+        mixerSWR.calculatedTracks.forEach((ct) => {
+          if (ct.duration) {
+            calculatedDurations[ct.id] = ct.duration;
+          }
+        });
+      }
+
+      // Add tracks AND pre-populate audioDurations
+      // Priority: calculatedTracks duration > track.duration
+      mixerSWR.tracks.forEach((track) => {
+        const duration = calculatedDurations[track.id] || track.duration;
+        // Pre-populate audioDuration BEFORE addTrack (which calls calculateTimings)
+        if (duration) {
+          setAudioDuration(track.id, duration);
+        }
+        addTrack(track as MixerTrack);
+      });
+
+      // Restore volumes if available
+      if (mixerSWR.volumes) {
+        Object.entries(mixerSWR.volumes).forEach(([id, volume]) => {
+          setTrackVolume(id, volume as number);
+        });
+      }
+    }
+  }, [mixerSWR]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reference to the timeline container for measuring width
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -150,10 +218,19 @@ export function MixerPanel({
   useEffect(() => {
     // Create audio elements to measure actual durations
     tracks.forEach((track) => {
-      // If we already have a working audio element for this track, don't recreate it
+      // If we already have a working audio element for this track, check if URL changed
       if (audioRefs.current[track.id] && !audioErrors[track.id]) {
-        // If it's already loaded, mark it as loaded in our state
         const existingAudio = audioRefs.current[track.id];
+
+        // Check if URL changed (e.g., user re-generated with different provider)
+        // If so, update src and reload to get the new audio
+        if (existingAudio && existingAudio.src !== track.url) {
+          existingAudio.src = track.url;
+          existingAudio.load();
+          return;
+        }
+
+        // If it's already loaded with correct URL, mark it as loaded in our state
         if (existingAudio && existingAudio.readyState >= 3) {
           handleAudioLoaded(track.id);
         }

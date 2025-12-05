@@ -5,7 +5,6 @@ import { ScripterPanel } from "@/components/ScripterPanel";
 import type { VoiceVersion, VersionId, VoiceTrackGenerationStatus } from "@/types/versions";
 import type { VoiceTrack, Provider } from "@/types";
 import { generateAndPersistTrack } from "@/lib/voice-utils";
-import { useMixerStore } from "@/store/mixerStore";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useVoicePlaybackState, usePlaybackActions } from "@/hooks/useAudioPlayback";
 import { VersionIterationInput } from "@/components/ui";
@@ -72,7 +71,7 @@ export function VoiceDraftEditor({
   // Use centralized audio playback store - THIS IS THE KEY FIX for state sync issues!
   const { isPlaying, isPlayingAll, isGenerating, generatingTrackIndex, playingTrackIndex } =
     useVoicePlaybackState(draftVersionId);
-  const { play, stop, playSequence, stopSequence, setGeneratingVoice } = usePlaybackActions();
+  const { play, stop, playSequence, appendToSequence, stopSequence, setGeneratingVoice } = usePlaybackActions();
 
   // Infer language and provider from existing voice tracks
   // This ensures ScripterPanel loads the correct voices for this version
@@ -317,6 +316,7 @@ export function VoiceDraftEditor({
 
         // Update track with embedded URL
         updatedTracks[index] = { ...updatedTracks[index], generatedUrl: result.audioUrl };
+        setVoiceTracks([...updatedTracks]); // Update state immediately so UI turns green
         successCount++;
       } catch (error) {
         console.error(`Failed to generate track ${index}:`, error);
@@ -338,8 +338,8 @@ export function VoiceDraftEditor({
     return updatedTracks; // Return for caller to use immediately
   };
 
-  // Smart header play: if all tracks have audio, play all; otherwise generate missing then play
-  // Now uses centralized audioPlaybackStore's playSequence for state sync
+  // Smart header play: if all tracks have audio, play all; otherwise generate missing and play immediately
+  // Each track starts playing as soon as it's generated (while next generates in parallel)
   const handlePlayAll = async () => {
     // If already playing all, stop using the centralized store
     if (isPlayingAll) {
@@ -352,53 +352,113 @@ export function VoiceDraftEditor({
       (t) => t.voice && t.text.trim() && !t.generatedUrl
     );
 
-    // Use current tracks or generate missing ones (returns updated tracks to avoid stale state)
-    let tracksToPlay = voiceTracks;
-    if (tracksNeedingAudio.length > 0) {
-      tracksToPlay = await generateAudio(selectedProvider as Provider);
-    }
-
-    // Collect all URLs for sequential playback
-    const urls = tracksToPlay
-      .filter((t) => t.generatedUrl)
-      .map((t) => t.generatedUrl!);
-
-    if (urls.length > 0) {
-      // Play all sequentially using centralized store
-      playSequence(urls, {
-        type: "voice-all",
-        versionId: draftVersionId,
-      });
-    }
-  };
-
-  // Send voice tracks to the mixer (clears existing voice tracks, adds new ones)
-  const handleSendToMixer = () => {
-    const { clearTracks, addTrack } = useMixerStore.getState();
-
-    // Clear existing voice tracks from mixer
-    clearTracks("voice");
-
-    // Convert and add each track that has generated audio
-    voiceTracks.forEach((track, index) => {
-      if (track.generatedUrl && track.voice) {
-        addTrack({
-          id: `voice-${draftVersionId}-${index}`,
-          url: track.generatedUrl,
-          label: track.voice.name || `Voice ${index + 1}`,
-          type: "voice",
-          playAfter: index === 0 ? "start" : "previous",
-          overlap: track.overlap || 0,
-          metadata: {
-            voiceId: track.voice.id,
-            voiceProvider: track.voice.provider,
-            scriptText: track.text,
-          },
+    // If all tracks have audio, just play them all
+    if (tracksNeedingAudio.length === 0) {
+      const urls = voiceTracks
+        .filter((t) => t.generatedUrl)
+        .map((t) => t.generatedUrl!);
+      if (urls.length > 0) {
+        playSequence(urls, {
+          type: "voice-all",
+          versionId: draftVersionId,
         });
       }
-    });
+      return;
+    }
 
-    setStatusMessage("Voices sent to mixer!");
+    // Need to generate some tracks - do it inline with auto-play
+    const effectiveProvider = selectedProvider as Provider;
+    const updatedTracks = [...voiceTracks];
+    let playbackStarted = false;
+
+    for (let i = 0; i < voiceTracks.length; i++) {
+      const track = voiceTracks[i];
+
+      // If track already has audio, add to sequence
+      if (track.generatedUrl) {
+        if (!playbackStarted) {
+          // Start sequence with first URL
+          playSequence([track.generatedUrl], {
+            type: "voice-all",
+            versionId: draftVersionId,
+          });
+          playbackStarted = true;
+        } else {
+          // Append to growing sequence
+          appendToSequence(track.generatedUrl);
+        }
+        continue;
+      }
+
+      // Skip if no voice/text
+      if (!track.voice || !track.text.trim()) continue;
+
+      // Generate this track
+      setGeneratingVoice(true, i);
+      setStatusMessage(`Generating track ${i + 1}...`);
+
+      try {
+        const result = await generateAndPersistTrack(
+          track,
+          { adId, versionId: draftVersionId, trackIndex: i },
+          { defaultProvider: effectiveProvider }
+        );
+
+        // Update local state so UI turns green
+        updatedTracks[i] = { ...updatedTracks[i], generatedUrl: result.audioUrl };
+        setVoiceTracks([...updatedTracks]);
+
+        // Add to playback sequence
+        if (!playbackStarted) {
+          // Start sequence with first URL
+          playSequence([result.audioUrl], {
+            type: "voice-all",
+            versionId: draftVersionId,
+          });
+          playbackStarted = true;
+        } else {
+          // Append to growing sequence
+          appendToSequence(result.audioUrl);
+        }
+      } catch (error) {
+        console.error(`Failed to generate track ${i}:`, error);
+      }
+    }
+
+    setGeneratingVoice(false);
+    setStatusMessage("All tracks generated!");
+    onUpdate();
+  };
+
+  // Send voice tracks to the mixer via activate API
+  // Uses the same flow as versions - Redis is source of truth
+  const handleSendToMixer = async () => {
+    try {
+      const res = await fetch(`/api/ads/${adId}/voices/${draftVersionId}/activate`, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("Voice activation failed:", errorData);
+        setStatusMessage("Failed to send to mixer");
+        return;
+      }
+
+      const { mixer } = await res.json();
+
+      // Invalidate SWR cache - hydration will update mixer
+      const { mutate: globalMutate } = await import("swr");
+      await globalMutate(`/api/ads/${adId}/mixer`, mixer, false);
+
+      // Refresh voice stream data so activeVersionId updates immediately
+      onUpdate();
+
+      setStatusMessage("Voices sent to mixer!");
+    } catch (error) {
+      console.error("Failed to send voices to mixer:", error);
+      setStatusMessage("Failed to send to mixer");
+    }
   };
 
   // Expose handlePlayAll, handleSendToMixer, and requestChange to parent via refs

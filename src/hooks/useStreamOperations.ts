@@ -1,5 +1,5 @@
 import { useStreamData, type StreamType } from "./useStreamData";
-import { useMixerStore } from "@/store/mixerStore";
+import { mutate as globalMutate } from "swr";
 import type {
   VoiceVersion,
   MusicVersion,
@@ -106,78 +106,37 @@ export function useStreamOperations(adId: string, stream: StreamType) {
   };
 
   /**
-   * Send a version's tracks to the mixer
+   * Send a version's tracks to the mixer.
+   * Activates the version in Redis and rebuilds mixer server-side.
+   * UI updates via SWR cache invalidation (no manual track building).
    */
-  const sendToMixer = (versionId: VersionId, switchToMixTab: () => void) => {
+  const sendToMixer = async (versionId: VersionId, switchToMixTab: () => void) => {
     if (!data) return;
-    const version = data.versionsData[versionId];
-    if (!version) return;
 
-    const { clearTracks, addTrack } = useMixerStore.getState();
-
-    if (stream === "voices") {
-      const voiceVersion = version as VoiceVersion;
-      clearTracks("voice");
-
-      voiceVersion.voiceTracks.forEach((track, index) => {
-        const url = track.generatedUrl || voiceVersion.generatedUrls?.[index];
-        if (url && track.voice) {
-          addTrack({
-            id: `voice-${versionId}-${index}`,
-            url,
-            label: track.voice.name || `Voice ${index + 1}`,
-            type: "voice",
-            playAfter: index === 0 ? "start" : "previous",
-            overlap: track.overlap || 0,
-            metadata: {
-              voiceId: track.voice.id,
-              voiceProvider: track.voice.provider,
-              scriptText: track.text,
-            },
-          });
-        }
+    try {
+      const res = await fetch(`/api/ads/${adId}/${stream}/${versionId}/activate`, {
+        method: "POST",
       });
-    } else if (stream === "music") {
-      const musicVersion = version as MusicVersion;
-      clearTracks("music");
 
-      if (musicVersion.generatedUrl) {
-        addTrack({
-          id: `music-${versionId}`,
-          url: musicVersion.generatedUrl,
-          label: `Generated Music (${musicVersion.provider})`,
-          type: "music",
-          metadata: {
-            source: musicVersion.provider,
-            promptText: musicVersion.musicPrompt,
-            originalDuration: musicVersion.duration,
-          },
-        });
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error(`Activation failed:`, errorData);
+        // TODO: Show toast notification to user
+        return;
       }
-    } else if (stream === "sfx") {
-      const sfxVersion = version as SfxVersion;
-      clearTracks("soundfx");
 
-      sfxVersion.soundFxPrompts?.forEach((prompt, index) => {
-        const url = sfxVersion.generatedUrls?.[index];
-        if (url) {
-          addTrack({
-            id: `sfx-${versionId}-${index}`,
-            url,
-            label: prompt.description?.slice(0, 30) || `SFX ${index + 1}`,
-            type: "soundfx",
-            playAfter: prompt.placement?.type === "start" ? "start" : "end",
-            metadata: {
-              promptText: prompt.description,
-              placementIntent: prompt.placement,
-              originalDuration: prompt.duration,
-            },
-          });
-        }
-      });
+      const { mixer } = await res.json();
+
+      // Invalidate SWR caches - UI updates reactively
+      await Promise.all([
+        mutate(), // Stream data (updates active indicator)
+        globalMutate(`/api/ads/${adId}/mixer`, mixer, false), // Mixer state (optimistic)
+      ]);
+
+      switchToMixTab();
+    } catch (error) {
+      console.error(`Failed to send ${stream} to mixer:`, error);
     }
-
-    switchToMixTab();
   };
 
   return {

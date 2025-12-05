@@ -43,6 +43,8 @@ interface DraftAccordionProps {
   type: "voice" | "music" | "sfx";
   /** Version ID for scoping playback state */
   versionId?: string;
+  /** Active version ID in mixer - when matches versionId, show "In mixer" state */
+  activeVersionId?: string | null;
   /** @deprecated Use onPlayAll instead */
   onGenerateAll?: () => void;
   /** @deprecated Use onPlayAll instead */
@@ -77,6 +79,7 @@ export function DraftAccordion({
   requestText,
   type,
   versionId,
+  activeVersionId,
   onGenerateAll,
   onPreview,
   hasAudio = false,
@@ -99,6 +102,8 @@ export function DraftAccordion({
   const isPlaying = reactiveState.isPlaying || playAllState?.isPlaying || false;
   const isGenerating = reactiveState.isGenerating || playAllState?.isGenerating || false;
   const canSend = hasTracksWithAudio || hasAudio;
+  // Check if this draft is currently active in the mixer
+  const isActive = versionId != null && versionId === activeVersionId;
 
   // Controlled vs uncontrolled mode
   const accordionProps = isOpen !== undefined
@@ -163,14 +168,18 @@ export function DraftAccordion({
 
             {/* SEND to Mixer button */}
             {onSendToMixer && (
-              <Tooltip content="Send to mixer">
+              <Tooltip content={isActive ? "In mixer" : "Send to mixer"}>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onSendToMixer();
                   }}
                   disabled={!canSend}
-                  className="p-2 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className={`p-2 flex items-center justify-center rounded-lg backdrop-blur-sm border transition-colors ${
+                    isActive
+                      ? "bg-wb-blue/20 border-wb-blue cursor-default"
+                      : "bg-white/10 border-white/20 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                  }`}
                 >
                   <SendToMixerIcon className="w-4 h-4 text-wb-blue" />
                 </button>

@@ -20,7 +20,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runAgentLoop } from "@/lib/tool-calling";
 import { getLanguageName } from "@/utils/language";
-import { setAdMetadata } from "@/lib/redis/versions";
+import { setAdMetadata, getAdMetadata } from "@/lib/redis/versions";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
 import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
 import type { ProjectBrief } from "@/types";
@@ -188,9 +188,6 @@ export async function POST(req: NextRequest) {
     console.log(`[/api/ai/generate] Agent completed with ${result.toolCallHistory.length} tool calls`);
     console.log(`[/api/ai/generate] Drafts created:`, result.drafts);
 
-    // Generate a title from client description
-    const adTitle = `${clientDescription.slice(0, 30)}${clientDescription.length > 30 ? '...' : ''} - ${languageName}`;
-
     // Build brief object from request params
     const brief: ProjectBrief = {
       clientDescription,
@@ -205,17 +202,28 @@ export async function POST(req: NextRequest) {
       selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
     };
 
-    // Ensure ad exists (lazy creation) then update with title and brief
+    // Ensure ad exists (lazy creation)
     const effectiveSessionId = sessionId || "default-session";
-    const existingMeta = await ensureAdExists(adId, effectiveSessionId, brief);
+    await ensureAdExists(adId, effectiveSessionId, brief);
 
+    // Check if LLM set a title via set_ad_title tool
+    const currentMeta = await getAdMetadata(adId);
+    const llmSetTitle = currentMeta?.name && currentMeta.name !== "Untitled Ad";
+
+    // Use LLM-generated title or fallback to static format
+    const adTitle = llmSetTitle
+      ? currentMeta.name
+      : `${clientDescription.slice(0, 30)}${clientDescription.length > 30 ? '...' : ''} - ${languageName}`;
+
+    // Update metadata with brief (and fallback title if needed)
     await setAdMetadata(adId, {
-      ...existingMeta,
       name: adTitle,
       brief, // Persist brief for page reload!
+      createdAt: currentMeta?.createdAt || Date.now(),
       lastModified: Date.now(),
+      owner: currentMeta?.owner || effectiveSessionId,
     });
-    console.log(`[/api/ai/generate] Updated ad title and brief`);
+    console.log(`[/api/ai/generate] Updated ad - title: "${adTitle}" (LLM-generated: ${llmSetTitle})`);
 
     // Return the result
     return NextResponse.json({

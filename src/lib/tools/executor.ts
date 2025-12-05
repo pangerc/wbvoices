@@ -5,6 +5,7 @@ import {
   createMusicDraft,
   createSfxDraft,
   readAdState,
+  setAdTitle,
 } from "./implementations";
 
 /**
@@ -40,6 +41,10 @@ export async function executeToolCall(call: ToolCall): Promise<ToolResult> {
 
       case "read_ad_state":
         result = await readAdState(args);
+        break;
+
+      case "set_ad_title":
+        result = await setAdTitle(args);
         break;
 
       default:

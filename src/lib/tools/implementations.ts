@@ -5,19 +5,38 @@ import {
   CreateMusicDraftParams,
   CreateSfxDraftParams,
   ReadAdStateParams,
+  SetAdTitleParams,
+  SetAdTitleResult,
   DraftCreationResult,
   ReadAdStateResult,
   VoiceHistorySummary,
 } from "./types";
 import { voiceCatalogue } from "@/services/voiceCatalogueService";
-import { createVersion, listVersions, getVersion, getAllVersionsWithData } from "@/lib/redis/versions";
+import { createVersion, listVersions, getVersion, getAllVersionsWithData, setAdMetadata, getAdMetadata, updateVersion } from "@/lib/redis/versions";
 import type { Language, Provider, Voice, MusicProvider, SoundFxPlacementIntent } from "@/types";
 import type {
   VoiceVersion,
   MusicVersion,
   SfxVersion,
   VersionId,
+  StreamType,
 } from "@/types/versions";
+
+/**
+ * Freeze any existing draft in a stream before creating a new one.
+ * This ensures only one draft exists at a time.
+ */
+async function freezeExistingDraft(adId: string, streamType: StreamType): Promise<void> {
+  const versions = await listVersions(adId, streamType);
+  for (const vId of versions) {
+    const version = await getVersion(adId, streamType, vId);
+    if (version?.status === "draft") {
+      await updateVersion(adId, streamType, vId, { status: "frozen" });
+      console.log(`🧊 Froze ${streamType} draft ${vId} for ad ${adId}`);
+      break; // Only freeze the first draft found
+    }
+  }
+}
 
 /**
  * Search voices from the voice catalogue
@@ -67,6 +86,9 @@ export async function createVoiceDraft(
   params: CreateVoiceDraftParams
 ): Promise<DraftCreationResult> {
   const { adId, tracks } = params;
+
+  // Freeze any existing draft before creating new one
+  await freezeExistingDraft(adId, "voices");
 
   // Resolve voice IDs to full Voice objects from catalogue
   const resolvedTracks = await Promise.all(
@@ -143,6 +165,9 @@ export async function createMusicDraft(
     duration = 30,
   } = params;
 
+  // Freeze any existing draft before creating new one
+  await freezeExistingDraft(adId, "music");
+
   // Use provider-specific prompts if provided, otherwise fallback to base prompt
   const musicVersion: MusicVersion = {
     musicPrompt: prompt,
@@ -174,6 +199,9 @@ export async function createSfxDraft(
   params: CreateSfxDraftParams
 ): Promise<DraftCreationResult> {
   const { adId, prompts } = params;
+
+  // Freeze any existing draft before creating new one
+  await freezeExistingDraft(adId, "sfx");
 
   const sfxVersion: SfxVersion = {
     soundFxPrompts: prompts.map((p) => {
@@ -293,4 +321,26 @@ export async function readAdState(
   }
 
   return result;
+}
+
+/**
+ * Set a catchy creative title for the ad
+ */
+export async function setAdTitle(
+  params: SetAdTitleParams
+): Promise<SetAdTitleResult> {
+  const { adId, title } = params;
+
+  const existing = await getAdMetadata(adId);
+  if (!existing) {
+    return { success: false, title: "" };
+  }
+
+  await setAdMetadata(adId, {
+    ...existing,
+    name: title,
+    lastModified: Date.now(),
+  });
+
+  return { success: true, title };
 }

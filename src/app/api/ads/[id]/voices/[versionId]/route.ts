@@ -24,7 +24,7 @@ export const runtime = "nodejs";
  *   generatedUrls: string[],
  *   createdAt: number,
  *   createdBy: "llm" | "user",
- *   status: "draft" | "active",
+ *   status: "draft" | "frozen",
  *   promptContext?: string,
  *   parentVersionId?: string
  * }

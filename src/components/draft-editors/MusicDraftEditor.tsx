@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { MusicPanel } from "@/components/MusicPanel";
 import type { MusicVersion, VersionId } from "@/types/versions";
 import type { MusicProvider } from "@/types";
-import { useMixerStore } from "@/store/mixerStore";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useMusicDraftState, usePlaybackActions } from "@/hooks/useAudioPlayback";
 import { VersionIterationInput } from "@/components/ui";
@@ -148,23 +147,34 @@ export function MusicDraftEditor({
     });
   };
 
-  // Send generated music to mixer
-  const handleSendToMixer = () => {
-    const { clearTracks, addTrack } = useMixerStore.getState();
-    clearTracks("music");
-
-    if (draftVersion.generatedUrl) {
-      addTrack({
-        id: `music-${draftVersionId}`,
-        url: draftVersion.generatedUrl,
-        label: `Generated Music (${draftVersion.provider})`,
-        type: "music",
-        metadata: {
-          source: draftVersion.provider, // Store provider in source field
-          promptText: draftVersion.musicPrompt,
-          originalDuration: draftVersion.duration,
-        },
+  // Send generated music to mixer via activate API
+  // Uses the same flow as versions - Redis is source of truth
+  const handleSendToMixer = async () => {
+    try {
+      const res = await fetch(`/api/ads/${adId}/music/${draftVersionId}/activate`, {
+        method: "POST",
       });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("Music activation failed:", errorData);
+        setStatusMessage("Failed to send to mixer");
+        return;
+      }
+
+      const { mixer } = await res.json();
+
+      // Invalidate SWR cache - hydration will update mixer
+      const { mutate: globalMutate } = await import("swr");
+      await globalMutate(`/api/ads/${adId}/mixer`, mixer, false);
+
+      // Refresh music stream data so activeVersionId updates immediately
+      onUpdate();
+
+      setStatusMessage("Music sent to mixer!");
+    } catch (error) {
+      console.error("Failed to send music to mixer:", error);
+      setStatusMessage("Failed to send to mixer");
     }
   };
 

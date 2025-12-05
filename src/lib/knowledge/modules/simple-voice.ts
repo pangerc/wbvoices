@@ -27,12 +27,8 @@ This provider uses plain text scripts - NO special tags or formatting needed.
 - Just the spoken text in the target language
 
 ### Example Track
-\`\`\`json
-{
-  "voiceId": "voice-id-here",
-  "text": "Your script text goes here in the target language."
-}
-\`\`\`
+- Voice ID: (use the ID from search_voices result)
+- Script: Your script text goes here in the target language.
 
 ### Key Points
 1. Keep scripts natural and conversational

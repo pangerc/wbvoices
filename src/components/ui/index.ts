@@ -1,4 +1,5 @@
 export * from "./GlassyTextarea";
+export * from "./HighlightedScriptTextarea";
 export * from "./GlassyInput";
 export * from "./GlassyListbox";
 export * from "./GlassyOptionPicker";

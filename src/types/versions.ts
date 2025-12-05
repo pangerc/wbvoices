@@ -32,10 +32,10 @@ export type StreamType = "voices" | "music" | "sfx";
 
 /**
  * Version lifecycle status
- * - draft: Created but not yet active in mixer
- * - active: Currently feeding the mixer timeline
+ * - draft: Editable, work-in-progress
+ * - frozen: Immutable, no longer editable (superseded by newer draft)
  */
-export type VersionStatus = "draft" | "active";
+export type VersionStatus = "draft" | "frozen";
 
 /**
  * Provenance tracking for version creation

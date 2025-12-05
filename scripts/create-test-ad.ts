@@ -108,7 +108,7 @@ const voiceV2: Omit<VoiceVersion, "createdAt"> = {
   ],
   generatedUrls: ["/placeholder-voice-v2-0.mp3"], // Has audio so it can be activated
   createdBy: "user",
-  status: "active", // This one is active
+  status: "frozen", // This one is active
 };
 
 // Version 3: LLM recast with different voices
@@ -147,7 +147,7 @@ const musicV1: Omit<MusicVersion, "createdAt"> = {
   duration: 30,
   provider: "loudly",
   createdBy: "llm",
-  status: "active",
+  status: "frozen",
 };
 
 const musicV2: Omit<MusicVersion, "createdAt"> = {
@@ -178,7 +178,7 @@ const sfxV1: Omit<SfxVersion, "createdAt"> = {
   ],
   generatedUrls: ["/placeholder-sfx-v1-0.mp3"],
   createdBy: "llm",
-  status: "active",
+  status: "frozen",
 };
 
 const sfxV2: Omit<SfxVersion, "createdAt"> = {
@@ -260,7 +260,7 @@ async function createTestAd() {
       );
 
       // Activate if status is active
-      if (version.status === "active") {
+      if (version.status === "frozen") {
         const activateResponse = await fetch(
           `${baseUrl}/api/ads/${adId}/voices/${versionId}/activate`,
           {
@@ -303,7 +303,7 @@ async function createTestAd() {
         `   ✅ Created music ${versionId} (${version.createdBy}, ${version.status})`
       );
 
-      if (version.status === "active") {
+      if (version.status === "frozen") {
         const activateResponse = await fetch(
           `${baseUrl}/api/ads/${adId}/music/${versionId}/activate`,
           {
@@ -346,7 +346,7 @@ async function createTestAd() {
         `   ✅ Created SFX ${versionId} (${version.createdBy}, ${version.status})`
       );
 
-      if (version.status === "active") {
+      if (version.status === "frozen") {
         const activateResponse = await fetch(
           `${baseUrl}/api/ads/${adId}/sfx/${versionId}/activate`,
           {

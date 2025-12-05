@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { SoundFxPanel } from "@/components/SoundFxPanel";
 import type { SfxVersion, VersionId } from "@/types/versions";
 import type { SoundFxPrompt } from "@/types";
-import { useMixerStore } from "@/store/mixerStore";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useSfxDraftState, usePlaybackActions } from "@/hooks/useAudioPlayback";
 import { VersionIterationInput } from "@/components/ui";
@@ -173,28 +172,35 @@ export function SfxDraftEditor({
     });
   };
 
-  // Send generated SFX to mixer
-  const handleSendToMixer = () => {
-    const { clearTracks, addTrack } = useMixerStore.getState();
-    clearTracks("soundfx");
+  // Send generated SFX to mixer via activate API
+  // Uses the same flow as versions - Redis is source of truth
+  const handleSendToMixer = async () => {
+    try {
+      const res = await fetch(`/api/ads/${adId}/sfx/${draftVersionId}/activate`, {
+        method: "POST",
+      });
 
-    soundFxPrompts.forEach((prompt, index) => {
-      const url = draftVersion.generatedUrls?.[index];
-      if (url) {
-        addTrack({
-          id: `sfx-${draftVersionId}-${index}`,
-          url,
-          label: prompt.description?.slice(0, 30) || `SFX ${index + 1}`,
-          type: "soundfx",
-          playAfter: prompt.placement?.type === "start" ? "start" : "end",
-          metadata: {
-            promptText: prompt.description,
-            placementIntent: prompt.placement,
-            originalDuration: prompt.duration,
-          },
-        });
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("SFX activation failed:", errorData);
+        setStatusMessage("Failed to send to mixer");
+        return;
       }
-    });
+
+      const { mixer } = await res.json();
+
+      // Invalidate SWR cache - hydration will update mixer
+      const { mutate: globalMutate } = await import("swr");
+      await globalMutate(`/api/ads/${adId}/mixer`, mixer, false);
+
+      // Refresh SFX stream data so activeVersionId updates immediately
+      onUpdate();
+
+      setStatusMessage("SFX sent to mixer!");
+    } catch (error) {
+      console.error("Failed to send SFX to mixer:", error);
+      setStatusMessage("Failed to send to mixer");
+    }
   };
 
   // Expose functions to parent via refs

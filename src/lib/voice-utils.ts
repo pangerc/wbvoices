@@ -49,6 +49,7 @@ export interface GenerateOptions {
 
 export interface GenerateResult {
   audioUrl: string;
+  duration: number;
   provider: Provider;
   text: string;
 }
@@ -122,10 +123,11 @@ export async function generateVoiceTrack(
     throw new Error("No audio URL in response");
   }
 
-  console.log(`✅ Voice track generated: ${data.audio_url.substring(0, 50)}...`);
+  console.log(`✅ Voice track generated: ${data.audio_url.substring(0, 50)}... (duration: ${data.duration || 0}s)`);
 
   return {
     audioUrl: data.audio_url,
+    duration: data.duration || 0,
     provider,
     text,
   };
@@ -139,12 +141,13 @@ export async function generateVoiceTrack(
  */
 export async function persistTrackUrl(
   audioUrl: string,
+  duration: number,
   options: PersistOptions
 ): Promise<void> {
   const { adId, versionId, trackIndex } = options;
 
   console.log(
-    `💾 Persisting track URL: adId=${adId}, versionId=${versionId}, index=${trackIndex}`
+    `💾 Persisting track URL: adId=${adId}, versionId=${versionId}, index=${trackIndex}, duration=${duration}s`
   );
 
   // Fetch current version to get existing tracks
@@ -156,10 +159,14 @@ export async function persistTrackUrl(
 
   const version = await getRes.json();
 
-  // Update voiceTracks with embedded URL (new format)
+  // Update voiceTracks with embedded URL and duration (new format)
   const tracks = [...(version.voiceTracks || [])];
   if (tracks[trackIndex]) {
-    tracks[trackIndex] = { ...tracks[trackIndex], generatedUrl: audioUrl };
+    tracks[trackIndex] = {
+      ...tracks[trackIndex],
+      generatedUrl: audioUrl,
+      generatedDuration: duration,
+    };
   }
 
   // PATCH to persist (only voiceTracks with embedded URLs)
@@ -188,7 +195,7 @@ export async function generateAndPersistTrack(
   genOptions: GenerateOptions = {}
 ): Promise<GenerateResult> {
   const result = await generateVoiceTrack(track, genOptions);
-  await persistTrackUrl(result.audioUrl, persistOptions);
+  await persistTrackUrl(result.audioUrl, result.duration, persistOptions);
   return result;
 }
 

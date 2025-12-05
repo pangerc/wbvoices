@@ -262,6 +262,7 @@ export class LovoVoiceProvider extends BaseAudioProvider {
 
       return NextResponse.json({
         audio_url: blobResult.url,
+        duration: blobResult.duration,
         original_text: text,
         voice_id: voiceId,
         provider: this.providerName,

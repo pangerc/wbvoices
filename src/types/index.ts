@@ -58,6 +58,7 @@ export type VoiceTrack = {
   postProcessingPitch?: number; // Post-processing pitch adjustment (0.7-1.2x, default 1.0, ElevenLabs only)
   targetDuration?: number; // Target duration in seconds (auto-calculates speedup, capped at 1.6x)
   generatedUrl?: string; // Generated audio URL (embedded, replaces parallel array)
+  generatedDuration?: number; // Actual duration in seconds (measured from audio, not estimated)
 };
 
 export type CampaignFormat = "ad_read" | "dialog";
