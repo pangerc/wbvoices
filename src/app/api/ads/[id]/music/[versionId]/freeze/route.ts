@@ -23,8 +23,10 @@ export async function POST(
 ) {
   try {
     const { id: adId, versionId } = await params;
+    const { searchParams } = new URL(request.url);
+    const forceFreeze = searchParams.get("forceFreeze") === "true";
 
-    console.log(`🎯 Freezing music version ${versionId} for ad ${adId}`);
+    console.log(`🎯 Freezing music version ${versionId} for ad ${adId}${forceFreeze ? " (forceFreeze)" : ""}`);
 
     // Verify version exists
     const version = await getVersion(adId, "music", versionId);
@@ -40,7 +42,7 @@ export async function POST(
     }
 
     // Freeze and set as active version
-    await setActiveVersion(adId, "music", versionId);
+    await setActiveVersion(adId, "music", versionId, { forceFreeze });
 
     // Rebuild mixer with new active version
     const mixer = await rebuildMixer(adId);

@@ -218,7 +218,8 @@ export async function getActiveVersion(
 export async function setActiveVersion(
   adId: string,
   streamType: StreamType,
-  versionId: VersionId
+  versionId: VersionId,
+  options?: { forceFreeze?: boolean }
 ): Promise<void> {
   const redis = getRedisV3();
 
@@ -234,11 +235,14 @@ export async function setActiveVersion(
   const activeKey = AD_KEYS.active(adId, streamType);
   await redis.set(activeKey, versionId);
 
-  // Always freeze when setting as active - this commits the version
-  // If user wants to continue editing, they should clone to create a new draft
-  const versionKey = AD_KEYS.version(adId, streamType, versionId);
-  const updatedVersion = { ...version, status: "frozen" as const };
-  await redis.set(versionKey, JSON.stringify(updatedVersion));
+  // Freeze if: not a draft (frozen versions stay frozen), OR forceFreeze is true
+  // Default behavior: drafts stay editable when sent to mixer (user still tinkering)
+  // forceFreeze=true: used by clone() to commit the old draft before creating new one
+  if (version.status !== "draft" || options?.forceFreeze) {
+    const versionKey = AD_KEYS.version(adId, streamType, versionId);
+    const updatedVersion = { ...version, status: "frozen" as const };
+    await redis.set(versionKey, JSON.stringify(updatedVersion));
+  }
 
   console.log(`✅ Froze ${streamType} version ${versionId} for ad ${adId}`);
 }

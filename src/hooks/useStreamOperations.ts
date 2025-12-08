@@ -29,9 +29,10 @@ export function useStreamOperations(adId: string, stream: StreamType) {
           : "default-session";
 
       // If draft exists, freeze it first (commits it as a frozen version)
+      // forceFreeze=true ensures the draft is actually frozen, not just activated
       const existingDraft = getDraft();
       if (existingDraft) {
-        const freezeRes = await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze`, {
+        const freezeRes = await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze?forceFreeze=true`, {
           method: "POST",
           headers: { "x-session-id": sessionId },
         });
@@ -93,9 +94,10 @@ export function useStreamOperations(adId: string, stream: StreamType) {
           : "default-session";
 
       // If draft exists, freeze it first (commits it as a version)
+      // forceFreeze=true ensures the draft is actually frozen, not just activated
       const existingDraft = getDraft();
       if (existingDraft) {
-        const freezeRes = await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze`, {
+        const freezeRes = await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze?forceFreeze=true`, {
           method: "POST",
           headers: { "x-session-id": sessionId },
         });

@@ -34,8 +34,10 @@ export async function POST(
 ) {
   try {
     const { id: adId, versionId } = await params;
+    const { searchParams } = new URL(request.url);
+    const forceFreeze = searchParams.get("forceFreeze") === "true";
 
-    console.log(`🎯 Freezing voice version ${versionId} for ad ${adId}`);
+    console.log(`🎯 Freezing voice version ${versionId} for ad ${adId}${forceFreeze ? " (forceFreeze)" : ""}`);
 
     // Verify version exists
     const version = await getVersion(adId, "voices", versionId);
@@ -72,7 +74,7 @@ export async function POST(
     }
 
     // Freeze and set as active version (updates Redis pointer + version status)
-    await setActiveVersion(adId, "voices", versionId);
+    await setActiveVersion(adId, "voices", versionId, { forceFreeze });
 
     // Rebuild mixer with new active version
     const mixer = await rebuildMixer(adId);
