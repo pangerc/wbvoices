@@ -12,7 +12,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         properties: {
           provider: {
             type: "string",
-            enum: ["elevenlabs", "openai", "lovo", "qwen", "bytedance"],
+            enum: ["elevenlabs", "openai", "lovo", "qwen", "bytedance", "lahajati"],
             description: "Voice provider to search (REQUIRED - use the provider specified in the brief)",
           },
           language: {
@@ -83,7 +83,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 voiceInstructions: {
                   type: "string",
                   description:
-                    "OpenAI voice guidance (REQUIRED for OpenAI voices): 'Voice Affect: ...; Tone: ...; Pacing: ...; Emotion: ...; Emphasis: ...; Pronunciation: ...; Pauses: ...'",
+                    "Voice guidance instructions. For OpenAI: structured format 'Voice Affect: ...; Tone: ...; Pacing: ...; Emotion: ...; Emphasis: ...; Pronunciation: ...; Pauses: ...'. For Lahajati: Arabic persona/role instruction describing HOW to speak (e.g., 'اقرأ بصوت واثق وحماسي كأنك مذيع رياضي' - read confidently and enthusiastically like a sports announcer).",
                 },
               },
               required: ["voiceId", "text"],

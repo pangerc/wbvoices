@@ -9,6 +9,7 @@ import {
   getOpenAIVoices,
   fetchLahajatiVoices,
 } from "@/services/voiceProviderService";
+import { lahajatiDialectService } from "@/services/lahajatiDialectService";
 
 // Use Node.js runtime for proper Redis access
 // export const runtime = 'edge'; // REMOVED - Edge Runtime causes env var issues
@@ -528,7 +529,14 @@ export async function POST() {
     // Step 1: Clear existing cache
     await voiceCatalogue.clearCache();
 
-    // Step 2: Fetch and normalize all voices
+    // Step 2: Refresh Lahajati dialect definitions from API
+    console.log("🔄 Refreshing Lahajati dialect definitions...");
+    const dialectResult = await lahajatiDialectService.refresh();
+    if (!dialectResult.success) {
+      console.warn("⚠️ Failed to refresh Lahajati dialects - using fallback mappings");
+    }
+
+    // Step 3: Fetch and normalize all voices
     const voices = await fetchAndNormalizeVoices();
 
     if (voices.length === 0) {
@@ -540,14 +548,14 @@ export async function POST() {
       );
     }
 
-    // Step 3: Build the magnificent towers!
+    // Step 4: Build the magnificent towers!
     console.log(
       `🏗️ Building magnificent towers with ${voices.length} voices...`
     );
 
     await voiceCatalogue.buildTowers(voices);
 
-    // Step 4: Get final stats
+    // Step 5: Get final stats
     const stats = await voiceCatalogue.getCacheStats();
 
     console.log("🎯 FORTRESS COMPLETE! Voice cache populated:");
@@ -567,6 +575,7 @@ export async function POST() {
         totalVoices: stats.totalVoices,
         byProvider: stats.byProvider,
         voicesProcessed: voices.length,
+        lahajatiDialects: dialectResult, // Dialect refresh stats
         timestamp: Date.now(),
       },
     });

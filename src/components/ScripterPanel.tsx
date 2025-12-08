@@ -389,7 +389,8 @@ export function ScripterPanel({
 
                     {/* Configure button */}
                     {(selectedProvider === "openai" ||
-                      selectedProvider === "elevenlabs") && (
+                      selectedProvider === "elevenlabs" ||
+                      selectedProvider === "lahajati") && (
                       <Tooltip content="Configure voice settings">
                         <button
                           onClick={() => setEditingInstructionsIndex(index)}

@@ -218,6 +218,7 @@ export async function GET(req: NextRequest) {
             "openai",
             "qwen",
             "bytedance",
+            "lahajati",
           ] as const;
           const providersToLoad = availableProviders.filter(
             (p) => !excludeProviders.includes(p)

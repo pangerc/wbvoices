@@ -36,6 +36,7 @@ const VOICE_ENDPOINTS: Record<string, string> = {
   lovo: "/api/voice/lovo-v2",
   qwen: "/api/voice/qwen-v2",
   bytedance: "/api/voice/bytedance-v2",
+  lahajati: "/api/voice/lahajati-v2",
 };
 
 // ============ Types ============

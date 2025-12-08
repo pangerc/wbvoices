@@ -448,6 +448,52 @@ type LahajatiVoice = {
   average_rating: number | null;
 };
 
+// Lahajati dialect type (from /api/v1/dialect-absolute-control)
+export type LahajatiDialect = {
+  dialect_id: number;
+  display_name: string; // Arabic only (e.g., "المصرية (القاهرية)")
+};
+
+/**
+ * Fetch all dialects from Lahajati API (paginated - 116 total across 8 pages)
+ * Used during voice cache refresh to build dialect mappings
+ */
+export async function fetchLahajatiDialects(): Promise<LahajatiDialect[]> {
+  const apiKey = process.env.LAHAJATI_SECRET_KEY;
+  if (!apiKey) {
+    throw new Error("Lahajati API key is missing");
+  }
+
+  const allDialects: LahajatiDialect[] = [];
+  let page = 1;
+  let lastPage = 1;
+
+  do {
+    const response = await fetch(
+      `https://lahajati.ai/api/v1/dialect-absolute-control?page=${page}`,
+      {
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Accept": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Lahajati dialects API error: ${errorText}`);
+    }
+
+    const data = await response.json();
+    allDialects.push(...(data.data || []));
+    lastPage = data.meta?.last_page || 1;
+    page++;
+  } while (page <= lastPage);
+
+  console.log(`📡 Lahajati: fetched ${allDialects.length} dialects`);
+  return allDialects;
+}
+
 // Helper functions
 
 function getVoiceLanguage(voice: ElevenLabsVoice): {

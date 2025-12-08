@@ -196,7 +196,7 @@ export class VoiceCatalogueService {
       (await redis.get<CountsTower>(this.TOWER_KEYS.COUNTS)) || {};
 
     if (accent) {
-      // Specific accent counts across all regions - but include all OpenAI voices for any accent
+      // Specific accent counts across all regions - but include all OpenAI/Lahajati voices for any accent
       const totals: VoiceCounts = {
         elevenlabs: 0,
         lovo: 0,
@@ -207,6 +207,7 @@ export class VoiceCatalogueService {
         any: 0,
       };
       let openaiTotal = 0;
+      let lahajatiTotal = 0;
 
       const languageData = countsTower[language] || {};
 
@@ -219,16 +220,18 @@ export class VoiceCatalogueService {
           totals.lovo += accentCounts.lovo || 0;
           totals.qwen += accentCounts.qwen || 0;
           totals.bytedance += accentCounts.bytedance || 0;
-          totals.lahajati += accentCounts.lahajati || 0;
+          // Note: Lahajati is summed across all accents below (dialect-agnostic)
         }
 
-        // For OpenAI, sum ALL accents in this region since they handle accents via instructions
+        // For OpenAI and Lahajati, sum ALL accents since they handle accents at TTS time
         for (const counts of Object.values(regionData)) {
           openaiTotal += counts.openai || 0;
+          lahajatiTotal += counts.lahajati || 0;
         }
       }
 
       totals.openai = openaiTotal;
+      totals.lahajati = lahajatiTotal;
       totals.any =
         totals.elevenlabs +
         totals.lovo +
@@ -382,22 +385,27 @@ export class VoiceCatalogueService {
         elevenlabs: accentVoices.filter((v) => v.provider === "elevenlabs")
           .length,
         lovo: accentVoices.filter((v) => v.provider === "lovo").length,
-        openai: 0, // Will be set below
+        openai: 0, // Will be set below (accent-agnostic)
         qwen: accentVoices.filter((v) => v.provider === "qwen").length,
         bytedance: accentVoices.filter((v) => v.provider === "bytedance")
           .length,
-        lahajati: accentVoices.filter((v) => v.provider === "lahajati")
-          .length,
+        lahajati: 0, // Will be set below (dialect-agnostic)
         any: 0, // Calculated later
       };
 
-      // OpenAI voices are global - get their actual count regardless of region
+      // OpenAI and Lahajati voices are accent-agnostic - get their actual count regardless of region/accent
       const openAIVoices = await this.getVoicesForProvider(
         "openai",
         filters.language,
         filters.accent
       );
       counts.openai = openAIVoices.length;
+      const lahajatiVoices = await this.getVoicesForProvider(
+        "lahajati",
+        filters.language,
+        filters.accent
+      );
+      counts.lahajati = lahajatiVoices.length;
     } else if (filters.region) {
       // Only region specified (no accent) - get all accents in region
       counts = await this.getVoiceCountsByRegion(
@@ -405,13 +413,19 @@ export class VoiceCatalogueService {
         filters.region
       );
 
-      // OpenAI voices are global - get their actual count regardless of region
+      // OpenAI and Lahajati voices are accent-agnostic - get their actual count regardless of region
       const openAIVoices = await this.getVoicesForProvider(
         "openai",
         filters.language,
         filters.accent
       );
       counts.openai = openAIVoices.length;
+      const lahajatiVoices = await this.getVoicesForProvider(
+        "lahajati",
+        filters.language,
+        filters.accent
+      );
+      counts.lahajati = lahajatiVoices.length;
     } else {
       // No region - get all counts for language, optionally filtered by accent
       counts = await this.getVoiceCounts(filters.language, filters.accent);
@@ -535,9 +549,9 @@ export class VoiceCatalogueService {
         const regionData = languageData[region] || {};
 
         if (accent) {
-          // For OpenAI, always include all voices regardless of accent
-          // since OpenAI handles accents via instructions parameter
-          if (actualProvider === "openai") {
+          // For OpenAI and Lahajati, always include all voices regardless of accent
+          // since they handle accents via instructions/dialect_id at TTS time
+          if (actualProvider === "openai" || actualProvider === "lahajati") {
             for (const accentVoices of Object.values(regionData)) {
               voiceIds.push(...accentVoices);
             }

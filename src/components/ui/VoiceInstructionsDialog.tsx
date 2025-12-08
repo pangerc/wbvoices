@@ -37,6 +37,16 @@ Pauses: <where to pause and for how long>
 Example:
 "Voice Affect: Energetic spokesperson with confident authority; Tone: Enthusiastic and persuasive; Pacing: Fast-paced with quick delivery, slowing slightly for key product benefits; Emotion: Excited and compelling; Emphasis: Strong emphasis on brand name and call-to-action; Pronunciation: Clear, crisp articulation; Pauses: Brief pause before call-to-action for impact."`;
 
+const LAHAJATI_PLACEHOLDER = `اقرأ بصوت واثق وحماسي كأنك مذيع رياضي
+
+Example personas:
+• "اقرأ النص بصوت عالٍ وواضح، كأنك تقدم نشرة إخبارية عاجلة"
+  (Read loudly and clearly, as if presenting urgent news)
+• "تحدث بهدوء ودفء كأنك تروي قصة لطفل"
+  (Speak calmly and warmly, as if telling a story to a child)
+• "بصوت ثقة هادئة كمستشار مالي محترف"
+  (With calm confidence like a professional financial advisor)`;
+
 export function VoiceInstructionsDialog({
   isOpen,
   onClose,
@@ -159,6 +169,7 @@ export function VoiceInstructionsDialog({
                 <Dialog.Description className="text-sm text-gray-300 mb-4">
                   {providerValue === "openai" && "Customize how this voice should deliver the script. These instructions control tone, pacing, emotion, and emphasis."}
                   {providerValue === "elevenlabs" && "Adjust playback speed for this voice track. Speed override applies to this voice track only."}
+                  {providerValue === "lahajati" && "Provide Arabic persona/role instructions describing HOW to speak (e.g., 'read confidently like a news anchor')."}
                   {(providerValue === "qwen" || providerValue === "lovo" || providerValue === "bytedance") && "This provider uses plain text scripts without special formatting or speed controls."}
                 </Dialog.Description>
 
@@ -175,6 +186,7 @@ export function VoiceInstructionsDialog({
                     >
                       <option value="elevenlabs" className="bg-gray-900">ElevenLabs</option>
                       <option value="openai" className="bg-gray-900">OpenAI</option>
+                      <option value="lahajati" className="bg-gray-900">Lahajati</option>
                       <option value="qwen" className="bg-gray-900">Qwen</option>
                       <option value="lovo" className="bg-gray-900">Lovo</option>
                       <option value="bytedance" className="bg-gray-900">ByteDance</option>
@@ -183,16 +195,16 @@ export function VoiceInstructionsDialog({
                       {providerValue !== (trackProvider || provider) && "⚠️ Changing provider will require selecting a new voice"}
                     </p>
                   </div>
-                  {/* Voice Instructions Textarea - OpenAI only */}
-                  {providerValue === "openai" && (
+                  {/* Voice Instructions Textarea - OpenAI and Lahajati */}
+                  {(providerValue === "openai" || providerValue === "lahajati") && (
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Voice Instructions
+                        {providerValue === "lahajati" ? "Persona Instructions" : "Voice Instructions"}
                       </label>
                       <textarea
                         value={instructionsValue}
                         onChange={(e) => setInstructionsValue(e.target.value)}
-                        placeholder={PLACEHOLDER}
+                        placeholder={providerValue === "lahajati" ? LAHAJATI_PLACEHOLDER : PLACEHOLDER}
                         className="w-full h-48 bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-wb-blue/50 focus:border-wb-blue/50 resize-none"
                       />
                     </div>

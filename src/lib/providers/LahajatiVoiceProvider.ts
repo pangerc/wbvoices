@@ -1,76 +1,15 @@
 import { BaseAudioProvider, ValidationResult, AuthCredentials, ProviderResponse } from './BaseAudioProvider';
 import { uploadVoiceToBlob } from '@/utils/blob-storage';
 import { NextResponse } from 'next/server';
+import { lahajatiDialectService, FALLBACK_ACCENT_TO_DIALECT } from '@/services/lahajatiDialectService';
 
 /**
- * Dialect mapping: our accent codes → Lahajati dialect_id
- * Based on Lahajati API response from /api/v1/dialect-absolute-control
+ * Dialect mapping is now fetched dynamically from Lahajati API during cache refresh.
+ * See lahajatiDialectService for the dynamic implementation.
  *
- * When multiple sub-dialects exist (e.g., Egyptian Cairo vs Alexandria),
- * we map to the most common/standard variant.
+ * This static export is kept for backward compatibility.
  */
-const DIALECT_MAP: Record<string, number> = {
-  // Modern Standard Arabic
-  'standard': 1,
-  'neutral': 1,
-
-  // Saudi variants (2-6) → default to Najdi (most widely recognized)
-  'saudi': 2,
-
-  // Egyptian variants (7-11) → default to Cairo (القاهرية)
-  'egyptian': 7,
-
-  // Syrian variants (12-16) → default to Damascus (الدمشقية)
-  'syrian': 12,
-
-  // Lebanese variants (17-21) → default to Beirut (البيروتية)
-  'lebanese': 17,
-
-  // Jordanian variants (22-25) → default to Amman (العمانية)
-  'jordanian': 22,
-
-  // Palestinian variants (26-29) → default to urban (المدنية)
-  'palestinian': 26,
-
-  // Algerian variants (30-34) → default to capital (العاصمية)
-  'algerian': 30,
-
-  // Moroccan variants (35-39) → default to Casablanca/Rabat (الدارجة)
-  'moroccan': 35,
-
-  // Tunisian variants (40-43) → default to capital (العاصمة)
-  'tunisian': 40,
-
-  // Iraqi variants (44-47) → default to Baghdad (البغدادية)
-  'iraqi': 44,
-
-  // Yemeni variants (48-52) → default to Sanaa (الصنعانية)
-  'yemeni': 48,
-
-  // Libyan variants (57-59) → default to Tripoli (طرابلس)
-  'libyan': 57,
-
-  // Omani variants (60-63) → default to Muscat (مسقط)
-  'omani': 60,
-
-  // Kuwaiti variants (64-66) → default to general (العامة)
-  'kuwaiti': 64,
-
-  // Bahraini variants (67-68) → default to Manama (العامة)
-  'bahraini': 67,
-
-  // Qatari (69)
-  'qatari': 69,
-
-  // Emirati variants (70-71) → default to Abu Dhabi/Dubai (الحضرية)
-  'emirati': 70,
-
-  // Gulf region fallback → Saudi Najdi
-  'gulf': 2,
-
-  // Maghrebi region fallback → Moroccan
-  'maghrebi': 35,
-};
+const DIALECT_MAP = FALLBACK_ACCENT_TO_DIALECT;
 
 /**
  * Performance style mapping: our voiceTone → Lahajati performance_id
@@ -113,7 +52,7 @@ export class LahajatiVoiceProvider extends BaseAudioProvider {
   readonly providerType = 'voice' as const;
 
   validateParams(body: Record<string, unknown>): ValidationResult {
-    const { text, voiceId, style, accent, dialectId, projectId } = body;
+    const { text, voiceId, style, accent, dialectId, projectId, voiceInstructions } = body;
 
     if (!text || typeof text !== 'string') {
       return {
@@ -137,7 +76,8 @@ export class LahajatiVoiceProvider extends BaseAudioProvider {
         style: typeof style === 'string' ? style : undefined,
         accent: typeof accent === 'string' ? accent : undefined,
         dialectId: typeof dialectId === 'number' ? dialectId : undefined,
-        projectId: typeof projectId === 'string' ? projectId : undefined
+        projectId: typeof projectId === 'string' ? projectId : undefined,
+        voiceInstructions: typeof voiceInstructions === 'string' ? voiceInstructions : undefined
       }
     };
   }
@@ -160,25 +100,17 @@ export class LahajatiVoiceProvider extends BaseAudioProvider {
   /**
    * Resolves the dialect_id from either:
    * 1. Explicit dialectId passed in params
-   * 2. accent code mapped through DIALECT_MAP
+   * 2. accent code mapped through dialect service (fetched from API)
    * 3. Default to MSA (1)
    */
-  private resolveDialectId(dialectId?: number, accent?: string): number {
+  private async resolveDialectId(dialectId?: number, accent?: string): Promise<number> {
     // Explicit dialect ID takes precedence
     if (typeof dialectId === 'number' && dialectId > 0) {
       return dialectId;
     }
 
-    // Map accent to dialect
-    if (accent) {
-      const accentLower = accent.toLowerCase();
-      if (DIALECT_MAP[accentLower]) {
-        return DIALECT_MAP[accentLower];
-      }
-    }
-
-    // Default to MSA
-    return 1;
+    // Use dialect service for accent mapping (dynamic from Redis cache)
+    return lahajatiDialectService.resolveDialectId(accent);
   }
 
   /**
@@ -191,11 +123,20 @@ export class LahajatiVoiceProvider extends BaseAudioProvider {
     return PERFORMANCE_MAP[styleLower] || DEFAULT_PERFORMANCE_ID;
   }
 
+  /**
+   * Get dialect name for custom prompt building
+   * Uses dynamic data from Lahajati API (Arabic display names)
+   */
+  private async getDialectDisplayName(dialectId: number): Promise<string> {
+    return lahajatiDialectService.getDialectName(dialectId);
+  }
+
   async makeRequest(params: Record<string, unknown>, credentials: AuthCredentials): Promise<ProviderResponse> {
-    const { text, voiceId, style, accent, dialectId } = params;
+    const { text, voiceId, style, accent, dialectId, voiceInstructions } = params;
     const { apiKey } = credentials;
 
-    const resolvedDialectId = this.resolveDialectId(
+    // Resolve dialect ID from cache (async - fetched from Lahajati API)
+    const resolvedDialectId = await this.resolveDialectId(
       dialectId as number | undefined,
       accent as string | undefined
     );
@@ -207,15 +148,36 @@ export class LahajatiVoiceProvider extends BaseAudioProvider {
     console.log(`  Accent: ${accent || 'not specified'}`);
     console.log(`  Dialect ID: ${resolvedDialectId}`);
     console.log(`  Style: ${style || 'neutral'}`);
-    console.log(`  Performance ID: ${resolvedPerformanceId}`);
+    console.log(`  Voice Instructions: ${voiceInstructions ? 'provided' : 'none'}`);
 
-    const requestBody = {
-      text: text as string,
-      id_voice: voiceId as string,
-      input_mode: "0",  // Structured mode with performance_id and dialect_id
-      performance_id: String(resolvedPerformanceId),
-      dialect_id: String(resolvedDialectId),
-    };
+    // Determine input mode: "1" (custom prompt) when voiceInstructions provided, else "0" (structured)
+    let requestBody: Record<string, string>;
+
+    if (voiceInstructions && typeof voiceInstructions === 'string') {
+      // input_mode "1": Custom prompt mode (like OpenAI instructions)
+      const dialectName = await this.getDialectDisplayName(resolvedDialectId);
+      const customPrompt = `Speak in ${dialectName} dialect. ${voiceInstructions}`;
+
+      requestBody = {
+        text: text as string,
+        id_voice: voiceId as string,
+        input_mode: "1",
+        custom_prompt_text: customPrompt,
+      };
+
+      console.log(`  📝 Using input_mode "1" (custom prompt): ${customPrompt.substring(0, 100)}...`);
+    } else {
+      // input_mode "0": Structured mode with performance_id and dialect_id
+      requestBody = {
+        text: text as string,
+        id_voice: voiceId as string,
+        input_mode: "0",
+        performance_id: String(resolvedPerformanceId),
+        dialect_id: String(resolvedDialectId),
+      };
+
+      console.log(`  📋 Using input_mode "0" (structured): performance_id=${resolvedPerformanceId}, dialect_id=${resolvedDialectId}`);
+    }
 
     console.log(`  📡 Request body:`, JSON.stringify(requestBody, null, 2));
 
