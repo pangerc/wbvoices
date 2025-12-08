@@ -368,7 +368,7 @@ export function BriefPanelV3({
   // Derived state from languageOptions
   const availableRegions = languageOptions?.regions || [];
   const availableAccents = languageOptions?.accents || [];
-  const voiceCounts = languageOptions?.voiceCounts || { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, any: 0 };
+  const voiceCounts = languageOptions?.voiceCounts || { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, lahajati: 0, any: 0 };
   const hasRegions = languageOptions?.hasRegions ?? false;
   const hasAccents = languageOptions?.hasAccents ?? false;
   const dialogReady = languageOptions?.dialogReady ?? true;

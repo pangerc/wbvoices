@@ -18,6 +18,7 @@ export class PromptStrategyFactory {
     lovo: () => new LovoPromptStrategy(),
     qwen: () => new QwenPromptStrategy(),
     bytedance: () => new QwenPromptStrategy(), // Reuse Qwen strategy
+    lahajati: () => new ElevenLabsV3PromptStrategy(), // Arabic specialist - uses ElevenLabs-style prompts
     any: () => new ElevenLabsV3PromptStrategy(), // Default to ElevenLabs V3
   };
 

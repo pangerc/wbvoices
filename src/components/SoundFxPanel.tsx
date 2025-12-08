@@ -48,6 +48,19 @@ function placementOptionToIntent(option: string): SoundFxPlacementIntent {
   return { type: "end" };
 }
 
+// Convert placement intent to legacy playAfter string
+// This keeps the two field systems in sync until we migrate to V3
+function placementIntentToLegacyPlayAfter(intent: SoundFxPlacementIntent): string | undefined {
+  switch (intent.type) {
+    case "start":
+      return "start";
+    case "afterVoice":
+    case "end":
+    default:
+      return undefined; // Let timeline calculator resolve from placementIntent
+  }
+}
+
 export function SoundFxPanel({
   onGenerate,
   isGenerating,
@@ -172,11 +185,13 @@ export function SoundFxPanel({
                 <GlassyListbox
                   label="Placement"
                   value={placementIntentToOption(prompt.placement)}
-                  onChange={(value) =>
+                  onChange={(value) => {
+                    const intent = placementOptionToIntent(value);
                     onUpdatePrompt(index, {
-                      placement: placementOptionToIntent(value),
-                    })
-                  }
+                      placement: intent,
+                      playAfter: placementIntentToLegacyPlayAfter(intent),
+                    });
+                  }}
                   options={[
                     { value: "start", label: "At beginning (before all voices)" },
                     ...(voiceTrackPreviews && voiceTrackPreviews.length > 0

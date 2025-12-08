@@ -24,7 +24,7 @@ export function useStreamData(adId: string, stream: StreamType) {
     {
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
-      dedupingInterval: 2000, // Dedupe requests within 2 seconds
+      dedupingInterval: 0, // Disabled - every mutate() triggers immediate refresh
     }
   );
 

@@ -51,22 +51,22 @@ export function SfxDraftEditor({
   const { setGeneratingSfx } = usePlaybackActions();
 
   // Compute voice track previews for SFX placement options (after voice X)
+  // IMPORTANT: Must use ACTIVE voice version (not draft) because mixer rebuilder
+  // positions SFX tracks relative to the active voice version's tracks.
   const voiceTrackPreviews = useMemo(() => {
     if (!voiceStream?.data) return [];
 
-    // Prefer draft voice tracks, fall back to active version
-    const draft = voiceStream.getDraft();
-    const version = (draft?.version as VoiceVersion | undefined) ??
-      (voiceStream.data.active
-        ? voiceStream.data.versionsData[voiceStream.data.active] as VoiceVersion
-        : null);
+    // Use ACTIVE voice version - must match what mixer rebuilder uses
+    const activeVersion = voiceStream.data.active
+      ? voiceStream.data.versionsData[voiceStream.data.active] as VoiceVersion
+      : null;
 
-    if (!version?.voiceTracks) return [];
-    return version.voiceTracks.map(t => ({
+    if (!activeVersion?.voiceTracks) return [];
+    return activeVersion.voiceTracks.map(t => ({
       name: t.voice?.name || "Voice",
       text: t.text || ""
     }));
-  }, [voiceStream?.data, voiceStream?.getDraft]);
+  }, [voiceStream?.data]);
 
   // Default ad duration (TODO: get from actual ad)
   const adDuration = 30;
@@ -100,7 +100,7 @@ export function SfxDraftEditor({
         description: "",
         duration: 3,
         placement: { type: "end" as const },
-        playAfter: "start",
+        playAfter: undefined, // Let placement intent determine position
         overlap: 0,
       },
     ];

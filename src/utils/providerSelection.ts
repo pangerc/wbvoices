@@ -37,11 +37,17 @@ export class ProviderSelector {
 
     const contextStr = [language, region, accent].filter(Boolean).join('+');
 
-    // Arabic language preference: OpenAI > ElevenLabs
-    // Research shows OpenAI performs better for Arabic with proper pronunciation instructions
-    if (isArabicLanguage && voiceCounts.openai >= minVoices) {
-      console.log(`✅ Selected openai for Arabic ${contextStr} (${voiceCounts.openai} >= ${minVoices})`);
-      return "openai";
+    // Arabic language preference: Lahajati > OpenAI > ElevenLabs
+    // Lahajati is a specialized Arabic dialect provider with 339 voices and 116 dialects
+    if (isArabicLanguage) {
+      if (voiceCounts.lahajati >= minVoices) {
+        console.log(`✅ Selected lahajati for Arabic ${contextStr} (${voiceCounts.lahajati} >= ${minVoices})`);
+        return "lahajati";
+      }
+      if (voiceCounts.openai >= minVoices) {
+        console.log(`✅ Selected openai for Arabic ${contextStr} (${voiceCounts.openai} >= ${minVoices})`);
+        return "openai";
+      }
     }
 
     // Chinese language preference: Qwen > ByteDance > ElevenLabs > OpenAI
@@ -85,11 +91,17 @@ export class ProviderSelector {
       },
       // Lovo disabled due to poor voice quality
       // {
-      //   value: "lovo", 
+      //   value: "lovo",
       //   label: `Lovo (${voiceCounts.lovo})`,
       //   disabled: voiceCounts.lovo === 0,
       //   quality: "good" as const
       // },
+      {
+        value: "lahajati",
+        label: `Lahajati (${voiceCounts.lahajati})`,
+        disabled: voiceCounts.lahajati === 0,
+        quality: "arabic-specialist" as const
+      },
       {
         value: "qwen",
         label: `Qwen (${voiceCounts.qwen})`,

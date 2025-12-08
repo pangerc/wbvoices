@@ -345,6 +345,10 @@ export async function GET(req: NextRequest) {
               (voice) =>
                 (voice as { provider?: string }).provider === "bytedance"
             ).length,
+            lahajati: allVoices.filter(
+              (voice) =>
+                (voice as { provider?: string }).provider === "lahajati"
+            ).length,
             any: allVoices.length, // Total filtered voices across all providers
           };
 
@@ -460,6 +464,7 @@ export async function GET(req: NextRequest) {
               openai: 0,
               qwen: 0,
               bytedance: 0,
+              lahajati: 0,
               any: 0,
             },
             error:

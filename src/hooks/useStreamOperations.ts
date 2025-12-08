@@ -31,10 +31,14 @@ export function useStreamOperations(adId: string, stream: StreamType) {
       // If draft exists, freeze it first (commits it as a frozen version)
       const existingDraft = getDraft();
       if (existingDraft) {
-        await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze`, {
+        const freezeRes = await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze`, {
           method: "POST",
           headers: { "x-session-id": sessionId },
         });
+        if (!freezeRes.ok) {
+          console.error(`Failed to freeze draft ${existingDraft.id} before clone - aborting`);
+          return;
+        }
       }
 
       const res = await fetch(`/api/ads/${adId}/${stream}/${versionId}/clone`, {
@@ -91,10 +95,14 @@ export function useStreamOperations(adId: string, stream: StreamType) {
       // If draft exists, freeze it first (commits it as a version)
       const existingDraft = getDraft();
       if (existingDraft) {
-        await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze`, {
+        const freezeRes = await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze`, {
           method: "POST",
           headers: { "x-session-id": sessionId },
         });
+        if (!freezeRes.ok) {
+          console.error(`Failed to freeze draft ${existingDraft.id} before creating new draft - aborting`);
+          return;
+        }
       }
 
       // Create new draft with stream-specific defaults

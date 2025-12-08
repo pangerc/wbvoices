@@ -7,6 +7,7 @@ import {
   fetchElevenLabsVoices,
   fetchLovoVoices,
   getOpenAIVoices,
+  fetchLahajatiVoices,
 } from "@/services/voiceProviderService";
 
 // Use Node.js runtime for proper Redis access
@@ -481,6 +482,42 @@ async function fetchAndNormalizeVoices() {
     `✅ ByteDance: ${bytedanceVoices.length} voices (Chinese with regional dialects)`
   );
 
+  // LAHAJATI - Arabic dialect specialist (339 voices, 116 dialects)
+  try {
+    console.log("📡 Fetching Lahajati voices directly from API...");
+    const lahajatiVoices = await fetchLahajatiVoices();
+
+    for (const voice of lahajatiVoices) {
+      voices.push({
+        id: voice.id,
+        provider: "lahajati",
+        catalogueId: `voice:lahajati:${voice.id}`,
+        name: voice.name,
+        displayName: `${voice.name} (Lahajati)`,
+        gender:
+          voice.gender === "male" || voice.gender === "female"
+            ? voice.gender
+            : "neutral",
+        language: "ar" as Language, // All Lahajati voices are Arabic
+        accent: "standard", // Dialect-agnostic (dialect passed at TTS time)
+        personality: voice.description || undefined,
+        age: voice.age || undefined,
+        capabilities: {
+          supportsEmotional: true, // Via performance_id
+          supportsWhispering: false,
+          isMultilingual: false,
+        },
+        sampleUrl: voice.sampleUrl,
+        useCase: voice.use_case,
+        lastUpdated: timestamp,
+      });
+    }
+
+    console.log(`✅ Lahajati: ${lahajatiVoices.length} voices (Arabic dialects)`);
+  } catch (error) {
+    console.error("❌ Failed to fetch Lahajati voices:", error);
+  }
+
   return voices;
 }
 
@@ -520,6 +557,7 @@ export async function POST() {
     console.log(`   OpenAI: ${stats.byProvider.openai}`);
     console.log(`   Qwen: ${stats.byProvider.qwen}`);
     console.log(`   ByteDance: ${stats.byProvider.bytedance}`);
+    console.log(`   Lahajati: ${stats.byProvider.lahajati}`);
 
     return NextResponse.json({
       success: true,

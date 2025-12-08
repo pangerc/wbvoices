@@ -380,6 +380,74 @@ export function getOpenAIVoices(): ProviderVoice[] {
   return voices;
 }
 
+/**
+ * Fetch voices from Lahajati API (Arabic dialect specialist)
+ * All Lahajati voices support all 116 Arabic dialects - the dialect is passed at TTS time
+ */
+export async function fetchLahajatiVoices(): Promise<ProviderVoice[]> {
+  const apiKey = process.env.LAHAJATI_SECRET_KEY;
+  if (!apiKey) {
+    throw new Error("Lahajati API key is missing");
+  }
+
+  // Fetch all voices (paginated, max 339 voices)
+  const allVoices: LahajatiVoice[] = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const response = await fetch(
+      `https://lahajati.ai/api/v1/voices-absolute-control?page=${page}`,
+      {
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Accept": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Lahajati voices API error: ${errorText}`);
+    }
+
+    const data = await response.json();
+    allVoices.push(...(data.data || []));
+
+    // Check if there are more pages
+    hasMore = data.meta && data.meta.current_page < data.meta.last_page;
+    page++;
+  }
+
+  console.log(`📡 Lahajati: fetched ${allVoices.length} voices`);
+
+  // Transform to ProviderVoice format
+  // All Lahajati voices are Arabic and support all dialects
+  const voices: ProviderVoice[] = allVoices
+    .filter(voice => !voice.is_cloned) // Only include non-cloned voices
+    .map(voice => ({
+      id: voice.id_voice,
+      name: voice.display_name,
+      gender: voice.gender?.toLowerCase() || 'neutral',
+      language: 'ar', // All Lahajati voices are Arabic
+      accent: 'standard', // Dialect-agnostic (dialect passed at TTS time)
+      description: `${voice.display_name} - Arabic voice`,
+      use_case: 'advertisement',
+      isMultilingual: false,
+    }));
+
+  return voices;
+}
+
+// Lahajati voice type
+type LahajatiVoice = {
+  id_voice: string;
+  display_name: string;
+  gender: string;
+  is_cloned: boolean;
+  average_rating: number | null;
+};
+
 // Helper functions
 
 function getVoiceLanguage(voice: ElevenLabsVoice): {

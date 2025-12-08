@@ -114,7 +114,7 @@ export class VoiceCatalogueService {
    * Searches all providers until found.
    */
   async getVoiceById(voiceId: string): Promise<UnifiedVoice | null> {
-    for (const provider of ["elevenlabs", "lovo", "openai", "qwen", "bytedance"] as const) {
+    for (const provider of ["elevenlabs", "lovo", "openai", "qwen", "bytedance", "lahajati"] as const) {
       const voice = await this.getVoice(provider, voiceId);
       if (voice) return voice;
     }
@@ -136,6 +136,8 @@ export class VoiceCatalogueService {
       "lovo",
       "openai",
       "qwen",
+      "bytedance",
+      "lahajati",
     ] as ActualProvider[]) {
       const languageData = voiceTower[provider]?.[language] || {};
       for (const region of Object.keys(languageData)) {
@@ -170,6 +172,8 @@ export class VoiceCatalogueService {
       "lovo",
       "openai",
       "qwen",
+      "bytedance",
+      "lahajati",
     ] as ActualProvider[]) {
       const languageData = voiceTower[provider]?.[language] || {};
       for (const region of Object.keys(languageData)) {
@@ -199,6 +203,7 @@ export class VoiceCatalogueService {
         openai: 0,
         qwen: 0,
         bytedance: 0,
+        lahajati: 0,
         any: 0,
       };
       let openaiTotal = 0;
@@ -214,6 +219,7 @@ export class VoiceCatalogueService {
           totals.lovo += accentCounts.lovo || 0;
           totals.qwen += accentCounts.qwen || 0;
           totals.bytedance += accentCounts.bytedance || 0;
+          totals.lahajati += accentCounts.lahajati || 0;
         }
 
         // For OpenAI, sum ALL accents in this region since they handle accents via instructions
@@ -228,7 +234,8 @@ export class VoiceCatalogueService {
         totals.lovo +
         totals.openai +
         totals.qwen +
-        totals.bytedance;
+        totals.bytedance +
+        totals.lahajati;
       return totals;
     } else {
       // Sum all accents and regions for this language
@@ -239,6 +246,7 @@ export class VoiceCatalogueService {
         openai: 0,
         qwen: 0,
         bytedance: 0,
+        lahajati: 0,
         any: 0,
       };
 
@@ -250,6 +258,7 @@ export class VoiceCatalogueService {
           totals.openai += accentCounts.openai || 0;
           totals.qwen += accentCounts.qwen || 0;
           totals.bytedance += accentCounts.bytedance || 0;
+          totals.lahajati += accentCounts.lahajati || 0;
         }
       }
 
@@ -258,7 +267,8 @@ export class VoiceCatalogueService {
         totals.lovo +
         totals.openai +
         totals.qwen +
-        totals.bytedance;
+        totals.bytedance +
+        totals.lahajati;
       return totals;
     }
   }
@@ -290,6 +300,7 @@ export class VoiceCatalogueService {
       "openai",
       "qwen",
       "bytedance",
+      "lahajati",
     ] as ActualProvider[]) {
       const regionData = voiceTower[provider]?.[language]?.[region] || {};
       for (const accent of Object.keys(regionData)) {
@@ -317,6 +328,7 @@ export class VoiceCatalogueService {
       openai: 0,
       qwen: 0,
       bytedance: 0,
+      lahajati: 0,
       any: 0,
     };
 
@@ -327,6 +339,7 @@ export class VoiceCatalogueService {
       totals.openai += accentCounts.openai || 0;
       totals.qwen += accentCounts.qwen || 0;
       totals.bytedance += accentCounts.bytedance || 0;
+      totals.lahajati += accentCounts.lahajati || 0;
     }
 
     totals.any =
@@ -334,7 +347,8 @@ export class VoiceCatalogueService {
       totals.lovo +
       totals.openai +
       totals.qwen +
-      totals.bytedance;
+      totals.bytedance +
+      totals.lahajati;
     return totals;
   }
 
@@ -372,6 +386,8 @@ export class VoiceCatalogueService {
         qwen: accentVoices.filter((v) => v.provider === "qwen").length,
         bytedance: accentVoices.filter((v) => v.provider === "bytedance")
           .length,
+        lahajati: accentVoices.filter((v) => v.provider === "lahajati")
+          .length,
         any: 0, // Calculated later
       };
 
@@ -407,6 +423,7 @@ export class VoiceCatalogueService {
       counts.openai +
       counts.qwen +
       counts.bytedance +
+      counts.lahajati +
       (excludeProviders.includes("lovo") ? 0 : counts.lovo);
 
     const options = [
@@ -421,6 +438,12 @@ export class VoiceCatalogueService {
         count: counts.elevenlabs,
         label: `ElevenLabs (${counts.elevenlabs} voices)`,
         disabled: counts.elevenlabs === 0,
+      },
+      {
+        provider: "lahajati" as Provider,
+        count: counts.lahajati,
+        label: `Lahajati (${counts.lahajati} voices)`,
+        disabled: counts.lahajati === 0,
       },
       {
         provider: "openai" as Provider,
@@ -444,7 +467,7 @@ export class VoiceCatalogueService {
 
     // Add Lovo only if not excluded
     if (!excludeProviders.includes("lovo")) {
-      options.splice(2, 0, {
+      options.splice(3, 0, {
         provider: "lovo" as Provider,
         count: counts.lovo,
         label: `Lovo (${counts.lovo} voices)`,
@@ -603,6 +626,7 @@ export class VoiceCatalogueService {
       openai: {},
       qwen: {},
       bytedance: {},
+      lahajati: {},
     } as VoiceTower;
 
     const dataTower: VoiceDataTower = {};
@@ -644,6 +668,7 @@ export class VoiceCatalogueService {
           openai: 0,
           qwen: 0,
           bytedance: 0,
+          lahajati: 0,
           any: 0,
         };
       }
@@ -691,6 +716,7 @@ export class VoiceCatalogueService {
       openai: 0,
       qwen: 0,
       bytedance: 0,
+      lahajati: 0,
       any: 0,
     };
 
@@ -702,7 +728,9 @@ export class VoiceCatalogueService {
       byProvider.elevenlabs +
       byProvider.lovo +
       byProvider.openai +
-      byProvider.qwen;
+      byProvider.qwen +
+      byProvider.bytedance +
+      byProvider.lahajati;
 
     return {
       totalVoices: voices.length,

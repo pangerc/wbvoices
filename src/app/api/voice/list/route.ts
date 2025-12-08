@@ -1066,6 +1066,71 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ voicesByLanguage });
+  } else if (provider === "lahajati") {
+    // Lahajati - Arabic dialect specialist (339 voices)
+    const apiKey = process.env.LAHAJATI_SECRET_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Lahajati API key is missing" },
+        { status: 500 }
+      );
+    }
+
+    // Fetch all voices (paginated)
+    const allVoices: { id_voice: string; display_name: string; gender: string; is_cloned: boolean }[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await fetch(
+        `https://lahajati.ai/api/v1/voices-absolute-control?page=${page}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Accept": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Lahajati API error:", errorText);
+        return NextResponse.json(
+          { error: "Failed to fetch voices from Lahajati" },
+          { status: 500 }
+        );
+      }
+
+      const data = await response.json();
+      allVoices.push(...(data.data || []));
+
+      hasMore = data.meta && data.meta.current_page < data.meta.last_page;
+      page++;
+    }
+
+    // Transform to Voice format
+    // All Lahajati voices are Arabic and support all 116 dialects
+    const voices: Voice[] = allVoices
+      .filter(voice => !voice.is_cloned) // Only include non-cloned voices
+      .map(voice => ({
+        id: voice.id_voice,
+        name: voice.display_name,
+        gender: voice.gender?.toLowerCase() || null,
+        sampleUrl: null, // Lahajati doesn't provide sample URLs in list
+        language: "ar", // All Lahajati voices are Arabic
+        isMultilingual: false,
+        accent: "standard", // Dialect-agnostic (dialect passed at TTS time)
+        age: undefined,
+        description: `${voice.display_name} - Arabic voice`,
+        use_case: "advertisement",
+      }));
+
+    // If language is specified, filter (should only be "ar" for Lahajati)
+    if (language && language !== "ar") {
+      return NextResponse.json({ voices: [] });
+    }
+
+    return NextResponse.json({ voices });
   } else {
     return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
   }

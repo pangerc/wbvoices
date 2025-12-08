@@ -9,6 +9,7 @@ import { ElevenLabsSoundFxProvider } from './ElevenLabsSoundFxProvider';
 import { ElevenLabsMusicProvider } from './ElevenLabsMusicProvider';
 import { QwenVoiceProvider } from './QwenVoiceProvider';
 import { ByteDanceVoiceProvider } from './ByteDanceVoiceProvider';
+import { LahajatiVoiceProvider } from './LahajatiVoiceProvider';
 
 // Register all providers
 AudioProviderFactory.register('music', 'mubert', MubertProvider);
@@ -18,6 +19,7 @@ AudioProviderFactory.register('voice', 'elevenlabs', ElevenLabsVoiceProvider);
 AudioProviderFactory.register('voice', 'lovo', LovoVoiceProvider);
 AudioProviderFactory.register('voice', 'qwen', QwenVoiceProvider);
 AudioProviderFactory.register('voice', 'bytedance', ByteDanceVoiceProvider);
+AudioProviderFactory.register('voice', 'lahajati', LahajatiVoiceProvider);
 AudioProviderFactory.register('sfx', 'elevenlabs', ElevenLabsSoundFxProvider);
 AudioProviderFactory.register('music', 'elevenlabs', ElevenLabsMusicProvider);
 
@@ -31,6 +33,7 @@ export { ElevenLabsVoiceProvider } from './ElevenLabsVoiceProvider';
 export { LovoVoiceProvider } from './LovoVoiceProvider';
 export { QwenVoiceProvider } from './QwenVoiceProvider';
 export { ByteDanceVoiceProvider } from './ByteDanceVoiceProvider';
+export { LahajatiVoiceProvider } from './LahajatiVoiceProvider';
 export { ElevenLabsSoundFxProvider } from './ElevenLabsSoundFxProvider';
 export { ElevenLabsMusicProvider } from './ElevenLabsMusicProvider';
 

@@ -1,6 +1,6 @@
 import { Language } from "@/utils/language";
 
-export type Provider = "any" | "lovo" | "elevenlabs" | "openai" | "qwen" | "bytedance";
+export type Provider = "any" | "lovo" | "elevenlabs" | "openai" | "qwen" | "bytedance" | "lahajati";
 
 export type Pacing = "normal" | "fast";
 

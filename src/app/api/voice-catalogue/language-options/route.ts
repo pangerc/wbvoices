@@ -81,12 +81,13 @@ export async function GET(req: NextRequest) {
  * Uses getVoicesForProvider with requireApproval=true to exclude blacklisted voices.
  */
 async function getFilteredVoiceCounts(language: Language): Promise<VoiceCounts> {
-  const providers = ["elevenlabs", "openai", "qwen", "bytedance"] as const;
+  const providers = ["elevenlabs", "openai", "qwen", "bytedance", "lahajati"] as const;
   const counts: VoiceCounts = {
     elevenlabs: 0,
     openai: 0,
     qwen: 0,
     bytedance: 0,
+    lahajati: 0,
     lovo: 0,
     any: 0,
   };
@@ -208,6 +209,13 @@ async function getAccentsForLanguage(language: Language, region: string | null):
  * Suggest the best provider for a language based on voice availability
  */
 function suggestProvider(language: string, voiceCounts: VoiceCounts): Provider {
+  // Arabic languages → prefer lahajati (Arabic specialist)
+  if (language === "ar" || language.startsWith("ar-")) {
+    if (voiceCounts.lahajati > 0) return "lahajati";
+    if (voiceCounts.openai > 0) return "openai";
+    if (voiceCounts.elevenlabs > 0) return "elevenlabs";
+  }
+
   // Chinese languages → prefer qwen (better quality for Chinese)
   if (language === "zh" || language.startsWith("zh-")) {
     if (voiceCounts.qwen > 0) return "qwen";

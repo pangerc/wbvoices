@@ -82,11 +82,18 @@ export function MixerPanel({
       (swrTrack) => currentTrackUrls.get(swrTrack.id) !== swrTrack.url
     );
 
+    // Check if calculated track positions changed (e.g., SFX placement changed)
+    const hasPositionChanges = mixerSWR.calculatedTracks?.some((swrCalc) => {
+      const zustandCalc = calculatedTracks.find((c) => c.id === swrCalc.id);
+      return !zustandCalc || zustandCalc.startTime !== swrCalc.startTime;
+    });
+
     const needsHydration =
       tracks.length === 0 ||
       currentTrackIds.size !== swrTrackIds.size ||
       ![...swrTrackIds].every((id) => currentTrackIds.has(id)) ||
-      hasUrlChanges;
+      hasUrlChanges ||
+      hasPositionChanges;
 
     if (needsHydration) {
       console.log("🔄 Hydrating mixer store from SWR data", {
