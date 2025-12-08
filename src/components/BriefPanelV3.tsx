@@ -488,10 +488,14 @@ export function BriefPanelV3({
     const alreadyAutoSelected = lastAutoSelectedLanguageRef.current === selectedLanguage;
 
     if (optionsMatchLanguage && languageOptions?.suggestedProvider && !alreadyAutoSelected) {
+      // Mark as auto-selected FIRST to prevent re-runs during state updates
+      lastAutoSelectedLanguageRef.current = selectedLanguage;
+
+      // Batch state updates to prevent cascading re-renders and refetches
+      // React 18 batches these automatically, but being explicit helps
       setSelectedProvider(languageOptions.suggestedProvider);
       setSelectedRegion(null);
       setSelectedAccent("neutral");
-      lastAutoSelectedLanguageRef.current = selectedLanguage;
     }
   }, [selectedLanguage, languageOptions]);
 

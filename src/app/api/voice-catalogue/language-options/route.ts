@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { voiceCatalogue, VoiceCounts } from "@/services/voiceCatalogueService";
+import { voiceCatalogue, VoiceCounts, PreloadedBlacklist } from "@/services/voiceCatalogueService";
+import { voiceMetadataService } from "@/services/voiceMetadataService";
+import { lahajatiDialectService } from "@/services/lahajatiDialectService";
 import { Language, Provider, CampaignFormat } from "@/types";
 import { normalizeLanguageCode, getLanguageRegions, accentRegions } from "@/utils/language";
 
@@ -44,17 +46,18 @@ export async function GET(req: NextRequest) {
       ? [{ code: "all", displayName: "All Regions" }, ...rawRegions]
       : [];
 
-    // 2. Get accents from actual voice data (filtered by region if specified)
-    const accents = await getAccentsForLanguage(language, region);
+    // 2. PRE-FETCH: Get blacklist ONCE (towers auto-cached in voiceCatalogue)
+    const blacklistMap = await voiceMetadataService.getAllBlacklistedForLanguage(language);
 
-    // 3. Get voice counts per provider (WITH blacklist filtering)
-    const voiceCounts = await getFilteredVoiceCounts(language);
+    // 3-5. Towers automatically deduplicated via 200ms promise cache in voiceCatalogue
+    const [accents, voiceCounts, filteredVoiceCount] = await Promise.all([
+      getAccentsForLanguage(language, region, blacklistMap),
+      getFilteredVoiceCounts(language, blacklistMap),
+      getFilteredVoiceCountForDialog(language, provider, accent, blacklistMap),
+    ]);
 
-    // 4. Suggest best provider for this language
+    // Suggest best provider (pure function, instant)
     const suggestedProvider = suggestProvider(language, voiceCounts);
-
-    // 5. Check if enough voices for dialogue format (respects provider/accent filters)
-    const filteredVoiceCount = await getFilteredVoiceCountForDialog(language, provider, accent);
     const dialogReady = filteredVoiceCount >= 2;
 
     return NextResponse.json({
@@ -78,10 +81,28 @@ export async function GET(req: NextRequest) {
 
 /**
  * Get voice counts per provider with blacklist filtering.
- * Uses getVoicesForProvider with requireApproval=true to exclude blacklisted voices.
+ * Towers auto-cached in voiceCatalogue - no manual plumbing needed.
  */
-async function getFilteredVoiceCounts(language: Language): Promise<VoiceCounts> {
+async function getFilteredVoiceCounts(language: Language, blacklistMap: PreloadedBlacklist): Promise<VoiceCounts> {
   const providers = ["elevenlabs", "openai", "qwen", "bytedance", "lahajati"] as const;
+
+  const results = await Promise.all(
+    providers.map(async (provider) => {
+      try {
+        const voices = await voiceCatalogue.getVoicesForProvider(
+          provider,
+          language,
+          undefined, // accent
+          true, // requireApproval - filter out blacklisted!
+          blacklistMap // Pre-loaded blacklist
+        );
+        return { provider, count: voices.length };
+      } catch {
+        return { provider, count: 0 };
+      }
+    })
+  );
+
   const counts: VoiceCounts = {
     elevenlabs: 0,
     openai: 0,
@@ -92,19 +113,9 @@ async function getFilteredVoiceCounts(language: Language): Promise<VoiceCounts> 
     any: 0,
   };
 
-  for (const provider of providers) {
-    try {
-      const voices = await voiceCatalogue.getVoicesForProvider(
-        provider,
-        language,
-        undefined, // accent
-        true // requireApproval - filter out blacklisted!
-      );
-      counts[provider] = voices.length;
-      counts.any += voices.length;
-    } catch {
-      // Continue with other providers
-    }
+  for (const { provider, count } of results) {
+    counts[provider] = count;
+    counts.any += count;
   }
 
   return counts;
@@ -117,57 +128,80 @@ async function getFilteredVoiceCounts(language: Language): Promise<VoiceCounts> 
 async function getFilteredVoiceCountForDialog(
   language: Language,
   provider: string | null,
-  accent: string | null
+  accent: string | null,
+  blacklistMap: PreloadedBlacklist
 ): Promise<number> {
   // If no specific provider, check all providers
   const providersToCheck = provider
     ? [provider]
     : ["elevenlabs", "openai", "qwen", "bytedance"];
 
-  let count = 0;
-  for (const p of providersToCheck) {
-    try {
-      const voices = await voiceCatalogue.getVoicesForProvider(
-        p as "elevenlabs" | "openai" | "qwen" | "bytedance",
-        language,
-        accent || undefined, // Pass accent filter if specified
-        true // requireApproval - filter out blacklisted
-      );
-      count += voices.length;
-    } catch {
-      // Continue with other providers
-    }
-  }
+  const results = await Promise.all(
+    providersToCheck.map(async (p) => {
+      try {
+        const voices = await voiceCatalogue.getVoicesForProvider(
+          p as "elevenlabs" | "openai" | "qwen" | "bytedance",
+          language,
+          accent || undefined, // Pass accent filter if specified
+          true, // requireApproval - filter out blacklisted
+          blacklistMap // Pre-loaded blacklist
+        );
+        return voices.length;
+      } catch {
+        return 0;
+      }
+    })
+  );
 
-  return count;
+  return results.reduce((sum, count) => sum + count, 0);
 }
 
 /**
  * Get available accents for a language from voice data (with blacklist filtering)
  * Optionally filter by region if specified
  */
-async function getAccentsForLanguage(language: Language, region: string | null): Promise<AccentOption[]> {
-  const availableAccents = new Set<string>();
+async function getAccentsForLanguage(language: Language, region: string | null, blacklistMap: PreloadedBlacklist): Promise<AccentOption[]> {
+  // Special case: Arabic uses dialect service (Lahajati voices are dialect-agnostic)
+  if (language === "ar" || language.startsWith("ar-")) {
+    const accentCodes = await lahajatiDialectService.getAvailableAccents();
+    const accents: AccentOption[] = accentCodes
+      .filter(code => code !== "neutral" && code !== "maghrebi") // exclude meta-accents
+      .map(code => ({
+        code,
+        displayName: formatAccentDisplayName(code, language),
+      }));
+
+    accents.sort((a, b) => a.displayName.localeCompare(b.displayName));
+    accents.unshift({ code: "neutral", displayName: "Any Dialect" });
+    return accents;
+  }
 
   // Get voices from all providers to find available accents
   const providers = ["elevenlabs", "openai", "qwen", "bytedance"] as const;
 
-  for (const provider of providers) {
-    try {
-      // Use requireApproval=true to exclude blacklisted voices
-      const voices = await voiceCatalogue.getVoicesForProvider(
-        provider,
-        language,
-        undefined, // accent
-        true // requireApproval - filter out blacklisted!
-      );
-      voices.forEach((voice) => {
-        if (voice.accent) {
-          availableAccents.add(voice.accent);
-        }
-      });
-    } catch {
-      // Continue with other providers
+  const voiceArrays = await Promise.all(
+    providers.map(async (provider) => {
+      try {
+        return await voiceCatalogue.getVoicesForProvider(
+          provider,
+          language,
+          undefined, // accent
+          true, // requireApproval - filter out blacklisted!
+          blacklistMap // Pre-loaded blacklist
+        );
+      } catch {
+        return [];
+      }
+    })
+  );
+
+  // Collect accents from all providers
+  const availableAccents = new Set<string>();
+  for (const voices of voiceArrays) {
+    for (const voice of voices) {
+      if (voice.accent) {
+        availableAccents.add(voice.accent);
+      }
     }
   }
 
@@ -248,16 +282,28 @@ function formatAccentDisplayName(accentCode: string, language: Language): string
       peruvian: "Peruvian",
     },
     ar: {
+      standard: "Modern Standard Arabic (MSA)",
       saudi: "Saudi Arabic",
-      kuwaiti: "Kuwaiti Arabic",
-      emirati: "Emirati Arabic",
-      gulf: "Gulf Arabic",
       egyptian: "Egyptian Arabic",
-      moroccan: "Moroccan Arabic",
-      jordanian: "Jordanian Arabic",
+      emirati: "Emirati Arabic",
       lebanese: "Lebanese Arabic",
-      standard: "Standard Arabic",
-      neutral: "Standard Arabic",
+      moroccan: "Moroccan Arabic",
+      iraqi: "Iraqi Arabic",
+      jordanian: "Jordanian Arabic",
+      kuwaiti: "Kuwaiti Arabic",
+      algerian: "Algerian Arabic",
+      tunisian: "Tunisian Arabic",
+      syrian: "Syrian Arabic",
+      palestinian: "Palestinian Arabic",
+      yemeni: "Yemeni Arabic",
+      sudanese: "Sudanese Arabic",
+      libyan: "Libyan Arabic",
+      omani: "Omani Arabic",
+      bahraini: "Bahraini Arabic",
+      qatari: "Qatari Arabic",
+      mauritanian: "Mauritanian Arabic",
+      gulf: "Gulf Arabic",
+      neutral: "Any Dialect",
     },
     en: {
       american: "American English",

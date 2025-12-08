@@ -251,6 +251,15 @@ export const useMixerStore = create<MixerState>((set, get) => ({
   calculateTimings: () => {
     const { tracks, audioDurations, saveCallback } = get();
 
+    // Early return for empty state - no need to recalculate or log
+    if (tracks.length === 0) {
+      set({
+        calculatedTracks: [],
+        totalDuration: 0,
+      });
+      return; // Skip save callback - nothing meaningful changed
+    }
+
     // Use battle-tested heuristic calculator
     console.log("🔧 Using Legacy Timeline Calculator (heuristic-based)");
     const result = LegacyTimelineCalculator.calculateTimings(
@@ -265,7 +274,8 @@ export const useMixerStore = create<MixerState>((set, get) => ({
 
     // 🗡️ DEMON HUNTING: Save callback restored - mixer store was innocent
     // Call save callback after timeline recalculation completes
-    if (saveCallback) {
+    // Only call if we have actual tracks
+    if (saveCallback && result.calculatedTracks.length > 0) {
       console.log("💾 Triggering save after timeline recalculation");
       saveCallback().catch((error) => {
         console.error(
@@ -307,12 +317,20 @@ export const useMixerStore = create<MixerState>((set, get) => ({
 
     if (type) {
       // Remove only tracks of the specified type
+      const remainingTracks = tracks.filter((track) => track.type !== type);
       set({
-        tracks: tracks.filter((track) => track.type !== type),
+        tracks: remainingTracks,
         isPreviewValid: false, // Preview is now invalid since tracks changed
       });
+      // Only recalculate if there are remaining tracks
+      if (remainingTracks.length > 0) {
+        get().calculateTimings();
+      } else {
+        set({ calculatedTracks: [], totalDuration: 0 });
+      }
     } else {
       // Remove all tracks and reset all related state
+      // No need to call calculateTimings - just reset directly
       set({
         tracks: [],
         calculatedTracks: [],
@@ -325,10 +343,8 @@ export const useMixerStore = create<MixerState>((set, get) => ({
         isExporting: false,
         isPreviewValid: false, // Preview is now invalid
       });
+      // Skip calculateTimings() - state is already reset
     }
-
-    // Recalculate timings
-    get().calculateTimings();
   },
 
   setSaveCallback: (callback) => {

@@ -237,6 +237,46 @@ export class VoiceMetadataService {
   }
 
   /**
+   * Get ALL blacklist entries for a language in ONE query.
+   * Used for request-level caching to avoid multiple DB calls per request.
+   *
+   * This is optimized for the language-options API which fetches from
+   * multiple providers in parallel - by pre-fetching all blacklist entries
+   * once, we avoid 5+ concurrent DB queries causing Neon contention.
+   *
+   * GRACEFUL DEGRADATION: If database is unavailable, returns empty object
+   * (all voices pass through unfiltered - safe default behavior)
+   */
+  async getAllBlacklistedForLanguage(
+    language: Language
+  ): Promise<Record<string, { accents: Set<string>; hasLanguageWide: boolean }>> {
+    try {
+      const results = await db
+        .select()
+        .from(voiceBlacklist)
+        .where(eq(voiceBlacklist.language, language));
+
+      const grouped: Record<string, { accents: Set<string>; hasLanguageWide: boolean }> = {};
+
+      for (const entry of results) {
+        if (!grouped[entry.voiceKey]) {
+          grouped[entry.voiceKey] = { accents: new Set<string>(), hasLanguageWide: false };
+        }
+        if (entry.accent === this.ALL_ACCENTS) {
+          grouped[entry.voiceKey].hasLanguageWide = true;
+        } else {
+          grouped[entry.voiceKey].accents.add(entry.accent);
+        }
+      }
+
+      return grouped;
+    } catch (error) {
+      console.warn('⚠️ Database unavailable - skipping blacklist:', error);
+      return {};
+    }
+  }
+
+  /**
    * Bulk fetch blacklist entries optimized for filtering
    * Returns enhanced structure with language-wide and accent-specific info
    *

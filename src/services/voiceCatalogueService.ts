@@ -42,12 +42,16 @@ export type UnifiedVoice = {
 
 export type VoiceCounts = Record<Provider, number>;
 
+// Type for pre-loaded blacklist (matches voiceMetadataService.getAllBlacklistedForLanguage return)
+export type PreloadedBlacklist = Record<string, { accents: Set<string>; hasLanguageWide: boolean }>;
+
 /**
  * 🏰 MAGNIFICENT TOWER ARCHITECTURE 🏰
  * Three mighty towers with region support - clean data architecture!
  */
 
-type VoiceTower = {
+// Exported for pre-loading optimization
+export type VoiceTower = {
   [provider in ActualProvider]: {
     [language: string]: {
       [region: string]: {
@@ -58,9 +62,13 @@ type VoiceTower = {
   };
 };
 
-type VoiceDataTower = {
+// Exported for pre-loading optimization
+export type VoiceDataTower = {
   [voiceKey: string]: UnifiedVoice; // "provider:voiceId" -> voice data
 };
+
+// Type for pre-loaded towers (used by language-options API)
+export type PreloadedTowers = { voiceTower: VoiceTower; dataTower: VoiceDataTower };
 
 type CountsTower = {
   [language: string]: {
@@ -71,12 +79,47 @@ type CountsTower = {
   };
 };
 
+// Module-level cache for tower deduplication
+// Caches the Promise itself - all concurrent calls share the same in-flight request
+let cachedTowersPromise: Promise<PreloadedTowers> | null = null;
+let towersCacheTimestamp = 0;
+const TOWER_CACHE_TTL_MS = 200; // Covers single request lifecycle
+
 export class VoiceCatalogueService {
   private readonly TOWER_KEYS = {
     VOICES: "voice_tower", // Tower of organized voices
     DATA: "voice_data_tower", // Tower of voice details
     COUNTS: "counts_tower", // Tower of counts
   } as const;
+
+  /**
+   * Get both voice towers with automatic request-level deduplication.
+   * Caches the Promise for 200ms - all concurrent calls share the same fetch.
+   * No caller changes needed - just call getTowers() anywhere.
+   */
+  async getTowers(): Promise<PreloadedTowers> {
+    const now = Date.now();
+
+    // Return cached promise if still valid
+    if (cachedTowersPromise && (now - towersCacheTimestamp) < TOWER_CACHE_TTL_MS) {
+      return cachedTowersPromise;
+    }
+
+    // Cache the Promise BEFORE awaiting - key for deduplication!
+    towersCacheTimestamp = now;
+    cachedTowersPromise = (async () => {
+      const [voiceTower, dataTower] = await Promise.all([
+        redis.get<VoiceTower>(this.TOWER_KEYS.VOICES),
+        redis.get<VoiceDataTower>(this.TOWER_KEYS.DATA),
+      ]);
+      return {
+        voiceTower: voiceTower || ({} as VoiceTower),
+        dataTower: dataTower || {},
+      };
+    })();
+
+    return cachedTowersPromise;
+  }
 
   // Helper: Map an accent to its region for a language
   private getRegionForAccent(language: string, accent: string): string {
@@ -498,13 +541,11 @@ export class VoiceCatalogueService {
     provider: Provider,
     language: Language,
     accent?: string,
-    requireApproval?: boolean
+    requireApproval?: boolean,
+    preloadedBlacklist?: PreloadedBlacklist
   ): Promise<UnifiedVoice[]> {
-    const voiceTower =
-      (await redis.get<VoiceTower>(this.TOWER_KEYS.VOICES)) ||
-      ({} as VoiceTower);
-    const dataTower =
-      (await redis.get<VoiceDataTower>(this.TOWER_KEYS.DATA)) || {};
+    // Always use getTowers() - it's automatically cached/deduplicated
+    const { voiceTower, dataTower } = await this.getTowers();
 
     const voiceIds: string[] = [];
 
@@ -575,7 +616,13 @@ export class VoiceCatalogueService {
 
     // Apply blacklist filtering if required
     if (requireApproval) {
-      voices = await this.filterByBlacklist(voices, language, accent);
+      if (preloadedBlacklist) {
+        // Fast path: use pre-loaded blacklist (no DB call)
+        voices = this.filterByPreloadedBlacklist(voices, preloadedBlacklist, accent);
+      } else {
+        // Fallback: query DB for each call
+        voices = await this.filterByBlacklist(voices, language, accent);
+      }
     }
 
     return voices;
@@ -627,6 +674,31 @@ export class VoiceCatalogueService {
       console.warn('⚠️ Blacklist filtering failed - returning all voices:', error);
       return voices; // Return all voices unfiltered
     }
+  }
+
+  /**
+   * Fast in-memory blacklist filtering using pre-loaded data.
+   * Used when blacklist was fetched once at request start (language-options API).
+   * No DB calls - pure CPU filtering.
+   */
+  private filterByPreloadedBlacklist(
+    voices: UnifiedVoice[],
+    blacklistMap: PreloadedBlacklist,
+    accent?: string
+  ): UnifiedVoice[] {
+    return voices.filter((voice) => {
+      const voiceKey = `${voice.provider}:${voice.id}`;
+      const blacklistInfo = blacklistMap[voiceKey];
+
+      if (!blacklistInfo) return true; // Not blacklisted at all
+
+      // If language-wide blacklist exists, always filter out
+      if (blacklistInfo.hasLanguageWide) return false;
+
+      // Check accent-specific blacklist
+      const accentToCheck = accent || voice.accent;
+      return !blacklistInfo.accents.has(accentToCheck);
+    });
   }
 
   // 🏗️ TOWER BUILDING OPERATIONS 🏗️

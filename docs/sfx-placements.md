@@ -1,8 +1,32 @@
 # SoundFX Placement Issue - Intro Effects Playing Simultaneously with Voices
 
-**Status**: Parked for future UX design
-**Date**: 2025-01-12
+**Status**: Partially resolved (placement selection now works; intro concurrent issue still parked)
+**Date**: 2025-01-12 (updated 2025-12-08)
 **Severity**: Medium (functional but not ideal UX)
+
+---
+
+## Implemented Fixes (2025-12-08)
+
+### 1. Dual Field Synchronization Bug
+**Problem**: `SoundFxPanel.tsx` only updated `placement` field, not `playAfter`. Timeline calculator checked `playAfter === "start"` first, so all SFX were treated as intro.
+
+**Fix**: Added `placementIntentToLegacyPlayAfter()` helper in `SoundFxPanel.tsx` (line ~50) that syncs both fields on change.
+
+### 2. Default playAfter Value
+**Problem**: New SFX prompts had `playAfter: "start"` by default, causing them to always appear at beginning.
+
+**Fix**: Changed default in `SfxDraftEditor.tsx` (line 103) from `playAfter: "start"` to `playAfter: undefined`.
+
+### 3. Voice Version Mismatch
+**Problem**: SFX placement previews showed options based on voice DRAFT version, but mixer rebuilder positions relative to voice ACTIVE version. User would select "after voice 2" but if draft had different tracks than active, positioning was wrong.
+
+**Fix**: Changed `voiceTrackPreviews` in `SfxDraftEditor.tsx` (lines 56-69) to use ACTIVE voice version.
+
+### 4. MixerPanel Hydration
+**Problem**: After changing SFX placement, MixerPanel wouldn't update until page reload.
+
+**Fix**: Added `hasPositionChanges` check in `MixerPanel.tsx` hydration logic (lines 85-96) comparing `calculatedTracks[].startTime` between SWR and Zustand.
 
 ---
 
@@ -117,7 +141,9 @@ const explicitStartTime =
 
 ---
 
-## Why This is Parked
+## Why This is Parked (Remaining Issue)
+
+> **Note (2025-12-08)**: The placement selection bugs have been fixed - selecting "after voice X" now correctly positions SFX after that voice. The issue below (intro SFX playing simultaneously with first voice) remains unresolved and is a separate UX design decision.
 
 The current implementation **lacks semantic distinction** between:
 1. **Sequential placement**: "Play BEFORE voice X" (soundfx finishes, THEN voice starts)
@@ -205,12 +231,18 @@ If users want intro soundfx to play BEFORE voices (not simultaneously):
 
 ## Related Code Locations
 
-- **Placement UI**: `src/components/SoundFxPanel.tsx` line 236-254
+- **Placement UI**: `src/components/SoundFxPanel.tsx`
+  - Placement listbox: lines 185-209
+  - `placementIntentToLegacyPlayAfter()` helper: lines 53-62
+- **Draft editor**: `src/components/draft-editors/SfxDraftEditor.tsx`
+  - Voice track previews (uses ACTIVE version): lines 56-69
+  - Default prompt values: lines 96-106
 - **Placement types**: `src/types/index.ts` line 96-100
 - **Timeline calculator**: `src/services/legacyTimelineCalculator.ts`
   - Intro soundfx: lines 165-212
   - Voice positioning: lines 228-234, 260-274
   - Placement intent resolution: lines 495-506
+- **MixerPanel hydration**: `src/components/MixerPanel.tsx` lines 85-96
 - **AudioService track creation**: `src/services/audioService.ts` line 233-251
 
 ---
@@ -229,7 +261,13 @@ When implementing the fix, test these scenarios:
 
 ## Decision Log
 
-**2025-01-12**: Parked this issue in favor of:
+**2025-12-08**: Fixed placement selection bugs:
+- Dual field sync (placement + playAfter)
+- Voice version mismatch (now uses ACTIVE)
+- MixerPanel hydration for position changes
+- Selecting "after voice X" now works correctly
+
+**2025-01-12**: Parked intro concurrent issue in favor of:
 1. Completing Phase 3 (multiple soundfx support)
 2. Designing proper UX for sequential vs concurrent placement
 3. Implementing comprehensive placement options

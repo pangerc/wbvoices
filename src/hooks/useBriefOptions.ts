@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Language, Provider, CampaignFormat } from "@/types";
 import { VoiceCounts } from "@/services/voiceCatalogueService";
 
@@ -57,6 +57,9 @@ export function useBriefOptions() {
  * Single API call replaces the 12+ calls in useVoiceManagerV2.
  * Accents are filtered by region when a region is selected.
  * dialogReady is calculated based on provider and accent filters.
+ *
+ * PERF: Uses memoized params key to prevent unnecessary refetches when
+ * unrelated state changes cause re-renders.
  */
 export function useLanguageOptions(
   language: Language | null,
@@ -68,8 +71,22 @@ export function useLanguageOptions(
   const [options, setOptions] = useState<LanguageOptions | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Stabilize params to prevent unnecessary refetches
+  // Only refetch when these ACTUALLY change, not on every render
+  const paramsKey = useMemo(() => {
+    if (!language) return null;
+    return JSON.stringify({
+      language,
+      campaignFormat,
+      region: region || null,
+      // Normalize "any" and "neutral" to null so they don't trigger refetches
+      provider: provider && provider !== "any" ? provider : null,
+      accent: accent && accent !== "neutral" ? accent : null,
+    });
+  }, [language, campaignFormat, region, provider, accent]);
+
   useEffect(() => {
-    if (!language) {
+    if (!paramsKey) {
       setOptions(null);
       return;
     }
@@ -77,25 +94,15 @@ export function useLanguageOptions(
     const controller = new AbortController();
     setIsLoading(true);
 
-    const params = new URLSearchParams({
-      language,
-      campaignFormat,
-    });
+    const params = JSON.parse(paramsKey);
+    const searchParams = new URLSearchParams();
+    searchParams.set("language", params.language);
+    searchParams.set("campaignFormat", params.campaignFormat);
+    if (params.region) searchParams.set("region", params.region);
+    if (params.provider) searchParams.set("provider", params.provider);
+    if (params.accent) searchParams.set("accent", params.accent);
 
-    // Add region param if specified (to filter accents)
-    if (region) {
-      params.set("region", region);
-    }
-
-    // Add provider/accent params for dialogReady calculation
-    if (provider && provider !== "any") {
-      params.set("provider", provider);
-    }
-    if (accent && accent !== "neutral") {
-      params.set("accent", accent);
-    }
-
-    fetch(`/api/voice-catalogue/language-options?${params}`, {
+    fetch(`/api/voice-catalogue/language-options?${searchParams}`, {
       signal: controller.signal,
     })
       .then((r) => r.json())
@@ -116,7 +123,7 @@ export function useLanguageOptions(
       });
 
     return () => controller.abort();
-  }, [language, campaignFormat, region, provider, accent]);
+  }, [paramsKey]); // Single stable dependency instead of 5 separate ones
 
   return { options, isLoading };
 }

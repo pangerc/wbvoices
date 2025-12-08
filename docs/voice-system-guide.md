@@ -354,6 +354,22 @@ These settings are applied to all presets in `ElevenLabsVoiceProvider.ts`.
 - **Request**: Requires `app.appid`, `app.cluster`, `request.reqid`
 - **Edge Runtime**: Use Web Crypto API (no Node.js `crypto`)
 
+### Lahajati (Arabic Specialist)
+- **Languages**: Arabic with 116 dialect variants
+- **Priority**: Primary choice for Arabic content
+- **Dialects**: Dynamically fetched from Lahajati API during cache refresh
+  - Stored in Redis via `lahajatiDialectService`
+  - Fallback to hardcoded mappings if cache empty
+- **Voice Instructions**: Uses Arabic persona/role format (not OpenAI structured format)
+  - `input_mode: "0"` - Structured mode with `performance_id` + `dialect_id`
+  - `input_mode: "1"` - Custom prompt mode with Arabic persona instructions
+- **API**: Bearer token authentication (`LAHAJATI_SECRET_KEY`)
+- **Accent Mapping**: Arabic country names → dialect IDs (e.g., "egyptian" → 7)
+- **Key Files**:
+  - Provider: `/src/lib/providers/LahajatiVoiceProvider.ts`
+  - Dialect Service: `/src/services/lahajatiDialectService.ts`
+  - Dialect Mapping: `/src/lib/providers/lahajatiDialectMapping.ts`
+
 ## Working with Multilingual Voices
 
 ### ElevenLabs Multilingual Expansion

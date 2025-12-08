@@ -1,7 +1,7 @@
 # Version 3: Agentic Tool-Calling Architecture
 
 **Status:** In Development
-**Last Updated:** December 5, 2025
+**Last Updated:** December 8, 2025
 
 ---
 
@@ -188,6 +188,8 @@ TimelineTrack: renders with server-computed timings
 | **Timeline Calculator** | `src/services/legacyTimelineCalculator.ts` |
 | **Mixer Panel** | `src/components/MixerPanel.tsx` |
 | **Mixer Data Hook** | `src/hooks/useMixerData.ts` |
+| **Voice Catalogue** | `src/services/voiceCatalogueService.ts` (tower cache) |
+| **Voice Metadata** | `src/services/voiceMetadataService.ts` (blacklist) |
 
 ---
 
@@ -228,6 +230,22 @@ TimelineTrack: renders with server-computed timings
 - ✅ Hydration detects URL changes, not just track ID changes
 - ✅ Audio elements update `src` when track URL changes
 - ✅ Music track labels show provider + prompt preview
+
+**Lahajati Integration (Dec 8, 2025):**
+- ✅ LahajatiVoiceProvider with dynamic dialect fetching from API
+- ✅ 339 Arabic voices, 116 dialects cached in Redis
+- ✅ lahajatiDialectService for accent → dialect_id mapping
+- ✅ Arabic country name mapping (e.g., "المصرية" → "egyptian" → dialect 7)
+- ✅ VoiceInstructionsDialog support with Arabic persona placeholder
+- ✅ LLM tool definition updated for Lahajati persona format (not OpenAI structured)
+- ✅ `input_mode: "1"` custom prompt support for Arabic role instructions
+
+**Voice Catalogue Performance (Dec 8, 2025):**
+- ✅ Promise-based tower cache with 200ms TTL in `voiceCatalogueService.ts`
+- ✅ Automatic request-level deduplication (14 calls → 2 Redis fetches)
+- ✅ Blacklist pre-fetch per request (1 DB query instead of 5+)
+- ✅ `language-options` API: 5-7 seconds → ~300ms
+- ✅ LLM `search_voices` tool benefits automatically (no code changes needed)
 
 ### Pending
 - ⏳ LLM conversation UI for iterations

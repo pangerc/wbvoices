@@ -24,6 +24,11 @@ https://docs.genny.lovo.ai/reference/async-tts
 - pangerc@326.capital, 3930618836, verona, unicredit red
 - dr.caterina.bristot@gmail.com, 3930618836, verona, unicredit black
 
+### Lahajati
+
+https://lahajati.ai/en/docs
+https://lahajati.ai/en/tools/text-to-speech-superior
+
 ## Music
 
 https://www.loudly.com/developers/apps

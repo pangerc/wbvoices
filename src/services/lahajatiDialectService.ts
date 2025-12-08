@@ -163,6 +163,15 @@ class LahajatiDialectService {
   }
 
   /**
+   * Get available accent codes for UI population
+   * Returns the keys from accentToDialectId mapping
+   */
+  async getAvailableAccents(): Promise<string[]> {
+    const cache = await this.getCache();
+    return Object.keys(cache.accentToDialectId);
+  }
+
+  /**
    * Clear local memory cache (useful for testing)
    */
   clearLocalCache(): void {
