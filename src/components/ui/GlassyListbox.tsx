@@ -73,7 +73,7 @@ export function GlassyListbox<T extends string>({
           </Listbox.Button>
 
           {/* Dropdown options */}
-          <Listbox.Options className="absolute z-10 mt-1 w-full overflow-auto rounded-xl py-2 text-base shadow-lg focus:outline-hidden bg-white/10 backdrop-blur-sm border border-white/10">
+          <Listbox.Options className="absolute z-50 mt-1 w-full overflow-auto rounded-xl py-2 text-base shadow-lg focus:outline-hidden bg-gray-900/50 backdrop-blur-xl border border-white/20">
             <div className="max-h-56 overflow-auto">
               {options.map((option) => (
                 <Listbox.Option
