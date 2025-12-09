@@ -319,7 +319,10 @@ export function VoiceDraftEditor({
         setVoiceTracks([...updatedTracks]); // Update state immediately so UI turns green
         successCount++;
       } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : "Unknown error";
         console.error(`Failed to generate track ${index}:`, error);
+        // Show specific error immediately, not just count
+        setStatusMessage(`Track ${index + 1} failed: ${errorMsg}`);
         failCount++;
       }
     }

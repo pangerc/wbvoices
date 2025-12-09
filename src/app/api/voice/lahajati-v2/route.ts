@@ -1,4 +1,5 @@
-export const runtime = "edge";
+export const runtime = "nodejs";
+export const maxDuration = 300; // Pro plan: 5 min for slow Lahajati API
 
 import { NextRequest } from "next/server";
 import { createProvider } from "@/lib/providers";

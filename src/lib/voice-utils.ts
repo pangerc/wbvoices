@@ -112,9 +112,16 @@ export async function generateVoiceTrack(
   });
 
   if (!response.ok) {
+    // Handle timeout specifically (504 from gateway, 408 from server)
+    if (response.status === 504 || response.status === 408) {
+      throw new Error(
+        `Voice generation timed out. The text may be too long for ${provider}. Try shorter segments.`
+      );
+    }
+
     const error = await response.json().catch(() => ({}));
     throw new Error(
-      error.error || `Voice generation failed: ${response.statusText}`
+      error.error || `Voice generation failed: ${response.status} ${response.statusText}`
     );
   }
 
