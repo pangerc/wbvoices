@@ -100,7 +100,7 @@ function getBaseSystemPrompt(context?: KnowledgeContext): string {
 
   return `You are an expert audio ad creative director specializing in creating compelling radio and podcast advertisements.
 
-Your job is to create or modify audio ad elements using the tools available to you.
+Your job is to create or modify audio ad elements using the tools available to you. The ad will be used on the Spotfiy platform, played between songs to users on the free tier.
 
 ## Available Tools
 
@@ -213,8 +213,8 @@ export function buildSystemPrompt(
   const basePrompt = getBaseSystemPrompt(context);
   const moduleContent = moduleIds
     .map((id) => {
-      const module = MODULE_REGISTRY[id];
-      return module.getContent(context);
+      const knowledgeModule = MODULE_REGISTRY[id];
+      return knowledgeModule.getContent(context);
     })
     .join("\n\n---\n\n");
 
@@ -238,8 +238,8 @@ export function buildIterationSystemPrompt(context?: KnowledgeContext): string {
   const basePrompt = getBaseSystemPrompt(context);
   const moduleContent = moduleIds
     .map((id) => {
-      const module = MODULE_REGISTRY[id];
-      return module.getContent(context);
+      const knowledgeModule = MODULE_REGISTRY[id];
+      return knowledgeModule.getContent(context);
     })
     .join("\n\n---\n\n");
 
@@ -276,8 +276,8 @@ export function buildSystemPromptWithIntent(
   const basePrompt = getBaseSystemPrompt(context);
   const moduleContent = moduleIds
     .map((id) => {
-      const module = MODULE_REGISTRY[id];
-      return module.getContent(context);
+      const knowledgeModule = MODULE_REGISTRY[id];
+      return knowledgeModule.getContent(context);
     })
     .join("\n\n---\n\n");
 
@@ -296,8 +296,8 @@ export function getModuleContent(
 
   return moduleIds
     .map((id) => {
-      const module = MODULE_REGISTRY[id];
-      return module.getContent(context);
+      const knowledgeModule = MODULE_REGISTRY[id];
+      return knowledgeModule.getContent(context);
     })
     .join("\n\n---\n\n");
 }
@@ -311,8 +311,8 @@ export function getModulesById(
 ): string {
   return moduleIds
     .map((id) => {
-      const module = MODULE_REGISTRY[id];
-      return module.getContent(context);
+      const knowledgeModule = MODULE_REGISTRY[id];
+      return knowledgeModule.getContent(context);
     })
     .join("\n\n---\n\n");
 }
