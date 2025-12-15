@@ -144,7 +144,8 @@ export default function AdWorkspace() {
   }, [adId]);
 
   // Handle preview - plays all tracks from a frozen version
-  const handlePreview = (versionId: VersionId) => {
+  // streamType is required to disambiguate version IDs (v1, v2, etc. exist in each stream)
+  const handlePreview = (versionId: VersionId, streamType: 'voices' | 'music' | 'sfx') => {
     const { isPlaying, stop, playSequence } = useAudioPlaybackStore.getState();
 
     // If already playing, stop
@@ -153,26 +154,28 @@ export default function AdWorkspace() {
       return;
     }
 
-    // Find which stream this version belongs to and get audio URLs
-    const voiceVersion = voice.data?.versionsData[versionId] as VoiceVersion | undefined;
-    const musicVersion = music.data?.versionsData[versionId] as MusicVersion | undefined;
-    const sfxVersion = sfx.data?.versionsData[versionId] as SfxVersion | undefined;
-
-    if (voiceVersion) {
-      // Get all voice track URLs
-      const urls = voiceVersion.voiceTracks
-        .map((t, i) => t.generatedUrl || voiceVersion.generatedUrls?.[i])
-        .filter((url): url is string => !!url);
-
-      if (urls.length > 0) {
-        playSequence(urls, { type: "voice-all", versionId });
+    if (streamType === 'voices') {
+      const voiceVersion = voice.data?.versionsData[versionId] as VoiceVersion | undefined;
+      if (voiceVersion) {
+        const urls = voiceVersion.voiceTracks
+          .map((t, i) => t.generatedUrl || voiceVersion.generatedUrls?.[i])
+          .filter((url): url is string => !!url);
+        if (urls.length > 0) {
+          playSequence(urls, { type: "voice-all", versionId });
+        }
       }
-    } else if (musicVersion?.generatedUrl) {
-      playSequence([musicVersion.generatedUrl], { type: "music-generated", versionId });
-    } else if (sfxVersion?.generatedUrls?.length) {
-      const urls = sfxVersion.generatedUrls.filter((url): url is string => !!url);
-      if (urls.length > 0) {
-        playSequence(urls, { type: "sfx-preview", versionId });
+    } else if (streamType === 'music') {
+      const musicVersion = music.data?.versionsData[versionId] as MusicVersion | undefined;
+      if (musicVersion?.generatedUrl) {
+        playSequence([musicVersion.generatedUrl], { type: "music-generated", versionId });
+      }
+    } else if (streamType === 'sfx') {
+      const sfxVersion = sfx.data?.versionsData[versionId] as SfxVersion | undefined;
+      if (sfxVersion?.generatedUrls?.length) {
+        const urls = sfxVersion.generatedUrls.filter((url): url is string => !!url);
+        if (urls.length > 0) {
+          playSequence(urls, { type: "sfx-preview", versionId });
+        }
       }
     }
   };
@@ -323,7 +326,7 @@ export default function AdWorkspace() {
                   activeVersionId={voice.data.active}
                   openVersionId={openAccordion.voices !== "draft" ? openAccordion.voices : null}
                   onOpenChange={(versionId) => setOpenAccordion("voices", versionId)}
-                  onPreview={handlePreview}
+                  onPreview={(id) => handlePreview(id, 'voices')}
                   onClone={voice.clone}
                   onDelete={async (vId) => {
                     const deleted = await voice.remove(vId);
@@ -413,7 +416,7 @@ export default function AdWorkspace() {
                   activeVersionId={music.data.active}
                   openVersionId={openAccordion.music !== "draft" ? openAccordion.music : null}
                   onOpenChange={(versionId) => setOpenAccordion("music", versionId)}
-                  onPreview={handlePreview}
+                  onPreview={(id) => handlePreview(id, 'music')}
                   onClone={music.clone}
                   onDelete={async (vId) => {
                     const deleted = await music.remove(vId);
@@ -499,7 +502,7 @@ export default function AdWorkspace() {
                   activeVersionId={sfx.data.active}
                   openVersionId={openAccordion.sfx !== "draft" ? openAccordion.sfx : null}
                   onOpenChange={(versionId) => setOpenAccordion("sfx", versionId)}
-                  onPreview={handlePreview}
+                  onPreview={(id) => handlePreview(id, 'sfx')}
                   onClone={sfx.clone}
                   onDelete={async (vId) => {
                     const deleted = await sfx.remove(vId);

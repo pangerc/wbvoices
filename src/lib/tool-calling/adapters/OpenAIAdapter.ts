@@ -1,5 +1,5 @@
 /**
- * OpenAI GPT-5.1 Adapter
+ * OpenAI GPT-5.2 Adapter
  *
  * Uses the Responses API with:
  * - Native tool calling support
@@ -34,7 +34,7 @@ export class OpenAIAdapter {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const responseParams: any = {
-      model: "gpt-5.1",
+      model: "gpt-5.2",
       input,
       reasoning: { effort: reasoningEffort },
       text: { verbosity: "medium" },
@@ -59,7 +59,7 @@ export class OpenAIAdapter {
 
     const inputType = Array.isArray(input) ? `array[${input.length}]` : "string";
     console.log(
-      `[OpenAIAdapter] Invoking GPT-5.1 with reasoning=${reasoningEffort}, tools=${tools.length}, input=${inputType}${previousResponseId ? ", CoT=ON" : ""}`
+      `[OpenAIAdapter] Invoking GPT-5.2 with reasoning=${reasoningEffort}, tools=${tools.length}, input=${inputType}${previousResponseId ? ", CoT=ON" : ""}`
     );
 
     const response = await this.client.responses.create(responseParams);

@@ -13,7 +13,7 @@ V3 replaces the brittle JSON-parsing LLM integration with **agentic tool-calling
 - LLM calls tools instead of returning JSON
 - Redis is single source of truth (no FormManager)
 - Immutable version streams for voices, music, SFX
-- Single orchestrator: OpenAI GPT-5.1 with Chain-of-Thought continuity
+- Single orchestrator: OpenAI GPT-5.2 with Chain-of-Thought continuity
 
 ---
 
@@ -21,7 +21,7 @@ V3 replaces the brittle JSON-parsing LLM integration with **agentic tool-calling
 
 ### Trust the Conductor
 
-V3 uses **GPT-5.1 as the sole orchestrator**. We trust its Chain-of-Thought reasoning via `previous_response_id` continuity instead of building manual guardrails.
+V3 uses **GPT-5.2 as the sole orchestrator**. We trust its Chain-of-Thought reasoning via `previous_response_id` continuity instead of building manual guardrails.
 
 **Philosophy:** The best code is code deleted. We removed ~900 lines of guardrail code (duplicate draft detection, loop detection, context-aware feedback injection) and let CoT handle it.
 
@@ -44,7 +44,7 @@ runAgentLoop() with OpenAIAdapter
 │ • get_current_state(adId)               │
 └─────────────────────────────────────────┘
     ↓
-GPT-5.1 decides when complete (CoT continuity)
+GPT-5.2 decides when complete (CoT continuity)
     ↓
 Redis (V3_REDIS_URL)
 ```
@@ -150,11 +150,11 @@ TimelineTrack: renders with server-computed timings
 
 ## LLM Provider
 
-**Single orchestrator:** OpenAI GPT-5.1 via Responses API
+**Single orchestrator:** OpenAI GPT-5.2 via Responses API
 
 | Feature | Implementation |
 |---------|----------------|
-| Model | `gpt-5.1` |
+| Model | `gpt-5.2` |
 | Tool calling | Native function calling |
 | Reasoning | `reasoning.effort: "medium"` |
 | Continuity | `previous_response_id` for CoT |
@@ -213,7 +213,7 @@ TimelineTrack: renders with server-computed timings
 - ✅ Lazy ad creation (no Redis spam from page visits)
 
 **Simplification (Nov 29, 2025):**
-- ✅ Single orchestrator: OpenAI GPT-5.1 only (deleted Qwen/Kimi adapters)
+- ✅ Single orchestrator: OpenAI GPT-5.2 only (deleted Qwen/Kimi adapters)
 - ✅ CoT continuity via `previous_response_id` (no manual guardrails)
 - ✅ Deleted ~900 lines: ProviderFactory, ToolCallingAdapter, loop detection, feedback injection
 - ✅ AgentExecutor: 335 → 120 lines
@@ -269,7 +269,7 @@ TimelineTrack: renders with server-computed timings
 **B. APAC Localization (if needed)**
 - Add `localize_script` tool for Thai/Vietnamese/Chinese
 - Simple Qwen/Kimi text generation (not orchestration)
-- GPT-5.1 remains sole conductor
+- GPT-5.2 remains sole conductor
 
 ---
 
