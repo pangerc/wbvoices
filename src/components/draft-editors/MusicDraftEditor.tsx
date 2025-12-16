@@ -46,8 +46,8 @@ export function MusicDraftEditor({
   const { isGenerating, isPlaying } = useMusicDraftState(draftVersionId);
   const { setGeneratingMusic } = usePlaybackActions();
 
-  // Default ad duration (TODO: get from actual ad)
-  const adDuration = 30;
+  // Duration comes from draft version (set by tool from brief, or user edit)
+  const adDuration = draftVersion.duration || 30;
 
   // Handle provider change - persists to Redis and clears stale audio
   const handleProviderChange = async (newProvider: MusicProvider) => {

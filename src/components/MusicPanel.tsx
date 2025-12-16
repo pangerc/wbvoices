@@ -11,12 +11,45 @@ import {
   GlassTabBar,
   GlassTab,
   Tooltip,
+  GenerateIcon,
+  UploadIcon,
+  LibraryIcon,
 } from "./ui";
 import { FileUpload, useFileUpload } from "./ui/FileUpload";
 import { useMixerStore } from "@/store/mixerStore";
 import { useParams } from "next/navigation";
 
 type MusicMode = 'generate' | 'upload' | 'library';
+
+const PROVIDER_OPTIONS: Array<{
+  value: MusicProvider;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "loudly",
+    label: "Loudly",
+    description: "High-quality, customizable music (duration in 15s increments)",
+  },
+  {
+    value: "mubert",
+    label: "Mubert",
+    description: "Real-time AI music for ads (fast generation)",
+  },
+  {
+    value: "elevenlabs",
+    label: "ElevenLabs",
+    description: "AI-composed music with advanced synthesis",
+  },
+];
+
+const DURATION_TICK_MARKS = [
+  { value: 30, label: "30s" },
+  { value: 45, label: "45s" },
+  { value: 60, label: "60s" },
+  { value: 75, label: "75s" },
+  { value: 90, label: "90s" },
+];
 
 type MusicPanelProps = {
   onGenerate: (
@@ -278,25 +311,6 @@ export function MusicPanel({
     }
   };
 
-  const providerOptions = [
-    {
-      value: "loudly" as MusicProvider,
-      label: "Loudly",
-      description:
-        "High-quality, customizable music (duration in 15s increments)",
-    },
-    {
-      value: "mubert" as MusicProvider,
-      label: "Mubert",
-      description: "Real-time AI music for ads (fast generation)",
-    },
-    {
-      value: "elevenlabs" as MusicProvider,
-      label: "ElevenLabs",
-      description: "AI-composed music with advanced synthesis",
-    },
-  ];
-
   return (
     <div className="py-8 text-white">
       {/* Mode Toggle */}
@@ -307,12 +321,7 @@ export function MusicPanel({
               isActive={mode === 'generate'}
               onClick={() => setMode('generate')}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M8 1L8.5 4.5L12 2L9.5 5.5L14 4L10.5 7.5L15 8L11.5 8.5L14 12L10.5 9.5L12 14L8.5 10.5L8 15L7.5 11.5L4 14L6.5 10.5L2 12L5.5 8.5L1 8L4.5 7.5L2 4L5.5 6.5L4 2L7.5 5.5L8 1Z"
-                  fill={mode === 'generate' ? "#2F7DFA" : "#FFFFFF"}
-                />
-              </svg>
+              <GenerateIcon isActive={mode === 'generate'} />
             </GlassTab>
           </Tooltip>
           <Tooltip content="Upload custom music" side="bottom">
@@ -320,22 +329,7 @@ export function MusicPanel({
               isActive={mode === 'upload'}
               onClick={() => setMode('upload')}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M8 10V2M8 2L5.5 4.5M8 2L10.5 4.5"
-                  stroke={mode === 'upload' ? "#2F7DFA" : "#FFFFFF"}
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M2 12V13C2 13.5304 2.21071 14.0391 2.58579 14.4142C2.96086 14.7893 3.46957 15 4 15H12C12.5304 15 13.0391 14.7893 13.4142 14.4142C13.7893 14.0391 14 13.5304 14 13V12"
-                  stroke={mode === 'upload' ? "#2F7DFA" : "#FFFFFF"}
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <UploadIcon isActive={mode === 'upload'} />
             </GlassTab>
           </Tooltip>
           <Tooltip content="Browse music library" side="bottom">
@@ -343,29 +337,7 @@ export function MusicPanel({
               isActive={mode === 'library'}
               onClick={() => setMode('library')}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  stroke={mode === 'library' ? "#2F7DFA" : "#FFFFFF"}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M0.8 0.8v14.4"
-                  strokeWidth="1.5"
-                />
-                <path
-                  stroke={mode === 'library' ? "#2F7DFA" : "#FFFFFF"}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5.38 0.8v14.4"
-                  strokeWidth="1.5"
-                />
-                <path
-                  stroke={mode === 'library' ? "#2F7DFA" : "#FFFFFF"}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="m9.96 0.8 5.24 14.4"
-                  strokeWidth="1.5"
-                />
-              </svg>
+              <LibraryIcon isActive={mode === 'library'} />
             </GlassTab>
           </Tooltip>
         </GlassTabBar>
@@ -445,7 +417,7 @@ export function MusicPanel({
                 label="AI Music Provider"
                 value={musicProvider}
                 onChange={setMusicProvider}
-                options={providerOptions}
+                options={PROVIDER_OPTIONS}
               />
 
               <GlassySlider
@@ -462,13 +434,7 @@ export function MusicPanel({
                       : ""
                   }${val === Math.max(30, adDuration + 5) ? " (recommended)" : ""}`
                 }
-                tickMarks={[
-                  { value: 30, label: "30s" },
-                  { value: 45, label: "45s" },
-                  { value: 60, label: "60s" },
-                  { value: 75, label: "75s" },
-                  { value: 90, label: "90s" },
-                ]}
+                tickMarks={DURATION_TICK_MARKS}
               />
             </div>
           </div>
@@ -492,22 +458,7 @@ export function MusicPanel({
               className="w-full px-8 py-12 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 text-white hover:bg-white/10 transition-colors disabled:opacity-50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
             >
               <div className="text-center">
-                <svg width="48" height="48" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto mb-4 opacity-70">
-                  <path
-                    d="M8 10V2M8 2L5.5 4.5M8 2L10.5 4.5"
-                    stroke="white"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M2 12V13C2 13.5304 2.21071 14.0391 2.58579 14.4142C2.96086 14.7893 3.46957 15 4 15H12C12.5304 15 13.0391 14.7893 13.4142 14.4142C13.7893 14.0391 14 13.5304 14 13V12"
-                    stroke="white"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                <UploadIcon size={48} className="mx-auto mb-4 opacity-70" />
                 <h3 className="text-lg font-semibold mb-2">
                   {isUploading.music ? "Uploading..." : "Upload Music Track"}
                 </h3>

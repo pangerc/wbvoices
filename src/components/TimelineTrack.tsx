@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
 import { MixerTrack } from "@/store/mixerStore";
 
 // Helper function to clean track labels
@@ -313,45 +314,7 @@ export function TimelineTrack({
               className="cursor-pointer hover:opacity-70 transition-opacity"
               title="Track actions"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 10 10"
-                height="10"
-                width="10"
-                className="h-3 w-auto"
-              >
-                <path
-                  fill="#000000"
-                  d="M1.7854166666666669 1.42875a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                  strokeWidth="1"
-                ></path>
-                <path
-                  fill="#000000"
-                  d="M1.7854166666666669 5a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                  strokeWidth="1"
-                ></path>
-                <path
-                  fill="#000000"
-                  d="M1.7854166666666669 8.571666666666667a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                  strokeWidth="1"
-                ></path>
-                <path
-                  fill="#000000"
-                  d="M5.357083333333334 1.42875a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                  strokeWidth="1"
-                ></path>
-                <path
-                  fill="#000000"
-                  d="M5.357083333333334 5a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                  strokeWidth="1"
-                ></path>
-                <path
-                  fill="#000000"
-                  d="M5.357083333333334 8.571666666666667a1.42875 1.42875 0 1 0 2.8575 0 1.42875 1.42875 0 1 0 -2.8575 0"
-                  strokeWidth="1"
-                ></path>
-              </svg>
+              <EllipsisVerticalIcon className="h-3 w-3 text-black" />
             </button>
 
             {/* Dropdown menu */}

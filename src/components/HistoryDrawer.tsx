@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { formatDistanceToNow } from 'date-fns'
+import {
+  XMarkIcon,
+  ClockIcon,
+  TrashIcon,
+  ChatBubbleOvalLeftEllipsisIcon,
+} from '@heroicons/react/24/outline'
 
 type Ad = {
   adId: string
@@ -184,10 +190,7 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
               className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all"
               aria-label="Close drawer"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <XMarkIcon className="w-5 h-5" strokeWidth={1.5} />
             </button>
           </div>
           {/* Tab bar */}
@@ -239,19 +242,7 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
               {/* Empty state */}
               {!isLoading && !error && ads.length === 0 && (
                 <div className="p-12 text-center">
-                  <svg
-                    className="w-16 h-16 text-white/20 mx-auto mb-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+                  <ClockIcon className="w-16 h-16 text-white/20 mx-auto mb-4" strokeWidth={1.5} />
                   <p className="text-white/60 text-base mb-1">No ads yet</p>
                   <p className="text-white/40 text-sm">
                     Create your first ad to see it here
@@ -319,10 +310,7 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
                           {deletingAdId === ad.adId ? (
                             <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                           ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            <TrashIcon className="w-4 h-4" strokeWidth={1.5} />
                           )}
                         </button>
                       </div>
@@ -354,19 +342,7 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
               {/* No ad selected */}
               {!currentAdId && (
                 <div className="p-12 text-center">
-                  <svg
-                    className="w-16 h-16 text-white/20 mx-auto mb-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                    />
-                  </svg>
+                  <ChatBubbleOvalLeftEllipsisIcon className="w-16 h-16 text-white/20 mx-auto mb-4" strokeWidth={1.5} />
                   <p className="text-white/60 text-base mb-1">Select an ad</p>
                   <p className="text-white/40 text-sm">
                     Choose an ad to view its chat history
@@ -377,19 +353,7 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
               {/* Empty state */}
               {!isChatLoading && !chatError && currentAdId && chatMessages.length === 0 && (
                 <div className="p-12 text-center">
-                  <svg
-                    className="w-16 h-16 text-white/20 mx-auto mb-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                    />
-                  </svg>
+                  <ChatBubbleOvalLeftEllipsisIcon className="w-16 h-16 text-white/20 mx-auto mb-4" strokeWidth={1.5} />
                   <p className="text-white/60 text-base mb-1">No chat history</p>
                   <p className="text-white/40 text-sm">
                     Conversations will appear here

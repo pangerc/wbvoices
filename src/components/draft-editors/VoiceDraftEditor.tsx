@@ -217,7 +217,7 @@ export function VoiceDraftEditor({
     }
 
     // No URL - generate, persist, play
-    setGeneratingVoice(true, index);
+    setGeneratingVoice(true, index, draftVersionId);
     setStatusMessage(`Generating track ${index + 1}...`);
 
     try {
@@ -262,7 +262,7 @@ export function VoiceDraftEditor({
     provider?: Provider,
     tracks?: VoiceTrack[]
   ): Promise<VoiceTrack[]> => {
-    setGeneratingVoice(true);
+    setGeneratingVoice(true, null, draftVersionId);
 
     // Determine which tracks to generate (use current voiceTracks state)
     const tracksToGenerate = tracks || voiceTracks;
@@ -304,7 +304,7 @@ export function VoiceDraftEditor({
     // Generate each track sequentially using voice-utils
     for (const index of indicesToGenerate) {
       const track = tracksToGenerate[index];
-      setGeneratingVoice(true, index); // Show spinner on this track via centralized store
+      setGeneratingVoice(true, index, draftVersionId); // Show spinner on this track via centralized store
       setStatusMessage(`Generating track ${index + 1}/${indicesToGenerate.length}...`);
 
       try {
@@ -397,7 +397,7 @@ export function VoiceDraftEditor({
       if (!track.voice || !track.text.trim()) continue;
 
       // Generate this track
-      setGeneratingVoice(true, i);
+      setGeneratingVoice(true, i, draftVersionId);
       setStatusMessage(`Generating track ${i + 1}...`);
 
       try {

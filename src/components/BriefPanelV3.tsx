@@ -20,6 +20,7 @@ import {
   RabbitIcon,
 } from "./ui";
 import { ArrowTopRightOnSquareIcon, MicrophoneIcon } from "@heroicons/react/24/outline";
+import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 
 // Constants extracted from JSX for better readability
 const CTA_OPTIONS = [
@@ -75,6 +76,14 @@ const DURATION_TICK_MARKS = [
  * 5. Notify parent via callback
  */
 
+// SSE event types for stream updates
+export type StreamUpdateEvent =
+  | { stream: "drafts"; drafts: { voices?: string; music?: string; sfx?: string }; adName: string }
+  | { stream: "voices"; status: "generating" | "ready" | "failed"; index: number; total?: number; url?: string; error?: string }
+  | { stream: "music"; status: "generating" | "ready" | "failed"; url?: string; error?: string }
+  | { stream: "sfx"; status: "generating" | "ready" | "failed"; index: number; total?: number; url?: string; error?: string }
+  | { stream: "complete"; success: boolean };
+
 export type BriefPanelV3Props = {
   // Required: which ad are we creating drafts for?
   adId: string;
@@ -92,6 +101,13 @@ export type BriefPanelV3Props = {
 
   // Optional callback when generation state changes (for MatrixBackground animation)
   onGeneratingChange?: (isGenerating: boolean) => void;
+
+  // Auto-generate audio after LLM creates drafts (uses SSE streaming endpoint)
+  autoGenerateAudio?: boolean;
+
+  // Progressive update callback - called as each stream updates
+  // Use this to invalidate SWR caches for immediate UI feedback
+  onStreamUpdate?: (event: StreamUpdateEvent) => void;
 };
 
 export function BriefPanelV3({
@@ -99,6 +115,8 @@ export function BriefPanelV3({
   initialBrief,
   onDraftsCreated,
   onGeneratingChange,
+  autoGenerateAudio = false,
+  onStreamUpdate,
 }: BriefPanelV3Props) {
   // Form state - initialized from initialBrief if provided
   const [clientDescription, setClientDescription] = useState(initialBrief?.clientDescription || "");
@@ -289,11 +307,155 @@ export function BriefPanelV3({
   }, [languageQuery, availableLanguages]);
 
   /**
+   * Parse SSE events from text chunk
+   */
+  const parseSSEEvents = (text: string): Array<{ type: string; data: Record<string, unknown> }> => {
+    const events: Array<{ type: string; data: Record<string, unknown> }> = [];
+    const lines = text.split("\n");
+    let currentEvent: { type?: string; data?: string } = {};
+
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        currentEvent.type = line.slice(7).trim();
+      } else if (line.startsWith("data: ")) {
+        currentEvent.data = line.slice(6);
+      } else if (line === "" && currentEvent.type && currentEvent.data) {
+        try {
+          events.push({
+            type: currentEvent.type,
+            data: JSON.parse(currentEvent.data),
+          });
+        } catch {
+          console.warn("Failed to parse SSE data:", currentEvent.data);
+        }
+        currentEvent = {};
+      }
+    }
+
+    return events;
+  };
+
+  /**
+   * Handle SSE event from generate-stream endpoint
+   * Updates audioPlaybackStore and notifies parent
+   */
+  const handleGenerationEvent = (event: { type: string; data: Record<string, unknown> }) => {
+    const {
+      setGeneratingCreative,
+      setGeneratingVoice,
+      setGeneratingMusic,
+      setGeneratingSfx,
+    } = useAudioPlaybackStore.getState();
+
+    switch (event.type) {
+      case "llm-thinking":
+        // LLM agent loop is starting
+        setGeneratingCreative(true);
+        break;
+
+      case "drafts-created": {
+        const { drafts, adName } = event.data as { drafts: { voices?: string; music?: string; sfx?: string }; adName: string };
+        // LLM is done, now generating audio
+        setGeneratingCreative(false);
+        // Notify parent to invalidate SWR and update UI
+        onDraftsCreated?.({ ...drafts, adName });
+        onStreamUpdate?.({ stream: "drafts", drafts, adName });
+        break;
+      }
+
+      case "voice-generating": {
+        const { index, total, versionId } = event.data as { index: number; total: number; versionId: string };
+        setGeneratingVoice(true, index, versionId);
+        onStreamUpdate?.({ stream: "voices", status: "generating", index, total });
+        break;
+      }
+
+      case "voice-ready": {
+        const { index, url } = event.data as { index: number; url: string };
+        setGeneratingVoice(false);
+        onStreamUpdate?.({ stream: "voices", status: "ready", index, url });
+        break;
+      }
+
+      case "voice-failed": {
+        const { index, error } = event.data as { index: number; error: string };
+        setGeneratingVoice(false);
+        onStreamUpdate?.({ stream: "voices", status: "failed", index, error });
+        break;
+      }
+
+      case "music-generating":
+        setGeneratingMusic(true);
+        onStreamUpdate?.({ stream: "music", status: "generating" });
+        break;
+
+      case "music-ready": {
+        const { url } = event.data as { url: string };
+        setGeneratingMusic(false);
+        onStreamUpdate?.({ stream: "music", status: "ready", url });
+        break;
+      }
+
+      case "music-failed": {
+        const { error } = event.data as { error: string };
+        setGeneratingMusic(false);
+        onStreamUpdate?.({ stream: "music", status: "failed", error });
+        break;
+      }
+
+      case "sfx-generating": {
+        const { index, total } = event.data as { index: number; total: number };
+        setGeneratingSfx(true);
+        onStreamUpdate?.({ stream: "sfx", status: "generating", index, total });
+        break;
+      }
+
+      case "sfx-ready": {
+        const { index, url } = event.data as { index: number; url: string };
+        // Only clear sfx generating if this is the last one (check via total in prior event)
+        onStreamUpdate?.({ stream: "sfx", status: "ready", index, url });
+        break;
+      }
+
+      case "sfx-failed": {
+        const { index, error } = event.data as { index: number; error: string };
+        onStreamUpdate?.({ stream: "sfx", status: "failed", index, error });
+        break;
+      }
+
+      case "complete": {
+        const { success } = event.data as { success: boolean };
+        // Clear all generation states
+        setGeneratingCreative(false);
+        setGeneratingVoice(false);
+        setGeneratingMusic(false);
+        setGeneratingSfx(false);
+        onStreamUpdate?.({ stream: "complete", success });
+        break;
+      }
+
+      case "error": {
+        const { message } = event.data as { message: string };
+        setError(message);
+        setGeneratingCreative(false);
+        setGeneratingVoice(false);
+        setGeneratingMusic(false);
+        setGeneratingSfx(false);
+        break;
+      }
+    }
+  };
+
+  /**
    * Main generation flow - V3 Tool-Calling API
    *
-   * Calls /api/ai/generate which runs the agent loop.
-   * LLM uses tools (search_voices, create_voice_draft, etc.) to create drafts directly.
-   * No JSON parsing needed - tools write to Redis directly.
+   * When autoGenerateAudio is false (default):
+   *   Calls /api/ai/generate which runs the agent loop.
+   *   LLM uses tools (search_voices, create_voice_draft, etc.) to create drafts directly.
+   *
+   * When autoGenerateAudio is true:
+   *   Calls /api/ai/generate-stream (SSE) which creates drafts AND generates audio.
+   *   Streams events for progressive UI feedback.
    */
   const handleGenerateCreative = async () => {
     if (!clientDescription.trim() || !creativeBrief.trim()) {
@@ -306,49 +468,91 @@ export function BriefPanelV3({
     setError(null);
 
     try {
-      console.log(`🚀 Starting V3 agentic generation for ad ${adId}`);
+      console.log(`🚀 Starting V3 generation for ad ${adId} (autoGenerateAudio: ${autoGenerateAudio})`);
 
       // Get sessionId for lazy ad creation
       const sessionId = localStorage.getItem('universal-session') || 'default-session';
 
-      const response = await fetch("/api/ai/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          adId,                              // Required! Tools need this to write drafts
-          sessionId,                         // Required for lazy ad creation
-          language: selectedLanguage,
-          clientDescription,
-          creativeBrief,
-          campaignFormat,
-          duration: adDuration,
-          region: selectedRegion || undefined,
-          accent: selectedAccent || undefined,
-          cta: selectedCTA,
-          pacing: selectedPacing,
-          selectedProvider: selectedProvider,  // Voice provider for search_voices tool
-        }),
-      });
+      const requestBody = {
+        adId,
+        sessionId,
+        language: selectedLanguage,
+        clientDescription,
+        creativeBrief,
+        campaignFormat,
+        duration: adDuration,
+        region: selectedRegion || undefined,
+        accent: selectedAccent || undefined,
+        cta: selectedCTA,
+        pacing: selectedPacing,
+        selectedProvider: selectedProvider,
+        autoGenerateAudio,
+      };
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate creative");
+      if (autoGenerateAudio) {
+        // SSE streaming mode
+        const response = await fetch("/api/ai/generate-stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to start generation");
+        }
+
+        // Read SSE stream
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (reader) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Parse complete events from buffer
+          const events = parseSSEEvents(buffer);
+          for (const event of events) {
+            handleGenerationEvent(event);
+          }
+
+          // Keep any partial event in buffer
+          const lastNewline = buffer.lastIndexOf("\n\n");
+          if (lastNewline !== -1) {
+            buffer = buffer.slice(lastNewline + 2);
+          }
+        }
+
+        console.log(`✅ SSE generation complete for ad ${adId}`);
+      } else {
+        // Regular API mode (drafts only, no audio)
+        const response = await fetch("/api/ai/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to generate creative");
+        }
+
+        const result = await response.json();
+
+        console.log(`✅ V3 generation complete:`, {
+          conversationId: result.conversationId,
+          drafts: result.drafts,
+          toolCalls: result.toolCalls,
+          provider: result.provider,
+          adName: result.adName,
+        });
+
+        // Notify parent to reload version streams and update ad name
+        onDraftsCreated?.({ ...result.drafts, adName: result.adName });
       }
-
-      const result = await response.json();
-      // result = { conversationId, drafts, message, provider, toolCalls, usage }
-
-      console.log(`✅ V3 generation complete:`, {
-        conversationId: result.conversationId,
-        drafts: result.drafts,
-        toolCalls: result.toolCalls,
-        provider: result.provider,
-        adName: result.adName,
-      });
-
-      // Notify parent to reload version streams and update ad name
-      onDraftsCreated?.({ ...result.drafts, adName: result.adName });
-
     } catch (error) {
       console.error("Error generating creative:", error);
       setError(

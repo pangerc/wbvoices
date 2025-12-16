@@ -1,6 +1,13 @@
 "use client";
 import React from "react";
 import Image from "next/image";
+import {
+  ChevronDownIcon,
+  EllipsisHorizontalIcon,
+  ExclamationCircleIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
+import { LoadingSpinner } from "./ui";
 
 export interface SpotifyPreviewProps {
   adImage?: string;
@@ -366,26 +373,7 @@ export function SpotifyPreview({
               {isGenerating && (
                 <>
                   <div className="mb-4">
-                    <svg
-                      className="animate-spin h-12 w-12 mx-auto text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
+                    <LoadingSpinner size="xl" className="mx-auto text-white" />
                   </div>
                   <p className="text-lg font-semibold">Generating preview...</p>
                   <p className="text-sm text-gray-300 mt-2">
@@ -396,19 +384,7 @@ export function SpotifyPreview({
               {!isGenerating && uploadError && (
                 <>
                   <div className="mb-4">
-                    <svg
-                      className="h-12 w-12 mx-auto text-red-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
+                    <ExclamationCircleIcon className="h-12 w-12 mx-auto text-red-400" strokeWidth={2} />
                   </div>
                   <p className="text-lg font-semibold text-red-400">Upload Failed</p>
                   <p className="text-sm text-gray-300 mt-2">
@@ -422,19 +398,7 @@ export function SpotifyPreview({
               {!isGenerating && !uploadError && isInvalid && (
                 <>
                   <div className="mb-4">
-                    <svg
-                      className="h-12 w-12 mx-auto text-yellow-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                      />
-                    </svg>
+                    <ExclamationTriangleIcon className="h-12 w-12 mx-auto text-yellow-400" strokeWidth={2} />
                   </div>
                   <p className="text-lg font-semibold">Preview Outdated</p>
                   <p className="text-sm text-gray-300 mt-2">
@@ -459,19 +423,7 @@ export function SpotifyPreview({
               aria-label="close"
               className="p-2 rounded-full hover:bg-white/10"
             >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-7 w-7"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
+              <ChevronDownIcon className="h-7 w-7" strokeWidth={2} />
             </button>
             <div className="text-sm font-bold tracking-tight text-white/90">
               {brand || "Brand Name"}
@@ -480,11 +432,7 @@ export function SpotifyPreview({
               aria-label="menu"
               className="p-2 rounded-full hover:bg-white/10 text-gray-400"
             >
-              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
-                <circle cx="5" cy="12" r="1.5" />
-                <circle cx="12" cy="12" r="1.5" />
-                <circle cx="19" cy="12" r="1.5" />
-              </svg>
+              <EllipsisHorizontalIcon className="h-6 w-6" />
             </button>
           </div>
 

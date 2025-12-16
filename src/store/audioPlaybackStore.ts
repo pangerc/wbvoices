@@ -27,8 +27,10 @@ type AudioPlaybackState = {
   duration: number;
 
   // Centralized generation state
+  generatingCreative: boolean; // LLM is creating drafts
   generatingVoice: boolean;
   generatingVoiceTrackIndex: number | null;
+  generatingVoiceVersionId: string | null; // Which version is generating
   generatingMusic: boolean;
   generatingSfx: boolean;
   generatingMix: boolean;
@@ -46,7 +48,8 @@ type AudioPlaybackState = {
   seekTo: (time: number) => void;
 
   // Generation state setters
-  setGeneratingVoice: (generating: boolean, trackIndex?: number | null) => void;
+  setGeneratingCreative: (generating: boolean) => void;
+  setGeneratingVoice: (generating: boolean, trackIndex?: number | null, versionId?: string | null) => void;
   setGeneratingMusic: (generating: boolean) => void;
   setGeneratingSfx: (generating: boolean) => void;
   setGeneratingMix: (generating: boolean) => void;
@@ -105,8 +108,10 @@ export const useAudioPlaybackStore = create<AudioPlaybackState>((set, get) => ({
   currentTime: 0,
   duration: 0,
 
+  generatingCreative: false,
   generatingVoice: false,
   generatingVoiceTrackIndex: null,
+  generatingVoiceVersionId: null,
   generatingMusic: false,
   generatingSfx: false,
   generatingMix: false,
@@ -191,10 +196,12 @@ export const useAudioPlaybackStore = create<AudioPlaybackState>((set, get) => ({
   },
 
   // Generation state setters
-  setGeneratingVoice: (generating, trackIndex = null) =>
+  setGeneratingCreative: (generating) => set({ generatingCreative: generating }),
+  setGeneratingVoice: (generating, trackIndex = null, versionId = null) =>
     set({
       generatingVoice: generating,
       generatingVoiceTrackIndex: generating ? trackIndex : null,
+      generatingVoiceVersionId: generating ? versionId : null,
     }),
   setGeneratingMusic: (generating) => set({ generatingMusic: generating }),
   setGeneratingSfx: (generating) => set({ generatingSfx: generating }),

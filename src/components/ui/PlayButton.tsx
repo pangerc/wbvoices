@@ -1,4 +1,5 @@
 import React from "react";
+import { PlayIcon, PauseIcon } from "@heroicons/react/24/solid";
 
 interface PlayButtonProps {
   isPlaying: boolean;
@@ -23,37 +24,12 @@ export function PlayButton({
     >
       {isPlaying ? (
         <>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="6" y="4" width="4" height="16"></rect>
-            <rect x="14" y="4" width="4" height="16"></rect>
-          </svg>
+          <PauseIcon className="w-3 h-3" />
           <span>Stop</span>
         </>
       ) : (
         <>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-          </svg>
+          <PlayIcon className="w-3 h-3" />
           <span>Play</span>
         </>
       )}

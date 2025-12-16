@@ -48,14 +48,17 @@ export function useVoicePlaybackState(versionId: string) {
         state.currentSource?.type === "voice-all";
       const matchesVersion = state.currentSource?.versionId === versionId;
 
+      // Only show generating state if it's for THIS version
+      const generatingMatchesVersion = state.generatingVoiceVersionId === versionId;
+
       return {
         isPlaying: state.isPlaying && isVoiceSource && matchesVersion,
         isPlayingAll:
           state.isPlayingSequence &&
           state.currentSource?.type === "voice-all" &&
           matchesVersion,
-        isGenerating: state.generatingVoice,
-        generatingTrackIndex: state.generatingVoiceTrackIndex,
+        isGenerating: state.generatingVoice && generatingMatchesVersion,
+        generatingTrackIndex: generatingMatchesVersion ? state.generatingVoiceTrackIndex : null,
         playingTrackIndex:
           state.isPlaying &&
           state.currentSource?.type === "voice-track" &&
@@ -81,9 +84,10 @@ export function useDraftAccordionState(
 ) {
   return useAudioPlaybackStore(
     useShallow((state) => {
+      // For voice type, only show generating if version matches
       const isGenerating =
         type === "voice"
-          ? state.generatingVoice
+          ? state.generatingVoice && (!versionId || state.generatingVoiceVersionId === versionId)
           : type === "music"
             ? state.generatingMusic
             : state.generatingSfx;

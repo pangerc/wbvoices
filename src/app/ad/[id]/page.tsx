@@ -11,7 +11,7 @@ import { SfxVersionContent } from "@/components/version-content/SfxVersionConten
 import { VoiceDraftEditor } from "@/components/draft-editors/VoiceDraftEditor";
 import { MusicDraftEditor } from "@/components/draft-editors/MusicDraftEditor";
 import { SfxDraftEditor } from "@/components/draft-editors/SfxDraftEditor";
-import { BriefPanelV3 } from "@/components/BriefPanelV3";
+import { BriefPanelV3, type StreamUpdateEvent } from "@/components/BriefPanelV3";
 import { MixerPanel } from "@/components/MixerPanel";
 import { PreviewPanel } from "@/components/PreviewPanel";
 import { useMixerStore } from "@/store/mixerStore";
@@ -111,35 +111,36 @@ export default function AdWorkspace() {
     loadAdMetadata();
   }, [adId]);
 
+  // Load mixer state from Redis
+  const loadMixerState = async () => {
+    const { clearTracks, addTrack, setTrackVolume } = useMixerStore.getState();
+    clearTracks();
+
+    try {
+      const res = await fetch(`/api/ads/${adId}/mixer`);
+      if (res.ok) {
+        const mixerState = await res.json();
+        if (mixerState.tracks && mixerState.tracks.length > 0) {
+          mixerState.tracks.forEach((track: { id: string; url: string; label: string; type: "voice" | "music" | "soundfx"; volume?: number }) => {
+            addTrack(track);
+          });
+
+          if (mixerState.volumes) {
+            Object.entries(mixerState.volumes).forEach(([id, volume]) => {
+              setTrackVolume(id, volume as number);
+            });
+          }
+
+          console.log(`🔄 Loaded mixer state with ${mixerState.tracks.length} tracks`);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load mixer state:", error);
+    }
+  };
+
   // Load mixer state from Redis on mount
   useEffect(() => {
-    const loadMixerState = async () => {
-      const { clearTracks, addTrack, setTrackVolume } = useMixerStore.getState();
-      clearTracks();
-
-      try {
-        const res = await fetch(`/api/ads/${adId}/mixer`);
-        if (res.ok) {
-          const mixerState = await res.json();
-          if (mixerState.tracks && mixerState.tracks.length > 0) {
-            mixerState.tracks.forEach((track: { id: string; url: string; label: string; type: "voice" | "music" | "soundfx"; volume?: number }) => {
-              addTrack(track);
-            });
-
-            if (mixerState.volumes) {
-              Object.entries(mixerState.volumes).forEach(([id, volume]) => {
-                setTrackVolume(id, volume as number);
-              });
-            }
-
-            console.log(`🔄 Restored mixer state with ${mixerState.tracks.length} tracks`);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load mixer state:", error);
-      }
-    };
-
     loadMixerState();
   }, [adId]);
 
@@ -227,6 +228,47 @@ export default function AdWorkspace() {
     setSelectedTab(1);
   };
 
+  // Handle progressive stream updates from SSE auto-generation
+  const handleStreamUpdate = async (event: StreamUpdateEvent) => {
+    switch (event.stream) {
+      case "drafts":
+        // Drafts created - invalidate all stream caches
+        await Promise.all([voice.mutate(), music.mutate(), sfx.mutate()]);
+        // Open draft accordions
+        if (event.drafts.voices) setOpenAccordion("voices", "draft");
+        if (event.drafts.music) setOpenAccordion("music", "draft");
+        if (event.drafts.sfx) setOpenAccordion("sfx", "draft");
+        break;
+
+      case "voices":
+        // Voice track update - refresh voice stream
+        await voice.mutate();
+        break;
+
+      case "music":
+        // Music update - refresh music stream
+        await music.mutate();
+        break;
+
+      case "sfx":
+        // SFX update - refresh sfx stream
+        await sfx.mutate();
+        break;
+
+      case "complete":
+        // All generation complete - reload mixer and switch to mixer tab for "wow" effect
+        if (event.success) {
+          // Reload mixer state from Redis (server auto-activated and rebuilt)
+          await loadMixerState();
+          // Also refresh all streams to show final state
+          await Promise.all([voice.mutate(), music.mutate(), sfx.mutate()]);
+          // Switch to mixer tab
+          setSelectedTab(4);
+        }
+        break;
+    }
+  };
+
   // Type-safe draft getters
   const voiceDraft = voice.getDraft() as { id: VersionId; version: VoiceVersion } | null;
   const musicDraft = music.getDraft() as { id: VersionId; version: MusicVersion } | null;
@@ -266,6 +308,8 @@ export default function AdWorkspace() {
               initialBrief={briefData}
               onDraftsCreated={handleDraftsCreated}
               onGeneratingChange={setIsBriefGenerating}
+              autoGenerateAudio={true}
+              onStreamUpdate={handleStreamUpdate}
             />
           )}
 

@@ -162,8 +162,18 @@ export async function createMusicDraft(
     loudly,
     mubert,
     provider = "loudly",
-    duration = 30,
+    duration,
   } = params;
+
+  // Derive duration from brief if LLM didn't provide it
+  let effectiveDuration = duration;
+  if (!effectiveDuration) {
+    const meta = await getAdMetadata(adId);
+    const briefDuration = meta?.brief?.adDuration || 30;
+    // Music should be slightly longer than ad to allow fade-out
+    effectiveDuration = Math.max(30, briefDuration + 5);
+    console.log(`[create_music_draft] Derived duration ${effectiveDuration}s from brief (ad: ${briefDuration}s)`);
+  }
 
   // Freeze any existing draft before creating new one
   await freezeExistingDraft(adId, "music");
@@ -177,7 +187,7 @@ export async function createMusicDraft(
       elevenlabs: elevenlabs || prompt || "",
     },
     provider: provider as MusicProvider,
-    duration,
+    duration: effectiveDuration,
     generatedUrl: "", // No audio generated yet for draft
     createdAt: Date.now(),
     createdBy: "llm",

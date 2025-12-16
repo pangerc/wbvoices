@@ -29,3 +29,6 @@ export * from "./Tooltip";
 export * from "./TruncatedText";
 export * from "./EmptyStreamState";
 export * from "./BriefIcons";
+export * from "./MusicPanelIcons";
+export * from "./LoadingSpinner";
+export * from "./AccordionIcons";
