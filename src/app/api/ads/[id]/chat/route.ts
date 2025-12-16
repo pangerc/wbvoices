@@ -89,10 +89,10 @@ export async function POST(
       console.log(`[/api/ads/${adId}/chat] Stream focus: ${stream}, parent: ${parentVersionId}`);
     }
 
-    // Freeze parent version atomically before creating new draft
+    // Set parent version as active before creating new draft
     if (freezeParent && parentVersionId && stream) {
       await setActiveVersion(adId, stream, parentVersionId);
-      console.log(`[/api/ads/${adId}/chat] Froze parent version ${parentVersionId}`);
+      console.log(`[/api/ads/${adId}/chat] Set parent ${parentVersionId} as active`);
     }
 
     const result = await continueConversation(adId, focusedMessage);

@@ -1,9 +1,12 @@
+"use client";
+
 import React, { ReactNode } from "react";
 import * as Accordion from "@radix-ui/react-accordion";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
-import { PlayIcon, EllipsisVerticalIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { EllipsisVerticalIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { DocumentDuplicateIcon } from "@heroicons/react/24/solid";
+import { AccordionPlayButton } from "./AccordionPlayButton";
 import type { VersionId, VersionStatus, CreatedBy } from "@/types/versions";
 
 // Custom send-to-mixer icon
@@ -43,6 +46,7 @@ export interface BaseVersionItem {
 export interface VersionAccordionProps<T extends BaseVersionItem> {
   versions: T[];
   activeVersionId: VersionId | null;
+  streamType: "voices" | "music" | "sfx";
   onPreview: (versionId: VersionId) => void;
   onClone: (versionId: VersionId) => void;
   onDelete: (versionId: VersionId) => void;
@@ -58,6 +62,7 @@ export interface VersionAccordionProps<T extends BaseVersionItem> {
 export function VersionAccordion<T extends BaseVersionItem>({
   versions,
   activeVersionId,
+  streamType,
   onPreview,
   onClone,
   onDelete,
@@ -68,6 +73,8 @@ export function VersionAccordion<T extends BaseVersionItem>({
   openVersionId,
   onOpenChange,
 }: VersionAccordionProps<T>) {
+  // Map stream type to the format expected by AccordionPlayButton
+  const playButtonType = streamType === "voices" ? "voice" : streamType === "music" ? "music" : "sfx";
   // Sort versions in descending order (newest first)
   const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 
@@ -115,19 +122,12 @@ export function VersionAccordion<T extends BaseVersionItem>({
               {/* Order: Play → Send → 3-dots */}
               <div className="flex items-center gap-2">
                 {/* Play Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (versionHasAudio) {
-                      onPreview(version.id);
-                    }
-                  }}
+                <AccordionPlayButton
+                  type={playButtonType}
+                  versionId={version.id}
+                  onClick={() => onPreview(version.id)}
                   disabled={!versionHasAudio}
-                  className="p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/10"
-                  title="Preview"
-                >
-                  <PlayIcon className="w-4 h-4 text-white" />
-                </button>
+                />
 
                 {/* Send to Mixer Button - inverted when in mixer */}
                 {onSendToMixer && (

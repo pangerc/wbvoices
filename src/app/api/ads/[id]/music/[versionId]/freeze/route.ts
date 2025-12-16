@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { setActiveVersion, getVersion } from "@/lib/redis/versions";
+import { setActiveVersion, freezeVersion, getVersion } from "@/lib/redis/versions";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
 import { FreezeVersionResponse } from "@/types/versions";
 
@@ -41,8 +41,11 @@ export async function POST(
       );
     }
 
-    // Freeze and set as active version
-    await setActiveVersion(adId, "music", versionId, { forceFreeze });
+    // Optionally freeze, then set as active version
+    if (forceFreeze) {
+      await freezeVersion(adId, "music", versionId);
+    }
+    await setActiveVersion(adId, "music", versionId);
 
     // Rebuild mixer with new active version
     const mixer = await rebuildMixer(adId);

@@ -324,6 +324,7 @@ export default function AdWorkspace() {
                       ...(voice.data!.versionsData[vId] as VoiceVersion),
                     }))}
                   activeVersionId={voice.data.active}
+                  streamType="voices"
                   openVersionId={openAccordion.voices !== "draft" ? openAccordion.voices : null}
                   onOpenChange={(versionId) => setOpenAccordion("voices", versionId)}
                   onPreview={(id) => handlePreview(id, 'voices')}
@@ -414,6 +415,7 @@ export default function AdWorkspace() {
                       ...(music.data!.versionsData[vId] as MusicVersion),
                     }))}
                   activeVersionId={music.data.active}
+                  streamType="music"
                   openVersionId={openAccordion.music !== "draft" ? openAccordion.music : null}
                   onOpenChange={(versionId) => setOpenAccordion("music", versionId)}
                   onPreview={(id) => handlePreview(id, 'music')}
@@ -500,6 +502,7 @@ export default function AdWorkspace() {
                       ...(sfx.data!.versionsData[vId] as SfxVersion),
                     }))}
                   activeVersionId={sfx.data.active}
+                  streamType="sfx"
                   openVersionId={openAccordion.sfx !== "draft" ? openAccordion.sfx : null}
                   onOpenChange={(versionId) => setOpenAccordion("sfx", versionId)}
                   onPreview={(id) => handlePreview(id, 'sfx')}

@@ -12,6 +12,7 @@ export * from "./ResetButton";
 export * from "./GenerateButton";
 export * from "./SplitGenerateButton";
 export * from "./PlayButton";
+export * from "./AccordionPlayButton";
 export * from "./VolumeToggleButton";
 export * from "./GlassTabBar";
 export * from "./GlassTab";

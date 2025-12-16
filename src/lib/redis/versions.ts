@@ -9,6 +9,7 @@
  * - ad:{adId}:{streamType}:versions - Ordered list of version IDs (Redis LIST)
  * - ad:{adId}:{streamType}:active - Currently active version ID (Redis STRING)
  * - ad:{adId}:{streamType}:v:{versionId} - Immutable version data (Redis JSON)
+ * - ad:{adId}:{streamType}:counter - Atomic counter for version ID generation (Redis STRING)
  */
 
 import { getRedisV3 } from "../redis-v3";
@@ -48,6 +49,10 @@ export const AD_KEYS = {
 
   /** Preview data: ad:{adId}:preview */
   preview: (adId: string) => `ad:${adId}:preview`,
+
+  /** Version counter for atomic ID generation: ad:{adId}:voices:counter */
+  counter: (adId: string, streamType: StreamType) =>
+    `ad:${adId}:${streamType}:counter`,
 } as const;
 
 // ============ Version Creation ============
@@ -85,23 +90,35 @@ export async function createVersion(
 }
 
 /**
- * Generate next version ID using integer increment
+ * Generate next version ID using atomic Redis INCR
  * Format: "v1", "v2", "v3", etc.
+ *
+ * Uses a dedicated counter key to guarantee unique IDs even under concurrent execution.
+ * Handles migration for existing ads that don't have a counter yet.
  *
  * @param adId - Advertisement ID
  * @param streamType - Which stream
- * @returns Next version ID
+ * @returns Next version ID (guaranteed unique)
  */
 async function getNextVersionId(
   adId: string,
   streamType: StreamType
 ): Promise<VersionId> {
   const redis = getRedisV3();
-  const versionsKey = AD_KEYS.versions(adId, streamType);
+  const counterKey = AD_KEYS.counter(adId, streamType);
 
-  // Get current version count
-  const versions = await redis.lrange(versionsKey, 0, -1);
-  const nextNum = versions.length + 1;
+  // Migration: initialize counter for existing ads that don't have one yet
+  const exists = await redis.exists(counterKey);
+  if (!exists) {
+    const versions = await redis.lrange(AD_KEYS.versions(adId, streamType), 0, -1);
+    if (versions.length > 0) {
+      // Set counter to current max to avoid ID collision with existing versions
+      await redis.set(counterKey, versions.length);
+    }
+  }
+
+  // INCR is atomic - guaranteed unique even with concurrent calls
+  const nextNum = await redis.incr(counterKey);
 
   return `v${nextNum}`;
 }
@@ -208,18 +225,17 @@ export async function getActiveVersion(
 }
 
 /**
- * Set the active version for a stream
- * This triggers mixer rebuild in the API layer
+ * Set the active version for a stream (which version is "in the mixer")
+ * Does NOT change version status - use freezeVersion() separately if needed.
  *
  * @param adId - Advertisement ID
  * @param streamType - Which stream
- * @param versionId - Version ID to freeze and set as active
+ * @param versionId - Version ID to set as active
  */
 export async function setActiveVersion(
   adId: string,
   streamType: StreamType,
-  versionId: VersionId,
-  options?: { forceFreeze?: boolean }
+  versionId: VersionId
 ): Promise<void> {
   const redis = getRedisV3();
 
@@ -227,24 +243,48 @@ export async function setActiveVersion(
   const version = await getVersion(adId, streamType, versionId);
   if (!version) {
     throw new Error(
+      `Cannot activate non-existent version: ${streamType} ${versionId}`
+    );
+  }
+
+  // Just set the pointer - no status changes
+  const activeKey = AD_KEYS.active(adId, streamType);
+  await redis.set(activeKey, versionId);
+
+  console.log(`✅ Set active ${streamType} to ${versionId} for ad ${adId}`);
+}
+
+/**
+ * Freeze a version (make it immutable)
+ * Separate from setActiveVersion() - caller decides when to freeze.
+ *
+ * @param adId - Advertisement ID
+ * @param streamType - Which stream
+ * @param versionId - Version ID to freeze
+ */
+export async function freezeVersion(
+  adId: string,
+  streamType: StreamType,
+  versionId: VersionId
+): Promise<void> {
+  const redis = getRedisV3();
+
+  const version = await getVersion(adId, streamType, versionId);
+  if (!version) {
+    throw new Error(
       `Cannot freeze non-existent version: ${streamType} ${versionId}`
     );
   }
 
-  // Update active pointer
-  const activeKey = AD_KEYS.active(adId, streamType);
-  await redis.set(activeKey, versionId);
-
-  // Freeze if: not a draft (frozen versions stay frozen), OR forceFreeze is true
-  // Default behavior: drafts stay editable when sent to mixer (user still tinkering)
-  // forceFreeze=true: used by clone() to commit the old draft before creating new one
-  if (version.status !== "draft" || options?.forceFreeze) {
-    const versionKey = AD_KEYS.version(adId, streamType, versionId);
-    const updatedVersion = { ...version, status: "frozen" as const };
-    await redis.set(versionKey, JSON.stringify(updatedVersion));
+  if (version.status === "frozen") {
+    return; // Already frozen, no-op
   }
 
-  console.log(`✅ Froze ${streamType} version ${versionId} for ad ${adId}`);
+  const versionKey = AD_KEYS.version(adId, streamType, versionId);
+  const frozenVersion = { ...version, status: "frozen" as const };
+  await redis.set(versionKey, JSON.stringify(frozenVersion));
+
+  console.log(`🔒 Froze ${streamType} ${versionId} for ad ${adId}`);
 }
 
 /**
@@ -600,9 +640,10 @@ export async function deleteAd(adId: string, sessionId: string): Promise<void> {
 
   // Collect all version-related keys for each stream
   for (const streamType of streamTypes) {
-    // Add version list and active pointer keys
+    // Add version list, active pointer, and counter keys
     keysToDelete.push(AD_KEYS.versions(adId, streamType));
     keysToDelete.push(AD_KEYS.active(adId, streamType));
+    keysToDelete.push(AD_KEYS.counter(adId, streamType));
 
     // Get all version IDs and add their individual keys
     const versionIds = await listVersions(adId, streamType);

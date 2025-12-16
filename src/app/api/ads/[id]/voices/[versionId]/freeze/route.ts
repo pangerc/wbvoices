@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { setActiveVersion, getVersion } from "@/lib/redis/versions";
+import { setActiveVersion, freezeVersion, getVersion } from "@/lib/redis/versions";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
 import { FreezeVersionResponse, VoiceVersion } from "@/types/versions";
 
@@ -73,8 +73,11 @@ export async function POST(
       );
     }
 
-    // Freeze and set as active version (updates Redis pointer + version status)
-    await setActiveVersion(adId, "voices", versionId, { forceFreeze });
+    // Optionally freeze, then set as active version
+    if (forceFreeze) {
+      await freezeVersion(adId, "voices", versionId);
+    }
+    await setActiveVersion(adId, "voices", versionId);
 
     // Rebuild mixer with new active version
     const mixer = await rebuildMixer(adId);

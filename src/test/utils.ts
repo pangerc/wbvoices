@@ -47,6 +47,9 @@ export function createMockRedis(): Redis {
     exists: async (...keys: string[]) => {
       return await mock.exists(...keys);
     },
+    incr: async (key: string) => {
+      return await mock.incr(key);
+    },
     flushall: async () => {
       await mock.flushall();
       return "OK";

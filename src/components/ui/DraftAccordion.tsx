@@ -3,9 +3,9 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
-import { PlayIcon, StopIcon, EllipsisVerticalIcon, DocumentPlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { EllipsisVerticalIcon, DocumentPlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { LockClosedIcon } from "@heroicons/react/24/solid";
-import { useDraftAccordionState } from "@/hooks/useAudioPlayback";
+import { AccordionPlayButton } from "./AccordionPlayButton";
 import { Tooltip } from "./Tooltip";
 
 // Custom send-to-mixer icon
@@ -95,14 +95,8 @@ export function DraftAccordion({
   isOpen,
   onOpenChange,
 }: DraftAccordionProps) {
-  // Use reactive hook for playback/generation state - THIS FIXES the ref re-render issue!
-  const reactiveState = useDraftAccordionState(type, versionId);
-
   // Use new props if available, fall back to deprecated ones
   const handlePlay = onPlayAll || onPreview;
-  // Prefer reactive state from hook, fall back to prop for backwards compat
-  const isPlaying = reactiveState.isPlaying || playAllState?.isPlaying || false;
-  const isGenerating = reactiveState.isGenerating || playAllState?.isGenerating || false;
   const canSend = hasTracksWithAudio || hasAudio;
   // Check if this draft is currently active in the mixer
   const isActive = versionId != null && versionId === activeVersionId;
@@ -138,35 +132,12 @@ export function DraftAccordion({
           {/* Order: Play → Send → 3-dots */}
           <div className="flex items-center gap-2">
             {/* Smart PLAY button */}
-            <Tooltip content={isPlaying ? "Stop" : isGenerating ? "Generating..." : "Preview"}>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (handlePlay) {
-                    handlePlay();
-                  }
-                }}
-                disabled={!handlePlay || isGenerating}
-                className={`p-2 flex items-center justify-center rounded-lg backdrop-blur-sm border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                  isPlaying
-                    ? "bg-red-500/20 border-red-500/30 hover:bg-red-500/30"
-                    : isGenerating
-                      ? "bg-yellow-500/20 border-yellow-500/30"
-                      : "bg-white/10 border-white/20 hover:bg-white/20"
-                }`}
-              >
-              {isGenerating ? (
-                <svg className="w-4 h-4 text-yellow-400 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-              ) : isPlaying ? (
-                <StopIcon className="w-4 h-4 text-red-400" />
-              ) : (
-                <PlayIcon className="w-4 h-4 text-white" />
-              )}
-              </button>
-            </Tooltip>
+            <AccordionPlayButton
+              type={type}
+              versionId={versionId || ""}
+              onClick={() => handlePlay?.()}
+              disabled={!handlePlay}
+            />
 
             {/* SEND to Mixer button */}
             {onSendToMixer && (

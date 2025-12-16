@@ -10,6 +10,7 @@ import {
   getAllVersionsWithData,
   getActiveVersion,
   setActiveVersion,
+  freezeVersion,
   updateVersion,
   deleteVersion,
   setAdMetadata,
@@ -240,10 +241,10 @@ describe("setActiveVersion", () => {
     expect(version?.status).toBe("draft");
   });
 
-  it("should throw error when freezing non-existent version", async () => {
+  it("should throw error when activating non-existent version", async () => {
     await expect(
       setActiveVersion(mockAdId, "voices", "v999")
-    ).rejects.toThrow("Cannot freeze non-existent version");
+    ).rejects.toThrow("Cannot activate non-existent version");
   });
 
   it("should allow switching active version", async () => {
@@ -257,6 +258,40 @@ describe("setActiveVersion", () => {
     // Switch to v2
     await setActiveVersion(mockAdId, "voices", "v2");
     expect(await getActiveVersion(mockAdId, "voices")).toBe("v2");
+  });
+});
+
+describe("freezeVersion", () => {
+  it("should freeze a draft version", async () => {
+    await createVersion(mockAdId, "voices", mockVoiceVersionDraft);
+
+    // Initially draft
+    let version = await getVersion(mockAdId, "voices", "v1");
+    expect(version?.status).toBe("draft");
+
+    // Freeze it
+    await freezeVersion(mockAdId, "voices", "v1");
+
+    // Now frozen
+    version = await getVersion(mockAdId, "voices", "v1");
+    expect(version?.status).toBe("frozen");
+  });
+
+  it("should be a no-op for already frozen versions", async () => {
+    await createVersion(mockAdId, "voices", { ...mockVoiceVersionDraft, status: "frozen" });
+
+    // Already frozen
+    await freezeVersion(mockAdId, "voices", "v1");
+
+    // Still frozen (no error)
+    const version = await getVersion(mockAdId, "voices", "v1");
+    expect(version?.status).toBe("frozen");
+  });
+
+  it("should throw error when freezing non-existent version", async () => {
+    await expect(
+      freezeVersion(mockAdId, "voices", "v999")
+    ).rejects.toThrow("Cannot freeze non-existent version");
   });
 });
 
