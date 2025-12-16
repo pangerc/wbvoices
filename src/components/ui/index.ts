@@ -28,3 +28,4 @@ export * from "./VersionLineage";
 export * from "./Tooltip";
 export * from "./TruncatedText";
 export * from "./EmptyStreamState";
+export * from "./BriefIcons";

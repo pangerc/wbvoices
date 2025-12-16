@@ -1,6 +1,7 @@
 import { BaseAudioProvider, ValidationResult, AuthCredentials, ProviderResponse } from './BaseAudioProvider';
 import { checkMusicCache, uploadMusicToBlobWithCache } from '@/utils/blob-storage';
 import { NextResponse } from 'next/server';
+import { trackMusicUsage } from '@/lib/usage/tracker';
 
 export class LoudlyProvider extends BaseAudioProvider {
   readonly providerName = 'loudly';
@@ -51,6 +52,8 @@ export class LoudlyProvider extends BaseAudioProvider {
     
     if (cached) {
       console.log(`💰 Loudly: Cache HIT! Saved $$ by using cached music: ${cached.url}`);
+      // Track cache hit (doesn't count towards allotment)
+      await trackMusicUsage(true);
       return {
         success: true,
         data: {
@@ -98,6 +101,9 @@ export class LoudlyProvider extends BaseAudioProvider {
 
     const data = await response.json();
     console.log("Loudly API response data:", data);
+
+    // Track new track generated (counts towards allotment)
+    await trackMusicUsage(false);
 
     // Loudly is synchronous - it returns music immediately if available
     return {

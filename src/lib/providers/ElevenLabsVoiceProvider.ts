@@ -6,6 +6,7 @@ import {
 } from "./BaseAudioProvider";
 import { uploadVoiceToBlob } from "@/utils/blob-storage";
 import { NextResponse } from "next/server";
+import { trackVoiceUsage } from "@/lib/usage/tracker";
 
 export class ElevenLabsVoiceProvider extends BaseAudioProvider {
   readonly providerName = "elevenlabs";
@@ -339,6 +340,9 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
     }
 
     const audioArrayBuffer = await response.arrayBuffer();
+
+    // Track usage for accounting
+    await trackVoiceUsage("elevenlabs", (text as string).length);
 
     return {
       success: true,

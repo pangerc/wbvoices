@@ -1,154 +1,177 @@
 # Accounting & Usage Stats
 
+**Location:** `/admin/accounting`
+**Tracking Started:** December 16, 2025
+
+---
+
 ## Overview
 
-Track API usage and costs across all external providers. The accounting system combines:
-1. **Ad/Project counts** - How many generations per month
-2. **API usage tracking** - Characters, tokens, tracks consumed per provider
-3. **Subscription costs** - Monthly fees and allotments
+Track API usage and costs across all external providers. The system provides:
+- **Real-time usage tracking** - Characters, tokens, tracks consumed per provider
+- **Cost estimation** - Monthly subscriptions + pay-as-you-go estimates
+- **Cost per ad metric** - Total costs divided by ads generated
 
 ---
 
 ## Provider Subscriptions
 
-| Provider | Cost/month | Allotment | Unit | Tracking Method |
-|----------|------------|-----------|------|-----------------|
-| **ElevenLabs** | $99 | 565,455 credits | characters | API query + internal count |
-| **OpenAI TTS** | Pay-as-you-go | N/A | ~$0.015/min | API query + internal count |
-| **Lahajati** | $11 | 1,000,000 points | characters | Internal count only |
-| **Loudly** | $180 | 3,000 tracks | audio files | Internal count only |
+| Provider | Cost/month | Allotment | Unit | Tracking |
+|----------|------------|-----------|------|----------|
+| **ElevenLabs** | $99 | 565,455 | characters | Live API + internal |
+| **Lahajati** | $11 | 1,000,000 | characters | Internal only |
+| **Loudly** | $180 | 3,000 | tracks | Internal only |
+| **OpenAI TTS** | ~$15/1M chars | Pay-as-you-go | characters | Internal only |
+
+**Total fixed subscriptions:** $290/month + OpenAI usage
 
 ### ElevenLabs
-- **Model:** 1 character = 1 credit
-- **API:** `GET /v1/user/subscription` returns `character_count` and `character_limit`
-- **Plan:** Pro ($99/mo) with usage-based billing enabled
-
-### OpenAI TTS
-- **Model:** `gpt-4o-mini-tts` at ~$0.015/minute
-- **Pricing:** $0.60/M input tokens + $12/M audio output tokens
-- **API:** `GET /v1/organization/usage/audio` for usage by date range
+- 1 character = 1 credit
+- Live balance via `GET /v1/user/subscription`
+- Pro plan with usage-based billing enabled
 
 ### Lahajati
-- **Model:** 1 point = 1 character
-- **Plan:** Premium ($11/mo) = 1M points + 1,500 voice minutes
-- **No API** for balance - must check dashboard manually
+- 1 point = 1 character
+- Premium plan: 1M points + 1,500 voice minutes
+- No API - tracked internally
 
 ### Loudly
-- **Model:** Per audio file generated (cache hits don't count)
-- **Plan:** B2B contract ($180/mo) = up to 3,000 tracks
-- **No API** for usage - we count internally
+- Per audio file generated
+- B2B contract: up to 3,000 tracks/month
+- Cache hits don't count against allotment
+
+### OpenAI TTS
+- Model: `gpt-4o-mini-tts`
+- Estimated: ~$15 per 1M characters
+- No subscription - pay-as-you-go
 
 ---
 
-## Implementation Plan
+## API Endpoints
 
-### 1. Redis Schema for Usage Tracking
+### GET /api/admin/stats
+Monthly ad/project counts.
 
-```
-usage:{provider}:{YYYYMM}  →  {
-  characters: number,      // ElevenLabs, Lahajati, OpenAI
-  tracks: number,          // Loudly
-  requests: number,        // All providers
-  cacheHits: number,       // Loudly (saved money)
-  lastUpdated: timestamp
-}
+```bash
+curl /api/admin/stats?m=202512
 ```
 
-### 2. Instrumentation Points
-
-Each provider's `makeRequest()` method will call a tracking function:
-
-```typescript
-// After successful API call in each provider:
-await trackUsage({
-  provider: 'elevenlabs',
-  characters: text.length,
-  cached: false
-});
-```
-
-| Provider | File | Metric to Track |
-|----------|------|-----------------|
-| ElevenLabs | `src/lib/providers/ElevenLabsVoiceProvider.ts` | `text.length` (characters) |
-| Lahajati | `src/lib/providers/LahajatiVoiceProvider.ts` | `text.length` (characters) |
-| OpenAI TTS | `src/lib/providers/OpenAIVoiceProvider.ts` | `text.length` (characters) |
-| Loudly | `src/lib/providers/LoudlyProvider.ts` | +1 track (skip if `cached: true`) |
-
-### 3. New Files to Create
-
-| File | Purpose |
-|------|---------|
-| `src/lib/usage/tracker.ts` | `trackUsage()` function - logs to Redis |
-| `src/lib/usage/queries.ts` | Query functions for aggregating usage |
-| `src/app/api/admin/usage/route.ts` | API endpoint for usage data |
-| `src/app/api/admin/usage/elevenlabs/route.ts` | Proxy to ElevenLabs subscription API |
-
-### 4. Admin UI Updates
-
-Expand `/admin/accounting` page to show:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Accounting                              [December 2025 ▼]  │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  SUBSCRIPTIONS                                              │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐           │
-│  │ ElevenLabs  │ │ Lahajati    │ │ Loudly      │           │
-│  │ $99/mo      │ │ $11/mo      │ │ $180/mo     │           │
-│  │             │ │             │ │             │           │
-│  │ 45,231 used │ │ 12,450 used │ │ 127 tracks  │           │
-│  │ / 565,455   │ │ / 1,000,000 │ │ / 3,000     │           │
-│  │ (8%)        │ │ (1.2%)      │ │ (4.2%)      │           │
-│  └─────────────┘ └─────────────┘ └─────────────┘           │
-│                                                             │
-│  ┌─────────────┐                                           │
-│  │ OpenAI TTS  │  Total Monthly Cost: $290 + usage         │
-│  │ Pay-as-you-go│                                          │
-│  │ $12.45 used │                                           │
-│  └─────────────┘                                           │
-│                                                             │
-│  AD/PROJECT COUNTS                                          │
-│  V3 Ads: 42  |  V2 Projects: 67  |  Combined: 109          │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Existing: Monthly Ad/Project Counts
-
-**Endpoint:** `GET /api/admin/stats`
-
-Returns the count of ads (V3) and projects (V2) created in a given month.
-
-### Usage
-
-```
-/api/admin/stats?m=YYYYMM
-```
-
-| Parameter | Format | Example | Description |
-|-----------|--------|---------|-------------|
-| `m` | `YYYYMM` | `202511` | Month to query (optional, defaults to current month) |
-
-### Response
-
+Response:
 ```json
 {
-  "month": "2025-11",
+  "month": "2025-12",
   "v3": { "total": 150, "inMonth": 42 },
   "v2": { "total": 890, "inMonth": 67 },
   "combined": { "inMonth": 109 }
 }
 ```
 
+### GET /api/admin/usage
+Provider usage data with cost calculations.
+
+```bash
+curl /api/admin/usage?m=202512
+```
+
+Response:
+```json
+{
+  "month": "2025-12",
+  "providers": [
+    {
+      "id": "elevenlabs",
+      "name": "ElevenLabs",
+      "costPerMonth": 99,
+      "allotment": 565455,
+      "unit": "characters",
+      "used": 45231,
+      "requests": 127,
+      "usagePercent": 8.0,
+      "estimatedCost": null
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI TTS",
+      "costPerMonth": 0,
+      "allotment": null,
+      "unit": "characters",
+      "used": 125000,
+      "requests": 45,
+      "estimatedCost": 1.88
+    }
+  ],
+  "totalMonthlyCost": 290,
+  "openaiEstimatedCost": 1.88,
+  "totalEstimatedCost": 291.88,
+  "trackingStarted": "2025-12-16"
+}
+```
+
+### GET /api/admin/usage/elevenlabs
+Live ElevenLabs subscription balance.
+
+```json
+{
+  "tier": "pro",
+  "characterCount": 45231,
+  "characterLimit": 565455,
+  "remaining": 520224,
+  "usagePercent": 8.0,
+  "resetDate": "2025-01-01T00:00:00.000Z",
+  "status": "active"
+}
+```
+
 ---
 
-## TODO: Future Enhancements
+## Implementation
 
-- [ ] Implement usage tracking in providers
-- [ ] Create `/api/admin/usage` endpoint
-- [ ] Add ElevenLabs API proxy for real-time balance
-- [ ] Expand admin UI with usage charts
-- [ ] Add cost alerts when approaching limits
+### Redis Schema
+
+```
+usage:{provider}:{YYYYMM}  →  {
+  characters: number,
+  tracks: number,
+  requests: number,
+  cacheHits: number,
+  lastUpdated: timestamp
+}
+```
+
+### Instrumented Providers
+
+| Provider | File | Tracking Call |
+|----------|------|---------------|
+| ElevenLabs | `src/lib/providers/ElevenLabsVoiceProvider.ts` | `trackVoiceUsage("elevenlabs", text.length)` |
+| Lahajati | `src/lib/providers/LahajatiVoiceProvider.ts` | `trackVoiceUsage("lahajati", text.length)` |
+| OpenAI | `src/lib/providers/OpenAIVoiceProvider.ts` | `trackVoiceUsage("openai", text.length)` |
+| Loudly | `src/lib/providers/LoudlyProvider.ts` | `trackMusicUsage(cached)` |
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/lib/usage/tracker.ts` | `trackUsage()`, `trackVoiceUsage()`, `trackMusicUsage()` |
+| `src/lib/usage/queries.ts` | `getProviderUsage()`, `getAllUsage()`, subscription config |
+| `src/app/api/admin/usage/route.ts` | Usage API with cost calculations |
+| `src/app/api/admin/usage/elevenlabs/route.ts` | ElevenLabs live balance proxy |
+| `src/app/api/admin/stats/route.ts` | Ad/project counts by month |
+| `src/app/admin/accounting/page.tsx` | Admin UI |
+
+---
+
+## Notes
+
+- **Tracking started Dec 16, 2025** - previous months show 0
+- **ElevenLabs live balance** always shows current billing period
+- **Month picker** filters internal tracking data (not ElevenLabs live)
+- **Cost per ad** = (subscriptions + OpenAI estimate) / ads generated
+
+---
+
+## Future Enhancements
+
+- [ ] Usage charts/graphs over time
+- [ ] Cost alerts when approaching limits
+- [ ] Export usage data to CSV
+- [ ] Per-ad cost attribution in history panel

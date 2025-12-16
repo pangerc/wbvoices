@@ -2,6 +2,7 @@ import { BaseAudioProvider, ValidationResult, AuthCredentials, ProviderResponse 
 import { uploadVoiceToBlob } from '@/utils/blob-storage';
 import { getServerPronunciationRules, injectPronunciationRules } from '@/utils/server-pronunciation-helper';
 import { NextResponse } from 'next/server';
+import { trackVoiceUsage } from '@/lib/usage/tracker';
 
 export class OpenAIVoiceProvider extends BaseAudioProvider {
   readonly providerName = 'openai';
@@ -194,7 +195,10 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
     }
 
     const audioArrayBuffer = await response.arrayBuffer();
-    
+
+    // Track usage for accounting
+    await trackVoiceUsage("openai", (text as string).length);
+
     return {
       success: true,
       data: {
