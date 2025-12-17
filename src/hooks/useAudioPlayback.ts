@@ -84,13 +84,13 @@ export function useDraftAccordionState(
 ) {
   return useAudioPlaybackStore(
     useShallow((state) => {
-      // For voice type, only show generating if version matches
+      // For voice and sfx types, only show generating if version matches
       const isGenerating =
         type === "voice"
           ? state.generatingVoice && (!versionId || state.generatingVoiceVersionId === versionId)
           : type === "music"
             ? state.generatingMusic
-            : state.generatingSfx;
+            : state.generatingSfx && (!versionId || state.generatingSfxVersionId === versionId);
 
       // Check if any audio from this type is playing
       const sourceTypes: AudioSourceType[] =
@@ -166,7 +166,8 @@ export function useMusicDraftState(versionId: string) {
 export function useSfxDraftState(versionId: string) {
   return useAudioPlaybackStore(
     useShallow((state) => ({
-      isGenerating: state.generatingSfx,
+      // Only show generating state if it's for THIS version
+      isGenerating: state.generatingSfx && state.generatingSfxVersionId === versionId,
       isPlaying:
         state.isPlaying &&
         state.currentSource?.type === "sfx-preview" &&

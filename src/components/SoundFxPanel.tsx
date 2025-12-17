@@ -30,7 +30,7 @@ type SoundFxPanelProps = {
 };
 
 // Default duration for sound effects
-const DEFAULT_SOUND_FX_DURATION = 3; // 3 seconds is a reasonable default for most sound effects
+const DEFAULT_SOUND_FX_DURATION = 2; // 2 seconds is a good default for stingers/transitions
 
 // Convert placement option string to placement intent
 function placementOptionToIntent(option: string): SoundFxPlacementIntent {
@@ -52,20 +52,9 @@ function placementOptionToIntent(option: string): SoundFxPlacementIntent {
   return { type: "end" };
 }
 
-// Convert placement intent to legacy playAfter string
-// This keeps the two field systems in sync until we migrate to V3
-function placementIntentToLegacyPlayAfter(intent: SoundFxPlacementIntent): string | undefined {
-  switch (intent.type) {
-    case "start":
-      return "start";
-    case "withFirstVoice":
-      return "concurrent-start";
-    case "afterVoice":
-    case "end":
-    default:
-      return undefined; // Let timeline calculator resolve from placementIntent
-  }
-}
+// REMOVED: placementIntentToLegacyPlayAfter
+// V3 architecture: Redis stores placementIntent, timeline calculator resolves at runtime
+// No more dual-field sync mess - placementIntent is the single source of truth
 
 export function SoundFxPanel({
   onGenerate,
@@ -182,9 +171,9 @@ export function SoundFxPanel({
                   value={placementIntentToOption(prompt.placement)}
                   onChange={(value) => {
                     const intent = placementOptionToIntent(value);
+                    // V3: Only set placement intent - timeline calculator resolves at runtime
                     onUpdatePrompt(index, {
                       placement: intent,
-                      playAfter: placementIntentToLegacyPlayAfter(intent),
                     });
                   }}
                   options={[
@@ -208,15 +197,16 @@ export function SoundFxPanel({
                   label="Duration"
                   value={prompt.duration || DEFAULT_SOUND_FX_DURATION}
                   onChange={(value) => onUpdatePrompt(index, { duration: value })}
-                  min={1}
-                  max={10}
-                  step={1}
+                  min={0.5}
+                  max={15}
+                  step={0.5}
                   formatLabel={(val) => `${val} seconds`}
                   tickMarks={[
-                    { value: 1, label: "1s" },
+                    { value: 0.5, label: "0.5s" },
                     { value: 3, label: "3s" },
                     { value: 5, label: "5s" },
                     { value: 10, label: "10s" },
+                    { value: 15, label: "15s" },
                   ]}
                 />
               </div>

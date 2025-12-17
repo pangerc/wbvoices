@@ -72,6 +72,7 @@ export function SfxDraftEditor({
   const adDuration = 30;
 
   // Update sound fx prompt and persist to backend
+  // Invalidates generated URL if content-affecting fields changed
   const updatePrompt = async (
     index: number,
     updates: Partial<SoundFxPrompt>
@@ -80,13 +81,35 @@ export function SfxDraftEditor({
     newPrompts[index] = { ...newPrompts[index], ...updates };
     setSoundFxPrompts(newPrompts);
 
+    // Check if content-affecting fields changed
+    const contentFields = ['description', 'duration'];
+    const contentChanged = contentFields.some(field => field in updates);
+
+    // Build the patch body
+    const patchBody: { soundFxPrompts: SoundFxPrompt[]; generatedUrls?: (string | null)[] } = {
+      soundFxPrompts: newPrompts,
+    };
+
+    // If content changed and this index has a generated URL, invalidate it
+    if (contentChanged && draftVersion.generatedUrls?.[index]) {
+      const newUrls: (string | null)[] = [...(draftVersion.generatedUrls || [])];
+      newUrls[index] = null;
+      patchBody.generatedUrls = newUrls;
+      console.log(`[SfxDraftEditor] Invalidating generated URL for prompt ${index} due to content change`);
+    }
+
     // Persist to backend via PATCH
     try {
       await fetch(`/api/ads/${adId}/sfx/${draftVersionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ soundFxPrompts: newPrompts }),
+        body: JSON.stringify(patchBody),
       });
+
+      // If we invalidated URLs, trigger refresh to update UI
+      if (patchBody.generatedUrls) {
+        onUpdate();
+      }
     } catch (error) {
       console.error("Failed to update sfx draft:", error);
     }
@@ -137,7 +160,7 @@ export function SfxDraftEditor({
 
   // Generate sound effects for draft - returns generated URLs on success
   const handleGenerate = async (): Promise<string[] | null> => {
-    setGeneratingSfx(true);
+    setGeneratingSfx(true, draftVersionId);
     setStatusMessage("Generating sound effects...");
 
     try {

@@ -172,7 +172,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 },
                 duration: {
                   type: "number",
-                  description: "Duration in seconds",
+                  description: "Duration in seconds (0.5-15, typical 2-3s for stingers, 5-10s for ambient)",
                 },
               },
               required: ["description"],

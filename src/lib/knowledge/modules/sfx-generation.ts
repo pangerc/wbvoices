@@ -19,9 +19,15 @@ export const sfxGenerationModule: KnowledgeModule = {
 - Keep descriptions SHORT (under 10 words)
 - Always in ENGLISH regardless of ad language
 - Focus on the sound itself, not the context
-- Most ads work WITHOUT SFX - use sparingly (0-1 effects max)
-- CRITICAL: Sound effects must be very short (maximum 3 seconds)
+- Most ads work WITHOUT SFX - use sparingly (0-2 effects max)
 - Do NOT include duration info in descriptions (use separate duration field)
+
+### Duration Guidelines
+- **Stingers/hits** (whoosh, horn, chime): 1-2 seconds
+- **Transitional effects** (door, footsteps): 2-4 seconds
+- **Ambient beds** (background atmosphere): 5-10 seconds
+- **Default**: 2-3 seconds if unsure
+- **Range**: 0.5s minimum, 15s maximum
 
 ### Examples by Theme
 
