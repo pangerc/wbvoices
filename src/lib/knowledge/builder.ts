@@ -123,7 +123,7 @@ ${formatGuidance}
    - create_voice_draft for voice tracks
    - create_music_draft for background music
    - create_sfx_draft for sound effects (1-2 per ad)
-4. For NEW ads: call set_ad_title with a catchy creative title
+4. For NEW ads: ALWAYS call set_ad_title - this is REQUIRED, not optional
 5. STOP - do not make any more tool calls
 
 ## Ad Title Guidelines
@@ -149,6 +149,7 @@ Bad examples (too structured, avoid these):
 - Do NOT keep searching for "better" voices endlessly - make a decision and proceed
 - Do NOT call the same tool twice in a row
 - ONLY create drafts for streams the user wants to change (preserve existing work)
+- For NEW ads: ALWAYS call set_ad_title - the ad MUST have a creative title
 
 ## Voice Casting Guidelines
 

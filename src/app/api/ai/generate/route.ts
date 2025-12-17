@@ -26,6 +26,29 @@ import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
 import type { ProjectBrief } from "@/types";
 
 /**
+ * Extract brand name from client description for fallback ad title.
+ * LLM should set title via set_ad_title tool, but this is a safety net.
+ */
+function extractBrandName(description: string): string {
+  // Try common patterns: "for [Brand]", "[Brand] is", "Client: [Brand]"
+  const patterns = [
+    /(?:for|promoting|advertising)\s+([A-Z][a-zA-Z0-9\s&']+?)(?:\s+[-,.]|\s+is|\s+a\b)/i,
+    /^(?:Client:\s*)?([A-Z][a-zA-Z0-9\s&']+?)(?:\s+[-,.]|\s+Brand|\s+is|\s+a\b)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = description.match(pattern);
+    if (match && match[1] && match[1].trim().length <= 30) {
+      return match[1].trim();
+    }
+  }
+
+  // Final fallback: first 2-3 words
+  const firstWords = description.split(/\s+/).slice(0, 3).join(" ");
+  return firstWords.length <= 25 ? firstWords : firstWords.slice(0, 22) + "...";
+}
+
+/**
  * Build the user message from the brief data
  */
 function buildUserMessage(params: {
@@ -210,10 +233,10 @@ export async function POST(req: NextRequest) {
     const currentMeta = await getAdMetadata(adId);
     const llmSetTitle = currentMeta?.name && currentMeta.name !== "Untitled Ad";
 
-    // Use LLM-generated title or fallback to static format
+    // Use LLM-generated title or fallback to brand extraction
     const adTitle = llmSetTitle
       ? currentMeta.name
-      : `${clientDescription.slice(0, 30)}${clientDescription.length > 30 ? '...' : ''} - ${languageName}`;
+      : `${extractBrandName(clientDescription)} - ${languageName}`;
 
     // Update metadata with brief (and fallback title if needed)
     await setAdMetadata(adId, {

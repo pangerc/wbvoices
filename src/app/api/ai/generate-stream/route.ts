@@ -22,6 +22,29 @@ import { rebuildMixer } from "@/lib/mixer/rebuilder";
 import type { ProjectBrief } from "@/types";
 import type { VoiceVersion, MusicVersion, SfxVersion } from "@/types/versions";
 
+/**
+ * Extract brand name from client description for fallback ad title.
+ * LLM should set title via set_ad_title tool, but this is a safety net.
+ */
+function extractBrandName(description: string): string {
+  // Try common patterns: "for [Brand]", "[Brand] is", "Client: [Brand]"
+  const patterns = [
+    /(?:for|promoting|advertising)\s+([A-Z][a-zA-Z0-9\s&']+?)(?:\s+[-,.]|\s+is|\s+a\b)/i,
+    /^(?:Client:\s*)?([A-Z][a-zA-Z0-9\s&']+?)(?:\s+[-,.]|\s+Brand|\s+is|\s+a\b)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = description.match(pattern);
+    if (match && match[1] && match[1].trim().length <= 30) {
+      return match[1].trim();
+    }
+  }
+
+  // Final fallback: first 2-3 words
+  const firstWords = description.split(/\s+/).slice(0, 3).join(" ");
+  return firstWords.length <= 25 ? firstWords : firstWords.slice(0, 22) + "...";
+}
+
 // Required for streaming
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes
@@ -240,7 +263,7 @@ export async function POST(req: NextRequest) {
       const llmSetTitle = currentMeta?.name && currentMeta.name !== "Untitled Ad";
       const adTitle = llmSetTitle
         ? currentMeta.name
-        : `${clientDescription.slice(0, 30)}${clientDescription.length > 30 ? "..." : ""} - ${languageName}`;
+        : `${extractBrandName(clientDescription)} - ${languageName}`;
 
       // Update metadata
       await setAdMetadata(adId, {
