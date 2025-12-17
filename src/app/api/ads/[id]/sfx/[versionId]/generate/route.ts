@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRedisV3 } from "@/lib/redis-v3";
 import { getVersion, AD_KEYS } from "@/lib/redis/versions";
+import { internalFetch } from "@/utils/internal-fetch";
 import type { SfxVersion } from "@/types/versions";
 import type { SoundFxPrompt } from "@/types";
 
@@ -24,11 +25,6 @@ export async function POST(
 
     console.log(`🔊 Generating ${soundFxPrompts.length} sound effects for ${versionId}...`);
 
-    // Build base URL for internal API calls
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : `http://localhost:${process.env.PORT || 3003}`;
-
     // Generate all sound effects sequentially (ElevenLabs may have rate limits)
     const generatedUrls: string[] = [];
 
@@ -36,9 +32,8 @@ export async function POST(
       const prompt = soundFxPrompts[i];
       console.log(`  [${i + 1}/${soundFxPrompts.length}] Generating SFX: "${prompt.description?.slice(0, 30)}..."`);
 
-      const sfxResponse = await fetch(`${baseUrl}/api/sfx/elevenlabs-v2`, {
+      const sfxResponse = await internalFetch(`/api/sfx/elevenlabs-v2`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: prompt.description,
           duration: prompt.duration || 3,

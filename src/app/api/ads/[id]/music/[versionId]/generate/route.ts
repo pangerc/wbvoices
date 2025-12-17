@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRedisV3 } from "@/lib/redis-v3";
 import { getVersion, AD_KEYS } from "@/lib/redis/versions";
+import { internalFetch, getBaseUrl } from "@/utils/internal-fetch";
 import type { MusicVersion } from "@/types/versions";
 import type { MusicProvider } from "@/types";
 
@@ -36,15 +37,11 @@ export async function POST(
     const adjustedDuration =
       provider === "loudly" ? Math.ceil(duration / 15) * 15 : duration;
 
-    // Build base URL for internal API calls
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : `http://localhost:${process.env.PORT || 3003}`;
+    const baseUrl = getBaseUrl();
 
     // Call the existing music generation endpoint
-    const musicResponse = await fetch(`${baseUrl}/api/music/${provider}`, {
+    const musicResponse = await internalFetch(`/api/music/${provider}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
         duration: adjustedDuration,
@@ -74,8 +71,8 @@ export async function POST(
         await new Promise((r) => setTimeout(r, interval));
         console.log(`  Polling attempt ${attempt + 1}/${maxAttempts}...`);
 
-        const statusRes = await fetch(
-          `${baseUrl}/api/music/mubert/status?id=${musicData.id}&customer_id=${musicData.customer_id}&access_token=${musicData.access_token}`
+        const statusRes = await internalFetch(
+          `/api/music/mubert/status?id=${musicData.id}&customer_id=${musicData.customer_id}&access_token=${musicData.access_token}`
         );
 
         if (!statusRes.ok) continue;
@@ -86,9 +83,8 @@ export async function POST(
         if (generation?.status === "done" && generation.url) {
           console.log(`✅ Mubert track ready, uploading to blob storage...`);
           // Re-fetch through provider to get blob URL
-          const finalRes = await fetch(`${baseUrl}/api/music/mubert`, {
+          const finalRes = await internalFetch(`/api/music/mubert`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               prompt,
               duration: adjustedDuration,

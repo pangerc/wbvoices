@@ -14,6 +14,7 @@
 import { NextRequest } from "next/server";
 import { runAgentLoop } from "@/lib/tool-calling";
 import { getLanguageName } from "@/utils/language";
+import { internalFetch } from "@/utils/internal-fetch";
 import { setAdMetadata, getAdMetadata, getVersion, setActiveVersion } from "@/lib/redis/versions";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
 import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
@@ -116,15 +117,6 @@ Please search for suitable voices in ${languageName} from ${voiceProvider}, then
 }
 
 /**
- * Get base URL for internal API calls
- */
-function getBaseUrl(): string {
-  return process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : `http://localhost:${process.env.PORT || 3003}`;
-}
-
-/**
  * Voice endpoint mapping
  */
 const VOICE_ENDPOINTS: Record<string, string> = {
@@ -170,7 +162,6 @@ export async function POST(req: NextRequest) {
   }
 
   const voiceProvider = rawSelectedProvider || "elevenlabs";
-  const baseUrl = getBaseUrl();
 
   // Set up SSE stream
   const encoder = new TextEncoder();
@@ -300,9 +291,8 @@ export async function POST(req: NextRequest) {
             await sendEvent({ type: "voice-generating", index: i, total: tracks.length, versionId });
 
             try {
-              const voiceRes = await fetch(`${baseUrl}${endpoint}`, {
+              const voiceRes = await internalFetch(endpoint, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   text: track.text,
                   voiceId: track.voice.id,
@@ -350,9 +340,8 @@ export async function POST(req: NextRequest) {
               });
 
               // Single PATCH to persist all voice URLs
-              await fetch(`${baseUrl}/api/ads/${adId}/voices/${versionId}`, {
+              await internalFetch(`/api/ads/${adId}/voices/${versionId}`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ voiceTracks: updatedTracks }),
               });
             })
@@ -375,9 +364,8 @@ export async function POST(req: NextRequest) {
             const adjustedDuration =
               musicProvider === "loudly" ? Math.ceil(musicDuration / 15) * 15 : musicDuration;
 
-            const musicRes = await fetch(`${baseUrl}/api/music/${musicProvider}`, {
+            const musicRes = await internalFetch(`/api/music/${musicProvider}`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 prompt: musicVersion.musicPrompts?.[musicProvider] || musicVersion.musicPrompt,
                 duration: adjustedDuration,
@@ -402,8 +390,8 @@ export async function POST(req: NextRequest) {
               for (let attempt = 0; attempt < maxAttempts; attempt++) {
                 await new Promise((r) => setTimeout(r, interval));
 
-                const statusRes = await fetch(
-                  `${baseUrl}/api/music/mubert/status?id=${musicData.id}&customer_id=${musicData.customer_id}&access_token=${musicData.access_token}`
+                const statusRes = await internalFetch(
+                  `/api/music/mubert/status?id=${musicData.id}&customer_id=${musicData.customer_id}&access_token=${musicData.access_token}`
                 );
 
                 if (!statusRes.ok) continue;
@@ -412,9 +400,8 @@ export async function POST(req: NextRequest) {
                 const generation = statusData.data?.generations?.[0];
 
                 if (generation?.status === "done" && generation.url) {
-                  const finalRes = await fetch(`${baseUrl}/api/music/mubert`, {
+                  const finalRes = await internalFetch(`/api/music/mubert`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       prompt: musicVersion.musicPrompt,
                       duration: adjustedDuration,
@@ -440,9 +427,8 @@ export async function POST(req: NextRequest) {
             }
 
             // Persist to Redis
-            await fetch(`${baseUrl}/api/ads/${adId}/music/${musicVersionId}`, {
+            await internalFetch(`/api/ads/${adId}/music/${musicVersionId}`, {
               method: "PATCH",
-              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 generatedUrl,
                 duration: adjustedDuration,
@@ -473,9 +459,8 @@ export async function POST(req: NextRequest) {
             await sendEvent({ type: "sfx-generating", index: i, total: prompts.length });
 
             try {
-              const sfxRes = await fetch(`${baseUrl}/api/sfx/elevenlabs-v2`, {
+              const sfxRes = await internalFetch(`/api/sfx/elevenlabs-v2`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   text: prompt.description,
                   duration: prompt.duration || 3,
@@ -512,9 +497,8 @@ export async function POST(req: NextRequest) {
               // Single PATCH to persist all SFX URLs
               const validUrls = generatedUrls.filter((url): url is string => url !== null);
               if (validUrls.length > 0) {
-                await fetch(`${baseUrl}/api/ads/${adId}/sfx/${versionId}`, {
+                await internalFetch(`/api/ads/${adId}/sfx/${versionId}`, {
                   method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ generatedUrls: generatedUrls }),
                 });
               }

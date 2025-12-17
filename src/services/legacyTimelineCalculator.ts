@@ -171,6 +171,18 @@ export class LegacyTimelineCalculator {
       (track) => track.type === "soundfx"
     );
 
+    // SAFETY NET: Ensure withFirstVoice intent sets playAfter before early filtering
+    // This handles cases where placementIntentToLegacyPlayAfter wasn't called properly
+    soundFxTracks.forEach((track) => {
+      if (track.metadata?.placementIntent) {
+        const intent = track.metadata.placementIntent as SoundFxPlacementIntent;
+        if (intent.type === "withFirstVoice" && track.playAfter !== "concurrent-start") {
+          console.log(`[Timeline] Setting playAfter=concurrent-start for SFX "${track.label}" from placementIntent`);
+          track.playAfter = "concurrent-start";
+        }
+      }
+    });
+
     // First, handle sound effects with "playAfter: start" (sequential intro)
     const introSoundFxTracks = soundFxTracks.filter(
       (track) => track.playAfter === "start"

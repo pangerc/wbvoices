@@ -37,6 +37,9 @@ function placementOptionToIntent(option: string): SoundFxPlacementIntent {
   if (option === "start") {
     return { type: "start" };
   }
+  if (option === "withFirstVoice") {
+    return { type: "withFirstVoice" };
+  }
   if (option === "end") {
     return { type: "end" };
   }
@@ -55,6 +58,8 @@ function placementIntentToLegacyPlayAfter(intent: SoundFxPlacementIntent): strin
   switch (intent.type) {
     case "start":
       return "start";
+    case "withFirstVoice":
+      return "concurrent-start";
     case "afterVoice":
     case "end":
     default:
@@ -113,6 +118,7 @@ export function SoundFxPanel({
   const placementIntentToOption = (placement?: SoundFxPlacementIntent): string => {
     if (!placement) return "end";
     if (placement.type === "start") return "start";
+    if (placement.type === "withFirstVoice") return "withFirstVoice";
     if (placement.type === "afterVoice" && placement.index !== undefined) {
       return `afterVoice-${placement.index}`;
     }
@@ -183,6 +189,7 @@ export function SoundFxPanel({
                   }}
                   options={[
                     { value: "start", label: "At beginning (before all voices)" },
+                    { value: "withFirstVoice", label: "With first voice (overlapping)" },
                     ...(voiceTrackPreviews && voiceTrackPreviews.length > 0
                       ? voiceTrackPreviews.map((preview, voiceIndex) => ({
                           value: `afterVoice-${voiceIndex}`,
