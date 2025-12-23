@@ -38,7 +38,11 @@ export default function AdWorkspace() {
   const sfx = useStreamOperations(adId, "sfx");
 
   // Mixer data and operations
-  const { removeStream } = useMixerData(adId);
+  const { data: mixerData, removeStream } = useMixerData(adId);
+
+  // Helper to get mixer URL for a track type
+  const getMixerUrl = (type: "music" | "soundfx") =>
+    mixerData?.tracks?.find(t => t.type === type)?.url;
 
   // Accordion state from store
   const { openAccordion, setOpenAccordion } = useUIStore();
@@ -60,6 +64,9 @@ export default function AdWorkspace() {
   // Generation state tracking for MatrixBackground animation
   const [isBriefGenerating, setIsBriefGenerating] = useState(false);
   const { generatingMusic, generatingSfx } = useAudioPlaybackStore();
+
+  // Generation errors - displayed as dismissible banner
+  const [generationErrors, setGenerationErrors] = useState<string[]>([]);
 
   // Refs for draft editor imperative handles (DraftAccordion header buttons)
   const voicePlayAllRef = useRef<(() => Promise<void>) | null>(null);
@@ -232,7 +239,8 @@ export default function AdWorkspace() {
   const handleStreamUpdate = async (event: StreamUpdateEvent) => {
     switch (event.stream) {
       case "drafts":
-        // Drafts created - invalidate all stream caches
+        // Drafts created - invalidate all stream caches and clear previous errors
+        setGenerationErrors([]);
         await Promise.all([voice.mutate(), music.mutate(), sfx.mutate()]);
         // Open draft accordions
         if (event.drafts.voices) setOpenAccordion("voices", "draft");
@@ -242,16 +250,25 @@ export default function AdWorkspace() {
 
       case "voices":
         // Voice track update - refresh voice stream
+        if (event.status === "failed" && event.error) {
+          setGenerationErrors(prev => [...prev, `Voice generation failed: ${event.error}`]);
+        }
         await voice.mutate();
         break;
 
       case "music":
         // Music update - refresh music stream
+        if (event.status === "failed" && event.error) {
+          setGenerationErrors(prev => [...prev, `Music generation failed: ${event.error}`]);
+        }
         await music.mutate();
         break;
 
       case "sfx":
         // SFX update - refresh sfx stream
+        if (event.status === "failed" && event.error) {
+          setGenerationErrors(prev => [...prev, `SFX generation failed: ${event.error}`]);
+        }
         await sfx.mutate();
         break;
 
@@ -300,6 +317,21 @@ export default function AdWorkspace() {
           isAnimating={isBriefGenerating || generatingMusic || generatingSfx}
         />
         <div className="container mx-auto px-4 py-8 relative z-10">
+
+          {/* Generation errors banner */}
+          {generationErrors.length > 0 && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              {generationErrors.map((err, i) => (
+                <p key={i} className="text-red-400 text-sm">{err}</p>
+              ))}
+              <button
+                onClick={() => setGenerationErrors([])}
+                className="mt-2 text-xs text-red-400/60 hover:text-red-400"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
           {/* Brief - Tab 0 */}
           {selectedTab === 0 && (
@@ -414,6 +446,8 @@ export default function AdWorkspace() {
                   type="music"
                   versionId={musicDraft.id}
                   activeVersionId={music.data.active}
+                  currentUrl={musicDraft.version.generatedUrl}
+                  mixerUrl={getMixerUrl("music")}
                   isOpen={openAccordion.music === "draft"}
                   onOpenChange={(open) => setOpenAccordion("music", open ? "draft" : null)}
                   onPlayAll={() => musicPlayAllRef.current?.()}
@@ -500,6 +534,8 @@ export default function AdWorkspace() {
                   type="sfx"
                   versionId={sfxDraft.id}
                   activeVersionId={sfx.data.active}
+                  currentUrl={sfxDraft.version.generatedUrls?.[0]}
+                  mixerUrl={getMixerUrl("soundfx")}
                   isOpen={openAccordion.sfx === "draft"}
                   onOpenChange={(open) => setOpenAccordion("sfx", open ? "draft" : null)}
                   onPlayAll={() => sfxPlayAllRef.current?.()}

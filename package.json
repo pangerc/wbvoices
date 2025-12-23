@@ -32,7 +32,7 @@
     "jsonwebtoken": "^9.0.2",
     "liquid-glass-react": "^1.1.1",
     "music-metadata": "^11.10.3",
-    "next": "16.0.10",
+    "next": "16.1.1",
     "openai": "^6.8.0",
     "playht": "^0.14.0",
     "postgres": "^3.4.7",

@@ -207,6 +207,26 @@ export function TimelineTrack({
       (document.querySelector(".timeline")?.clientWidth || 1000),
   });
 
+  // Handle download
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(track.url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${cleanTrackLabel(track.label)}.wav`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Failed to download track:", error);
+    }
+  };
+
   // Handle play/pause toggle
   const handlePlayPause = () => {
     const audio = document.querySelector(
@@ -368,6 +388,16 @@ export function TimelineTrack({
                     Remove
                   </button>
                 )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMenuOpen(false);
+                    handleDownload();
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors border-t border-white/10"
+                >
+                  Download
+                </button>
               </div>
             )}
           </div>

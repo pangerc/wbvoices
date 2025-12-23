@@ -20,6 +20,10 @@ interface DraftAccordionProps {
   versionId?: string;
   /** Active version ID in mixer - when matches versionId, show "In mixer" state */
   activeVersionId?: string | null;
+  /** Current generated URL in draft (for comparison with mixer) */
+  currentUrl?: string;
+  /** URL currently in mixer for this track type - when different from currentUrl, allow resend */
+  mixerUrl?: string;
   /** @deprecated Use onPlayAll instead */
   onGenerateAll?: () => void;
   /** @deprecated Use onPlayAll instead */
@@ -56,6 +60,8 @@ export function DraftAccordion({
   type,
   versionId,
   activeVersionId,
+  currentUrl,
+  mixerUrl,
   onGenerateAll,
   onPreview,
   hasAudio = false,
@@ -74,7 +80,10 @@ export function DraftAccordion({
   const handlePlay = onPlayAll || onPreview;
   const canSend = hasTracksWithAudio || hasAudio;
   // Check if this draft is currently active in the mixer
-  const isActive = versionId != null && versionId === activeVersionId;
+  // For music/sfx: also verify the URL matches (regeneration should enable resend)
+  const isActive = versionId != null &&
+                   versionId === activeVersionId &&
+                   (!currentUrl || !mixerUrl || currentUrl === mixerUrl);
 
   // Controlled vs uncontrolled mode
   const accordionProps = isOpen !== undefined
