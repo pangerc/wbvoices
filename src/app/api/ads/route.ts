@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getRedisV3 } from "@/lib/redis-v3";
-import { setAdMetadata, getAdMetadata } from "@/lib/redis/versions";
+import { setAdMetadata, getAdMetadataBatch } from "@/lib/redis/versions";
 import { AdMetadata } from "@/types/versions";
 import { generateProjectId } from "@/utils/projectId";
 
@@ -135,10 +135,12 @@ export async function GET(request: NextRequest) {
 
     console.log(`📋 Found ${adIds.length} ad IDs`);
 
-    // Load metadata for each ad
+    // Load metadata for all ads in a single batch call
+    const metadataMap = await getAdMetadataBatch(adIds);
+
     const ads = [];
     for (const adId of adIds) {
-      const meta = await getAdMetadata(adId);
+      const meta = metadataMap.get(adId);
       if (meta) {
         ads.push({ adId, meta });
       } else {

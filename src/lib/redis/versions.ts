@@ -452,6 +452,32 @@ export async function getAdMetadata(adId: string): Promise<AdMetadata | null> {
   return typeof data === "string" ? JSON.parse(data) : data;
 }
 
+/**
+ * Batch get ad metadata for multiple ads
+ * Uses mget for single Redis round-trip
+ */
+export async function getAdMetadataBatch(
+  adIds: string[]
+): Promise<Map<string, AdMetadata>> {
+  if (adIds.length === 0) return new Map();
+
+  const redis = getRedisV3();
+  const keys = adIds.map((id) => AD_KEYS.meta(id));
+
+  const results = await redis.mget<(string | null)[]>(...keys);
+
+  const metadataMap = new Map<string, AdMetadata>();
+  for (let i = 0; i < adIds.length; i++) {
+    const data = results[i];
+    if (data) {
+      const parsed = typeof data === "string" ? JSON.parse(data) : data;
+      metadataMap.set(adIds[i], parsed);
+    }
+  }
+
+  return metadataMap;
+}
+
 // ============ Deletion ============
 
 /**
