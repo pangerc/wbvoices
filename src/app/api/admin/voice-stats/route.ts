@@ -8,13 +8,13 @@ export async function GET() {
     const stats = await voiceCatalogue.getCacheStats();
 
     // Get the counts tower for detailed language breakdown
-    const countsTower = await redis.get('counts_tower') as Record<string, Record<string, Record<string, { elevenlabs?: number; lovo?: number; openai?: number; qwen?: number; bytedance?: number }>>> || {};
+    const countsTower = await redis.get('counts_tower') as Record<string, Record<string, Record<string, { elevenlabs?: number; lovo?: number; openai?: number; qwen?: number; bytedance?: number; lahajati?: number }>>> || {};
     const languages = Object.keys(countsTower).sort();
 
     const languageBreakdown: Array<{
       language: string;
       total: number;
-      providers: { elevenlabs: number; lovo: number; openai: number; qwen: number; bytedance: number };
+      providers: { elevenlabs: number; lovo: number; openai: number; qwen: number; bytedance: number; lahajati: number };
       regionCount: number;
       accentCount: number;
       regions: string[];
@@ -24,7 +24,7 @@ export async function GET() {
 
     for (const language of languages) {
       const languageData = countsTower[language];
-      const providerTotals = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0 };
+      const providerTotals = { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, lahajati: 0 };
 
       // Sum across all regions and accents
       for (const region of Object.keys(languageData)) {
@@ -36,10 +36,11 @@ export async function GET() {
           providerTotals.openai += counts.openai || 0;
           providerTotals.qwen += counts.qwen || 0;
           providerTotals.bytedance += counts.bytedance || 0;
+          providerTotals.lahajati += counts.lahajati || 0;
         }
       }
 
-      const languageTotal = providerTotals.elevenlabs + providerTotals.lovo + providerTotals.openai + providerTotals.qwen + providerTotals.bytedance;
+      const languageTotal = providerTotals.elevenlabs + providerTotals.lovo + providerTotals.openai + providerTotals.qwen + providerTotals.bytedance + providerTotals.lahajati;
       // totalVoicesByLanguage += languageTotal; // Removed - unused variable
 
       // Get unique accents and regions

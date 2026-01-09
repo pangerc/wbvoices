@@ -12,6 +12,7 @@ interface VoiceStats {
       openai: number;
       qwen: number;
       bytedance: number;
+      lahajati: number;
       any: number;
     };
     lastUpdated: number;
@@ -25,6 +26,7 @@ interface VoiceStats {
       openai: number;
       qwen: number;
       bytedance: number;
+      lahajati: number;
     };
     regionCount: number;
     accentCount: number;
@@ -183,7 +185,7 @@ export default function VoicesCachePage() {
             {/* Provider Breakdown */}
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-6">
               <h2 className="text-xl font-bold mb-4">Voices by Provider</h2>
-              <div className="grid grid-cols-5 gap-4">
+              <div className="grid grid-cols-6 gap-4">
                 <div>
                   <div className="text-sm text-gray-400 mb-1">ElevenLabs</div>
                   <div className="text-2xl font-bold">{stats.summary.byProvider.elevenlabs}</div>
@@ -203,6 +205,10 @@ export default function VoicesCachePage() {
                 <div>
                   <div className="text-sm text-gray-400 mb-1">ByteDance</div>
                   <div className="text-2xl font-bold">{stats.summary.byProvider.bytedance}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-400 mb-1">Lahajati</div>
+                  <div className="text-2xl font-bold">{stats.summary.byProvider.lahajati}</div>
                 </div>
               </div>
             </div>
@@ -225,6 +231,7 @@ export default function VoicesCachePage() {
                       <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">OpenAI</th>
                       <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">Qwen</th>
                       <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">BD</th>
+                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">LH</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/10">
@@ -248,6 +255,9 @@ export default function VoicesCachePage() {
                         </td>
                         <td className="px-6 py-3 text-right text-gray-400">
                           {lang.providers.bytedance || "-"}
+                        </td>
+                        <td className="px-6 py-3 text-right text-gray-400">
+                          {lang.providers.lahajati || "-"}
                         </td>
                       </tr>
                     ))}

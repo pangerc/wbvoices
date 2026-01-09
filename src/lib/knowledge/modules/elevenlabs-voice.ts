@@ -4,6 +4,9 @@
  * TWO-LAYER tag approach:
  * 1. Opening stack: Speed/energy/accent tags at the start (multiplicative hack)
  * 2. Dramatic tags throughout: [laughs], [sighs], [whispers] at emotional moments
+ *
+ * Based on ElevenLabs v3 best practices:
+ * https://elevenlabs.io/docs/overview/capabilities/text-to-speech/best-practices
  */
 
 import { KnowledgeModule, KnowledgeContext } from "../types";
@@ -75,31 +78,48 @@ Example: [happy][excited] Your text starts here...`;
 
 **Warm, Friendly voice:**
 - Baseline tone: energetic
-- Script: ${accent && accent !== "neutral" ? `[${accent} accent]` : ""}[excited][rapid-fire][fast][fast] You're gonna LOVE this! [laughs] Our new product just dropped! [whispers] And the price? [happy] Unbelievable!
+- Script: ${
+            accent && accent !== "neutral" ? `[${accent} accent]` : ""
+          }[excited][rapid-fire][fast][fast] You're gonna LOVE this! [laughs] Our new product just dropped! [whispers] And the price? [happy] Unbelievable!
 
 **Professional voice:**
 - Baseline tone: confident
-- Script: ${accent && accent !== "neutral" ? `[${accent} accent]` : ""}[confident][rapid-fire][fast][fast] Introducing our solution. [sighs] Finally, proven results. [serious] Act now.
+- Script: ${
+            accent && accent !== "neutral" ? `[${accent} accent]` : ""
+          }[confident][rapid-fire][fast][fast] Introducing our solution. [sighs] Finally, PROVEN results. [serious] Act now.
 
 **Playful dialogue:**
 - Baseline tone: playful
-- Script: ${accent && accent !== "neutral" ? `[${accent} accent]` : ""}[mischievously][rapid-fire][fast][fast] Okay okay okay... [laughs] you're NOT gonna believe this! [excited] It's SO good! [chuckles] Trust me.`
+- Script: ${
+            accent && accent !== "neutral" ? `[${accent} accent]` : ""
+          }[mischievously][rapid-fire][fast][fast] Okay okay okay... [laughs] you're NOT gonna believe this! [excited] It's SO good! [chuckles] Trust me.`
         : `
 ## EXAMPLES (Normal Pacing) - Notice BOTH layers
 
 **Warm, Friendly voice:**
 - Baseline tone: cheerful
-- Script: ${accent && accent !== "neutral" ? `[${accent} accent]` : ""}[laughs][happy] You won't believe this! [excited] Our new product is here. [whispers] And the price? [cheerful] Unbeatable.
+- Script: ${
+            accent && accent !== "neutral" ? `[${accent} accent]` : ""
+          }[laughs][happy] You won't BELIEVE this! [excited] Our new product is here. [whispers] And the price? [cheerful] Unbeatable.
 
 **Professional voice:**
 - Baseline tone: professional
-- Script: ${accent && accent !== "neutral" ? `[${accent} accent]` : ""}[confident] Introducing our latest solution. [sighs] Proven results at last. [serious] Guaranteed satisfaction.
+- Script: ${
+            accent && accent !== "neutral" ? `[${accent} accent]` : ""
+          }[confident] Introducing our latest solution. [sighs] Proven results... at last. [serious] Guaranteed satisfaction.
 
 **Calm, Soothing voice:**
 - Baseline tone: calm
-- Script: ${accent && accent !== "neutral" ? `[${accent} accent]` : ""}[gentle] Take a moment for yourself... [sighs] You deserve this. [whispers] Pure relaxation.`;
+- Script: ${
+            accent && accent !== "neutral" ? `[${accent} accent]` : ""
+          }[gentle] Take a moment for yourself... [sighs] You deserve this. [whispers] Pure relaxation.`;
 
     return `## ElevenLabs V3 Voice Guidance - TWO-LAYER Tag System
+
+**IMPORTANT V3 NOTES:**
+- V3 does NOT support SSML <break> tags - use punctuation and audio tags instead
+- Character limit: 5,000 characters per voice segment
+- Works best with prompts >250 characters
 ${pacingGuidance}
 
 ### BASELINE TONE (description field)
@@ -108,47 +128,60 @@ Options: cheerful | happy | excited | energetic | dynamic | calm | gentle | soot
 ${tagDensityGuidance}
 ${accentGuidance}
 
-## LAYER 2: DRAMATIC TAGS THROUGHOUT (CRITICAL!)
+## LAYER 2: EMOTIONAL & NON-VERBAL TAGS THROUGHOUT (CRITICAL!)
 
-After your opening stack, ADD dramatic/non-verbal tags at emotional moments in the text:
-
-**Non-verbal sounds to intersperse:**
-[laughs], [chuckles], [sighs], [whispers], [exhales], [giggles], [snorts]
-
-**Placement:** Insert these at natural dramatic beats - pauses, reveals, punchlines, emotional shifts.
-
-**WRONG - All tags at start, nothing throughout:**
-[excited][rapid-fire][fast][fast][happy] You're gonna love this! Our new product is here. And the price? Unbeatable!
-
-**CORRECT - Opening stack PLUS dramatic tags throughout:**
-[excited][rapid-fire][fast][fast] You're gonna love this! [laughs] Our new product is here. [whispers] And the price? [happy] Unbeatable!
+After your opening stack, ADD emotional/non-verbal tags at dramatic moments in the text.
 
 ### TAG CATEGORIES
+
+**Emotional Directions (mood/delivery):**
+[happy], [sad], [excited], [angry], [annoyed], [sarcastic], [curious]
+[surprised], [thoughtful], [appalled], [confident], [serious], [gentle]
+[dramatically], [warmly], [impressed], [delighted], [amazed], [mischievously]
+
+**Non-verbal Sounds (intersperse these!):**
+[laughs], [chuckles], [giggles], [laughs harder], [starts laughing], [wheezing]
+[sighs], [exhales], [exhales sharply], [inhales deeply]
+[whispers], [gasps], [happy gasp], [snorts], [crying]
+[clears throat], [swallows], [gulps]
+[short pause], [long pause]
 
 **Opening Stack Tags (start of line):**
 Speed: [rapid-fire], [fast]
 Mood: [excited], [happy], [confident], [serious], [gentle], [mischievously]
-Accent: [French accent], [German accent], etc.
+Accent: [French accent], [German accent], [strong X accent], etc.
 
-**Dramatic Tags (throughout text):**
-[laughs], [chuckles], [sighs], [whispers], [exhales], [giggles], [snorts], [gasps]
+## PUNCTUATION FOR EMPHASIS (V3 Feature!)
+
+Use punctuation strategically - v3 is highly responsive to these:
+- **Ellipses (...)** add pauses and weight: "It's just... difficult."
+- **CAPITALIZATION** increases emphasis: "This is INCREDIBLE!"
+- **Exclamation marks** add energy: "I can't believe it!"
+- **Question marks** add natural inflection
+
+**WRONG - All tags at start, nothing throughout:**
+[excited][rapid-fire][fast][fast][happy] You're gonna love this! Our new product is here. And the price? Unbeatable!
+
+**CORRECT - Opening stack PLUS emotional tags + punctuation throughout:**
+[excited][rapid-fire][fast][fast] You're gonna LOVE this! [laughs] Our new product is here... [whispers] And the price? [happy] Unbeatable!
 
 ### VOICE PERSONALITY → TAG MATCHING
 
-**Warm, Friendly voices:** ✅ [laughs], [chuckles], [happy], [excited] ❌ [serious], [stern]
-**Professional voices:** ✅ [confident], [sighs], [thoughtful] ❌ [giggles], [silly]
-**Playful voices:** ✅ [laughs], [mischievously], [excited] ❌ [monotone], [serious]
-**Calm voices:** ✅ [sighs], [whispers], [gentle] ❌ [excited], [shouting]
+**Warm, Friendly voices:** ✅ [laughs], [chuckles], [happy], [excited], [delighted] ❌ [serious], [stern]
+**Professional voices:** ✅ [confident], [sighs], [thoughtful], [impressed] ❌ [giggles], [silly]
+**Playful voices:** ✅ [laughs], [mischievously], [excited], [surprised] ❌ [monotone], [serious]
+**Calm voices:** ✅ [sighs], [whispers], [gentle], [inhales deeply] ❌ [excited], [shouting]
+**Dramatic voices:** ✅ [dramatically], [gasps], [amazed], [appalled] ❌ [casual], [flat]
 ${examples}
 
 ### KEY PRINCIPLES
 
-1. **TWO LAYERS**: Opening stack (speed/mood) + dramatic tags throughout (non-verbal)
+1. **TWO LAYERS**: Opening stack (speed/mood) + emotional tags throughout (non-verbal + directions)
 2. **Opening stack** sets the pace and energy for the whole line
-3. **Dramatic tags** create emotional texture and natural delivery
-4. **Tags in ENGLISH** regardless of script language
-5. **Match personality** - playful voices get [laughs], professional get [sighs]
-
-Character limit: 3,000 characters per voice segment`;
+3. **Emotional tags** create texture and natural delivery - sprinkle them at beats!
+4. **Use CAPS and ellipses** for emphasis and pauses (v3 responds well to these)
+5. **Tags in ENGLISH** regardless of script language
+6. **Match personality** - playful voices get [laughs], professional get [sighs]
+7. **Vary your tags** - don't just use [laughs], try [chuckles], [giggles], [happy gasp]`;
   },
 };
