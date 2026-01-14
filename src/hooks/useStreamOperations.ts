@@ -210,7 +210,7 @@ function getDefaultDraftBody(stream: StreamType) {
         musicPrompt: "",
         musicPrompts: { loudly: "", mubert: "", elevenlabs: "" },
         duration: 30,
-        provider: "loudly",
+        provider: "elevenlabs",
         createdBy: "user",
       };
     case "sfx":

@@ -287,7 +287,7 @@ export function MusicPanel({
   // Handle local reset
   const handleReset = () => {
     setMode('generate');
-    setMusicProvider("loudly");
+    setMusicProvider("elevenlabs");
     setDuration(Math.max(30, adDuration + 5));
     setLocalStatusMessage("");
     setProviderPrompts({

@@ -161,7 +161,7 @@ export async function createMusicDraft(
     elevenlabs,
     loudly,
     mubert,
-    provider = "loudly",
+    provider = "elevenlabs",
     duration,
   } = params;
 

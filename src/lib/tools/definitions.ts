@@ -126,7 +126,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           provider: {
             type: "string",
             enum: ["loudly", "mubert", "elevenlabs"],
-            description: "Music provider (default: loudly)",
+            description: "Music provider (default: elevenlabs)",
           },
           duration: {
             type: "number",
