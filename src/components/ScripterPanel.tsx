@@ -416,13 +416,17 @@ export function ScripterPanel({
           voiceDescription={
             voiceTracks[editingInstructionsIndex]?.voice?.description
           }
+          dialectId={voiceTracks[editingInstructionsIndex]?.dialectId}
+          performanceId={voiceTracks[editingInstructionsIndex]?.performanceId}
           onSave={(
             instructions,
             speed,
             provider,
             postProcessingSpeedup,
             postProcessingPitch,
-            targetDuration
+            targetDuration,
+            dialectId,
+            performanceId
           ) => {
             const currentTrack = voiceTracks[editingInstructionsIndex];
             const providerChanged =
@@ -435,6 +439,8 @@ export function ScripterPanel({
               postProcessingSpeedup: postProcessingSpeedup,
               postProcessingPitch: postProcessingPitch,
               targetDuration: targetDuration,
+              dialectId: dialectId,
+              performanceId: performanceId,
               // Clear voice if provider changed (user needs to select new voice)
               voice: providerChanged ? null : currentTrack.voice,
             });

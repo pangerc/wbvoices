@@ -128,6 +128,8 @@ export async function createVoiceDraft(
         // Provider-specific fields
         description: track.description, // ElevenLabs baseline tone
         voiceInstructions: track.voiceInstructions, // OpenAI voice guidance
+        dialectId: track.dialectId, // Lahajati Arabic dialect ID
+        performanceId: track.performanceId, // Lahajati performance style ID
       };
     })
   );

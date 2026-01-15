@@ -108,6 +108,9 @@ export async function generateVoiceTrack(
       useCase: track.useCase,
       voiceInstructions: track.voiceInstructions,
       speed: track.speed,
+      // Lahajati-specific parameters (passed through if present)
+      dialectId: track.dialectId,
+      performanceId: track.performanceId,
     }),
   });
 

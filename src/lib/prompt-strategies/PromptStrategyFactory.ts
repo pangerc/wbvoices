@@ -4,6 +4,7 @@ import { ElevenLabsV3PromptStrategy } from "./ElevenLabsV3PromptStrategy";
 import { OpenAIPromptStrategy } from "./OpenAIPromptStrategy";
 import { LovoPromptStrategy } from "./LovoPromptStrategy";
 import { QwenPromptStrategy } from "./QwenPromptStrategy";
+import { LahajatiPromptStrategy } from "./LahajatiPromptStrategy";
 
 /**
  * Factory for creating prompt strategy instances based on provider
@@ -18,7 +19,7 @@ export class PromptStrategyFactory {
     lovo: () => new LovoPromptStrategy(),
     qwen: () => new QwenPromptStrategy(),
     bytedance: () => new QwenPromptStrategy(), // Reuse Qwen strategy
-    lahajati: () => new ElevenLabsV3PromptStrategy(), // Arabic specialist - uses ElevenLabs-style prompts
+    lahajati: () => new LahajatiPromptStrategy(), // Arabic specialist with dialect/performance control
     any: () => new ElevenLabsV3PromptStrategy(), // Default to ElevenLabs V3
   };
 

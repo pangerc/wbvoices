@@ -10,6 +10,7 @@ import {
   fetchLahajatiVoices,
 } from "@/services/voiceProviderService";
 import { lahajatiDialectService } from "@/services/lahajatiDialectService";
+import { lahajatiPerformanceService } from "@/services/lahajatiPerformanceService";
 
 // Use Node.js runtime for proper Redis access
 // export const runtime = 'edge'; // REMOVED - Edge Runtime causes env var issues
@@ -529,12 +530,28 @@ export async function POST() {
     // Step 1: Clear existing cache
     await voiceCatalogue.clearCache();
 
-    // Step 2: Refresh Lahajati dialect definitions from API
+    // Rate limit delay helper for Lahajati API
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Step 2: Refresh Lahajati dialect and performance definitions from API
+    // Add delays between operations to avoid rate limiting
     console.log("🔄 Refreshing Lahajati dialect definitions...");
     const dialectResult = await lahajatiDialectService.refresh();
     if (!dialectResult.success) {
       console.warn("⚠️ Failed to refresh Lahajati dialects - using fallback mappings");
     }
+
+    // Wait before next Lahajati operation (10s cooldown to avoid rate limiting)
+    await sleep(10000);
+
+    console.log("🔄 Refreshing Lahajati performance styles...");
+    const performanceResult = await lahajatiPerformanceService.refresh();
+    if (!performanceResult.success) {
+      console.warn("⚠️ Failed to refresh Lahajati performances - ad-related styles may be limited");
+    }
+
+    // Wait before fetching voices (which includes Lahajati voices) - 10s cooldown
+    await sleep(10000);
 
     // Step 3: Fetch and normalize all voices
     const voices = await fetchAndNormalizeVoices();
@@ -576,6 +593,7 @@ export async function POST() {
         byProvider: stats.byProvider,
         voicesProcessed: voices.length,
         lahajatiDialects: dialectResult, // Dialect refresh stats
+        lahajatiPerformances: performanceResult, // Performance style refresh stats
         timestamp: Date.now(),
       },
     });

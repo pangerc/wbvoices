@@ -1,8 +1,22 @@
-import React, { useState, Fragment } from "react";
+import React, { useState, Fragment, useEffect } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { TrashIcon } from "@heroicons/react/24/outline";
 import { Provider } from "@/types";
 import { getElevenLabsPresetSpeed, getProviderSpeedRange } from "@/lib/voice-presets";
+
+// Types for Lahajati metadata
+type LahajatiDialectOption = {
+  id: number;
+  name: string;
+  nameEn: string;
+  country: string;
+};
+
+type LahajatiPerformanceOption = {
+  id: number;
+  name: string;
+  nameEn: string;
+};
 
 interface VoiceInstructionsDialogProps {
   isOpen: boolean;
@@ -15,13 +29,18 @@ interface VoiceInstructionsDialogProps {
   provider: Provider; // Current global provider
   trackProvider?: Provider; // Track-specific provider override
   voiceDescription?: string;
+  // Lahajati-specific props
+  dialectId?: number;
+  performanceId?: number;
   onSave: (
     instructions: string,
     speed: number | undefined,
     provider: Provider,
     postProcessingSpeedup?: number,
     postProcessingPitch?: number,
-    targetDuration?: number
+    targetDuration?: number,
+    dialectId?: number,
+    performanceId?: number
   ) => void;
   // Optional delete callback - shows delete button when provided
   onDelete?: () => void;
@@ -59,6 +78,8 @@ export function VoiceInstructionsDialog({
   provider,
   trackProvider,
   voiceDescription,
+  dialectId,
+  performanceId,
   onSave,
   onDelete,
 }: VoiceInstructionsDialogProps) {
@@ -88,6 +109,56 @@ export function VoiceInstructionsDialog({
   // Tab state for ElevenLabs (smart-speed, fit-duration, advanced)
   const [elevenLabsTab, setElevenLabsTab] = useState<'smart-speed' | 'fit-duration' | 'advanced'>('smart-speed');
 
+  // Lahajati-specific state
+  const [lahajatiDialects, setLahajatiDialects] = useState<LahajatiDialectOption[]>([]);
+  const [lahajatiPerformances, setLahajatiPerformances] = useState<LahajatiPerformanceOption[]>([]);
+  const [selectedDialectId, setSelectedDialectId] = useState<number | undefined>(dialectId);
+  const [selectedPerformanceId, setSelectedPerformanceId] = useState<number | undefined>(performanceId);
+  const [lahajatiLoading, setLahajatiLoading] = useState(false);
+  const [dialectSearch, setDialectSearch] = useState("");
+  const [performanceSearch, setPerformanceSearch] = useState("");
+
+  // Fetch Lahajati metadata when dialog opens and provider is lahajati
+  useEffect(() => {
+    if (isOpen && providerValue === "lahajati" && lahajatiDialects.length === 0) {
+      setLahajatiLoading(true);
+      fetch("/api/lahajati/metadata")
+        .then((res) => res.json())
+        .then((data) => {
+          setLahajatiDialects(data.dialects || []);
+          setLahajatiPerformances(data.adPerformances || []);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch Lahajati metadata:", err);
+        })
+        .finally(() => {
+          setLahajatiLoading(false);
+        });
+    }
+  }, [isOpen, providerValue, lahajatiDialects.length]);
+
+  // Filter dialects by search term
+  const filteredDialects = lahajatiDialects.filter(
+    (d) =>
+      d.name.includes(dialectSearch) ||
+      d.nameEn.toLowerCase().includes(dialectSearch.toLowerCase()) ||
+      d.country.toLowerCase().includes(dialectSearch.toLowerCase())
+  );
+
+  // Group dialects by country
+  const dialectsByCountry = filteredDialects.reduce((acc, d) => {
+    if (!acc[d.country]) acc[d.country] = [];
+    acc[d.country].push(d);
+    return acc;
+  }, {} as Record<string, LahajatiDialectOption[]>);
+
+  // Filter performances by search term
+  const filteredPerformances = lahajatiPerformances.filter(
+    (p) =>
+      p.name.includes(performanceSearch) ||
+      p.nameEn.toLowerCase().includes(performanceSearch.toLowerCase())
+  );
+
   // Handle provider change - reset speed to default for new provider
   const handleProviderChange = (newProvider: Provider) => {
     setProviderValue(newProvider);
@@ -116,13 +187,19 @@ export function VoiceInstructionsDialog({
       // advanced tab only uses native speed (no post-processing)
     }
 
+    // Lahajati-specific params
+    const finalDialectId = providerValue === "lahajati" ? selectedDialectId : undefined;
+    const finalPerformanceId = providerValue === "lahajati" ? selectedPerformanceId : undefined;
+
     onSave(
       instructionsValue,
       shouldSaveSpeed ? speedValue : undefined,
       providerValue,
       finalPostSpeedup,
       finalPostPitch,
-      finalTargetDur
+      finalTargetDur,
+      finalDialectId,
+      finalPerformanceId
     );
     onClose();
   };
@@ -196,18 +273,98 @@ export function VoiceInstructionsDialog({
                       {providerValue !== (trackProvider || provider) && "⚠️ Changing provider will require selecting a new voice"}
                     </p>
                   </div>
+                  {/* Lahajati Dialect and Performance Selection */}
+                  {providerValue === "lahajati" && (
+                    <div className="space-y-4">
+                      {lahajatiLoading ? (
+                        <div className="p-4 bg-white/5 border border-white/10 rounded-xl text-center">
+                          <p className="text-sm text-gray-400">Loading dialect and performance options...</p>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Dialect Selection */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                              Arabic Dialect
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Search dialects... (e.g., Egyptian, Cairo, Saudi)"
+                              value={dialectSearch}
+                              onChange={(e) => setDialectSearch(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white placeholder:text-gray-500 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-wb-blue/50"
+                            />
+                            <select
+                              value={selectedDialectId || ""}
+                              onChange={(e) => setSelectedDialectId(e.target.value ? parseInt(e.target.value) : undefined)}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-wb-blue/50 focus:border-wb-blue/50"
+                            >
+                              <option value="" className="bg-gray-900">Select dialect (LLM default)</option>
+                              {Object.entries(dialectsByCountry).map(([country, dialects]) => (
+                                <optgroup key={country} label={country.charAt(0).toUpperCase() + country.slice(1)} className="bg-gray-900">
+                                  {dialects.map((d) => (
+                                    <option key={d.id} value={d.id} className="bg-gray-900">
+                                      {d.nameEn} - {d.name}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </select>
+                            <p className="text-xs text-gray-400 mt-1">
+                              Select specific dialect for authentic regional delivery. Cairo Slang recommended for youth-oriented Egyptian ads.
+                            </p>
+                          </div>
+
+                          {/* Performance Style Selection */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                              Performance Style
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Search styles... (e.g., automotive, news, calm)"
+                              value={performanceSearch}
+                              onChange={(e) => setPerformanceSearch(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white placeholder:text-gray-500 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-wb-blue/50"
+                            />
+                            <select
+                              value={selectedPerformanceId || ""}
+                              onChange={(e) => setSelectedPerformanceId(e.target.value ? parseInt(e.target.value) : undefined)}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-wb-blue/50 focus:border-wb-blue/50"
+                            >
+                              <option value="" className="bg-gray-900">Select style (LLM default)</option>
+                              {filteredPerformances.map((p) => (
+                                <option key={p.id} value={p.id} className="bg-gray-900">
+                                  {p.nameEn} - {p.name}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="text-xs text-gray-400 mt-1">
+                              Match performance style to ad type for optimal delivery (e.g., &quot;Automotive ad&quot; for car commercials).
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
                   {/* Voice Instructions Textarea - OpenAI and Lahajati */}
                   {(providerValue === "openai" || providerValue === "lahajati") && (
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
-                        {providerValue === "lahajati" ? "Persona Instructions" : "Voice Instructions"}
+                        {providerValue === "lahajati" ? "Persona Instructions (Optional)" : "Voice Instructions"}
                       </label>
                       <textarea
                         value={instructionsValue}
                         onChange={(e) => setInstructionsValue(e.target.value)}
                         placeholder={providerValue === "lahajati" ? LAHAJATI_PLACEHOLDER : PLACEHOLDER}
-                        className="w-full h-48 bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-wb-blue/50 focus:border-wb-blue/50 resize-none"
+                        className={`w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-wb-blue/50 focus:border-wb-blue/50 resize-none ${providerValue === "lahajati" ? "h-32" : "h-48"}`}
                       />
+                      {providerValue === "lahajati" && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Optional: Add custom persona instructions. Uses Mode 1 (custom prompt) instead of structured dialect/performance.
+                        </p>
+                      )}
                     </div>
                   )}
 

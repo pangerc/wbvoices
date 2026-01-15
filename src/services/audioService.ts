@@ -37,6 +37,10 @@ export class AudioService {
         console.log(`  - Use Case: ${track.useCase || 'none'}`);
         console.log(`  - Voice Instructions: ${track.voiceInstructions || 'none'}`);
         console.log(`  - Speed: ${track.speed !== undefined ? `${track.speed}x (manual)` : 'not set (using preset/default)'}`);
+        if (trackProvider === 'lahajati') {
+          console.log(`  - Dialect ID: ${track.dialectId || 'not set (LLM default)'}`);
+          console.log(`  - Performance ID: ${track.performanceId || 'not set (LLM default)'}`);
+        }
 
         const res = await fetch(`/api/voice/${trackProvider}-v2`, {
           method: "POST",
@@ -52,6 +56,9 @@ export class AudioService {
             pacing, // Pass pacing for speed control (global)
             speed: track.speed, // Per-track speed override (manual control)
             projectId: `voice-project-${Date.now()}`, // Add projectId for blob storage
+            // Lahajati-specific parameters (from LLM selection or user override)
+            dialectId: track.dialectId,
+            performanceId: track.performanceId,
           }),
         });
 

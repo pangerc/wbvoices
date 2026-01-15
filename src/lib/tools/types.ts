@@ -46,6 +46,8 @@ export interface CreateVoiceDraftParams {
     overlap?: number;
     description?: string; // ElevenLabs baseline tone
     voiceInstructions?: string; // OpenAI voice guidance
+    dialectId?: number; // Lahajati Arabic dialect ID
+    performanceId?: number; // Lahajati performance style ID
   }>;
 }
 

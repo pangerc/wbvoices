@@ -59,6 +59,9 @@ export type VoiceTrack = {
   targetDuration?: number; // Target duration in seconds (auto-calculates speedup, capped at 1.6x)
   generatedUrl?: string; // Generated audio URL (embedded, replaces parallel array)
   generatedDuration?: number; // Actual duration in seconds (measured from audio, not estimated)
+  // Lahajati-specific fields for Arabic dialect and performance style control
+  dialectId?: number; // Lahajati dialect ID (e.g., 8 for Cairo slang)
+  performanceId?: number; // Lahajati performance style ID (e.g., 1542 for automotive ad)
 };
 
 export type CampaignFormat = "ad_read" | "dialog";

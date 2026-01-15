@@ -85,6 +85,16 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                   description:
                     "Voice guidance instructions. For OpenAI: structured format 'Voice Affect: ...; Tone: ...; Pacing: ...; Emotion: ...; Emphasis: ...; Pronunciation: ...; Pauses: ...'. For Lahajati: Arabic persona/role instruction describing HOW to speak (e.g., 'اقرأ بصوت واثق وحماسي كأنك مذيع رياضي' - read confidently and enthusiastically like a sports announcer).",
                 },
+                dialectId: {
+                  type: "number",
+                  description:
+                    "Lahajati Arabic dialect ID (e.g., 7 for Cairo, 8 for Alexandria). Only for Lahajati provider.",
+                },
+                performanceId: {
+                  type: "number",
+                  description:
+                    "Lahajati performance style ID (e.g., 1542 for Automotive ad). Only for Lahajati provider.",
+                },
               },
               required: ["voiceId", "text"],
             },

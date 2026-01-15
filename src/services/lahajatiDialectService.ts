@@ -38,14 +38,57 @@ const FALLBACK_ACCENT_TO_DIALECT: Record<string, number> = {
   maghrebi: 35, // Maghrebi → Moroccan as default
 };
 
+// Arabic country prefixes for grouping dialects in UI
+const ARABIC_COUNTRY_MAP: Record<string, string> = {
+  'المصرية': 'egyptian',
+  'السعودية': 'saudi',
+  'السورية': 'syrian',
+  'اللبنانية': 'lebanese',
+  'الأردنية': 'jordanian',
+  'الفلسطينية': 'palestinian',
+  'الجزائرية': 'algerian',
+  'المغربية': 'moroccan',
+  'التونسية': 'tunisian',
+  'العراقية': 'iraqi',
+  'اليمنية': 'yemeni',
+  'السودانية': 'sudanese',
+  'الليبية': 'libyan',
+  'العمانية': 'omani',
+  'الكويتية': 'kuwaiti',
+  'البحرينية': 'bahraini',
+  'القطرية': 'qatari',
+  'الإماراتية': 'emirati',
+  'الموريتانية': 'mauritanian',
+  'الفصحى': 'standard',  // Modern Standard Arabic
+};
+
+export type ArabicDialect = {
+  dialect_id: number;
+  display_name: string;  // Arabic name (e.g., "المصرية (القاهرية)")
+  country: string;       // English country code for grouping (e.g., "egyptian")
+};
+
 type DialectCache = {
   accentToDialectId: Record<string, number>;
   dialectIdToName: Record<number, string>;
+  allArabicDialects: ArabicDialect[];  // All Arabic dialects for UI
   lastUpdated: number;
 };
 
 class LahajatiDialectService {
   private cache: DialectCache | null = null;
+
+  /**
+   * Extract country code from Arabic display name
+   */
+  private getCountryFromName(displayName: string): string {
+    for (const [arabicPrefix, countryCode] of Object.entries(ARABIC_COUNTRY_MAP)) {
+      if (displayName.includes(arabicPrefix)) {
+        return countryCode;
+      }
+    }
+    return 'other';
+  }
 
   /**
    * Refresh dialect cache from Lahajati API
@@ -56,6 +99,7 @@ class LahajatiDialectService {
     count: number;
     mapped: number;
     unmapped: number;
+    arabicDialects: number;
   }> {
     try {
       console.log("🔄 Refreshing Lahajati dialects from API...");
@@ -63,6 +107,15 @@ class LahajatiDialectService {
 
       const { accentToDialectId, dialectIdToName, unmapped } =
         buildDialectMappings(dialects);
+
+      // Build all Arabic dialects list (IDs 1-72)
+      const allArabicDialects: ArabicDialect[] = dialects
+        .filter(d => d.dialect_id <= 72)
+        .map(d => ({
+          dialect_id: d.dialect_id,
+          display_name: d.display_name,
+          country: this.getCountryFromName(d.display_name),
+        }));
 
       // Log unmapped Arabic dialects for review
       if (unmapped.length > 0) {
@@ -78,13 +131,14 @@ class LahajatiDialectService {
       this.cache = {
         accentToDialectId,
         dialectIdToName,
+        allArabicDialects,
         lastUpdated: Date.now(),
       };
 
       await redis.set(REDIS_KEY, this.cache);
 
       console.log(
-        `✅ Lahajati dialects cached: ${dialects.length} total, ${
+        `✅ Lahajati dialects cached: ${dialects.length} total, ${allArabicDialects.length} Arabic, ${
           Object.keys(accentToDialectId).length
         } accent mappings`
       );
@@ -94,10 +148,11 @@ class LahajatiDialectService {
         count: dialects.length,
         mapped: Object.keys(accentToDialectId).length,
         unmapped: unmapped.length,
+        arabicDialects: allArabicDialects.length,
       };
     } catch (error) {
       console.error("❌ Failed to refresh Lahajati dialects:", error);
-      return { success: false, count: 0, mapped: 0, unmapped: 0 };
+      return { success: false, count: 0, mapped: 0, unmapped: 0, arabicDialects: 0 };
     }
   }
 
@@ -158,6 +213,7 @@ class LahajatiDialectService {
     return {
       accentToDialectId: FALLBACK_ACCENT_TO_DIALECT,
       dialectIdToName: {},
+      allArabicDialects: [],
       lastUpdated: 0,
     };
   }
@@ -169,6 +225,15 @@ class LahajatiDialectService {
   async getAvailableAccents(): Promise<string[]> {
     const cache = await this.getCache();
     return Object.keys(cache.accentToDialectId);
+  }
+
+  /**
+   * Get all Arabic dialects for UI dropdown
+   * Returns dialects grouped by country for easier navigation
+   */
+  async getArabicDialects(): Promise<ArabicDialect[]> {
+    const cache = await this.getCache();
+    return cache.allArabicDialects;
   }
 
   /**

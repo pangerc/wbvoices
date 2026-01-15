@@ -10,10 +10,13 @@ interface ScriptVoiceItem {
   overlap?: number;
   // Provider-specific fields
   style?: string;              // Lovo emotional style
-  useCase?: string;            // Lovo use case  
+  useCase?: string;            // Lovo use case
   description?: string;        // ElevenLabs emotional tone
   use_case?: string;           // ElevenLabs use case
   voiceInstructions?: string;  // OpenAI voice control instructions
+  // Lahajati-specific fields
+  dialectId?: number;          // Lahajati Arabic dialect ID (e.g., 7 for Cairo)
+  performanceId?: number;      // Lahajati performance style ID (e.g., 1542 for Automotive ad)
 }
 
 interface ScriptSoundFxItem {
@@ -234,6 +237,9 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
             style: item.style || item.description,           // Lovo uses style, ElevenLabs uses description
             useCase: item.useCase || item.use_case,          // Lovo uses useCase, ElevenLabs uses use_case
             voiceInstructions: item.voiceInstructions,       // OpenAI only
+            // Lahajati-specific fields
+            dialectId: item.dialectId,                       // Lahajati Arabic dialect ID
+            performanceId: item.performanceId,               // Lahajati performance style ID
           };
 
           // Debug logging to see what we're extracting
@@ -243,7 +249,9 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
             text: item.text.substring(0, 30) + '...',
             style: voiceTrack.style,
             useCase: voiceTrack.useCase,
-            voiceInstructions: voiceTrack.voiceInstructions
+            voiceInstructions: voiceTrack.voiceInstructions,
+            dialectId: voiceTrack.dialectId,
+            performanceId: voiceTrack.performanceId,
           });
 
           // Add timing information if provided
@@ -308,6 +316,9 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
                 style: element.style || element.description,           // Lovo uses style, ElevenLabs uses description
                 useCase: element.useCase || element.use_case,          // Lovo uses useCase, ElevenLabs uses use_case
                 voiceInstructions: element.voiceInstructions,          // OpenAI only
+                // Lahajati-specific fields
+                dialectId: element.dialectId,                          // Lahajati Arabic dialect ID
+                performanceId: element.performanceId,                  // Lahajati performance style ID
                 isConcurrent: true, // Mark as concurrent so mixer can handle it specially
               };
 

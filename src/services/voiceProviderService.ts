@@ -385,58 +385,65 @@ export function getOpenAIVoices(): ProviderVoice[] {
  * All Lahajati voices support all 116 Arabic dialects - the dialect is passed at TTS time
  */
 export async function fetchLahajatiVoices(): Promise<ProviderVoice[]> {
-  const apiKey = process.env.LAHAJATI_SECRET_KEY;
-  if (!apiKey) {
-    throw new Error("Lahajati API key is missing");
-  }
-
-  // Fetch all voices (paginated, max 339 voices)
-  const allVoices: LahajatiVoice[] = [];
-  let page = 1;
-  let hasMore = true;
-
-  while (hasMore) {
-    const response = await fetch(
-      `https://lahajati.ai/api/v1/voices-absolute-control?page=${page}`,
-      {
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Accept": "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Lahajati voices API error: ${errorText}`);
+  return fetchWithRetry(async () => {
+    const apiKey = process.env.LAHAJATI_SECRET_KEY;
+    if (!apiKey) {
+      throw new Error("Lahajati API key is missing");
     }
 
-    const data = await response.json();
-    allVoices.push(...(data.data || []));
+    // Fetch all voices (paginated, max 339 voices)
+    const allVoices: LahajatiVoice[] = [];
+    let page = 1;
+    let hasMore = true;
 
-    // Check if there are more pages
-    hasMore = data.meta && data.meta.current_page < data.meta.last_page;
-    page++;
-  }
+    while (hasMore) {
+      const response = await fetch(
+        `https://lahajati.ai/api/v1/voices-absolute-control?page=${page}&per_page=${LAHAJATI_PER_PAGE}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Accept": "application/json",
+          },
+        }
+      );
 
-  console.log(`📡 Lahajati: fetched ${allVoices.length} voices`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Lahajati voices API error: ${errorText}`);
+      }
 
-  // Transform to ProviderVoice format
-  // All Lahajati voices are Arabic and support all dialects
-  const voices: ProviderVoice[] = allVoices
-    .filter(voice => !voice.is_cloned) // Only include non-cloned voices
-    .map(voice => ({
-      id: voice.id_voice,
-      name: voice.display_name,
-      gender: voice.gender?.toLowerCase() || 'neutral',
-      language: 'ar', // All Lahajati voices are Arabic
-      accent: 'standard', // Dialect-agnostic (dialect passed at TTS time)
-      description: `${voice.display_name} - Arabic voice`,
-      use_case: 'advertisement',
-      isMultilingual: false,
-    }));
+      const data = await response.json();
+      allVoices.push(...(data.data || []));
 
-  return voices;
+      // Check if there are more pages
+      hasMore = data.meta && data.meta.current_page < data.meta.last_page;
+
+      // Rate limit: wait before next page
+      if (hasMore) {
+        await sleep(LAHAJATI_RATE_LIMIT_DELAY);
+      }
+      page++;
+    }
+
+    console.log(`📡 Lahajati: fetched ${allVoices.length} voices`);
+
+    // Transform to ProviderVoice format
+    // All Lahajati voices are Arabic and support all dialects
+    const voices: ProviderVoice[] = allVoices
+      .filter(voice => !voice.is_cloned) // Only include non-cloned voices
+      .map(voice => ({
+        id: voice.id_voice,
+        name: voice.display_name,
+        gender: voice.gender?.toLowerCase() || 'neutral',
+        language: 'ar', // All Lahajati voices are Arabic
+        accent: 'standard', // Dialect-agnostic (dialect passed at TTS time)
+        description: `${voice.display_name} - Arabic voice`,
+        use_case: 'advertisement',
+        isMultilingual: false,
+      }));
+
+    return voices;
+  }, "fetchLahajatiVoices");
 }
 
 // Lahajati voice type
@@ -454,44 +461,140 @@ export type LahajatiDialect = {
   display_name: string; // Arabic only (e.g., "المصرية (القاهرية)")
 };
 
+// Lahajati performance type (from /api/v1/performance-absolute-control)
+export type LahajatiPerformance = {
+  performance_id: number;
+  display_name: string; // Arabic (e.g., "إعلان سيارة")
+};
+
+// Rate limit helper for Lahajati API
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const LAHAJATI_RATE_LIMIT_DELAY = 2500; // 2.5s = 24 req/min (under 25 RPM limit for Content Creator package)
+const LAHAJATI_PER_PAGE = 100; // Max allowed by API - reduces total requests significantly
+
+/**
+ * Retry helper with exponential backoff for Lahajati API rate limiting
+ * On "Too Many Attempts", waits 10s → 20s → 40s before retrying
+ */
+async function fetchWithRetry<T>(
+  fetchFn: () => Promise<T>,
+  operationName: string,
+  maxRetries = 3
+): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fetchFn();
+    } catch (error) {
+      if (
+        attempt < maxRetries &&
+        error instanceof Error &&
+        error.message.includes("Too Many Attempts")
+      ) {
+        const waitTime = Math.pow(2, attempt) * 10000; // 10s, 20s, 40s
+        console.log(`⏳ ${operationName}: Rate limited, waiting ${waitTime / 1000}s before retry ${attempt + 1}/${maxRetries}...`);
+        await sleep(waitTime);
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw new Error(`${operationName} failed after ${maxRetries} retries`);
+}
+
 /**
  * Fetch all dialects from Lahajati API (paginated - 116 total across 8 pages)
  * Used during voice cache refresh to build dialect mappings
+ * Includes retry logic with exponential backoff for rate limiting
  */
 export async function fetchLahajatiDialects(): Promise<LahajatiDialect[]> {
-  const apiKey = process.env.LAHAJATI_SECRET_KEY;
-  if (!apiKey) {
-    throw new Error("Lahajati API key is missing");
-  }
-
-  const allDialects: LahajatiDialect[] = [];
-  let page = 1;
-  let lastPage = 1;
-
-  do {
-    const response = await fetch(
-      `https://lahajati.ai/api/v1/dialect-absolute-control?page=${page}`,
-      {
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Accept": "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Lahajati dialects API error: ${errorText}`);
+  return fetchWithRetry(async () => {
+    const apiKey = process.env.LAHAJATI_SECRET_KEY;
+    if (!apiKey) {
+      throw new Error("Lahajati API key is missing");
     }
 
-    const data = await response.json();
-    allDialects.push(...(data.data || []));
-    lastPage = data.meta?.last_page || 1;
-    page++;
-  } while (page <= lastPage);
+    const allDialects: LahajatiDialect[] = [];
+    let page = 1;
+    let lastPage = 1;
 
-  console.log(`📡 Lahajati: fetched ${allDialects.length} dialects`);
-  return allDialects;
+    do {
+      const response = await fetch(
+        `https://lahajati.ai/api/v1/dialect-absolute-control?page=${page}&per_page=${LAHAJATI_PER_PAGE}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Accept": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Lahajati dialects API error: ${errorText}`);
+      }
+
+      const data = await response.json();
+      allDialects.push(...(data.data || []));
+      lastPage = data.meta?.last_page || 1;
+
+      // Rate limit: wait before next page
+      if (page < lastPage) {
+        await sleep(LAHAJATI_RATE_LIMIT_DELAY);
+      }
+      page++;
+    } while (page <= lastPage);
+
+    console.log(`📡 Lahajati: fetched ${allDialects.length} dialects`);
+    return allDialects;
+  }, "fetchLahajatiDialects");
+}
+
+/**
+ * Fetch all performance styles from Lahajati API (paginated)
+ * Used during voice cache refresh to build performance mappings
+ * Includes retry logic with exponential backoff for rate limiting
+ */
+export async function fetchLahajatiPerformances(): Promise<LahajatiPerformance[]> {
+  return fetchWithRetry(async () => {
+    const apiKey = process.env.LAHAJATI_SECRET_KEY;
+    if (!apiKey) {
+      throw new Error("Lahajati API key is missing");
+    }
+
+    const allPerformances: LahajatiPerformance[] = [];
+    let page = 1;
+    let lastPage = 1;
+
+    do {
+      const response = await fetch(
+        `https://lahajati.ai/api/v1/performance-absolute-control?page=${page}&per_page=${LAHAJATI_PER_PAGE}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Accept": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Lahajati performances API error: ${errorText}`);
+      }
+
+      const data = await response.json();
+      allPerformances.push(...(data.data || []));
+      lastPage = data.meta?.last_page || 1;
+
+      // Rate limit: wait before next page
+      if (page < lastPage) {
+        await sleep(LAHAJATI_RATE_LIMIT_DELAY);
+      }
+      page++;
+    } while (page <= lastPage);
+
+    console.log(`📡 Lahajati: fetched ${allPerformances.length} performance styles`);
+    return allPerformances;
+  }, "fetchLahajatiPerformances");
 }
 
 // Helper functions

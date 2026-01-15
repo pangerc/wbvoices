@@ -53,7 +53,7 @@ export class LahajatiVoiceProvider extends BaseAudioProvider {
   readonly providerType = 'voice' as const;
 
   validateParams(body: Record<string, unknown>): ValidationResult {
-    const { text, voiceId, style, accent, dialectId, projectId, voiceInstructions } = body;
+    const { text, voiceId, style, accent, dialectId, performanceId, projectId, voiceInstructions } = body;
 
     if (!text || typeof text !== 'string') {
       return {
@@ -77,6 +77,7 @@ export class LahajatiVoiceProvider extends BaseAudioProvider {
         style: typeof style === 'string' ? style : undefined,
         accent: typeof accent === 'string' ? accent : undefined,
         dialectId: typeof dialectId === 'number' ? dialectId : undefined,
+        performanceId: typeof performanceId === 'number' ? performanceId : undefined,
         projectId: typeof projectId === 'string' ? projectId : undefined,
         voiceInstructions: typeof voiceInstructions === 'string' ? voiceInstructions : undefined
       }
@@ -115,13 +116,24 @@ export class LahajatiVoiceProvider extends BaseAudioProvider {
   }
 
   /**
-   * Resolves performance_id from voiceTone/style
+   * Resolves performance_id from either:
+   * 1. Explicit performanceId passed in params (from LLM selection)
+   * 2. style/tone mapped through PERFORMANCE_MAP
+   * 3. Default neutral style (1306)
    */
-  private resolvePerformanceId(style?: string): number {
-    if (!style) return DEFAULT_PERFORMANCE_ID;
+  private resolvePerformanceId(performanceId?: number, style?: string): number {
+    // Explicit performance ID takes precedence (from LLM selection)
+    if (typeof performanceId === 'number' && performanceId > 0) {
+      return performanceId;
+    }
 
-    const styleLower = style.toLowerCase();
-    return PERFORMANCE_MAP[styleLower] || DEFAULT_PERFORMANCE_ID;
+    // Fall back to style-based mapping
+    if (style) {
+      const styleLower = style.toLowerCase();
+      return PERFORMANCE_MAP[styleLower] || DEFAULT_PERFORMANCE_ID;
+    }
+
+    return DEFAULT_PERFORMANCE_ID;
   }
 
   /**
@@ -133,7 +145,7 @@ export class LahajatiVoiceProvider extends BaseAudioProvider {
   }
 
   async makeRequest(params: Record<string, unknown>, credentials: AuthCredentials): Promise<ProviderResponse> {
-    const { text, voiceId, style, accent, dialectId, voiceInstructions } = params;
+    const { text, voiceId, style, accent, dialectId, performanceId, voiceInstructions } = params;
     const { apiKey } = credentials;
 
     // Resolve dialect ID from cache (async - fetched from Lahajati API)
@@ -141,14 +153,18 @@ export class LahajatiVoiceProvider extends BaseAudioProvider {
       dialectId as number | undefined,
       accent as string | undefined
     );
-    const resolvedPerformanceId = this.resolvePerformanceId(style as string | undefined);
+    // Resolve performance ID - explicit ID takes precedence over style-based mapping
+    const resolvedPerformanceId = this.resolvePerformanceId(
+      performanceId as number | undefined,
+      style as string | undefined
+    );
 
     console.log(`🎭 Lahajati TTS API Call:`);
     console.log(`  Text: "${(text as string).substring(0, 50)}..."`);
     console.log(`  Voice ID: ${voiceId}`);
     console.log(`  Accent: ${accent || 'not specified'}`);
-    console.log(`  Dialect ID: ${resolvedDialectId}`);
-    console.log(`  Style: ${style || 'neutral'}`);
+    console.log(`  Dialect ID: ${resolvedDialectId}${dialectId ? ' (explicit)' : ' (resolved from accent)'}`);
+    console.log(`  Performance ID: ${resolvedPerformanceId}${performanceId ? ' (explicit)' : ` (from style: ${style || 'neutral'})`}`);
     console.log(`  Voice Instructions: ${voiceInstructions ? 'provided' : 'none'}`);
 
     // Determine input mode: "1" (custom prompt) when voiceInstructions provided, else "0" (structured)
