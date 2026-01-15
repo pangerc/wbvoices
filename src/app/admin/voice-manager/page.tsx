@@ -691,6 +691,7 @@ function getVoiceApiEndpoint(provider: Provider): string {
     lovo: "/api/voice/lovo-v2",
     qwen: "/api/voice/qwen-v2",
     bytedance: "/api/voice/bytedance-v2",
+    lahajati: "/api/voice/lahajati-v2",
   };
   return endpoints[provider] || endpoints.elevenlabs;
 }
