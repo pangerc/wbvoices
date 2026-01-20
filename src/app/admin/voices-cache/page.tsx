@@ -213,6 +213,49 @@ export default function VoicesCachePage() {
               </div>
             </div>
 
+            {/* Languages by Provider */}
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-6">
+              <h2 className="text-xl font-bold mb-4">Languages by Provider</h2>
+              <div className="grid grid-cols-6 gap-4">
+                <div>
+                  <div className="text-sm text-gray-400 mb-1">ElevenLabs</div>
+                  <div className="text-2xl font-bold">
+                    {stats.languages.filter(l => l.providers.elevenlabs > 0).length}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-400 mb-1">Lovo</div>
+                  <div className="text-2xl font-bold">
+                    {stats.languages.filter(l => l.providers.lovo > 0).length}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-400 mb-1">OpenAI</div>
+                  <div className="text-2xl font-bold">
+                    {stats.languages.filter(l => l.providers.openai > 0).length}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-400 mb-1">Qwen</div>
+                  <div className="text-2xl font-bold">
+                    {stats.languages.filter(l => l.providers.qwen > 0).length}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-400 mb-1">ByteDance</div>
+                  <div className="text-2xl font-bold">
+                    {stats.languages.filter(l => l.providers.bytedance > 0).length}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-400 mb-1">Lahajati</div>
+                  <div className="text-2xl font-bold">
+                    {stats.languages.filter(l => l.providers.lahajati > 0).length}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Language Details Table */}
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg overflow-hidden">
               <div className="p-6 border-b border-white/10">
