@@ -82,7 +82,7 @@ export function SfxDraftEditor({
     setSoundFxPrompts(newPrompts);
 
     // Check if content-affecting fields changed
-    const contentFields = ['description', 'duration'];
+    const contentFields = ['description', 'duration', 'placement'];
     const contentChanged = contentFields.some(field => field in updates);
 
     // Build the patch body

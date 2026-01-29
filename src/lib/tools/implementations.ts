@@ -172,8 +172,8 @@ export async function createMusicDraft(
   if (!effectiveDuration) {
     const meta = await getAdMetadata(adId);
     const briefDuration = meta?.brief?.adDuration || 30;
-    // Music should be slightly longer than ad to allow fade-out
-    effectiveDuration = Math.max(30, briefDuration + 5);
+    // Music should be longer than ad to allow for LLM overruns and fade-out
+    effectiveDuration = Math.max(30, briefDuration + 15);
     console.log(`[create_music_draft] Derived duration ${effectiveDuration}s from brief (ad: ${briefDuration}s)`);
   }
 
@@ -238,7 +238,7 @@ export async function createSfxDraft(
         description: p.description,
         placement: placement || { type: "end" },
         duration: p.duration || 3,
-        playAfter: "start",
+        // playAfter intentionally omitted - placement is the source of truth
         overlap: 0,
       };
     }),

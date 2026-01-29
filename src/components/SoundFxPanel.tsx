@@ -106,7 +106,8 @@ export function SoundFxPanel({
   // Helper to convert placement intent to string option for listbox
   const placementIntentToOption = (placement?: SoundFxPlacementIntent): string => {
     if (!placement) return "end";
-    if (placement.type === "start") return "start";
+    // Both "start" and "beforeVoices" map to the "start" UI option (sequential intro)
+    if (placement.type === "start" || placement.type === "beforeVoices") return "start";
     if (placement.type === "withFirstVoice") return "withFirstVoice";
     if (placement.type === "afterVoice" && placement.index !== undefined) {
       return `afterVoice-${placement.index}`;

@@ -16,7 +16,6 @@ import {
   LibraryIcon,
 } from "./ui";
 import { FileUpload, useFileUpload } from "./ui/FileUpload";
-import { useMixerStore } from "@/store/mixerStore";
 import { useParams } from "next/navigation";
 
 type MusicMode = 'generate' | 'upload' | 'library';
@@ -63,7 +62,7 @@ type MusicPanelProps = {
   musicProvider: MusicProvider;
   setMusicProvider: (provider: MusicProvider) => void;
   resetForm: () => void;
-  onTrackSelected?: () => void; // Optional callback after track selection/upload
+  onTrackSelected?: (url?: string) => void; // Optional callback with URL after track selection/upload
   initialPrompts?: MusicPrompts; // Initial prompts from draft version
 };
 
@@ -80,7 +79,6 @@ export function MusicPanel({
 }: MusicPanelProps) {
   const params = useParams();
   const projectId = params.id as string;
-  const { addTrack, clearTracks } = useMixerStore();
   
   // File upload hook
   const {
@@ -230,58 +228,21 @@ export function MusicPanel({
     });
   };
 
-  // Handle music upload completion
+  // Handle music upload completion - passes URL to parent for Redis persistence
   const handleMusicUpload = async (result: { url: string; filename: string }) => {
     handleUploadComplete("music")(result);
+    console.log('✅ Custom music track uploaded');
 
-    // Note: In V3 workspace, music uploads are handled through the version stream API
-    // The mixer store is updated separately when versions are loaded
-
-    // Clear existing music tracks from mixer
-    clearTracks("music");
-
-    // Add track to mixer store
-    addTrack({
-      id: `custom-music-${Date.now()}`,
-      url: result.url,
-      label: "Custom Music Track",
-      type: "music",
-      metadata: {
-        originalDuration: duration,
-      },
-    });
-
-    console.log('✅ Custom music track uploaded and added to mixer');
-
-    // Switch to mixer tab to show the result
-    onTrackSelected?.();
+    // Pass URL to parent for Redis persistence (V3 source of truth)
+    onTrackSelected?.(result.url);
   };
 
-  // Handle library track selection
+  // Handle library track selection - passes URL to parent for Redis persistence
   const handleLibraryTrackSelect = async (track: LibraryMusicTrack) => {
-    // Note: In V3 workspace, library selections are handled through the version stream API
-    // The mixer store is updated separately when versions are loaded
+    console.log(`✅ Library music track from "${track.projectTitle}" selected`);
 
-    // Clear existing music tracks from mixer
-    clearTracks("music");
-
-    // Add track to mixer store
-    addTrack({
-      id: `library-music-${Date.now()}`,
-      url: track.musicUrl,
-      label: `Music from "${track.projectTitle}"`,
-      type: "music",
-      metadata: {
-        originalDuration: track.duration,
-        source: 'library',
-        sourceProjectId: track.projectId,
-      },
-    });
-
-    console.log(`✅ Library music track from "${track.projectTitle}" added to mixer`);
-
-    // Switch to mixer tab to show the result
-    onTrackSelected?.();
+    // Pass URL to parent for Redis persistence (V3 source of truth)
+    onTrackSelected?.(track.musicUrl);
   };
 
   // Handle local reset

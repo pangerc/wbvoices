@@ -383,7 +383,7 @@ export async function POST(req: NextRequest) {
 
           try {
             const musicProvider = musicVersion.provider || "loudly";
-            const musicDuration = musicVersion.duration || duration + 5;
+            const musicDuration = musicVersion.duration || duration + 15;
             const adjustedDuration =
               musicProvider === "loudly" ? Math.ceil(musicDuration / 15) * 15 : musicDuration;
 

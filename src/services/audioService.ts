@@ -245,10 +245,8 @@ export class AudioService {
         }" (${actualDuration.toFixed(1)}s)`,
         type: "soundfx",
         duration: actualDuration,
-        // Convert placement intent to playAfter for timeline calculator
-        playAfter: soundFxPrompt?.placement?.type === "start"
-          ? "start"
-          : soundFxPrompt?.playAfter,
+        // playAfter intentionally undefined - placementIntent is the source of truth
+        playAfter: undefined,
         overlap: soundFxPrompt?.overlap,
         metadata: {
           promptText: prompt,

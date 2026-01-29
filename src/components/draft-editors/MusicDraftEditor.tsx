@@ -191,6 +191,22 @@ export function MusicDraftEditor({
     setMusicProvider(draftVersion.provider);
   };
 
+  // Handle custom music upload or library selection - persist URL to Redis (V3 source of truth)
+  const handleTrackSelected = async (url?: string) => {
+    if (!url) return;
+
+    try {
+      await fetch(`/api/ads/${adId}/music/${draftVersionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generatedUrl: url }),
+      });
+      onUpdate(); // SWR refresh to enable play button
+    } catch (error) {
+      console.error("Failed to persist custom music URL:", error);
+    }
+  };
+
   return (
     <>
       <MusicPanel
@@ -202,6 +218,7 @@ export function MusicDraftEditor({
         setMusicProvider={handleProviderChange}
         resetForm={resetForm}
         initialPrompts={draftVersion.musicPrompts}
+        onTrackSelected={handleTrackSelected}
       />
       <VersionIterationInput
         adId={adId}
