@@ -14,6 +14,7 @@ import {
   GenerateIcon,
   UploadIcon,
   LibraryIcon,
+  LoadingSpinner,
 } from "./ui";
 import { FileUpload, useFileUpload } from "./ui/FileUpload";
 import { useParams } from "next/navigation";
@@ -48,6 +49,8 @@ const DURATION_TICK_MARKS = [
   { value: 60, label: "60s" },
   { value: 75, label: "75s" },
   { value: 90, label: "90s" },
+  { value: 105, label: "105s" },
+  { value: 120, label: "120s" },
 ];
 
 type MusicPanelProps = {
@@ -62,8 +65,11 @@ type MusicPanelProps = {
   musicProvider: MusicProvider;
   setMusicProvider: (provider: MusicProvider) => void;
   resetForm: () => void;
-  onTrackSelected?: (url?: string) => void; // Optional callback with URL after track selection/upload
+  onTrackSelected?: (url: string, filename?: string, duration?: number) => void; // Optional callback with URL after track selection/upload
   initialPrompts?: MusicPrompts; // Initial prompts from draft version
+  initialProvider?: MusicProvider; // Provider from draft version (to detect custom uploads)
+  hasGeneratedUrl?: boolean; // Whether draft already has a generated URL
+  existingFilename?: string; // For custom uploads: shows which file is loaded (from musicPrompt)
 };
 
 export function MusicPanel({
@@ -76,6 +82,9 @@ export function MusicPanel({
   resetForm,
   onTrackSelected,
   initialPrompts,
+  initialProvider,
+  hasGeneratedUrl,
+  existingFilename,
 }: MusicPanelProps) {
   const params = useParams();
   const projectId = params.id as string;
@@ -84,13 +93,15 @@ export function MusicPanel({
   const {
     uploadedFiles,
     isUploading,
+    uploadingFilename,
     errors,
     handleUploadComplete,
     handleUploadError,
+    startUpload,
   } = useFileUpload();
   
   const [mode, setMode] = useState<MusicMode>('generate');
-  const [duration, setDuration] = useState(Math.max(30, adDuration + 5));
+  const [duration, setDuration] = useState(Math.max(30, adDuration + 15));
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
 
   // Provider-specific prompts - one state per provider
@@ -109,9 +120,16 @@ export function MusicPanel({
   // Note: Music prompts are now managed through the V3 version stream system
   // The draft version already contains all necessary data
 
-  // Update duration when adDuration changes - add 5 seconds for smoother fade, minimum 30s
+  // Initialize mode based on whether this is a custom upload with audio
   useEffect(() => {
-    setDuration(Math.max(30, adDuration + 5));
+    if (initialProvider === "custom" && hasGeneratedUrl) {
+      setMode('upload');
+    }
+  }, [initialProvider, hasGeneratedUrl]);
+
+  // Update duration when adDuration changes - add 15 seconds for LLM overruns and fade, minimum 30s
+  useEffect(() => {
+    setDuration(Math.max(30, adDuration + 15));
   }, [adDuration]);
 
   // Update local status message when parent status message changes
@@ -229,27 +247,27 @@ export function MusicPanel({
   };
 
   // Handle music upload completion - passes URL to parent for Redis persistence
-  const handleMusicUpload = async (result: { url: string; filename: string }) => {
+  const handleMusicUpload = async (result: { url: string; filename: string; duration?: number }) => {
     handleUploadComplete("music")(result);
-    console.log('✅ Custom music track uploaded');
+    console.log('✅ Custom music track uploaded:', result.filename, 'duration:', result.duration);
 
-    // Pass URL to parent for Redis persistence (V3 source of truth)
-    onTrackSelected?.(result.url);
+    // Pass URL, filename, and duration to parent for V3 version creation
+    onTrackSelected?.(result.url, result.filename, result.duration ?? undefined);
   };
 
   // Handle library track selection - passes URL to parent for Redis persistence
   const handleLibraryTrackSelect = async (track: LibraryMusicTrack) => {
     console.log(`✅ Library music track from "${track.projectTitle}" selected`);
 
-    // Pass URL to parent for Redis persistence (V3 source of truth)
-    onTrackSelected?.(track.musicUrl);
+    // Pass URL, filename (project title), and duration to parent for V3 version creation
+    onTrackSelected?.(track.musicUrl, `${track.projectTitle} (library)`, track.duration ?? undefined);
   };
 
   // Handle local reset
   const handleReset = () => {
     setMode('generate');
     setMusicProvider("elevenlabs");
-    setDuration(Math.max(30, adDuration + 5));
+    setDuration(Math.max(30, adDuration + 15));
     setLocalStatusMessage("");
     setProviderPrompts({
       loudly: "",
@@ -260,7 +278,7 @@ export function MusicPanel({
   };
 
   const handleGenerate = () => {
-    const prompt = providerPrompts[musicProvider];
+    const prompt = providerPrompts[musicProvider] || "";
 
     // For Loudly, we need to round to the nearest 15 seconds
     if (musicProvider === "loudly") {
@@ -272,37 +290,43 @@ export function MusicPanel({
     }
   };
 
+  // Only show mode tabs for custom provider OR drafts without generated audio yet
+  // LLM-generated drafts with audio shouldn't show upload/library tabs (confusing UX)
+  const showModeTabs = initialProvider === "custom" || !hasGeneratedUrl;
+
   return (
     <div className="py-8 text-white">
-      {/* Mode Toggle */}
-      <div className="flex justify-center mb-8">
-        <GlassTabBar>
-          <Tooltip content="Generate AI music" side="bottom">
-            <GlassTab
-              isActive={mode === 'generate'}
-              onClick={() => setMode('generate')}
-            >
-              <GenerateIcon isActive={mode === 'generate'} />
-            </GlassTab>
-          </Tooltip>
-          <Tooltip content="Upload custom music" side="bottom">
-            <GlassTab
-              isActive={mode === 'upload'}
-              onClick={() => setMode('upload')}
-            >
-              <UploadIcon isActive={mode === 'upload'} />
-            </GlassTab>
-          </Tooltip>
-          <Tooltip content="Browse music library" side="bottom">
-            <GlassTab
-              isActive={mode === 'library'}
-              onClick={() => setMode('library')}
-            >
-              <LibraryIcon isActive={mode === 'library'} />
-            </GlassTab>
-          </Tooltip>
-        </GlassTabBar>
-      </div>
+      {/* Mode Toggle - only show for custom uploads or drafts without audio */}
+      {showModeTabs && (
+        <div className="flex justify-center mb-8">
+          <GlassTabBar>
+            <Tooltip content="Generate AI music" side="bottom">
+              <GlassTab
+                isActive={mode === 'generate'}
+                onClick={() => setMode('generate')}
+              >
+                <GenerateIcon isActive={mode === 'generate'} />
+              </GlassTab>
+            </Tooltip>
+            <Tooltip content="Upload custom music" side="bottom">
+              <GlassTab
+                isActive={mode === 'upload'}
+                onClick={() => setMode('upload')}
+              >
+                <UploadIcon isActive={mode === 'upload'} />
+              </GlassTab>
+            </Tooltip>
+            <Tooltip content="Browse music library" side="bottom">
+              <GlassTab
+                isActive={mode === 'library'}
+                onClick={() => setMode('library')}
+              >
+                <LibraryIcon isActive={mode === 'library'} />
+              </GlassTab>
+            </Tooltip>
+          </GlassTabBar>
+        </div>
+      )}
 
       {mode === 'generate' ? (
         <>
@@ -386,14 +410,14 @@ export function MusicPanel({
                 value={duration}
                 onChange={setDuration}
                 min={30}
-                max={90}
+                max={120}
                 step={musicProvider === "loudly" ? 15 : 5}
                 formatLabel={(val) =>
                   `${val} seconds${
                     musicProvider === "loudly" && val % 15 !== 0
                       ? " (will be rounded to nearest 15s)"
                       : ""
-                  }${val === Math.max(30, adDuration + 5) ? " (recommended)" : ""}`
+                  }${val === Math.max(30, adDuration + 15) ? " (recommended)" : ""}`
                 }
                 tickMarks={DURATION_TICK_MARKS}
               />
@@ -409,19 +433,54 @@ export function MusicPanel({
       ) : mode === 'upload' ? (
         /* Upload Mode */
         <div className="max-w-2xl mx-auto">
+          {/* Show existing custom upload state if present */}
+          {initialProvider === "custom" && hasGeneratedUrl && existingFilename && !isUploading.music && (
+            <div className="text-center mb-8">
+              <div className="p-6 bg-green-500/10 border border-green-500/20 rounded-xl">
+                <p className="text-green-400 font-medium text-lg">Custom Track Loaded</p>
+                <p className="text-gray-300 mt-2">{existingFilename}</p>
+                <p className="text-gray-500 text-sm mt-4">
+                  Upload a new file below to replace this track
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Upload in progress state */}
+          {isUploading.music && (
+            <div className="mb-8 p-6 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+              <div className="flex items-center gap-4">
+                <LoadingSpinner size="md" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-blue-400 font-medium">Uploading...</p>
+                  {uploadingFilename.music && (
+                    <p className="text-gray-400 text-sm mt-1 truncate">
+                      {uploadingFilename.music}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {/* Indeterminate progress bar */}
+              <div className="mt-4 h-1 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full animate-progress-indeterminate" />
+              </div>
+            </div>
+          )}
+
           <div className="text-center mb-8">
             <FileUpload
               fileType="custom-music"
               projectId={projectId}
               onUploadComplete={handleMusicUpload}
               onUploadError={handleUploadError("music")}
+              onUploadStart={(filename) => startUpload("music", filename)}
               disabled={isUploading.music}
               className="w-full px-8 py-12 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 text-white hover:bg-white/10 transition-colors disabled:opacity-50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
             >
               <div className="text-center">
                 <UploadIcon size={48} className="mx-auto mb-4 opacity-70" />
                 <h3 className="text-lg font-semibold mb-2">
-                  {isUploading.music ? "Uploading..." : "Upload Music Track"}
+                  {isUploading.music ? "Uploading..." : (hasGeneratedUrl && initialProvider === "custom" ? "Replace Music Track" : "Upload Music Track")}
                 </h3>
                 <p className="text-gray-400 text-sm mb-4">
                   Drag & drop your music file here, or click to browse
@@ -436,9 +495,9 @@ export function MusicPanel({
               <p className="text-red-400 text-sm mt-4">{errors.music}</p>
             )}
 
-            {uploadedFiles.music && (
+            {uploadedFiles.music && !isUploading.music && (
               <div className="mt-6 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
-                <p className="text-green-400 font-medium">✅ Upload Complete</p>
+                <p className="text-green-400 font-medium">Upload Complete</p>
                 <p className="text-gray-400 text-sm mt-1">
                   {uploadedFiles.music.filename}
                 </p>

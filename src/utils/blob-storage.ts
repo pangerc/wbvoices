@@ -113,20 +113,27 @@ export async function uploadVoiceToBlob(
   provider: 'elevenlabs' | 'lovo' | 'openai' | 'qwen' | 'bytedance' | 'lahajati',
   projectId?: string
 ): Promise<{ url: string; downloadUrl: string; duration: number }> {
+  // Determine file extension and content type based on actual blob type
+  // Qwen returns WAV, others typically return MP3
+  const isWav = audioBlob.type.includes('wav');
+  const ext = isWav ? 'wav' : 'mp3';
+  const contentType = audioBlob.type || 'audio/mpeg';
+
   const filename = generateBlobFilename(
     `voice-${provider}-${voiceId}`,
-    'mp3',
+    ext,
     projectId
   );
 
   // Measure duration from audio blob before uploading
+  // Let music-metadata auto-detect the format (fixes WAV from Qwen being parsed as MP3)
   let duration = 0;
   try {
     const arrayBuffer = await audioBlob.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
-    const metadata = await mm.parseBuffer(uint8Array, 'audio/mpeg');
+    const metadata = await mm.parseBuffer(uint8Array);
     duration = metadata.format.duration || 0;
-    console.log(`📏 Measured voice duration: ${duration.toFixed(2)}s`);
+    console.log(`📏 Measured voice duration: ${duration.toFixed(2)}s (format: ${metadata.format.container || 'unknown'})`);
   } catch (error) {
     console.warn('Failed to measure voice duration:', error);
   }
@@ -134,7 +141,7 @@ export async function uploadVoiceToBlob(
   const result = await uploadToBlob(
     audioBlob,
     filename,
-    'audio/mpeg'
+    contentType
   );
 
   return { ...result, duration };

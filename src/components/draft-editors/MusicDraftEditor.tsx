@@ -191,19 +191,62 @@ export function MusicDraftEditor({
     setMusicProvider(draftVersion.provider);
   };
 
-  // Handle custom music upload or library selection - persist URL to Redis (V3 source of truth)
-  const handleTrackSelected = async (url?: string) => {
+  // Handle custom music upload or library selection - creates NEW version (V3 immutable pattern)
+  const handleTrackSelected = async (url: string, filename?: string, duration?: number) => {
     if (!url) return;
 
     try {
-      await fetch(`/api/ads/${adId}/music/${draftVersionId}`, {
+      // Step 1: Freeze existing draft first (same pattern as useStreamOperations)
+      if (draftVersionId) {
+        const freezeRes = await fetch(
+          `/api/ads/${adId}/music/${draftVersionId}/freeze?forceFreeze=true`,
+          { method: "POST" }
+        );
+        if (!freezeRes.ok) {
+          console.warn("Failed to freeze existing draft, continuing anyway");
+          // Continue - new version will become the draft regardless
+        }
+      }
+
+      // Step 2: Create new version (V3 immutable pattern)
+      const res = await fetch(`/api/ads/${adId}/music`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          musicPrompt: filename || "Custom track",
+          musicPrompts: { loudly: "", mubert: "", elevenlabs: "" },
+          duration: duration || 30,
+          provider: "custom",
+          createdBy: "user",
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to create custom music version");
+      }
+
+      const { versionId } = await res.json();
+
+      // Step 3: PATCH the URL onto the new version
+      const patchRes = await fetch(`/api/ads/${adId}/music/${versionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ generatedUrl: url }),
       });
-      onUpdate(); // SWR refresh to enable play button
+
+      if (!patchRes.ok) {
+        console.error("Failed to patch URL onto new version");
+        setStatusMessage("Upload partially failed. Please try again.");
+        return;
+      }
+
+      // Step 4: Refresh UI - only after all steps succeed
+      onUpdate();
+      setStatusMessage("Custom music track added!");
     } catch (error) {
-      console.error("Failed to persist custom music URL:", error);
+      console.error("Failed to create custom music version:", error);
+      setStatusMessage("Upload failed. Please try again.");
     }
   };
 
@@ -219,6 +262,9 @@ export function MusicDraftEditor({
         resetForm={resetForm}
         initialPrompts={draftVersion.musicPrompts}
         onTrackSelected={handleTrackSelected}
+        initialProvider={draftVersion.provider}
+        hasGeneratedUrl={!!draftVersion.generatedUrl}
+        existingFilename={draftVersion.provider === "custom" ? draftVersion.musicPrompt : undefined}
       />
       <VersionIterationInput
         adId={adId}

@@ -4,6 +4,7 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
+import * as mm from 'music-metadata';
 
 // File type configurations
 const FILE_CONFIGS = {
@@ -80,12 +81,26 @@ export async function POST(request: NextRequest) {
       contentType: file.type,
     });
 
+    // Measure audio duration for audio files
+    let duration: number | null = null;
+    if (fileType === 'custom-music' || fileType === 'custom-sfx') {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const metadata = await mm.parseBuffer(new Uint8Array(arrayBuffer), file.type);
+        duration = metadata.format.duration || null;
+        console.log(`📏 Measured audio duration: ${duration}s for ${file.name}`);
+      } catch (err) {
+        console.warn('Failed to measure audio duration:', err);
+      }
+    }
+
     return NextResponse.json({
       url: blob.url,
-      filename: filename,
+      filename: file.name, // Return original filename, not generated blob name
       fileType: fileType,
       size: file.size,
       mimeType: file.type,
+      duration: duration, // Measured audio duration
     });
   } catch (error) {
     console.error('Upload error:', error);

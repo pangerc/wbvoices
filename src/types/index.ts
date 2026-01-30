@@ -66,12 +66,13 @@ export type VoiceTrack = {
 
 export type CampaignFormat = "ad_read" | "dialog";
 
-export type MusicProvider = "loudly" | "mubert" | "elevenlabs";
+export type MusicProvider = "loudly" | "mubert" | "elevenlabs" | "custom";
 
 export type MusicPrompts = {
   loudly: string;
   mubert: string;
   elevenlabs: string;
+  custom?: string; // Custom uploads don't use prompts, but included for type compatibility
 };
 
 export type MusicTrack = {

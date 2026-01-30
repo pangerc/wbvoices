@@ -14,6 +14,7 @@ interface FileUploadProps {
   projectId: string;
   onUploadComplete: (result: FileMetadata) => void;
   onUploadError?: (error: string) => void;
+  onUploadStart?: (filename: string) => void;
   className?: string;
   children?: React.ReactNode;
   accept?: string;
@@ -39,6 +40,7 @@ export function FileUpload({
   projectId,
   onUploadComplete,
   onUploadError,
+  onUploadStart,
   className = '',
   children,
   accept,
@@ -49,6 +51,7 @@ export function FileUpload({
 
   const handleUpload = async (file: File) => {
     setIsUploading(true);
+    onUploadStart?.(file.name);
     
     try {
       const formData = new FormData();
@@ -126,27 +129,34 @@ export function FileUpload({
 export function useFileUpload() {
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, FileMetadata>>({});
   const [isUploading, setIsUploading] = useState<Record<string, boolean>>({});
+  const [uploadingFilename, setUploadingFilename] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleUploadComplete = (key: string) => (result: FileMetadata) => {
     setUploadedFiles(prev => ({ ...prev, [key]: result }));
     setIsUploading(prev => ({ ...prev, [key]: false }));
+    setUploadingFilename(prev => ({ ...prev, [key]: '' }));
     setErrors(prev => ({ ...prev, [key]: '' }));
   };
 
   const handleUploadError = (key: string) => (error: string) => {
     setErrors(prev => ({ ...prev, [key]: error }));
     setIsUploading(prev => ({ ...prev, [key]: false }));
+    setUploadingFilename(prev => ({ ...prev, [key]: '' }));
   };
 
-  const startUpload = (key: string) => {
+  const startUpload = (key: string, filename?: string) => {
     setIsUploading(prev => ({ ...prev, [key]: true }));
     setErrors(prev => ({ ...prev, [key]: '' }));
+    if (filename) {
+      setUploadingFilename(prev => ({ ...prev, [key]: filename }));
+    }
   };
 
   return {
     uploadedFiles,
     isUploading,
+    uploadingFilename,
     errors,
     handleUploadComplete,
     handleUploadError,

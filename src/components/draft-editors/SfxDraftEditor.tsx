@@ -13,7 +13,7 @@ export interface SfxDraftEditorProps {
   adId: string;
   draftVersionId: VersionId;
   draftVersion: SfxVersion;
-  onUpdate: () => void;
+  onUpdate: () => Promise<SfxVersion | undefined>;
   // Refs for parent to call header button actions
   onPlayAllRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
@@ -192,6 +192,7 @@ export function SfxDraftEditor({
   };
 
   // Smart play: generate if needed, then play all SFX sequentially
+  // V3 architecture: Redis is source of truth - fetch fresh data before deciding
   const handlePlayAll = async () => {
     const { playSequence, stopSequence } = useAudioPlaybackStore.getState();
 
@@ -201,17 +202,28 @@ export function SfxDraftEditor({
       return;
     }
 
-    let urls = draftVersion.generatedUrls?.filter(Boolean) || [];
+    // Fetch fresh data from Redis via SWR to avoid stale prop issues
+    const freshVersion = await onUpdate();
+    const freshUrls = freshVersion?.generatedUrls || [];
+    const promptCount = freshVersion?.soundFxPrompts.length || 0;
 
-    // Generate if no audio exists
-    if (urls.length === 0) {
+    // Check that ALL prompts have corresponding URLs (using fresh data)
+    const allPromptsHaveUrls = promptCount > 0 &&
+      freshUrls.filter(Boolean).length >= promptCount;
+
+    // Generate if any prompt is missing audio
+    if (!allPromptsHaveUrls) {
       const generatedUrls = await handleGenerate();
       if (!generatedUrls || generatedUrls.length === 0) return; // Generation failed
-      urls = generatedUrls;
+      playSequence(generatedUrls, {
+        type: "sfx-preview",
+        versionId: draftVersionId,
+      });
+      return;
     }
 
     // Play all SFX sequentially
-    playSequence(urls, {
+    playSequence(freshUrls.filter(Boolean) as string[], {
       type: "sfx-preview",
       versionId: draftVersionId,
     });

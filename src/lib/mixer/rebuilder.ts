@@ -112,15 +112,22 @@ export async function rebuildMixer(adId: string): Promise<MixerState> {
   if (musicVersion && musicVersion.generatedUrl) {
     const trackId = `music-${activeMusicId}`;
     // Build label from provider and prompt preview
-    const providerLabel = musicVersion.provider.charAt(0).toUpperCase() + musicVersion.provider.slice(1);
-    const promptPreview = musicVersion.musicPrompt
-      ? ` - ${musicVersion.musicPrompt.substring(0, 25)}${musicVersion.musicPrompt.length > 25 ? "..." : ""}`
-      : "";
+    let label: string;
+    if (musicVersion.provider === "custom") {
+      // Custom uploads use musicPrompt as the filename/label
+      label = musicVersion.musicPrompt || "Custom track";
+    } else {
+      const providerLabel = musicVersion.provider.charAt(0).toUpperCase() + musicVersion.provider.slice(1);
+      const promptPreview = musicVersion.musicPrompt
+        ? ` - ${musicVersion.musicPrompt.substring(0, 25)}${musicVersion.musicPrompt.length > 25 ? "..." : ""}`
+        : "";
+      label = `${providerLabel}${promptPreview}`;
+    }
     const track: MixerTrack = {
       id: trackId,
       url: musicVersion.generatedUrl,
       type: "music",
-      label: `${providerLabel}${promptPreview}`,
+      label,
       duration: musicVersion.duration,
       metadata: {
         promptText: musicVersion.musicPrompt,

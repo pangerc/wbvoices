@@ -558,7 +558,10 @@ export default function AdWorkspace() {
                     adId={adId}
                     draftVersionId={sfxDraft.id}
                     draftVersion={sfxDraft.version}
-                    onUpdate={() => sfx.mutate()}
+                    onUpdate={async () => {
+                      const data = await sfx.mutate();
+                      return data?.versionsData?.[sfxDraft.id] as SfxVersion | undefined;
+                    }}
                     onPlayAllRef={sfxPlayAllRef}
                     onSendToMixerRef={sfxSendToMixerRef}
                     onRequestChangeRef={sfxRequestChangeRef}
