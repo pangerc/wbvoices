@@ -202,6 +202,9 @@ export function SfxDraftEditor({
       return;
     }
 
+    // Show loading immediately for responsive feedback
+    setGeneratingSfx(true, draftVersionId);
+
     // Fetch fresh data from Redis via SWR to avoid stale prop issues
     const freshVersion = await onUpdate();
     const freshUrls = freshVersion?.generatedUrls || [];
@@ -221,6 +224,9 @@ export function SfxDraftEditor({
       });
       return;
     }
+
+    // Clear loading state - we're just playing, not generating
+    setGeneratingSfx(false);
 
     // Play all SFX sequentially
     playSequence(freshUrls.filter(Boolean) as string[], {
