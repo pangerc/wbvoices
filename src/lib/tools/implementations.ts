@@ -96,6 +96,13 @@ export async function createVoiceDraft(
       // Try to find voice in catalogue by ID
       const catalogueVoice = await voiceCatalogue.getVoiceById(track.voiceId);
 
+      // Log when lookup fails for debugging
+      if (!catalogueVoice) {
+        console.warn(
+          `⚠️ Voice catalogue lookup failed for ID: ${track.voiceId}. Fallback: language=${track.language}, provider=${track.provider}`
+        );
+      }
+
       // Use catalogue voice if found, otherwise fallback to minimal object
       // Map UnifiedVoice fields to Voice type
       // Note: UnifiedVoice.gender includes "neutral" but Voice.gender doesn't
@@ -117,6 +124,10 @@ export async function createVoiceDraft(
             id: track.voiceId,
             name: track.voiceId, // Fallback if not found
             gender: null,
+            // Preserve language context from LLM params
+            language: track.language as Language | undefined,
+            accent: track.accent,
+            provider: track.provider as Voice["provider"],
           };
 
       return {

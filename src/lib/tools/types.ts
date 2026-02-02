@@ -48,6 +48,10 @@ export interface CreateVoiceDraftParams {
     voiceInstructions?: string; // OpenAI voice guidance
     dialectId?: number; // Lahajati Arabic dialect ID
     performanceId?: number; // Lahajati performance style ID
+    // Preserve language context when voice catalogue lookup fails
+    language?: string;
+    accent?: string;
+    provider?: string;
   }>;
 }
 

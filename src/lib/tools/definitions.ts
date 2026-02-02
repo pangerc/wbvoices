@@ -95,6 +95,22 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                   description:
                     "Lahajati performance style ID (e.g., 1542 for Automotive ad). Only for Lahajati provider.",
                 },
+                language: {
+                  type: "string",
+                  description:
+                    "ISO language code (e.g., 'es', 'en', 'ar') - REQUIRED for fallback if voice lookup fails",
+                },
+                accent: {
+                  type: "string",
+                  description:
+                    "Voice accent (e.g., 'chilean', 'mexican') - helps preserve regional context",
+                },
+                provider: {
+                  type: "string",
+                  enum: ["elevenlabs", "lovo", "openai", "lahajati"],
+                  description:
+                    "Voice provider - REQUIRED for fallback if voice lookup fails",
+                },
               },
               required: ["voiceId", "text"],
             },
