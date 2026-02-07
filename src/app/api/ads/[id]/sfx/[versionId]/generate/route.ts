@@ -12,7 +12,10 @@ export async function POST(
   try {
     const { id: adId, versionId } = await params;
     const body = await request.json();
-    const { soundFxPrompts } = body as { soundFxPrompts: SoundFxPrompt[] };
+    const { soundFxPrompts, promptIndex } = body as {
+      soundFxPrompts: SoundFxPrompt[];
+      promptIndex?: number;
+    };
 
     // Load current version
     const version = await getVersion(adId, "sfx", versionId);
@@ -23,12 +26,20 @@ export async function POST(
       );
     }
 
-    console.log(`🔊 Generating ${soundFxPrompts.length} sound effects for ${versionId}...`);
+    const currentVersion = version as SfxVersion;
 
-    // Generate all sound effects sequentially (ElevenLabs may have rate limits)
-    const generatedUrls: string[] = [];
+    // Determine which prompts to generate
+    const isSinglePrompt = promptIndex !== undefined && promptIndex >= 0 && promptIndex < soundFxPrompts.length;
+    const indicesToGenerate = isSinglePrompt ? [promptIndex] : soundFxPrompts.map((_, i) => i);
 
-    for (let i = 0; i < soundFxPrompts.length; i++) {
+    console.log(`🔊 Generating ${indicesToGenerate.length} sound effect(s) for ${versionId}${isSinglePrompt ? ` (prompt ${promptIndex})` : ''}...`);
+
+    // Start from existing URLs for single-prompt mode, empty for all
+    const generatedUrls: (string | null)[] = isSinglePrompt
+      ? [...(currentVersion.generatedUrls || soundFxPrompts.map(() => null))]
+      : soundFxPrompts.map(() => null);
+
+    for (const i of indicesToGenerate) {
       const prompt = soundFxPrompts[i];
       console.log(`  [${i + 1}/${soundFxPrompts.length}] Generating SFX: "${prompt.description?.slice(0, 30)}..."`);
 
@@ -60,15 +71,16 @@ export async function POST(
         );
       }
 
-      generatedUrls.push(sfxData.audio_url);
+      generatedUrls[i] = sfxData.audio_url;
     }
 
-    console.log(`🔊 Generated ${generatedUrls.length} sound effects for ${versionId}`);
+    console.log(`🔊 Generated ${indicesToGenerate.length} sound effect(s) for ${versionId}`);
 
-    // Update version with generated URLs
+    // Update version with generated URLs and fresh prompts from request body
     const updatedVersion: SfxVersion = {
-      ...(version as SfxVersion),
-      generatedUrls,
+      ...currentVersion,
+      soundFxPrompts, // Use prompts from request body (avoids stale spread)
+      generatedUrls: generatedUrls as string[],
     };
 
     const redis = getRedisV3();
@@ -78,7 +90,10 @@ export async function POST(
     return NextResponse.json({
       versionId,
       generatedUrls,
-      message: "Sound effects generated successfully",
+      promptIndex: isSinglePrompt ? promptIndex : undefined,
+      message: isSinglePrompt
+        ? `Sound effect ${promptIndex! + 1} generated successfully`
+        : "Sound effects generated successfully",
     });
   } catch (error) {
     console.error("❌ Failed to generate sound effects:", error);

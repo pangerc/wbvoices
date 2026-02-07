@@ -221,15 +221,16 @@ export async function findCachedContent(
   try {
     console.log(`🔍 Searching cache for ${type} from ${provider} with key: ${cacheKey}`);
     
-    // Search for blobs with matching metadata
+    // Search for blobs with matching metadata (use precise prefix including cache key)
     const { blobs } = await list({
-      prefix: `${type}-${provider}`,
+      prefix: `${type}-${provider}-${cacheKey}`,
       limit: 100 // Search recent uploads
     });
 
     // Find blob with matching cache key in filename or metadata
-    const cachedBlob = blobs.find(blob => 
-      blob.pathname.includes(cacheKey) || 
+    // Use delimited match to prevent substring false positives (e.g. "abc" matching "abcdef")
+    const cachedBlob = blobs.find(blob =>
+      blob.pathname.includes(`-${cacheKey}-`) ||
       (blob as unknown as { customMetadata?: { cacheKey?: string } }).customMetadata?.cacheKey === cacheKey
     );
 

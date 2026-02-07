@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { MusicPanel } from "@/components/MusicPanel";
 import type { MusicVersion, VersionId } from "@/types/versions";
 import type { MusicProvider } from "@/types";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useMusicDraftState, usePlaybackActions } from "@/hooks/useAudioPlayback";
 import { VersionIterationInput } from "@/components/ui";
+import type { DraftState } from "@/components/ui/DraftAccordion";
 
 export interface MusicDraftEditorProps {
   adId: string;
@@ -18,6 +19,8 @@ export interface MusicDraftEditorProps {
   onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
   onRequestChangeRef?: React.MutableRefObject<(() => void) | null>;
   onNewBlankVersion?: () => void;
+  /** Callback to notify parent of draft state changes (for badge rendering) */
+  onDraftStateChange?: (state: DraftState) => void;
 }
 
 export function MusicDraftEditor({
@@ -29,6 +32,7 @@ export function MusicDraftEditor({
   onSendToMixerRef,
   onRequestChangeRef,
   onNewBlankVersion,
+  onDraftStateChange,
 }: MusicDraftEditorProps) {
   // Ref to expose VersionIterationInput's expand function
   const iterationExpandRef = useRef<(() => void) | null>(null);
@@ -37,8 +41,13 @@ export function MusicDraftEditor({
   );
   const [statusMessage, setStatusMessage] = useState("");
 
+  // Guard: prevent SWR prop updates from overwriting local state while an edit is being persisted
+  const editInFlightRef = useRef(false);
+
   // Sync local state when draftVersion prop changes (e.g., after iteration creates new draft)
+  // Guarded: don't overwrite local state while an edit is being persisted to Redis
   useEffect(() => {
+    if (editInFlightRef.current) return;
     setMusicProvider(draftVersion.provider);
   }, [draftVersion]);
 
@@ -48,6 +57,18 @@ export function MusicDraftEditor({
 
   // Duration comes from draft version (set by tool from brief, or user edit)
   const adDuration = draftVersion.duration || 30;
+
+  // Compute draft state from props (music has no local URL copy, props are fine)
+  const draftState = useMemo((): DraftState => {
+    if (isGenerating) return 'generating';
+    if (!draftVersion.musicPrompt?.trim()) return 'editing';
+    return draftVersion.generatedUrl ? 'ready' : 'changed';
+  }, [draftVersion.generatedUrl, draftVersion.musicPrompt, isGenerating]);
+
+  // Notify parent of draft state changes
+  useEffect(() => {
+    onDraftStateChange?.(draftState);
+  }, [draftState, onDraftStateChange]);
 
   // Handle provider change - persists to Redis and clears stale audio
   const handleProviderChange = async (newProvider: MusicProvider) => {

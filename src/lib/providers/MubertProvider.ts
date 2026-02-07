@@ -89,10 +89,13 @@ export class MubertProvider extends BaseAudioProvider {
     const { prompt, duration } = params;
     const { customerId, accessToken } = credentials;
 
+    // Mubert expects integer seconds
+    const roundedDuration = Math.round(duration as number);
+
     // 🔍 CHECK CACHE FIRST - Save money on expensive generation!
-    console.log(`🔍 Mubert: Checking cache for prompt: "${prompt}" (${duration}s)`);
-    const cached = await checkMusicCache(prompt as string, 'mubert', duration as number);
-    
+    console.log(`🔍 Mubert: Checking cache for prompt: "${prompt}" (${roundedDuration}s)`);
+    const cached = await checkMusicCache(prompt as string, 'mubert', roundedDuration);
+
     if (cached) {
       console.log(`💰 Mubert: Cache HIT! Saved $$ by using cached music: ${cached.url}`);
       return {
@@ -100,7 +103,7 @@ export class MubertProvider extends BaseAudioProvider {
         data: {
           id: 'cached-' + Date.now(),
           url: cached.url,
-          duration: duration,
+          duration: roundedDuration,
           status: 'completed',
           generation_url: cached.url,
           cached: true,
@@ -109,7 +112,7 @@ export class MubertProvider extends BaseAudioProvider {
       };
     }
 
-    console.log(`💸 Mubert: Cache MISS - Generating NEW music ($$$ spent): "${prompt}" (${duration}s)`);
+    console.log(`💸 Mubert: Cache MISS - Generating NEW music ($$$ spent): "${prompt}" (${roundedDuration}s)`);
 
     const response = await this.makeFetch(`${this.MUBERT_BASE_URL}/public/tracks`, {
       method: "POST",
@@ -120,7 +123,7 @@ export class MubertProvider extends BaseAudioProvider {
       },
       body: JSON.stringify({
         prompt: prompt as string,
-        duration: duration as number,
+        duration: roundedDuration,
         bitrate: 128,
         mode: "track",
         intensity: "medium",

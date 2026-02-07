@@ -8,6 +8,7 @@ import { generateAndPersistTrack } from "@/lib/voice-utils";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useVoicePlaybackState, usePlaybackActions } from "@/hooks/useAudioPlayback";
 import { VersionIterationInput } from "@/components/ui";
+import type { DraftState } from "@/components/ui/DraftAccordion";
 
 /**
  * Migrate old format (generatedUrls[]) to new format (voiceTracks[].generatedUrl)
@@ -41,6 +42,8 @@ export interface VoiceDraftEditorProps {
   /** @deprecated State now comes from centralized audioPlaybackStore */
   playAllState?: React.MutableRefObject<{ isPlaying: boolean; isGenerating: boolean } | null>;
   onNewBlankVersion?: () => void;
+  /** Callback to notify parent of draft state changes (for badge rendering) */
+  onDraftStateChange?: (state: DraftState) => void;
 }
 
 export function VoiceDraftEditor({
@@ -54,6 +57,7 @@ export function VoiceDraftEditor({
   onRequestChangeRef,
   playAllState,
   onNewBlankVersion,
+  onDraftStateChange,
 }: VoiceDraftEditorProps) {
   // Ref to expose VersionIterationInput's expand function
   const iterationExpandRef = useRef<(() => void) | null>(null);
@@ -63,8 +67,13 @@ export function VoiceDraftEditor({
   );
   const [statusMessage, setStatusMessage] = useState("");
 
+  // Guard: prevent SWR prop updates from overwriting local state while an edit is being persisted
+  const editInFlightRef = useRef(false);
+
   // Sync local state when draftVersion prop changes (e.g., after iteration creates new draft)
+  // Guarded: don't overwrite local state while an edit is being persisted to Redis
   useEffect(() => {
+    if (editInFlightRef.current) return;
     setVoiceTracks(migrateVoiceTracks(draftVersion));
   }, [draftVersion]);
 
@@ -100,6 +109,19 @@ export function VoiceDraftEditor({
     }));
   }, [voiceTracks, generatingTrackIndex, playingTrackIndex]);
 
+  // Compute draft state from LOCAL state (not SWR props) for immediate badge feedback
+  const draftState = useMemo((): DraftState => {
+    if (isGenerating) return 'generating';
+    const tracksWithContent = voiceTracks.filter(t => t.voice && t.text?.trim());
+    if (tracksWithContent.length === 0) return 'editing';
+    return tracksWithContent.every(t => !!t.generatedUrl) ? 'ready' : 'changed';
+  }, [voiceTracks, isGenerating]);
+
+  // Notify parent of draft state changes
+  useEffect(() => {
+    onDraftStateChange?.(draftState);
+  }, [draftState, onDraftStateChange]);
+
   // Expose generateAudio function to parent via callback
   useEffect(() => {
     if (onGenerateAll) {
@@ -120,15 +142,21 @@ export function VoiceDraftEditor({
     index: number,
     updates: Partial<VoiceTrack>
   ) => {
+    editInFlightRef.current = true;
     const newTracks = [...voiceTracks];
 
     // Check if content-affecting fields changed
-    const contentFields = ['text', 'voice', 'voiceInstructions', 'speed'];
+    const contentFields = [
+      'text', 'voice', 'voiceInstructions', 'speed',
+      'trackProvider', 'postProcessingSpeedup', 'postProcessingPitch',
+      'targetDuration', 'dialectId', 'performanceId',
+    ];
     const contentChanged = contentFields.some(field => field in updates);
 
     // If content changed and track has URL, invalidate it
+    // Use null (not undefined) so JSON.stringify preserves it in the PATCH body
     if (contentChanged && newTracks[index].generatedUrl) {
-      newTracks[index] = { ...newTracks[index], ...updates, generatedUrl: undefined };
+      newTracks[index] = { ...newTracks[index], ...updates, generatedUrl: null };
     } else {
       newTracks[index] = { ...newTracks[index], ...updates };
     }
@@ -142,8 +170,11 @@ export function VoiceDraftEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ voiceTracks: newTracks }),
       });
+      onUpdate(); // Sync SWR cache with Redis after successful PATCH
     } catch (error) {
       console.error("Failed to update voice draft:", error);
+    } finally {
+      editInFlightRef.current = false;
     }
   };
 
@@ -167,6 +198,7 @@ export function VoiceDraftEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ voiceTracks: newTracks }),
       });
+      onUpdate();
     } catch (error) {
       console.error("Failed to add voice track:", error);
     }
@@ -184,6 +216,7 @@ export function VoiceDraftEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ voiceTracks: newTracks }),
       });
+      onUpdate();
     } catch (error) {
       console.error("Failed to remove voice track:", error);
     }
@@ -481,7 +514,7 @@ export function VoiceDraftEditor({
       playAllState.current = { isPlaying: isPlayingAll, isGenerating };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onPlayAllRef, onSendToMixerRef, onRequestChangeRef, playAllState, isPlayingAll, isGenerating, draftVersionId]);
+  }, [onPlayAllRef, onSendToMixerRef, onRequestChangeRef, playAllState, isPlayingAll, isGenerating, draftVersionId, voiceTracks]);
 
   // Reset form (not used in draft mode)
   const resetForm = () => {

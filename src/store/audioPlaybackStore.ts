@@ -34,6 +34,7 @@ type AudioPlaybackState = {
   generatingMusic: boolean;
   generatingSfx: boolean;
   generatingSfxVersionId: string | null; // Which SFX version is generating
+  generatingSfxPromptIndex: number | null; // Which prompt is generating (null = all)
   generatingMix: boolean;
 
   // Sequential playback support
@@ -52,7 +53,7 @@ type AudioPlaybackState = {
   setGeneratingCreative: (generating: boolean) => void;
   setGeneratingVoice: (generating: boolean, trackIndex?: number | null, versionId?: string | null) => void;
   setGeneratingMusic: (generating: boolean) => void;
-  setGeneratingSfx: (generating: boolean, versionId?: string | null) => void;
+  setGeneratingSfx: (generating: boolean, versionId?: string | null, promptIndex?: number | null) => void;
   setGeneratingMix: (generating: boolean) => void;
 
   // Sequential playback
@@ -116,6 +117,7 @@ export const useAudioPlaybackStore = create<AudioPlaybackState>((set, get) => ({
   generatingMusic: false,
   generatingSfx: false,
   generatingSfxVersionId: null,
+  generatingSfxPromptIndex: null,
   generatingMix: false,
 
   isPlayingSequence: false,
@@ -206,10 +208,11 @@ export const useAudioPlaybackStore = create<AudioPlaybackState>((set, get) => ({
       generatingVoiceVersionId: generating ? versionId : null,
     }),
   setGeneratingMusic: (generating) => set({ generatingMusic: generating }),
-  setGeneratingSfx: (generating, versionId = null) =>
+  setGeneratingSfx: (generating, versionId = null, promptIndex = null) =>
     set({
       generatingSfx: generating,
       generatingSfxVersionId: generating ? versionId : null,
+      generatingSfxPromptIndex: generating ? promptIndex : null,
     }),
   setGeneratingMix: (generating) => set({ generatingMix: generating }),
 

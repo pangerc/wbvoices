@@ -7,6 +7,7 @@ import type { SoundFxPrompt } from "@/types";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useSfxDraftState, usePlaybackActions } from "@/hooks/useAudioPlayback";
 import { VersionIterationInput } from "@/components/ui";
+import type { DraftState } from "@/components/ui/DraftAccordion";
 import type { useStreamOperations } from "@/hooks/useStreamOperations";
 
 export interface SfxDraftEditorProps {
@@ -21,6 +22,10 @@ export interface SfxDraftEditorProps {
   onNewBlankVersion?: () => void;
   // Voice stream data for SFX placement options (after voice X)
   voiceStream?: ReturnType<typeof useStreamOperations>;
+  /** Ad duration in seconds (from brief/mixer) for slider max */
+  adDuration?: number;
+  /** Callback to notify parent of draft state changes (for badge rendering) */
+  onDraftStateChange?: (state: DraftState) => void;
 }
 
 export function SfxDraftEditor({
@@ -33,22 +38,33 @@ export function SfxDraftEditor({
   onRequestChangeRef,
   onNewBlankVersion,
   voiceStream,
+  adDuration: adDurationProp,
+  onDraftStateChange,
 }: SfxDraftEditorProps) {
   // Ref to expose VersionIterationInput's expand function
   const iterationExpandRef = useRef<(() => void) | null>(null);
   const [soundFxPrompts, setSoundFxPrompts] = useState<SoundFxPrompt[]>(
     draftVersion.soundFxPrompts
   );
+  const [generatedUrls, setGeneratedUrls] = useState<(string | null)[]>(
+    draftVersion.generatedUrls || []
+  );
   const [statusMessage, setStatusMessage] = useState("");
 
+  // Guard: prevent SWR prop updates from overwriting local state while an edit is being persisted
+  const editInFlightRef = useRef(false);
+
   // Sync local state when draftVersion prop changes (e.g., after iteration creates new draft)
+  // Guarded: don't overwrite local state while an edit is being persisted to Redis
   useEffect(() => {
+    if (editInFlightRef.current) return;
     setSoundFxPrompts(draftVersion.soundFxPrompts);
+    setGeneratedUrls(draftVersion.generatedUrls || []);
   }, [draftVersion]);
 
   // Use centralized audio playback store for state
-  const { isGenerating, isPlaying } = useSfxDraftState(draftVersionId);
-  const { setGeneratingSfx } = usePlaybackActions();
+  const { isGenerating, isPlaying, generatingPromptIndex } = useSfxDraftState(draftVersionId);
+  const { play, setGeneratingSfx } = usePlaybackActions();
 
   // Compute voice track previews for SFX placement options (after voice X)
   // IMPORTANT: Must use ACTIVE voice version (not draft) because mixer rebuilder
@@ -68,8 +84,20 @@ export function SfxDraftEditor({
     }));
   }, [voiceStream?.data]);
 
-  // Default ad duration (TODO: get from actual ad)
-  const adDuration = 30;
+  const adDuration = adDurationProp || 30;
+
+  // Compute draft state from LOCAL state (not SWR props) for immediate badge feedback
+  const draftState = useMemo((): DraftState => {
+    if (isGenerating) return 'generating';
+    const promptsWithContent = soundFxPrompts.filter(p => p.description?.trim());
+    if (promptsWithContent.length === 0) return 'editing';
+    return promptsWithContent.every((_, i) => !!generatedUrls[i]) ? 'ready' : 'changed';
+  }, [soundFxPrompts, generatedUrls, isGenerating]);
+
+  // Notify parent of draft state changes
+  useEffect(() => {
+    onDraftStateChange?.(draftState);
+  }, [draftState, onDraftStateChange]);
 
   // Update sound fx prompt and persist to backend
   // Invalidates generated URL if content-affecting fields changed
@@ -77,6 +105,7 @@ export function SfxDraftEditor({
     index: number,
     updates: Partial<SoundFxPrompt>
   ) => {
+    editInFlightRef.current = true;
     const newPrompts = [...soundFxPrompts];
     newPrompts[index] = { ...newPrompts[index], ...updates };
     setSoundFxPrompts(newPrompts);
@@ -91,10 +120,12 @@ export function SfxDraftEditor({
     };
 
     // If content changed and this index has a generated URL, invalidate it
-    if (contentChanged && draftVersion.generatedUrls?.[index]) {
-      const newUrls: (string | null)[] = [...(draftVersion.generatedUrls || [])];
+    // Use local generatedUrls state (not stale draftVersion prop)
+    if (contentChanged && generatedUrls[index]) {
+      const newUrls: (string | null)[] = [...generatedUrls];
       newUrls[index] = null;
       patchBody.generatedUrls = newUrls;
+      setGeneratedUrls(newUrls); // Update local state immediately
       console.log(`[SfxDraftEditor] Invalidating generated URL for prompt ${index} due to content change`);
     }
 
@@ -105,13 +136,11 @@ export function SfxDraftEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patchBody),
       });
-
-      // If we invalidated URLs, trigger refresh to update UI
-      if (patchBody.generatedUrls) {
-        onUpdate();
-      }
+      onUpdate(); // Sync SWR cache with Redis
     } catch (error) {
       console.error("Failed to update sfx draft:", error);
+    } finally {
+      editInFlightRef.current = false;
     }
   };
 
@@ -136,6 +165,7 @@ export function SfxDraftEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ soundFxPrompts: newPrompts }),
       });
+      onUpdate();
     } catch (error) {
       console.error("Failed to add sfx prompt:", error);
     }
@@ -153,6 +183,7 @@ export function SfxDraftEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ soundFxPrompts: newPrompts }),
       });
+      onUpdate();
     } catch (error) {
       console.error("Failed to remove sfx prompt:", error);
     }
@@ -174,6 +205,7 @@ export function SfxDraftEditor({
 
       if (res.ok) {
         const result = await res.json();
+        setGeneratedUrls(result.generatedUrls); // Update local state immediately
         setStatusMessage("Sound effects generated successfully!");
         onUpdate(); // Reload the stream
         return result.generatedUrls; // Return URLs for autoplay
@@ -186,6 +218,63 @@ export function SfxDraftEditor({
       console.error("Failed to generate sound effects:", error);
       setStatusMessage("Generation failed. Please try again.");
       return null;
+    } finally {
+      setGeneratingSfx(false);
+    }
+  };
+
+  // Per-prompt play: generate single prompt if needed, then play it
+  const handlePlayPrompt = async (index: number) => {
+    const prompt = soundFxPrompts[index];
+    if (!prompt?.description?.trim()) {
+      setStatusMessage("Enter a description first.");
+      return;
+    }
+
+    // If URL exists, just play it
+    if (generatedUrls[index]) {
+      play({
+        type: "sfx-preview",
+        url: generatedUrls[index]!,
+        trackIndex: index,
+        versionId: draftVersionId,
+      });
+      return;
+    }
+
+    // No URL — generate this one prompt, then play
+    setGeneratingSfx(true, draftVersionId, index);
+    setStatusMessage(`Generating sound effect ${index + 1}...`);
+
+    try {
+      const res = await fetch(`/api/ads/${adId}/sfx/${draftVersionId}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ soundFxPrompts, promptIndex: index }),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        setGeneratedUrls(result.generatedUrls);
+        setStatusMessage(`Sound effect ${index + 1} ready!`);
+        onUpdate();
+
+        const url = result.generatedUrls[index];
+        if (url) {
+          play({
+            type: "sfx-preview",
+            url,
+            trackIndex: index,
+            versionId: draftVersionId,
+          });
+        }
+      } else {
+        const error = await res.json();
+        setStatusMessage(`Generation failed: ${error.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Failed to generate sound effect:", error);
+      setStatusMessage("Generation failed. Please try again.");
     } finally {
       setGeneratingSfx(false);
     }
@@ -292,6 +381,9 @@ export function SfxDraftEditor({
         adDuration={adDuration}
         resetForm={resetForm}
         voiceTrackPreviews={voiceTrackPreviews}
+        onPlayPrompt={handlePlayPrompt}
+        generatingPromptIndex={generatingPromptIndex}
+        generatedUrls={generatedUrls}
       />
       <VersionIterationInput
         adId={adId}

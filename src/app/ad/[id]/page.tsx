@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 import { MatrixBackground } from "@/components";
 import { VersionAccordion, DraftAccordion, EmptyStreamState } from "@/components/ui";
+import type { DraftState } from "@/components/ui/DraftAccordion";
 import { VoiceVersionContent } from "@/components/version-content/VoiceVersionContent";
 import { MusicVersionContent } from "@/components/version-content/MusicVersionContent";
 import { SfxVersionContent } from "@/components/version-content/SfxVersionContent";
@@ -43,6 +44,10 @@ export default function AdWorkspace() {
   // Helper to get mixer URL for a track type
   const getMixerUrl = (type: "music" | "soundfx") =>
     mixerData?.tracks?.find(t => t.type === type)?.url;
+
+  // URL fingerprint helper for multi-track comparison (voice, sfx)
+  const getUrlFingerprint = (urls: (string | undefined | null)[]) =>
+    urls.map(u => u || '').join('|');
 
   // Accordion state from store
   const { openAccordion, setOpenAccordion } = useUIStore();
@@ -291,6 +296,11 @@ export default function AdWorkspace() {
   const musicDraft = music.getDraft() as { id: VersionId; version: MusicVersion } | null;
   const sfxDraft = sfx.getDraft() as { id: VersionId; version: SfxVersion } | null;
 
+  // Draft states driven by editor callbacks (computed from LOCAL state, not stale SWR props)
+  const [voiceDraftState, setVoiceDraftState] = useState<DraftState>('editing');
+  const [musicDraftState, setMusicDraftState] = useState<DraftState>('editing');
+  const [sfxDraftState, setSfxDraftState] = useState<DraftState>('editing');
+
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen bg-black text-white">
@@ -355,6 +365,8 @@ export default function AdWorkspace() {
                   type="voice"
                   versionId={voiceDraft.id}
                   activeVersionId={voice.data.active}
+                  currentUrl={getUrlFingerprint(voiceDraft.version.voiceTracks.map(t => t.generatedUrl))}
+                  mixerUrl={getUrlFingerprint(mixerData?.tracks?.filter(t => t.type === 'voice').map(t => t.url) || [])}
                   isOpen={openAccordion.voices === "draft"}
                   onOpenChange={(open) => setOpenAccordion("voices", open ? "draft" : null)}
                   onPlayAll={() => voicePlayAllRef.current?.()}
@@ -364,6 +376,7 @@ export default function AdWorkspace() {
                   }}
                   onRequestChange={() => voiceRequestChangeRef.current?.()}
                   hasTracksWithAudio={voiceDraft.version.voiceTracks.some(t => !!t.generatedUrl)}
+                  draftState={voiceDraftState}
                   onNewBlankVersion={voice.createDraft}
                   onDelete={async () => {
                     const deleted = await voice.remove(voiceDraft.id);
@@ -382,6 +395,7 @@ export default function AdWorkspace() {
                     onSendToMixerRef={voiceSendToMixerRef}
                     onRequestChangeRef={voiceRequestChangeRef}
                     onNewBlankVersion={voice.createDraft}
+                    onDraftStateChange={setVoiceDraftState}
                   />
                 </DraftAccordion>
               )}
@@ -457,6 +471,7 @@ export default function AdWorkspace() {
                   }}
                   onRequestChange={() => musicRequestChangeRef.current?.()}
                   hasTracksWithAudio={!!musicDraft.version.generatedUrl}
+                  draftState={musicDraftState}
                   onNewBlankVersion={music.createDraft}
                   onDelete={async () => {
                     const deleted = await music.remove(musicDraft.id);
@@ -475,6 +490,7 @@ export default function AdWorkspace() {
                     onSendToMixerRef={musicSendToMixerRef}
                     onRequestChangeRef={musicRequestChangeRef}
                     onNewBlankVersion={music.createDraft}
+                    onDraftStateChange={setMusicDraftState}
                   />
                 </DraftAccordion>
               )}
@@ -534,8 +550,8 @@ export default function AdWorkspace() {
                   type="sfx"
                   versionId={sfxDraft.id}
                   activeVersionId={sfx.data.active}
-                  currentUrl={sfxDraft.version.generatedUrls?.[0]}
-                  mixerUrl={getMixerUrl("soundfx")}
+                  currentUrl={getUrlFingerprint(sfxDraft.version.generatedUrls || [])}
+                  mixerUrl={getUrlFingerprint(mixerData?.tracks?.filter(t => t.type === 'soundfx').map(t => t.url) || [])}
                   isOpen={openAccordion.sfx === "draft"}
                   onOpenChange={(open) => setOpenAccordion("sfx", open ? "draft" : null)}
                   onPlayAll={() => sfxPlayAllRef.current?.()}
@@ -545,6 +561,7 @@ export default function AdWorkspace() {
                   }}
                   onRequestChange={() => sfxRequestChangeRef.current?.()}
                   hasTracksWithAudio={(sfxDraft.version.generatedUrls?.length || 0) > 0}
+                  draftState={sfxDraftState}
                   onNewBlankVersion={sfx.createDraft}
                   onDelete={async () => {
                     const deleted = await sfx.remove(sfxDraft.id);
@@ -567,6 +584,8 @@ export default function AdWorkspace() {
                     onRequestChangeRef={sfxRequestChangeRef}
                     onNewBlankVersion={sfx.createDraft}
                     voiceStream={voice}
+                    adDuration={briefData?.adDuration}
+                    onDraftStateChange={setSfxDraftState}
                   />
                 </DraftAccordion>
               )}

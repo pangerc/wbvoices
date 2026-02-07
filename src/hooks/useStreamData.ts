@@ -22,9 +22,9 @@ export function useStreamData(adId: string, stream: StreamType) {
     adId ? `/api/ads/${adId}/${stream}` : null,
     fetcher,
     {
-      revalidateOnFocus: true,
+      revalidateOnFocus: false, // Prevent focus events from overwriting in-flight edits
       revalidateOnReconnect: true,
-      dedupingInterval: 0, // Disabled - every mutate() triggers immediate refresh
+      dedupingInterval: 2000, // Debounce rapid revalidations; explicit mutate() still works
     }
   );
 

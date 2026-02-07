@@ -405,20 +405,19 @@ export function MusicPanel({
                 options={PROVIDER_OPTIONS}
               />
 
+              <label className="block text-base mb-1">
+                Duration{" "}
+                <span className="text-sm text-gray-400">
+                  {duration}s
+                </span>
+              </label>
               <GlassySlider
-                label="Duration"
+                label={null}
                 value={duration}
                 onChange={setDuration}
                 min={30}
                 max={120}
-                step={musicProvider === "loudly" ? 15 : 5}
-                formatLabel={(val) =>
-                  `${val} seconds${
-                    musicProvider === "loudly" && val % 15 !== 0
-                      ? " (will be rounded to nearest 15s)"
-                      : ""
-                  }${val === Math.max(30, adDuration + 15) ? " (recommended)" : ""}`
-                }
+                step={1}
                 tickMarks={DURATION_TICK_MARKS}
               />
             </div>

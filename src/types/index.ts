@@ -57,7 +57,7 @@ export type VoiceTrack = {
   postProcessingSpeedup?: number; // Post-processing time-stretch speedup (1.0-1.6x, ElevenLabs only)
   postProcessingPitch?: number; // Post-processing pitch adjustment (0.7-1.2x, default 1.0, ElevenLabs only)
   targetDuration?: number; // Target duration in seconds (auto-calculates speedup, capped at 1.6x)
-  generatedUrl?: string; // Generated audio URL (embedded, replaces parallel array)
+  generatedUrl?: string | null; // Generated audio URL (embedded, replaces parallel array). null = explicitly cleared (regeneration needed)
   generatedDuration?: number; // Actual duration in seconds (measured from audio, not estimated)
   // Lahajati-specific fields for Arabic dialect and performance style control
   dialectId?: number; // Lahajati dialect ID (e.g., 8 for Cairo slang)

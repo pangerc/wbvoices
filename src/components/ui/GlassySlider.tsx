@@ -64,7 +64,7 @@ export function GlassySlider({
           max={max}
           step={step}
           value={value}
-          onChange={(e) => onChange(parseInt(e.target.value))}
+          onChange={(e) => onChange(parseFloat(e.target.value))}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
       </div>

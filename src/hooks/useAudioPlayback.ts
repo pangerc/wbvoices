@@ -168,6 +168,9 @@ export function useSfxDraftState(versionId: string) {
     useShallow((state) => ({
       // Only show generating state if it's for THIS version
       isGenerating: state.generatingSfx && state.generatingSfxVersionId === versionId,
+      generatingPromptIndex: (state.generatingSfx && state.generatingSfxVersionId === versionId)
+        ? state.generatingSfxPromptIndex
+        : null,
       isPlaying:
         state.isPlaying &&
         state.currentSource?.type === "sfx-preview" &&

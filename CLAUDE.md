@@ -6,26 +6,21 @@
 ## Technical Architecture
 
 - Core flow: we feed the initial user brief to a llm which generates the creative script, picks voices from the db and prompts for music and sound effect generation
+- described in @version3-1.md
 - Current active integrations:
   - LLM: OpenAI
-  - Voice Providers:
-    - ElevenLabs (better quality)
-    - Lovo (more coverage in exotic languages like Balkans and Baltics)
-  - Music Generation:
-    - Loudly (better quality but more expensive)
-    - Murbert (alternative option)
+  - Voice Providers: ElevenLabs, Lahajati, Qwen, ByteDance, OpenAI
+  - Music Generation: Loudly, Murbert, ElevenLabs
+  - Sound Effect Generation: ElevenLabs
 - Mixer component builds the timeline (to be made editable later)
-- Except for Loudly, we intercept the urls and upload the generated media to vercel blob so we have persistent urls
+- We intercept the urls and upload the generated media to vercel blob so we have persistent urls
 - Final output includes preview and final mix
-- Full desccription is in docs/aug25-architecture-overview.md
-
-## Current Project Weaknesses
-
-- Timing the clips: LLM tries to provide directions in the resulting JSON, but this approach is too rigid and fragile
 
 ## Project Guidelines
 
 - use pnpm, not npm
 - always look for the root cause, avoid quick patches
+- production data is stored in redis, use redis-v3 mcp to check ads, their versions, and the mixer state
+- voice whitelisting, voice metadata and pronounciation rules are stored in neon db, you also have mcp accesss to that
 
 - never run dev server, i do this

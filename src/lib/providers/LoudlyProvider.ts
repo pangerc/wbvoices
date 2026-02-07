@@ -46,10 +46,13 @@ export class LoudlyProvider extends BaseAudioProvider {
     const { prompt, duration } = params;
     const { apiKey } = credentials;
 
+    // Loudly requires duration in 15-second multiples
+    const roundedDuration = Math.max(15, Math.round((duration as number) / 15) * 15);
+
     // 🔍 CHECK CACHE FIRST - Save money on expensive generation!
-    console.log(`🔍 Loudly: Checking cache for prompt: "${(prompt as string).substring(0, 50)}..." (${duration}s)`);
-    const cached = await checkMusicCache(prompt as string, 'loudly', duration as number);
-    
+    console.log(`🔍 Loudly: Checking cache for prompt: "${(prompt as string).substring(0, 50)}..." (${roundedDuration}s, from ${duration}s)`);
+    const cached = await checkMusicCache(prompt as string, 'loudly', roundedDuration);
+
     if (cached) {
       console.log(`💰 Loudly: Cache HIT! Saved $$ by using cached music: ${cached.url}`);
       // Track cache hit (doesn't count towards allotment)
@@ -60,7 +63,7 @@ export class LoudlyProvider extends BaseAudioProvider {
           id: 'cached-' + Date.now(),
           title: (prompt as string).substring(0, 50),
           music_file_path: cached.url,
-          duration: duration,
+          duration: roundedDuration,
           prompt: prompt as string,
           projectId: params.projectId as string,
           status: 'completed',
@@ -69,12 +72,12 @@ export class LoudlyProvider extends BaseAudioProvider {
       };
     }
 
-    console.log(`💸 Loudly: Cache MISS - Generating NEW music ($$$ spent): "${(prompt as string).substring(0, 50)}..." (${duration}s)`);
-    
+    console.log(`💸 Loudly: Cache MISS - Generating NEW music ($$$ spent): "${(prompt as string).substring(0, 50)}..." (${roundedDuration}s)`);
+
     // Create FormData for Loudly API
     const formData = new FormData();
     formData.append("prompt", prompt as string);
-    formData.append("duration", (duration as number).toString());
+    formData.append("duration", roundedDuration.toString());
     formData.append("test", "false");
 
     const response = await this.makeFetch(

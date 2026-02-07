@@ -9,6 +9,8 @@ import { AccordionPlayButton } from "./AccordionPlayButton";
 import { Tooltip } from "./Tooltip";
 import { SendToMixerIcon, RequestChangeIcon } from "./AccordionIcons";
 
+export type DraftState = 'editing' | 'changed' | 'ready' | 'generating';
+
 interface DraftAccordionProps {
   children: React.ReactNode;
   title?: string;
@@ -40,6 +42,8 @@ interface DraftAccordionProps {
   /** @deprecated State now comes from useDraftAccordionState hook */
   playAllState?: { isPlaying: boolean; isGenerating: boolean };
   hasTracksWithAudio?: boolean;
+  /** Semantic draft state for color-coded badge */
+  draftState?: DraftState;
   // Controlled state props for accordion coordination
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -73,6 +77,7 @@ export function DraftAccordion({
   onDelete,
   playAllState,
   hasTracksWithAudio = false,
+  draftState,
   isOpen,
   onOpenChange,
 }: DraftAccordionProps) {
@@ -102,8 +107,16 @@ export function DraftAccordion({
             <span className="text-white font-mono text-sm font-medium flex-shrink-0">
               {title}
             </span>
-            <span className="px-2 py-0.5 text-xs font-medium text-wb-blue bg-wb-blue/20 border border-wb-blue/30 rounded-full flex-shrink-0">
-              EDITING
+            <span className={`px-2 py-0.5 text-xs font-medium rounded-full flex-shrink-0 ${
+              draftState === 'changed'
+                ? 'text-amber-400 bg-amber-500/20 border border-amber-500/30'
+                : draftState === 'ready'
+                  ? 'text-green-400 bg-green-500/20 border border-green-500/30'
+                  : draftState === 'generating'
+                    ? 'text-wb-blue bg-wb-blue/20 border border-wb-blue/30 animate-pulse'
+                    : 'text-wb-blue bg-wb-blue/20 border border-wb-blue/30'
+            }`}>
+              {draftState === 'changed' ? 'CHANGED' : draftState === 'ready' ? 'READY' : draftState === 'generating' ? 'GENERATING' : 'EDITING'}
             </span>
             {requestText && (
               <span className="text-gray-400 text-xs italic truncate">

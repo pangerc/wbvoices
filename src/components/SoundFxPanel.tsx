@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { TrashIcon } from "@heroicons/react/24/outline";
+import { TrashIcon, PlayIcon } from "@heroicons/react/24/outline";
 import { SoundFxPrompt, SoundFxPlacementIntent } from "@/types";
 import {
   GlassyTextarea,
@@ -23,10 +23,13 @@ type SoundFxPanelProps = {
   onUpdatePrompt: (index: number, updates: Partial<SoundFxPrompt>) => void; // Update specific soundfx
   onRemovePrompt: (index: number) => void; // Remove specific soundfx
   onAddPrompt: () => void; // Add new empty soundfx
-  adDuration: number; // Kept for API compatibility with other panels, but not used for duration defaults
+  adDuration: number; // Ad duration for slider max
   resetForm: () => void;
   voiceTrackCount?: number; // Number of voice tracks for placement options
   voiceTrackPreviews?: VoiceTrackPreview[]; // Preview info for each voice track
+  onPlayPrompt?: (index: number) => void; // Play individual prompt (generate if needed)
+  generatingPromptIndex?: number | null; // Which prompt is currently generating
+  generatedUrls?: (string | null)[]; // Per-prompt generated URLs for play button state
 };
 
 // Default duration for sound effects
@@ -69,6 +72,9 @@ export function SoundFxPanel({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   voiceTrackCount: _voiceTrackCount = 0, // Kept for API compatibility, not currently used
   voiceTrackPreviews = [],
+  onPlayPrompt,
+  generatingPromptIndex,
+  generatedUrls = [],
 }: SoundFxPanelProps) {
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
 
@@ -115,12 +121,8 @@ export function SoundFxPanel({
     return "end";
   };
 
-  // Make typescript happy by referencing adDuration in a harmless way
-  React.useEffect(() => {
-    console.log(
-      `Sound effect component initialized with ad duration ${adDuration}s, but using fixed defaults instead`
-    );
-  }, [adDuration]);
+  // Clamp slider max to ad duration (but at least 5s so the control is usable)
+  const sliderMax = Math.max(5, adDuration);
 
   return (
     <div className="py-8 text-white">
@@ -131,22 +133,41 @@ export function SoundFxPanel({
             key={index}
             className="p-6 rounded-xl bg-white/5 border border-white/10 space-y-6"
           >
-            {/* Form header with number and remove button */}
+            {/* Form header with number, play button and remove button */}
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">
                 Sound Effect {index + 1}
               </h3>
-              {soundFxPrompts.length > 1 && (
-                <Tooltip content="Remove this sound effect">
-                  <button
-                    onClick={() => onRemovePrompt(index)}
-                    disabled={isGenerating}
-                    className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
-                  >
-                    <TrashIcon className="w-4 h-4" strokeWidth={2} />
-                  </button>
-                </Tooltip>
-              )}
+              <div className="flex items-center gap-1">
+                {onPlayPrompt && (
+                  <Tooltip content={generatedUrls[index] ? "Play" : "Generate & play"}>
+                    <button
+                      onClick={() => onPlayPrompt(index)}
+                      disabled={isGenerating || !prompt.description?.trim()}
+                      className={`p-2 rounded-lg border transition-all ${
+                        generatingPromptIndex === index
+                          ? "text-wb-blue border-wb-blue/30 bg-wb-blue/10 animate-pulse"
+                          : generatedUrls[index]
+                            ? "text-green-400 border-green-500/30 bg-green-500/10 hover:bg-green-500/20"
+                            : "text-gray-400 border-transparent hover:text-white hover:bg-white/10 hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                      }`}
+                    >
+                      <PlayIcon className="w-4 h-4" strokeWidth={2} />
+                    </button>
+                  </Tooltip>
+                )}
+                {soundFxPrompts.length > 1 && (
+                  <Tooltip content="Remove this sound effect">
+                    <button
+                      onClick={() => onRemovePrompt(index)}
+                      disabled={isGenerating}
+                      className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+                    >
+                      <TrashIcon className="w-4 h-4" strokeWidth={2} />
+                    </button>
+                  </Tooltip>
+                )}
+              </div>
             </div>
 
             <div className="space-y-6 md:grid md:grid-cols-2 md:gap-6 md:space-y-0">
@@ -194,20 +215,26 @@ export function SoundFxPanel({
                   ]}
                 />
 
+                <label className="block text-base mb-1">
+                  Duration{" "}
+                  <span className="text-sm text-gray-400">
+                    {prompt.duration || DEFAULT_SOUND_FX_DURATION}s
+                  </span>
+                </label>
                 <GlassySlider
-                  label="Duration"
+                  label={null}
                   value={prompt.duration || DEFAULT_SOUND_FX_DURATION}
                   onChange={(value) => onUpdatePrompt(index, { duration: value })}
                   min={0.5}
-                  max={15}
+                  max={sliderMax}
                   step={0.5}
                   formatLabel={(val) => `${val} seconds`}
                   tickMarks={[
                     { value: 0.5, label: "0.5s" },
                     { value: 3, label: "3s" },
-                    { value: 5, label: "5s" },
-                    { value: 10, label: "10s" },
-                    { value: 15, label: "15s" },
+                    ...(sliderMax >= 5 ? [{ value: 5, label: "5s" }] : []),
+                    ...(sliderMax >= 10 ? [{ value: 10, label: "10s" }] : []),
+                    { value: sliderMax, label: `${sliderMax}s` },
                   ]}
                 />
               </div>
