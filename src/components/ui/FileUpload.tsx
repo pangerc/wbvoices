@@ -4,9 +4,10 @@ import React, { useState, useRef } from 'react';
 
 export type FileType = 'preview-logo' | 'preview-visual' | 'custom-music' | 'custom-sfx';
 
-interface FileMetadata {
+export interface FileMetadata {
   url: string;
   filename: string;
+  duration?: number;
 }
 
 interface FileUploadProps {
@@ -35,6 +36,36 @@ const FILE_LABELS = {
   'custom-sfx': 'Sound Effect',
 } as const;
 
+// Client-side size limits (must match server FILE_CONFIGS)
+const FILE_SIZE_LIMITS: Record<FileType, number> = {
+  'preview-logo': 5 * 1024 * 1024,
+  'preview-visual': 10 * 1024 * 1024,
+  'custom-music': 50 * 1024 * 1024,
+  'custom-sfx': 20 * 1024 * 1024,
+};
+
+const AUDIO_FILE_TYPES: FileType[] = ['custom-music', 'custom-sfx'];
+
+function measureAudioDuration(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const audio = new Audio(url);
+    audio.onloadedmetadata = () => {
+      resolve(audio.duration && isFinite(audio.duration) ? audio.duration : null);
+      URL.revokeObjectURL(url);
+    };
+    audio.onerror = () => {
+      resolve(null);
+      URL.revokeObjectURL(url);
+    };
+    // Timeout fallback in case metadata never loads
+    setTimeout(() => {
+      resolve(null);
+      URL.revokeObjectURL(url);
+    }, 5000);
+  });
+}
+
 export function FileUpload({
   fileType,
   projectId,
@@ -50,27 +81,63 @@ export function FileUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async (file: File) => {
+    // Client-side size validation
+    const maxSize = FILE_SIZE_LIMITS[fileType];
+    if (file.size > maxSize) {
+      const maxMB = Math.round(maxSize / (1024 * 1024));
+      onUploadError?.(`File too large. Maximum size: ${maxMB}MB`);
+      return;
+    }
+
     setIsUploading(true);
     onUploadStart?.(file.name);
-    
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('fileType', fileType);
-      formData.append('projectId', projectId);
 
+    try {
+      // Measure audio duration client-side before uploading
+      let duration: number | null = null;
+      if (AUDIO_FILE_TYPES.includes(fileType)) {
+        duration = await measureAudioDuration(file);
+      }
+
+      // Send raw binary body with metadata in headers
+      // (avoids request.formData() size limits in Next.js)
       const response = await fetch('/api/upload-asset', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream',
+          'X-File-Type': fileType,
+          'X-Project-Id': projectId,
+          'X-Filename': encodeURIComponent(file.name),
+          'X-File-Size': String(file.size),
+          ...(duration != null ? { 'X-Duration': String(duration) } : {}),
+        },
+        body: file,
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
+        let errorMessage = `Upload failed (${response.status})`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          const text = await response.text().catch(() => '');
+          if (text) errorMessage = text;
+        }
+        throw new Error(errorMessage);
       }
 
-      const result = await response.json();
-      onUploadComplete(result);
+      let result: { url: string; filename: string; fileType: string; duration?: number };
+      try {
+        result = await response.json();
+      } catch {
+        throw new Error('Invalid response from server');
+      }
+
+      onUploadComplete({
+        url: result.url,
+        filename: result.filename,
+        duration: result.duration ?? duration ?? undefined,
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Upload failed';
       console.error('Upload error:', errorMessage);
@@ -104,9 +171,9 @@ export function FileUpload({
         className="hidden"
         disabled={disabled || isUploading}
       />
-      
+
       {children ? (
-        <div 
+        <div
           onClick={triggerFileSelect}
           className={`cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
         >
