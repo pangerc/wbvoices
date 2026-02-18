@@ -15,12 +15,12 @@ const FILE_CONFIGS = {
     prefix: 'preview-visual',
   },
   'custom-music': {
-    allowedTypes: ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/m4a'],
+    allowedTypes: ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/m4a'],
     maxSize: 50 * 1024 * 1024,
     prefix: 'custom-music',
   },
   'custom-sfx': {
-    allowedTypes: ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/aac'],
+    allowedTypes: ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/aac'],
     maxSize: 20 * 1024 * 1024,
     prefix: 'custom-sfx',
   },
