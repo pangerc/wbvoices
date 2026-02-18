@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import { put } from '@vercel/blob';
 
 export type FileType = 'preview-logo' | 'preview-visual' | 'custom-music' | 'custom-sfx';
 
@@ -36,7 +37,7 @@ const FILE_LABELS = {
   'custom-sfx': 'Sound Effect',
 } as const;
 
-// Client-side size limits (must match server FILE_CONFIGS)
+// Client-side size limits (must match server FILE_CONFIGS in upload-asset-token)
 const FILE_SIZE_LIMITS: Record<FileType, number> = {
   'preview-logo': 5 * 1024 * 1024,
   'preview-visual': 10 * 1024 * 1024,
@@ -50,19 +51,18 @@ function measureAudioDuration(file: File): Promise<number | null> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const audio = new Audio(url);
+    let resolved = false;
+    const done = (value: number | null) => {
+      if (resolved) return;
+      resolved = true;
+      resolve(value);
+      URL.revokeObjectURL(url);
+    };
     audio.onloadedmetadata = () => {
-      resolve(audio.duration && isFinite(audio.duration) ? audio.duration : null);
-      URL.revokeObjectURL(url);
+      done(audio.duration && isFinite(audio.duration) ? audio.duration : null);
     };
-    audio.onerror = () => {
-      resolve(null);
-      URL.revokeObjectURL(url);
-    };
-    // Timeout fallback in case metadata never loads
-    setTimeout(() => {
-      resolve(null);
-      URL.revokeObjectURL(url);
-    }, 5000);
+    audio.onerror = () => done(null);
+    setTimeout(() => done(null), 5000);
   });
 }
 
@@ -99,44 +99,44 @@ export function FileUpload({
         duration = await measureAudioDuration(file);
       }
 
-      // Send raw binary body with metadata in headers
-      // (avoids request.formData() size limits in Next.js)
-      const response = await fetch('/api/upload-asset', {
+      // Step 1: Get upload token from server (small JSON request, no file body)
+      const tokenResponse = await fetch('/api/upload-asset-token', {
         method: 'POST',
-        headers: {
-          'Content-Type': file.type || 'application/octet-stream',
-          'X-File-Type': fileType,
-          'X-Project-Id': projectId,
-          'X-Filename': encodeURIComponent(file.name),
-          'X-File-Size': String(file.size),
-          ...(duration != null ? { 'X-Duration': String(duration) } : {}),
-        },
-        body: file,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileType,
+          projectId,
+          contentType: file.type || 'application/octet-stream',
+          fileSize: file.size,
+          originalFilename: file.name,
+        }),
       });
 
-      if (!response.ok) {
-        let errorMessage = `Upload failed (${response.status})`;
+      if (!tokenResponse.ok) {
+        let errorMessage = `Upload failed (${tokenResponse.status})`;
         try {
-          const errorData = await response.json();
+          const errorData = await tokenResponse.json();
           errorMessage = errorData.error || errorMessage;
         } catch {
-          const text = await response.text().catch(() => '');
+          const text = await tokenResponse.text().catch(() => '');
           if (text) errorMessage = text;
         }
         throw new Error(errorMessage);
       }
 
-      let result: { url: string; filename: string; fileType: string; duration?: number };
-      try {
-        result = await response.json();
-      } catch {
-        throw new Error('Invalid response from server');
-      }
+      const { filename, token } = await tokenResponse.json();
+
+      // Step 2: Upload directly to Vercel Blob (bypasses 4.5MB serverless body limit)
+      const blob = await put(filename, file, {
+        access: 'public',
+        token,
+        contentType: file.type || 'application/octet-stream',
+      });
 
       onUploadComplete({
-        url: result.url,
-        filename: result.filename,
-        duration: result.duration ?? duration ?? undefined,
+        url: blob.url,
+        filename: file.name,
+        duration: duration ?? undefined,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Upload failed';
