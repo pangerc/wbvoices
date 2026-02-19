@@ -9,6 +9,7 @@
  */
 
 import type { VoiceTrack, Provider } from "@/types";
+import { applyTimeStretch } from "@/utils/audio-processing";
 
 // ============ Provider Resolution ============
 
@@ -136,9 +137,19 @@ export async function generateVoiceTrack(
 
   console.log(`✅ Voice track generated: ${data.audio_url.substring(0, 50)}... (duration: ${data.duration || 0}s)`);
 
+  let audioUrl = data.audio_url;
+  let duration = data.duration || 0;
+
+  // Apply post-processing speedup if specified (ElevenLabs only)
+  if (provider === 'elevenlabs' && (track.postProcessingSpeedup || track.targetDuration)) {
+    const processed = await applyPostProcessing(audioUrl, track, duration);
+    audioUrl = processed.audioUrl;
+    duration = processed.duration;
+  }
+
   return {
-    audioUrl: data.audio_url,
-    duration: data.duration || 0,
+    audioUrl,
+    duration,
     provider,
     text,
   };
@@ -208,6 +219,88 @@ export async function generateAndPersistTrack(
   const result = await generateVoiceTrack(track, genOptions);
   await persistTrackUrl(result.audioUrl, result.duration, persistOptions);
   return result;
+}
+
+// ============ Post-Processing ============
+
+/**
+ * Apply time-stretching post-processing to generated audio.
+ * Downloads original, applies SoundTouch WSOLA, uploads processed WAV.
+ * Ported from AudioService.applyPostProcessingSpeedup (audioService.ts).
+ */
+async function applyPostProcessing(
+  originalUrl: string,
+  track: VoiceTrack,
+  originalDurationFromProvider: number
+): Promise<{ audioUrl: string; duration: number }> {
+  try {
+    console.log(`🎬 Post-processing required for ElevenLabs track`);
+
+    // Download original audio
+    const response = await fetch(originalUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download audio: ${response.statusText}`);
+    }
+    const audioArrayBuffer = await response.arrayBuffer();
+
+    // Calculate speedup
+    let speedup = track.postProcessingSpeedup || 1.0;
+
+    if (track.targetDuration) {
+      // Measure actual duration if provider didn't give us one
+      let originalDuration = originalDurationFromProvider;
+      if (!originalDuration) {
+        originalDuration = await new Promise<number>((resolve) => {
+          const audio = new Audio(originalUrl);
+          audio.addEventListener('loadedmetadata', () => resolve(audio.duration));
+          audio.addEventListener('error', () => resolve(0));
+          audio.load();
+        });
+      }
+
+      if (originalDuration > 0) {
+        speedup = originalDuration / track.targetDuration;
+        if (speedup > 1.6) {
+          console.warn(`Calculated speedup ${speedup.toFixed(2)}x exceeds 1.6x, clamping`);
+          speedup = 1.6;
+        }
+        console.log(`🎯 Target duration ${track.targetDuration}s → ${speedup.toFixed(2)}x speedup`);
+      }
+    }
+
+    // Apply time-stretching
+    const pitch = track.postProcessingPitch || 1.0;
+    console.log(`⚡ Applying ${speedup.toFixed(2)}x time-stretch with ${pitch.toFixed(2)}x pitch`);
+    const processedArrayBuffer = await applyTimeStretch(audioArrayBuffer, speedup, pitch);
+
+    // Upload processed audio
+    const processedBlob = new Blob([processedArrayBuffer], { type: 'audio/wav' });
+    const formData = new FormData();
+    formData.append('audio', processedBlob, `processed-voice-${Date.now()}.wav`);
+    formData.append('voiceId', track.voice?.id || 'unknown');
+    formData.append('provider', 'elevenlabs-processed');
+    formData.append('projectId', `voice-processed-${Date.now()}`);
+
+    const uploadResponse = await fetch('/api/voice/upload-processed', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Failed to upload processed audio: ${uploadResponse.statusText}`);
+    }
+
+    const { audio_url } = await uploadResponse.json();
+    const processedDuration = originalDurationFromProvider
+      ? originalDurationFromProvider / speedup
+      : 0;
+
+    console.log(`✅ Post-processed audio: ${audio_url.substring(0, 50)}... (${processedDuration.toFixed(1)}s)`);
+    return { audioUrl: audio_url, duration: processedDuration };
+  } catch (error) {
+    console.error('❌ Post-processing failed, using original audio:', error);
+    return { audioUrl: originalUrl, duration: originalDurationFromProvider };
+  }
 }
 
 // ============ Helpers ============
