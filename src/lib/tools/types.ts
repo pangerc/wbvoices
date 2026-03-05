@@ -48,6 +48,7 @@ export interface CreateVoiceDraftParams {
     voiceInstructions?: string; // OpenAI voice guidance
     dialectId?: number; // Lahajati Arabic dialect ID
     performanceId?: number; // Lahajati performance style ID
+    emotion?: string; // ByteDance TTS 2.0 emotion tag
     // Preserve language context when voice catalogue lookup fails
     language?: string;
     accent?: string;

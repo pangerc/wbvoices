@@ -1,5 +1,5 @@
 /**
- * Tool-calling types for OpenAI GPT-5.1 Responses API
+ * Tool-calling types for OpenAI GPT-5.4 Responses API
  */
 
 import type { ToolCall, ToolDefinition, ToolResult } from "@/lib/tools/types";
@@ -15,7 +15,7 @@ export interface ConversationMessage {
   tool_call_id?: string;
 }
 
-export type ReasoningEffort = "none" | "low" | "medium" | "high";
+export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
 
 export interface AdapterRequest {
   messages: ConversationMessage[];

@@ -10,6 +10,7 @@ import { detectIntent } from "./selector";
 import { elevenlabsVoiceModule } from "./modules/elevenlabs-voice";
 import { openaiVoiceModule } from "./modules/openai-voice";
 import { simpleVoiceModule } from "./modules/simple-voice";
+import { bytedanceVoiceModule } from "./modules/bytedance-voice";
 import { musicGenerationModule } from "./modules/music-generation";
 import { sfxGenerationModule } from "./modules/sfx-generation";
 import { creativeAlignmentModule } from "./modules/creative-alignment";
@@ -21,6 +22,7 @@ const MODULE_REGISTRY = {
   "elevenlabs-voice": elevenlabsVoiceModule,
   "openai-voice": openaiVoiceModule,
   "simple-voice": simpleVoiceModule,
+  "bytedance-voice": bytedanceVoiceModule,
   "music-generation": musicGenerationModule,
   "sfx-generation": sfxGenerationModule,
   "creative-alignment": creativeAlignmentModule,
@@ -39,9 +41,10 @@ function getVoiceModulesForProvider(
       return ["elevenlabs-voice"];
     case "openai":
       return ["openai-voice"];
+    case "bytedance":
+      return ["bytedance-voice"];
     case "qwen":
     case "lovo":
-    case "bytedance":
       return ["simple-voice"];
     default:
       // Unknown provider - fallback to ElevenLabs

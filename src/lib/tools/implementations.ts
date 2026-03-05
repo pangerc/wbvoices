@@ -138,9 +138,10 @@ export async function createVoiceDraft(
         speed: 1.0,
         // Provider-specific fields
         description: track.description, // ElevenLabs baseline tone
-        voiceInstructions: track.voiceInstructions, // OpenAI voice guidance
+        voiceInstructions: track.voiceInstructions, // OpenAI/Lahajati/ByteDance voice guidance
         dialectId: track.dialectId, // Lahajati Arabic dialect ID
         performanceId: track.performanceId, // Lahajati performance style ID
+        emotion: track.emotion, // ByteDance TTS 2.0 emotion tag
       };
     })
   );

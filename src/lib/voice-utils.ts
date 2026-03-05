@@ -112,6 +112,10 @@ export async function generateVoiceTrack(
       // Lahajati-specific parameters (passed through if present)
       dialectId: track.dialectId,
       performanceId: track.performanceId,
+      // ByteDance TTS 2.0 emotion control
+      emotion: track.emotion,
+      // Language for ByteDance explicit_language mapping
+      language: track.voice.language,
     }),
   });
 

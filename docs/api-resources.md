@@ -36,3 +36,5 @@ https://www.loudly.com/developers/apps
 ## Bytedance
 
 https://docs.byteplus.com/en/docs/byteplusvoice/unidirectional_tts_http
+https://console.byteplus.com/voice/new/setting/apikeys?projectName=default
+https://console.byteplus.com/voice/new/overview?projectName=default

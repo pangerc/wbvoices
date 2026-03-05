@@ -83,7 +83,12 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 voiceInstructions: {
                   type: "string",
                   description:
-                    "Voice guidance instructions. For OpenAI: structured format 'Voice Affect: ...; Tone: ...; Pacing: ...; Emotion: ...; Emphasis: ...; Pronunciation: ...; Pauses: ...'. For Lahajati: Arabic persona/role instruction describing HOW to speak (e.g., 'اقرأ بصوت واثق وحماسي كأنك مذيع رياضي' - read confidently and enthusiastically like a sports announcer).",
+                    "Voice guidance instructions. For OpenAI: structured format 'Voice Affect: ...; Tone: ...; Pacing: ...; Emotion: ...; Emphasis: ...; Pronunciation: ...; Pauses: ...'. For Lahajati: Arabic persona/role instruction describing HOW to speak (e.g., 'اقرأ بصوت واثق وحماسي كأنك مذيع رياضي' - read confidently and enthusiastically like a sports announcer). For ByteDance TTS 2.0: free-text style instruction (e.g., 'Speak cheerfully and energetically', 'Use a warm, intimate tone').",
+                },
+                emotion: {
+                  type: "string",
+                  description:
+                    "ByteDance TTS 2.0 emotion tag. Only for ByteDance voices. Options: happy, sad, angry, excited, warm, neutral, fear, surprised, coldness, affectionate, chat, ASMR, authoritative.",
                 },
                 dialectId: {
                   type: "number",
@@ -107,7 +112,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 },
                 provider: {
                   type: "string",
-                  enum: ["elevenlabs", "lovo", "openai", "lahajati"],
+                  enum: ["elevenlabs", "lovo", "openai", "lahajati", "bytedance"],
                   description:
                     "Voice provider - REQUIRED for fallback if voice lookup fails",
                 },

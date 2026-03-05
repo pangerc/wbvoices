@@ -305,158 +305,179 @@ async function fetchAndNormalizeVoices() {
     } English)`
   );
 
-  // BYTEDANCE - Chinese and Japanese TTS
+  // BYTEDANCE - TTS 2.0 only (emotion + style control)
   const bytedanceVoices = [
-    // Standard Chinese Mandarin voices
+    // English voices
     {
-      id: "zh_male_baqiqingshu_mars_bigtts",
-      name: "Edward",
-      gender: "male" as const,
-      language: "zh",
-      accent: "neutral",
-      description: "Deep, audiobook style",
-      age: "middle_aged",
-      use_case: "narration",
-    },
-    {
-      id: "zh_female_wenroushunv_mars_bigtts",
-      name: "Emma",
+      id: "en_female_stokie_uranus_bigtts",
+      name: "Stokie",
       gender: "female" as const,
-      language: "zh",
+      language: "en",
       accent: "neutral",
-      description: "Soft and gentle",
-      age: "young",
-      use_case: "narration",
-    },
-    {
-      id: "zh_female_gaolengyujie_moon_bigtts",
-      name: "Charlotte",
-      gender: "female" as const,
-      language: "zh",
-      accent: "neutral",
-      description: "Clear and professional",
-      age: "middle_aged",
-      use_case: "general",
-    },
-    {
-      id: "zh_female_linjianvhai_moon_bigtts",
-      name: "Lila",
-      gender: "female" as const,
-      language: "zh",
-      accent: "neutral",
-      description: "Clear and youthful",
+      description: "Clear and natural English speaker",
       age: "young",
       use_case: "general",
     },
     {
-      id: "zh_male_yuanboxiaoshu_moon_bigtts",
-      name: "Joseph",
-      gender: "male" as const,
-      language: "zh",
-      accent: "neutral",
-      description: "Deep and articulate",
-      age: "middle_aged",
-      use_case: "general",
-    },
-    {
-      id: "zh_male_yangguangqingnian_moon_bigtts",
-      name: "George",
-      gender: "male" as const,
-      language: "zh",
-      accent: "neutral",
-      description: "Clear and energetic",
-      age: "young",
-      use_case: "general",
-    },
-    // Cantonese voices - map to Hong Kong region
-    {
-      id: "zh_male_guozhoudege_moon_bigtts",
-      name: "Andrew",
-      gender: "male" as const,
-      language: "zh",
-      region: "HK", // Hong Kong region
-      accent: "cantonese", // Cantonese accent
-      description: "Clear Cantonese speaker",
-      age: "middle_aged",
-      use_case: "regional",
-    },
-    {
-      id: "zh_female_wanqudashu_moon_bigtts", // Note: Documentation says male but ID suggests female
-      name: "Robert",
-      gender: "male" as const,
-      language: "zh",
-      region: "HK", // Hong Kong region
-      accent: "cantonese", // Cantonese accent
-      description: "Fun Cantonese style",
-      age: "middle_aged",
-      use_case: "regional",
-    },
-    // Sichuan dialect voice
-    {
-      id: "zh_female_daimengchuanmei_moon_bigtts",
-      name: "Elena",
+      id: "en_female_dacey_uranus_bigtts",
+      name: "Dacey",
       gender: "female" as const,
-      language: "zh",
-      accent: "sichuan",
-      description: "Sichuan dialect speaker",
-      age: "young",
-      use_case: "regional",
-    },
-    // Taiwanese voice
-    {
-      id: "zh_female_wanwanxiaohe_moon_bigtts",
-      name: "Isabella",
-      gender: "female" as const,
-      language: "zh",
-      accent: "taiwanese",
-      description: "Vivid Taiwanese speaker",
-      age: "young",
-      use_case: "regional",
-    },
-    // Japanese voices
-    {
-      id: "multi_male_jingqiangkanye_moon_bigtts",
-      name: "かずね",
-      gender: "male" as const,
-      language: "ja",
+      language: "en",
       accent: "neutral",
-      description: "Fun Japanese speaker",
+      description: "Sweet and warm English speaker",
       age: "young",
       use_case: "general",
     },
     {
-      id: "multi_female_shuangkuaisisi_moon_bigtts",
-      name: "はるこ",
+      id: "en_male_tim_uranus_bigtts",
+      name: "Tim",
+      gender: "male" as const,
+      language: "en",
+      accent: "neutral",
+      description: "Clear and articulate English speaker",
+      age: "middle_aged",
+      use_case: "general",
+    },
+    // German voice
+    {
+      id: "de_male_seven_uranus_bigtts",
+      name: "Sven",
+      gender: "male" as const,
+      language: "de",
+      accent: "neutral",
+      description: "Clear German speaker",
+      age: "middle_aged",
+      use_case: "general",
+    },
+    // French voice
+    {
+      id: "fr_male_usseau_uranus_bigtts",
+      name: "Usseau",
+      gender: "male" as const,
+      language: "fr",
+      accent: "neutral",
+      description: "Clear French speaker",
+      age: "middle_aged",
+      use_case: "general",
+    },
+    // Mexican Spanish voice
+    {
+      id: "es_male_felipe_uranus_bigtts",
+      name: "Felipe",
+      gender: "male" as const,
+      language: "es",
+      accent: "mexican",
+      description: "Clear Mexican Spanish speaker",
+      age: "middle_aged",
+      use_case: "general",
+    },
+    // Indonesian voice
+    {
+      id: "id_male_han_uranus_bigtts",
+      name: "Han",
+      gender: "male" as const,
+      language: "id",
+      accent: "neutral",
+      description: "Clear Indonesian speaker",
+      age: "middle_aged",
+      use_case: "general",
+    },
+    // Brazilian Portuguese voice
+    {
+      id: "pt_male_martins_uranus_bigtts",
+      name: "Martins",
+      gender: "male" as const,
+      language: "pt",
+      accent: "brazilian",
+      description: "Clear Brazilian Portuguese speaker",
+      age: "middle_aged",
+      use_case: "general",
+    },
+    // Japanese TTS 2.0 voice
+    {
+      id: "jp_female_minimi_uranus_bigtts",
+      name: "Minimi",
       gender: "female" as const,
       language: "ja",
       accent: "neutral",
-      description: "Vivid Japanese speaker",
+      description: "Clear and natural Japanese speaker",
+      age: "young",
+      use_case: "general",
+    },
+    // Multilingual TTS 2.0 voices (registered under zh, support ja/es/id/pt too)
+    {
+      id: "zh_female_vv_uranus_bigtts",
+      name: "Vivi",
+      gender: "female" as const,
+      language: "zh",
+      accent: "neutral",
+      description: "Vivid multilingual speaker",
       age: "young",
       use_case: "general",
     },
     {
-      id: "multi_male_wanqudashu_moon_bigtts",
-      name: "ひろし",
-      gender: "male" as const,
-      language: "ja",
+      id: "zh_female_xiaohe_uranus_bigtts",
+      name: "Mindy",
+      gender: "female" as const,
+      language: "zh",
       accent: "neutral",
-      description: "Fun Japanese speaker",
-      age: "middle_aged",
+      description: "Vivid multilingual speaker",
+      age: "young",
       use_case: "general",
     },
     {
-      id: "multi_female_gaolengvujie_moon_bigtts",
-      name: "あけみ",
+      id: "zh_female_kefunvsheng_uranus_bigtts",
+      name: "Tracy",
       gender: "female" as const,
-      language: "ja",
+      language: "zh",
       accent: "neutral",
-      description: "Clear Japanese speaker",
+      description: "Warm multilingual speaker",
+      age: "young",
+      use_case: "general",
+    },
+    {
+      id: "zh_male_shaonianzixin_uranus_bigtts",
+      name: "Jess",
+      gender: "male" as const,
+      language: "zh",
+      accent: "neutral",
+      description: "Vivid multilingual speaker",
+      age: "young",
+      use_case: "general",
+    },
+    {
+      id: "zh_female_linjianvhai_uranus_bigtts",
+      name: "Pinky",
+      gender: "female" as const,
+      language: "zh",
+      accent: "neutral",
+      description: "Sweet multilingual speaker",
+      age: "young",
+      use_case: "general",
+    },
+    {
+      id: "zh_female_kiwi_uranus_bigtts",
+      name: "Sweety",
+      gender: "female" as const,
+      language: "zh",
+      accent: "neutral",
+      description: "Vivid multilingual speaker",
+      age: "young",
+      use_case: "general",
+    },
+    {
+      id: "zh_female_sajiaoxuemei_uranus_bigtts",
+      name: "Sandy",
+      gender: "female" as const,
+      language: "zh",
+      accent: "neutral",
+      description: "Sweet multilingual speaker",
       age: "young",
       use_case: "general",
     },
   ];
 
-  // Add ByteDance voices to cache (Chinese and Japanese)
+  // Add ByteDance TTS 2.0 voices to cache
   for (const bytedanceVoice of bytedanceVoices) {
     voices.push({
       id: bytedanceVoice.id,
@@ -465,14 +486,14 @@ async function fetchAndNormalizeVoices() {
       name: bytedanceVoice.name,
       displayName: `${bytedanceVoice.name} (ByteDance)`,
       gender: bytedanceVoice.gender,
-      language: bytedanceVoice.language as Language, // Use the language from each voice
+      language: bytedanceVoice.language as Language,
       accent: bytedanceVoice.accent,
       personality: bytedanceVoice.description,
       age: bytedanceVoice.age,
       capabilities: {
-        supportsEmotional: false,
+        supportsEmotional: true,
         supportsWhispering: false,
-        isMultilingual: false, // ByteDance voices are language-specific
+        isMultilingual: bytedanceVoice.language === "zh", // zh-prefixed multilingual voices support ja/es/id/pt too
       },
       sampleUrl: undefined,
       useCase: bytedanceVoice.use_case,
@@ -481,7 +502,7 @@ async function fetchAndNormalizeVoices() {
   }
 
   console.log(
-    `✅ ByteDance: ${bytedanceVoices.length} voices (Chinese with regional dialects)`
+    `ByteDance: ${bytedanceVoices.length} TTS 2.0 voices`
   );
 
   // LAHAJATI - Arabic dialect specialist (339 voices, 116 dialects)

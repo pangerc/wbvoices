@@ -52,7 +52,7 @@ export type VoiceTrack = {
   style?: string;
   useCase?: string;
   description?: string; // ElevenLabs baseline tone (cheerful, excited, calm, etc.)
-  voiceInstructions?: string; // OpenAI-specific voice control instructions
+  voiceInstructions?: string; // Voice control instructions (OpenAI structured, Lahajati persona, ByteDance style direction)
   speed?: number; // Per-track speed multiplier (OpenAI: 0.25-4.0, ElevenLabs: 0.7-1.2)
   postProcessingSpeedup?: number; // Post-processing time-stretch speedup (1.0-1.6x, ElevenLabs only)
   postProcessingPitch?: number; // Post-processing pitch adjustment (0.7-1.2x, default 1.0, ElevenLabs only)
@@ -62,6 +62,8 @@ export type VoiceTrack = {
   // Lahajati-specific fields for Arabic dialect and performance style control
   dialectId?: number; // Lahajati dialect ID (e.g., 8 for Cairo slang)
   performanceId?: number; // Lahajati performance style ID (e.g., 1542 for automotive ad)
+  // ByteDance TTS 2.0 emotion control
+  emotion?: string; // ByteDance emotion tag (happy, sad, angry, excited, warm, neutral, etc.)
 };
 
 export type CampaignFormat = "ad_read" | "dialog";

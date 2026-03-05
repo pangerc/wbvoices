@@ -1,35 +1,24 @@
 import { BaseAudioProvider, ValidationResult, AuthCredentials, ProviderResponse } from './BaseAudioProvider';
 import { uploadVoiceToBlob } from '@/utils/blob-storage';
 import { NextResponse } from 'next/server';
-// Use Web Crypto API for Edge Runtime compatibility
 
 export class ByteDanceVoiceProvider extends BaseAudioProvider {
   readonly providerName = 'bytedance';
   readonly providerType = 'voice' as const;
 
   validateParams(body: Record<string, unknown>): ValidationResult {
-    const { text, voiceId, style, useCase, projectId } = body;
+    const { text, voiceId, style, useCase, projectId, emotion, voiceInstructions, language } = body;
 
     if (!text || typeof text !== 'string') {
-      return {
-        isValid: false,
-        error: "Missing required parameter: text"
-      };
+      return { isValid: false, error: "Missing required parameter: text" };
     }
 
     if (!voiceId || typeof voiceId !== 'string') {
-      return {
-        isValid: false,
-        error: "Missing required parameter: voiceId"
-      };
+      return { isValid: false, error: "Missing required parameter: voiceId" };
     }
 
-    // ByteDance has text length limits (we'll use 1000 chars as safe limit)
     if ((text as string).length > 1000) {
-      return {
-        isValid: false,
-        error: "Text exceeds maximum length (1000 characters)"
-      };
+      return { isValid: false, error: "Text exceeds maximum length (1000 characters)" };
     }
 
     return {
@@ -39,7 +28,10 @@ export class ByteDanceVoiceProvider extends BaseAudioProvider {
         voiceId,
         style: typeof style === 'string' ? style : undefined,
         useCase: typeof useCase === 'string' ? useCase : undefined,
-        projectId: typeof projectId === 'string' ? projectId : undefined
+        projectId: typeof projectId === 'string' ? projectId : undefined,
+        emotion: typeof emotion === 'string' ? emotion : undefined,
+        voiceInstructions: typeof voiceInstructions === 'string' ? voiceInstructions : undefined,
+        language: typeof language === 'string' ? language : undefined,
       }
     };
   }
@@ -47,131 +39,150 @@ export class ByteDanceVoiceProvider extends BaseAudioProvider {
   protected validateCredentials(): boolean {
     const appId = process.env.BYTEDANCE_APP_ID;
     const accessToken = process.env.BYTEDANCE_ACCESS_TOKEN;
-    const secretKey = process.env.BYTEDANCE_SECRET_KEY;
-    return !!(appId && accessToken && secretKey);
+    const appKey = process.env.BYTEDANCE_APP_KEY;
+    return !!(appId && accessToken && appKey);
   }
 
   async authenticate(): Promise<AuthCredentials> {
     const appId = process.env.BYTEDANCE_APP_ID;
     const accessToken = process.env.BYTEDANCE_ACCESS_TOKEN;
-    const secretKey = process.env.BYTEDANCE_SECRET_KEY;
 
-    if (!appId || !accessToken || !secretKey) {
-      throw new Error("ByteDance credentials are missing");
+    if (!appId || !accessToken || !process.env.BYTEDANCE_APP_KEY) {
+      throw new Error("ByteDance credentials are missing (BYTEDANCE_APP_ID, BYTEDANCE_ACCESS_TOKEN, BYTEDANCE_APP_KEY)");
     }
 
-    return {
-      apiKey: accessToken,
-      appId,
-      secretKey
-    };
+    return { apiKey: accessToken, appId };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private async generateAuthHeaders(appId: string, accessToken: string, _secretKey: string): Promise<Record<string, string>> {
-    // ByteDance uses fixed authentication headers, not signature-based auth
-    // _secretKey parameter kept for interface compatibility but not used
-
+  private generateAuthHeaders(appId: string, accessToken: string): Record<string, string> {
     return {
       'X-Api-App-Id': appId,
       'X-Api-Access-Key': accessToken,
-      'X-Api-Resource-Id': 'volc.service_type.1000009',
-      'X-Api-App-Key': 'aGjiRDfUWi',
+      'X-Api-Resource-Id': 'seed-tts-2.0',
+      'X-Api-App-Key': process.env.BYTEDANCE_APP_KEY!,
       'X-Api-Request-Id': `wb-voices-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       'Content-Type': 'application/json',
     };
   }
 
+  /**
+   * Map language codes to ByteDance explicit_language values.
+   * TTS 2.0 supports: zh, en, ja, es-mx, id, pt-br, de, fr
+   */
+  private mapLanguage(language?: string): string | undefined {
+    if (!language) return undefined;
+    const map: Record<string, string> = {
+      'zh': 'zh', 'zh-CN': 'zh', 'zh-TW': 'zh', 'zh-HK': 'zh',
+      'en': 'en', 'en-US': 'en', 'en-GB': 'en', 'en-AU': 'en',
+      'ja': 'ja',
+      'es': 'es-mx', 'es-MX': 'es-mx',
+      'id': 'id',
+      'pt': 'pt-br', 'pt-BR': 'pt-br',
+      'de': 'de',
+      'fr': 'fr',
+    };
+    return map[language] || undefined;
+  }
+
   async makeRequest(params: Record<string, unknown>, credentials: AuthCredentials): Promise<ProviderResponse> {
-    const { text, voiceId, style, useCase } = params;
-    const { apiKey, appId, secretKey } = credentials;
+    const { text, voiceId, style, useCase, emotion, voiceInstructions, language } = params;
+    const { apiKey, appId } = credentials;
 
-    console.log(`🎭 ByteDance TTS API Call:`);
+    console.log(`ByteDance TTS 2.0 API Call:`);
     console.log(`  Text: "${(text as string).substring(0, 50)}..."`);
-    console.log(`  Voice ID: ${voiceId}`);
-    console.log(`  Style: ${style || 'none'}`);
-    console.log(`  Use Case: ${useCase || 'none'}`);
+    console.log(`  Speaker: ${voiceId}`);
+    console.log(`  Emotion: ${emotion || 'none'}`);
+    console.log(`  Voice Instructions: ${voiceInstructions ? (voiceInstructions as string).substring(0, 50) + '...' : 'none'}`);
 
-    // Build request payload according to ByteDance API
+    // Build audio_params
+    const audioParams: Record<string, unknown> = {
+      format: 'mp3',
+      sample_rate: 24000,
+      bit_rate: 128000,
+    };
+
+    if (emotion && typeof emotion === 'string') {
+      audioParams.emotion = emotion;
+      audioParams.emotion_scale = 4;
+    }
+
+    // Build additions JSON string
+    const additions: Record<string, unknown> = {
+      disable_markdown_filter: true,
+      disable_default_bit_rate: true,
+    };
+
+    // Map voiceInstructions → context_texts (TTS 2.0 feature)
+    if (voiceInstructions && typeof voiceInstructions === 'string') {
+      additions.context_texts = [voiceInstructions];
+    }
+
+    const explicitLanguage = this.mapLanguage(language as string);
+    if (explicitLanguage) {
+      additions.explicit_language = explicitLanguage;
+    }
+
     const requestBody = {
-      app: {
-        appid: appId as string,
-        token: apiKey as string,
-        cluster: "volcano_tts"
-      },
-      user: {
-        uid: "wb-voices-user" // A consistent user ID for our application
-      },
-      audio: {
-        voice_type: voiceId as string,
-        encoding: "wav",
-        speed_ratio: 1.0,
-        volume_ratio: 1.0,
-        pitch_ratio: 1.0
-      },
-      request: {
-        reqid: `wb-voices-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      req_params: {
         text: text as string,
-        text_type: "plain",
-        operation: "query",
-        with_frontend: 1,
-        frontend_type: "unitTson"
+        speaker: voiceId as string,
+        audio_params: audioParams,
+        additions: JSON.stringify(additions),
       }
     };
 
-    console.log(`  📡 Using voice type: ${voiceId}`);
-
     const response = await this.makeFetch(
-      "https://openspeech.bytedance.com/api/v1/tts",
+      "https://voice.ap-southeast-1.bytepluses.com/api/v3/tts/unidirectional",
       {
         method: "POST",
-        headers: await this.generateAuthHeaders(appId as string, apiKey as string, secretKey as string),
+        headers: this.generateAuthHeaders(appId as string, apiKey as string),
         body: JSON.stringify(requestBody),
       }
     );
 
     if (!response.ok) {
       const errorInfo = await this.handleApiError(response);
-      return {
-        success: false,
-        error: errorInfo.message,
-        errorDetails: errorInfo.details
-      };
+      return { success: false, error: errorInfo.message, errorDetails: errorInfo.details };
     }
 
-    // ByteDance returns streaming base64 encoded audio
-    const responseData = await response.json();
+    // V3 streaming response: multiple JSON chunks with base64 audio
+    const responseText = await response.text();
+    const lines = responseText.split('\n').filter(line => line.trim());
+    const audioChunks: Buffer[] = [];
 
-    console.log(`ByteDance TTS response:`, {
-      code: responseData.code,
-      message: responseData.message,
-      request_id: responseData.request_id
-    });
+    for (const line of lines) {
+      let chunk: { code: number; message?: string; data?: string };
+      try {
+        chunk = JSON.parse(line);
+      } catch {
+        console.warn(`ByteDance: Failed to parse response line: ${line.substring(0, 100)}`);
+        continue;
+      }
 
-    // Check for success response
-    if (responseData.code !== 3000 && responseData.code !== 0) {
-      return {
-        success: false,
-        error: `ByteDance API error: ${responseData.message || 'Unknown error'}`
-      };
+      // End-of-stream marker
+      if (chunk.code === 20000000) break;
+
+      // Error response
+      if (chunk.code !== 0) {
+        return { success: false, error: `ByteDance API error (${chunk.code}): ${chunk.message || 'Unknown error'}` };
+      }
+
+      if (chunk.data) {
+        audioChunks.push(Buffer.from(chunk.data, 'base64'));
+      }
     }
 
-    // Extract base64 audio data from response
-    const audioBase64 = responseData.data;
-
-    if (!audioBase64) {
-      return {
-        success: false,
-        error: "No audio data in response"
-      };
+    if (audioChunks.length === 0) {
+      return { success: false, error: "No audio data in response" };
     }
 
-    // Convert base64 to ArrayBuffer
-    const audioBuffer = Buffer.from(audioBase64, 'base64');
+    const audioBuffer = Buffer.concat(audioChunks);
     const audioArrayBuffer = audioBuffer.buffer.slice(
       audioBuffer.byteOffset,
       audioBuffer.byteOffset + audioBuffer.byteLength
     );
+
+    console.log(`ByteDance TTS 2.0: Got ${audioChunks.length} chunks, ${audioBuffer.byteLength} bytes total`);
 
     return {
       success: true,
@@ -191,8 +202,7 @@ export class ByteDanceVoiceProvider extends BaseAudioProvider {
     try {
       console.log("ByteDance: Uploading voice to Vercel Blob...");
 
-      // WAV format from ByteDance
-      const audioBlob = new Blob([audioArrayBuffer as ArrayBuffer], { type: 'audio/wav' });
+      const audioBlob = new Blob([audioArrayBuffer as ArrayBuffer], { type: 'audio/mpeg' });
       const blobResult = await uploadVoiceToBlob(
         audioBlob,
         (text as string).substring(0, 50),
@@ -217,7 +227,6 @@ export class ByteDanceVoiceProvider extends BaseAudioProvider {
       });
     } catch (blobError) {
       console.error('ByteDance: Failed to upload voice to blob:', blobError);
-
       return NextResponse.json(
         { error: "Failed to upload audio to blob storage" },
         { status: 500 }

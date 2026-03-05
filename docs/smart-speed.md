@@ -190,52 +190,20 @@ export async function applyTimeStretch(
 
 **Fallback**: If SoundTouch fails, falls back to simple playback rate (will alter pitch)
 
-### Integration in audioService
+### Integration in voice-utils
 
-**File**: `src/services/audioService.ts`
+**File**: `src/lib/voice-utils.ts`
 
 ```typescript
-// After generating audio from ElevenLabs
-if (trackProvider === 'elevenlabs' && (track.postProcessingSpeedup || track.targetDuration)) {
-  console.log(`🎬 Post-processing required for ElevenLabs track`);
-  url = await this.applyPostProcessingSpeedup(url, track, onStatusUpdate);
-}
-
-private static async applyPostProcessingSpeedup(
-  originalUrl: string,
-  track: VoiceTrack,
-  onStatusUpdate: (message: string) => void
-): Promise<string> {
-  // Download original
-  const response = await fetch(originalUrl);
-  const audioArrayBuffer = await response.arrayBuffer();
-
-  // Calculate speedup
-  let speedup = track.postProcessingSpeedup || 1.0;
-  if (track.targetDuration) {
-    const originalDuration = await measureAudioDuration(originalUrl);
-    speedup = originalDuration / track.targetDuration;
-    speedup = Math.min(speedup, 1.6);  // Cap at 1.6x
-  }
-
-  // Apply processing
-  const pitch = track.postProcessingPitch || 1.0;
-  const processedArrayBuffer = await applyTimeStretch(audioArrayBuffer, speedup, pitch);
-
-  // Upload processed audio
-  const processedBlob = new Blob([processedArrayBuffer], { type: 'audio/wav' });
-  const formData = new FormData();
-  formData.append('audio', processedBlob, `processed-voice-${Date.now()}.wav`);
-
-  const uploadResponse = await fetch('/api/voice/upload-processed', {
-    method: 'POST',
-    body: formData,
-  });
-
-  const { audio_url } = await uploadResponse.json();
-  return audio_url;  // Return processed URL to mixer
+// In generateVoiceTrack(), after getting raw URL from provider:
+if (provider === 'elevenlabs' && (track.postProcessingSpeedup || track.targetDuration)) {
+  const processed = await applyPostProcessing(audioUrl, track, duration);
+  audioUrl = processed.audioUrl;
+  duration = processed.duration;
 }
 ```
+
+The `applyPostProcessing()` helper in the same file handles the full pipeline: download original audio, calculate speedup (from explicit value or target duration), apply SoundTouch WSOLA via `applyTimeStretch()`, upload processed WAV to `/api/voice/upload-processed`, return new blob URL. Falls back to original URL on error.
 
 ### Upload Endpoint
 

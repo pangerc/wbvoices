@@ -1,7 +1,7 @@
 /**
  * Agent Executor - Simple LLM tool-calling loop
  *
- * Trusts GPT-5.1's CoT continuity to handle:
+ * Trusts GPT-5.4's CoT continuity to handle:
  * - Duplicate prevention (model remembers what it created)
  * - Progress tracking (model sees tool results)
  * - Loop avoidance (CoT maintained via previous_response_id)
