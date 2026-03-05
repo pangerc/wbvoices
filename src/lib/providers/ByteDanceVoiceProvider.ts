@@ -37,31 +37,23 @@ export class ByteDanceVoiceProvider extends BaseAudioProvider {
   }
 
   protected validateCredentials(): boolean {
-    const appId = process.env.BYTEDANCE_APP_ID;
-    const accessToken = process.env.BYTEDANCE_ACCESS_TOKEN;
-    const appKey = process.env.BYTEDANCE_APP_KEY;
-    return !!(appId && accessToken && appKey);
+    return !!process.env.BYTEDANCE_APP_KEY;
   }
 
   async authenticate(): Promise<AuthCredentials> {
-    const appId = process.env.BYTEDANCE_APP_ID;
-    const accessToken = process.env.BYTEDANCE_ACCESS_TOKEN;
-
-    if (!appId || !accessToken || !process.env.BYTEDANCE_APP_KEY) {
-      throw new Error("ByteDance credentials are missing (BYTEDANCE_APP_ID, BYTEDANCE_ACCESS_TOKEN, BYTEDANCE_APP_KEY)");
+    const apiKey = process.env.BYTEDANCE_APP_KEY;
+    if (!apiKey) {
+      throw new Error("ByteDance credentials missing (BYTEDANCE_APP_KEY)");
     }
-
-    return { apiKey: accessToken, appId };
+    return { apiKey };
   }
 
-  private generateAuthHeaders(appId: string, accessToken: string): Record<string, string> {
+  private generateAuthHeaders(apiKey: string): Record<string, string> {
     return {
-      'X-Api-App-Id': appId,
-      'X-Api-Access-Key': accessToken,
+      'x-api-key': apiKey,
       'X-Api-Resource-Id': 'seed-tts-2.0',
-      'X-Api-App-Key': process.env.BYTEDANCE_APP_KEY!,
-      'X-Api-Request-Id': `wb-voices-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       'Content-Type': 'application/json',
+      'Connection': 'keep-alive',
     };
   }
 
@@ -86,7 +78,7 @@ export class ByteDanceVoiceProvider extends BaseAudioProvider {
 
   async makeRequest(params: Record<string, unknown>, credentials: AuthCredentials): Promise<ProviderResponse> {
     const { text, voiceId, style, useCase, emotion, voiceInstructions, language } = params;
-    const { apiKey, appId } = credentials;
+    const { apiKey } = credentials;
 
     console.log(`ByteDance TTS 2.0 API Call:`);
     console.log(`  Text: "${(text as string).substring(0, 50)}..."`);
@@ -135,7 +127,7 @@ export class ByteDanceVoiceProvider extends BaseAudioProvider {
       "https://voice.ap-southeast-1.bytepluses.com/api/v3/tts/unidirectional",
       {
         method: "POST",
-        headers: this.generateAuthHeaders(appId as string, apiKey as string),
+        headers: this.generateAuthHeaders(apiKey as string),
         body: JSON.stringify(requestBody),
       }
     );
