@@ -1,15 +1,15 @@
 # Authentication & Multi-User Access Control
 
-**Status:** In Development
+**Status:** Live
 **Last Updated:** March 10, 2026
 
 ---
 
 ## Overview
 
-Replaces the shared-password auth system with per-user identity via NextAuth.js v5. Magic links (Resend) are the primary sign-in method; Google OAuth is an optional secondary provider that activates when credentials are configured.
+Per-user identity via NextAuth.js v5. Magic links (Resend) are the primary sign-in method; Google OAuth is an optional secondary provider that activates when credentials are configured.
 
-**What changes:**
+**What changed from the old system:**
 - Password login → magic link email + optional Google OAuth
 - Single shared session → per-user identity (email)
 - All ads visible to everyone → users see only their own ads
@@ -26,11 +26,17 @@ Replaces the shared-password auth system with per-user identity via NextAuth.js 
 
 ### Primary: Magic Links (Resend)
 
-Works day one. User enters their company email, receives a sign-in link, clicks it, authenticated.
+User enters their company email, receives a sign-in link, clicks it, authenticated.
 
-- Provider: Resend (free tier, 100 emails/day)
-- From address: `onboarding@resend.dev` (swap to custom domain later)
+- Provider: Resend via `alephcreative.cloud` domain
+- From: `Aleph Creative Audio <no-reply@alephcreative.cloud>`
 - Requires: `AUTH_RESEND_KEY` env var
+- Custom HTML email template in `src/auth.ts` (dark theme, branded)
+
+**DNS requirements for `alephcreative.cloud`:**
+- DKIM (verified in Resend)
+- SPF (MX + TXT on `send` subdomain)
+- DMARC (`_dmarc` TXT record: `v=DMARC1; p=none;`)
 
 ### Secondary: Google OAuth (Optional)
 
@@ -48,8 +54,6 @@ Activates when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` env vars are set. A
 
 #### Production Setup (IT Request)
 
-Request from IT (Jira ticket):
-
 > **Subject:** OAuth 2.0 Client ID for internal web application
 >
 > **What we need:** An OAuth 2.0 Client ID (Web application type) for our internal audio ad generation tool.
@@ -62,12 +66,10 @@ Request from IT (Jira ticket):
 > **Credentials:**
 > - Application type: Web application
 > - Authorized redirect URIs:
->   - `https://wb-voices.vercel.app/api/auth/callback/google`
+>   - `https://alephcreative.cloud/api/auth/callback/google`
 >   - `http://localhost:3003/api/auth/callback/google`
 >
 > **Deliverables:** Client ID and Client Secret
->
-> **Purpose:** Google sign-in for internal tool to track ad ownership per user.
 
 ---
 
@@ -78,6 +80,9 @@ Request from IT (Jira ticket):
 - Drizzle adapter for Neon (stores verification tokens + account links)
 - JWT session strategy (explicit override — no DB session lookups)
 - Session cookie: encrypted, httpOnly, carries user email + role
+- Config: `src/auth.ts`
+- Catch-all route: `src/app/api/auth/[...nextauth]/route.ts`
+- Middleware: `src/middleware.ts` (uses NextAuth's `auth()` wrapper)
 
 ### Domain Allowlist
 
@@ -85,11 +90,12 @@ Enforced in the `signIn` callback — rejects any email not matching:
 - `@alephholding.com`
 - `@byselva.com`
 - `@partners.alephholding.com`
+- `@partners.byselva.com`
 
 ### Session Shape
 
 ```typescript
-// Available via useSession() client-side or auth() server-side
+// Available via useAuth() client-side or auth() server-side
 session.user = {
   email: "user@alephholding.com",
   name: "User Name",
@@ -98,19 +104,23 @@ session.user = {
 }
 ```
 
-### Database Tables (Neon)
-
-NextAuth Drizzle adapter requires:
+### Database Tables (Neon — `dark-band-57504937`)
 
 | Table | Purpose |
 |-------|---------|
 | `users` | User profiles + custom `role` column |
 | `accounts` | OAuth provider links (Google) |
-| `verification_tokens` | Magic link tokens (short-lived) |
+| `verification_tokens` | Magic link tokens (short-lived, auto-cleaned) |
 
-No `sessions` table needed (JWT strategy).
+No `sessions` table needed (JWT strategy). Schema defined in `src/lib/db/schema.ts`.
 
-**Bootstrap:** `ADMIN_EMAILS` env var (comma-separated) auto-promotes matching users to admin on first login. After that, the DB `role` column is the source of truth.
+### Admin Bootstrap
+
+`ADMIN_EMAILS` env var (comma-separated) auto-promotes matching users to admin on first login. The DB `role` column is the source of truth after that.
+
+```
+ADMIN_EMAILS=matej.pangerc@partners.alephholding.com,ignacio@alephholding.com
+```
 
 ---
 
@@ -118,7 +128,7 @@ No `sessions` table needed (JWT strategy).
 
 ### Owner = User Email
 
-The existing `AdMetadata.owner` field (currently `"universal-session"`) gets populated with the authenticated user's email address.
+`AdMetadata.owner` is populated with the authenticated user's email.
 
 ```
 ad:{adId}:meta → { ..., owner: "user@alephholding.com" }
@@ -131,19 +141,31 @@ ads:all → ["ad-id-1", "ad-id-2", ...]  // global index
 | Action | User | Admin |
 |--------|------|-------|
 | List own ads | `ads:by_user:{email}` | `ads:by_user:{email}` |
-| List all ads | — | `ads:all` (includes legacy) |
+| List all ads | — | `ads:all` via `?all=true` (includes legacy) |
 | View/edit ad | Owner only | Any ad |
 | Delete ad | Owner only | Any ad |
-| Admin pages | Blocked (redirect) | Full access |
+| Admin pages | Blocked (redirect to `/`) | Full access |
 | Public preview | Anyone | Anyone |
 
 ### Legacy Ads
 
-Existing ads with `owner: "universal-session"` are **not migrated**. They remain accessible to admins via the `ads:all` index. Regular users won't see them in their ad list.
+Existing ads with `owner: "universal-session"` are **not migrated**. They remain accessible to admins via the `ads:all` index. Regular users won't see them.
 
-### sessionId Elimination
+---
 
-The `localStorage.getItem('universal-session')` pattern is removed from all frontend code. API routes read the user's email from the NextAuth session cookie — no query params or headers needed.
+## Key Files
+
+| Area | File |
+|------|------|
+| NextAuth config | `src/auth.ts` |
+| Catch-all route | `src/app/api/auth/[...nextauth]/route.ts` |
+| Middleware | `src/middleware.ts` |
+| Auth helpers | `src/lib/auth-helpers.ts` |
+| DB schema | `src/lib/db/schema.ts` |
+| Type augmentation | `src/types/next-auth.d.ts` |
+| Sign-in page | `src/app/auth/signin/page.tsx` |
+| Login form | `src/components/LoginForm.tsx` |
+| Session provider | `src/components/AuthProvider.tsx` |
 
 ---
 
@@ -151,17 +173,15 @@ The `localStorage.getItem('universal-session')` pattern is removed from all fron
 
 ```bash
 # Auth (required)
-AUTH_SECRET=xxx               # NextAuth v5 session encryption
-AUTH_RESEND_KEY=xxx           # Resend API key for magic links
-ADMIN_EMAILS=matej@alephholding.com  # comma-separated bootstrap list
+AUTH_SECRET=xxx                    # NextAuth v5 session encryption
+AUTH_RESEND_KEY=xxx                # Resend API key for magic links
+AUTH_RESEND_FROM="Aleph Creative Audio <no-reply@alephcreative.cloud>"
+AUTH_URL=https://alephcreative.cloud  # Production URL
+ADMIN_EMAILS=matej.pangerc@partners.alephholding.com,ignacio@alephholding.com
 
 # Google OAuth (optional — magic links work without these)
 GOOGLE_CLIENT_ID=xxx
 GOOGLE_CLIENT_SECRET=xxx
-
-# Removed
-# AUTH_PASSWORD (was: shared password)
-# JWT_SECRET (replaced by AUTH_SECRET)
 ```
 
 ---
@@ -181,3 +201,11 @@ GOOGLE_CLIENT_SECRET=xxx
 | `/api/voice/*` | Yes | any |
 | `/api/music/*` | Yes | any |
 | Everything else | Yes | any |
+
+---
+
+## Adding New Users
+
+No manual steps needed. Anyone with an allowed domain email (`@alephholding.com`, `@byselva.com`, `@partners.alephholding.com`) can sign in — they enter their email and get a magic link. A `users` row is auto-created on first login with `role: 'user'`.
+
+To make someone admin: add their email to the `ADMIN_EMAILS` env var (both `.env` and Vercel). They get promoted on next sign-in.
