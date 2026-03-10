@@ -56,7 +56,11 @@ export function VoiceCombobox({
                 e.target.parentElement!.style.boxShadow = "none";
                 e.target.parentElement!.style.borderColor =
                   "rgba(255, 255, 255, 0.1)";
-                setQuery("");
+                // Only clear query on genuine blur (not when disabled mid-search
+                // due to a loading flash from voice refetch)
+                if (!disabled && !loading) {
+                  setQuery("");
+                }
               }}
               onChange={(e) => setQuery(e.target.value)}
               onClick={(e) => (e.target as HTMLInputElement).select()}

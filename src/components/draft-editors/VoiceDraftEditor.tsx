@@ -33,7 +33,7 @@ export interface VoiceDraftEditorProps {
   adId: string;
   draftVersionId: VersionId;
   draftVersion: VoiceVersion;
-  onUpdate: () => void;
+  onUpdate: () => void | Promise<unknown>;
   onGenerateAll?: () => void; // Callback to expose generateAudio to parent
   // Callbacks to expose playAll and sendToMixer to parent (for DraftAccordion header buttons)
   onPlayAllRef?: React.MutableRefObject<(() => Promise<void>) | null>;
@@ -82,17 +82,27 @@ export function VoiceDraftEditor({
     useVoicePlaybackState(draftVersionId);
   const { play, stop, playSequence, appendToSequence, stopSequence, setGeneratingVoice } = usePlaybackActions();
 
-  // Infer language and provider from existing voice tracks
-  // This ensures ScripterPanel loads the correct voices for this version
-  const selectedLanguage = useMemo(() => {
+  // Stable language/provider state — initialized from draftVersion, then synced
+  // from local voiceTracks (guarded by editInFlightRef). Never falls back to
+  // defaults on SWR revalidation noise, preventing the voice list from resetting.
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
     const firstTrackWithVoice = draftVersion.voiceTracks.find(t => t.voice?.language);
     return firstTrackWithVoice?.voice?.language || "en";
-  }, [draftVersion.voiceTracks]);
+  });
 
-  const selectedProvider = useMemo(() => {
+  const [selectedProvider, setSelectedProvider] = useState<string>(() => {
     const firstTrackWithVoice = draftVersion.voiceTracks.find(t => t.voice?.provider);
     return firstTrackWithVoice?.voice?.provider || "elevenlabs";
-  }, [draftVersion.voiceTracks]);
+  });
+
+  // Sync language/provider from local voiceTracks state (already guarded by editInFlightRef).
+  // Only update when a track actually has the info — never fall back to defaults.
+  useEffect(() => {
+    const lang = voiceTracks.find(t => t.voice?.language)?.voice?.language;
+    if (lang) setSelectedLanguage(lang);
+    const prov = voiceTracks.find(t => t.voice?.provider)?.voice?.provider;
+    if (prov) setSelectedProvider(prov);
+  }, [voiceTracks]);
 
   // These remain as defaults since they're not stored per-version
   const [selectedRegion] = useState<string | null>(null);
@@ -170,7 +180,7 @@ export function VoiceDraftEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ voiceTracks: newTracks }),
       });
-      onUpdate(); // Sync SWR cache with Redis after successful PATCH
+      await onUpdate(); // Wait for SWR refetch to complete before releasing guard
     } catch (error) {
       console.error("Failed to update voice draft:", error);
     } finally {
