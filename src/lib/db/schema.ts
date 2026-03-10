@@ -3,6 +3,7 @@ import {
   uuid,
   text,
   timestamp,
+  integer,
   index,
   primaryKey,
 } from "drizzle-orm/pg-core";
@@ -77,6 +78,57 @@ export const voiceDescriptions = pgTable(
     sourceIdx: index("voice_descriptions_source_idx").on(table.descriptionSource),
   })
 );
+
+// ============ Auth.js (NextAuth v5) adapter tables ============
+
+/**
+ * Users table — managed by NextAuth Drizzle adapter.
+ * Custom `role` column added for admin/user distinction.
+ */
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name"),
+  email: text("email").unique().notNull(),
+  emailVerified: timestamp("email_verified"),
+  image: text("image"),
+  role: text("role").notNull().default("user"), // 'user' | 'admin'
+}, (table) => ({
+  emailIdx: index("users_email_idx").on(table.email),
+}));
+
+/**
+ * Accounts table — links OAuth providers (Google) to users.
+ */
+export const accounts = pgTable("accounts", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  provider: text("provider").notNull(),
+  providerAccountId: text("provider_account_id").notNull(),
+  refresh_token: text("refresh_token"),
+  access_token: text("access_token"),
+  expires_at: integer("expires_at"),
+  token_type: text("token_type"),
+  scope: text("scope"),
+  id_token: text("id_token"),
+  session_state: text("session_state"),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.provider, table.providerAccountId] }),
+}));
+
+/**
+ * Verification tokens — short-lived tokens for magic link sign-in.
+ */
+export const verificationTokens = pgTable("verification_tokens", {
+  identifier: text("identifier").notNull(),
+  token: text("token").notNull(),
+  expires: timestamp("expires").notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.identifier, table.token] }),
+}));
+
+export type User = typeof users.$inferSelect;
+
+// ============ Voice tables ============
 
 export type VoiceMetadata = typeof voiceMetadata.$inferSelect;
 export type VoiceBlacklist = typeof voiceBlacklist.$inferSelect;

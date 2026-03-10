@@ -23,18 +23,12 @@ export function useStreamOperations(adId: string, stream: StreamType) {
    */
   const clone = async (versionId: VersionId) => {
     try {
-      const sessionId =
-        typeof window !== "undefined"
-          ? localStorage.getItem("universal-session") || "default-session"
-          : "default-session";
-
       // If draft exists, freeze it first (commits it as a frozen version)
       // forceFreeze=true ensures the draft is actually frozen, not just activated
       const existingDraft = getDraft();
       if (existingDraft) {
         const freezeRes = await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze?forceFreeze=true`, {
           method: "POST",
-          headers: { "x-session-id": sessionId },
         });
         if (!freezeRes.ok) {
           console.error(`Failed to freeze draft ${existingDraft.id} before clone - aborting`);
@@ -88,18 +82,12 @@ export function useStreamOperations(adId: string, stream: StreamType) {
    */
   const createDraft = async () => {
     try {
-      const sessionId =
-        typeof window !== "undefined"
-          ? localStorage.getItem("universal-session") || "default-session"
-          : "default-session";
-
       // If draft exists, freeze it first (commits it as a version)
       // forceFreeze=true ensures the draft is actually frozen, not just activated
       const existingDraft = getDraft();
       if (existingDraft) {
         const freezeRes = await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze?forceFreeze=true`, {
           method: "POST",
-          headers: { "x-session-id": sessionId },
         });
         if (!freezeRes.ok) {
           console.error(`Failed to freeze draft ${existingDraft.id} before creating new draft - aborting`);
@@ -114,7 +102,6 @@ export function useStreamOperations(adId: string, stream: StreamType) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-session-id": sessionId,
         },
         body: JSON.stringify(body),
       });

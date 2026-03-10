@@ -386,18 +386,11 @@ export function Header({
             </span>
           </button>
 
-          {/* Active project name - only show when there's a loaded project */}
-          {projectName && !isNewProject && (
-            <span className="text-white/90 text-sm font-medium truncate max-w-[200px] px-3 py-2">
-              {projectName}
-            </span>
-          )}
-
           <button
             onClick={toggle}
             className="flex items-center text-white/70 text-sm hover:text-white transition-colors duration-200 group"
           >
-            <span>History</span>
+            <span>My Ads</span>
             <svg
               width="16"
               height="16"
@@ -415,6 +408,7 @@ export function Header({
               />
             </svg>
           </button>
+
 
           <HistoryDrawer
             isOpen={isOpen}

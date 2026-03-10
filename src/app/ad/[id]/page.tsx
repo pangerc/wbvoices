@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/components/AuthProvider";
 import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 import { MatrixBackground } from "@/components";
@@ -31,6 +32,7 @@ import type { ProjectBrief } from "@/types";
 export default function AdWorkspace() {
   const params = useParams();
   const router = useRouter();
+  const { isAdmin } = useAuth();
   const adId = params.id as string;
 
   // Stream operations via SWR-backed hooks
@@ -95,11 +97,7 @@ export default function AdWorkspace() {
 
     const loadAdMetadata = async () => {
       try {
-        const sessionId = typeof window !== 'undefined'
-          ? localStorage.getItem('universal-session') || 'default-session'
-          : 'default-session';
-
-        const res = await fetch(`/api/ads?sessionId=${sessionId}`);
+        const res = await fetch(`/api/ads${isAdmin ? '?all=true' : ''}`);
         if (res.ok) {
           const data = await res.json();
           const ad = data.ads.find((a: { adId: string }) => a.adId === adId);
@@ -218,8 +216,7 @@ export default function AdWorkspace() {
     }
 
     // Reload brief from Redis
-    const sessionId = localStorage.getItem('universal-session') || 'default-session';
-    const metaRes = await fetch(`/api/ads?sessionId=${sessionId}`);
+    const metaRes = await fetch(`/api/ads${isAdmin ? '?all=true' : ''}`);
     if (metaRes.ok) {
       const data = await metaRes.json();
       const ad = data.ads.find((a: { adId: string }) => a.adId === adId);

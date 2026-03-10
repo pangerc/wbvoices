@@ -174,8 +174,7 @@ export function MusicPanel({
   const loadLibraryTracks = async () => {
     setIsLoadingLibrary(true);
     try {
-      const sessionId = 'universal-session'; // Match the session ID pattern used in the app
-      const response = await fetch(`/api/music-library?sessionId=${encodeURIComponent(sessionId)}`);
+      const response = await fetch(`/api/music-library`);
 
       if (!response.ok) {
         throw new Error('Failed to load music library');

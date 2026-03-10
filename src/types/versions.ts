@@ -181,7 +181,7 @@ export interface AdMetadata {
   /** Unix timestamp of last modification */
   lastModified: number;
 
-  /** Owner identifier (currently "universal-session") */
+  /** Owner identifier (user email address) */
   owner: string;
 }
 

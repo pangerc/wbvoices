@@ -12,9 +12,9 @@ import type { AdMetadata } from "@/types/versions";
 import type { ProjectBrief } from "@/types";
 
 // User ads index key pattern (matches /api/ads/route.ts)
-const USER_ADS_KEY = (sessionId: string) => `ads:by_user:${sessionId}`;
+const USER_ADS_KEY = (ownerEmail: string) => `ads:by_user:${ownerEmail}`;
 
-// All ads index (for future admin listing)
+// All ads index (for admin listing)
 const ALL_ADS_KEY = "ads:all";
 
 /**
@@ -25,13 +25,13 @@ const ALL_ADS_KEY = "ads:all";
  * - Creating manual versions (secondary trigger)
  *
  * @param adId - Advertisement ID (generated client-side)
- * @param sessionId - User session ID for ownership
+ * @param ownerEmail - Authenticated user's email address
  * @param initialBrief - Optional brief data to persist if creating new ad
  * @returns Ad metadata (existing or newly created)
  */
 export async function ensureAdExists(
   adId: string,
-  sessionId: string,
+  ownerEmail: string,
   initialBrief?: Partial<ProjectBrief>
 ): Promise<AdMetadata> {
   // Check if ad already exists
@@ -47,7 +47,7 @@ export async function ensureAdExists(
     brief: (initialBrief || {}) as ProjectBrief,
     createdAt: Date.now(),
     lastModified: Date.now(),
-    owner: sessionId,
+    owner: ownerEmail,
   };
 
   // Save to Redis
@@ -55,7 +55,7 @@ export async function ensureAdExists(
 
   // Add to user's ads list
   const redis = getRedisV3();
-  const userAdsKey = USER_ADS_KEY(sessionId);
+  const userAdsKey = USER_ADS_KEY(ownerEmail);
   const existingAds = (await redis.get<string[]>(userAdsKey)) || [];
   if (!existingAds.includes(adId)) {
     await redis.set(userAdsKey, JSON.stringify([...existingAds, adId]));
@@ -67,7 +67,7 @@ export async function ensureAdExists(
     await redis.set(ALL_ADS_KEY, JSON.stringify([...allAds, adId]));
   }
 
-  console.log(`✨ Lazy-created ad ${adId} for session ${sessionId}`);
+  console.log(`✨ Lazy-created ad ${adId} for ${ownerEmail}`);
 
   return metadata;
 }

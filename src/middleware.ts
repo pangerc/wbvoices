@@ -1,36 +1,46 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { shouldRequireAuth, isPublicRoute, verifyAuthToken } from './lib/auth';
+import { auth } from "@/auth";
+import { NextResponse } from "next/server";
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+function isPublicRoute(pathname: string): boolean {
+  return (
+    pathname.startsWith("/preview") ||
+    pathname.startsWith("/auth/signin") ||
+    pathname.startsWith("/api/auth")
+  );
+}
 
-  // Skip auth requirements if not in production (Vercel)
-  if (!shouldRequireAuth()) {
-    return NextResponse.next();
-  }
+function isAdminRoute(pathname: string): boolean {
+  return pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
+}
 
-  // Allow public routes (preview pages)
+export default auth((req) => {
+  const { pathname } = req.nextUrl;
+
+  // Public routes — no auth required
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 
-  // Allow auth API routes to function
-  if (pathname.startsWith('/api/auth')) {
-    return NextResponse.next();
+  // Not authenticated — redirect to sign-in
+  if (!req.auth) {
+    const signInUrl = new URL("/auth/signin", req.url);
+    signInUrl.searchParams.set("callbackUrl", req.url);
+    return NextResponse.redirect(signInUrl);
   }
 
-  // Check for auth token
-  const token = request.cookies.get('auth-token')?.value;
-
-  if (!token || !verifyAuthToken(token)) {
-    // Redirect to login by returning a response that will show the login form
-    const response = NextResponse.next();
-    response.headers.set('x-require-auth', 'true');
-    return response;
+  // Admin routes — require admin role
+  if (isAdminRoute(pathname)) {
+    if (req.auth.user?.role !== "admin") {
+      // API routes get 403, page routes redirect to home
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      return NextResponse.redirect(new URL("/", req.url));
+    }
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [
@@ -41,6 +51,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -127,7 +127,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       adId,
-      sessionId,
       language,
       clientDescription,
       creativeBrief,
@@ -226,8 +225,9 @@ export async function POST(req: NextRequest) {
     };
 
     // Ensure ad exists (lazy creation)
-    const effectiveSessionId = sessionId || "default-session";
-    await ensureAdExists(adId, effectiveSessionId, brief);
+    const { requireAuth } = await import("@/lib/auth-helpers");
+    const { email: ownerEmail } = await requireAuth();
+    await ensureAdExists(adId, ownerEmail, brief);
 
     // Check if LLM set a title via set_ad_title tool
     const currentMeta = await getAdMetadata(adId);
@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
       brief, // Persist brief for page reload!
       createdAt: currentMeta?.createdAt || Date.now(),
       lastModified: Date.now(),
-      owner: currentMeta?.owner || effectiveSessionId,
+      owner: currentMeta?.owner || ownerEmail,
     });
     console.log(`[/api/ai/generate] Updated ad - title: "${adTitle}" (LLM-generated: ${llmSetTitle})`);
 

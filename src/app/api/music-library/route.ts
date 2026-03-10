@@ -5,23 +5,12 @@ import { Project, LibraryMusicTrack } from "@/types";
 // GET /api/music-library - Load all music tracks from user's projects
 export async function GET(request: NextRequest) {
   try {
-    const url = new URL(request.url);
-    const sessionId = url.searchParams.get("sessionId");
+    // Legacy V2 data is all indexed under "universal-session"
+    const legacySessionId = "universal-session";
 
-    console.log(
-      `🎵 GET /api/music-library - Loading music library for session: ${sessionId}`
-    );
-
-    if (!sessionId) {
-      return NextResponse.json(
-        { error: "Session ID required" },
-        { status: 400 }
-      );
-    }
-
-    // Get user's project IDs
+    // Get user's project IDs from V2 Redis
     const projectIds =
-      (await redis.get<string[]>(PROJECT_KEYS.userProjects(sessionId))) || [];
+      (await redis.get<string[]>(PROJECT_KEYS.userProjects(legacySessionId))) || [];
     console.log(`🎵 Found ${projectIds.length} total projects`);
 
     // Load projects and extract music tracks

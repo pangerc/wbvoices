@@ -470,12 +470,8 @@ export function BriefPanelV3({
     try {
       console.log(`🚀 Starting V3 generation for ad ${adId} (autoGenerateAudio: ${autoGenerateAudio})`);
 
-      // Get sessionId for lazy ad creation
-      const sessionId = localStorage.getItem('universal-session') || 'default-session';
-
       const requestBody = {
         adId,
-        sessionId,
         language: selectedLanguage,
         clientDescription,
         creativeBrief,

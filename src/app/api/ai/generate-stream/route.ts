@@ -155,7 +155,6 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const {
     adId,
-    sessionId,
     language,
     clientDescription,
     creativeBrief,
@@ -255,8 +254,9 @@ export async function POST(req: NextRequest) {
         selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
       };
 
-      const effectiveSessionId = sessionId || "default-session";
-      await ensureAdExists(adId, effectiveSessionId, brief);
+      const { requireAuth } = await import("@/lib/auth-helpers");
+      const { email: ownerEmail } = await requireAuth();
+      await ensureAdExists(adId, ownerEmail, brief);
 
       // Get ad title (LLM may have set it via set_ad_title tool)
       const currentMeta = await getAdMetadata(adId);
@@ -271,7 +271,7 @@ export async function POST(req: NextRequest) {
         brief,
         createdAt: currentMeta?.createdAt || Date.now(),
         lastModified: Date.now(),
-        owner: currentMeta?.owner || effectiveSessionId,
+        owner: currentMeta?.owner || ownerEmail,
       });
 
       // Notify client that drafts are ready

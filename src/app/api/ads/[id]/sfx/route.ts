@@ -89,8 +89,9 @@ export async function POST(
     }
 
     // Ensure ad exists (lazy creation for manual version creation)
-    const sessionId = request.headers.get("x-session-id") || "default-session";
-    await ensureAdExists(adId, sessionId);
+    const { requireAuth } = await import("@/lib/auth-helpers");
+    const { email } = await requireAuth();
+    await ensureAdExists(adId, email);
 
     // Build version data
     const versionData: SfxVersion = {

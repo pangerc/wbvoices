@@ -32,3 +32,6 @@ export const db = new Proxy({} as ReturnType<typeof drizzle>, {
     return instance[prop as keyof typeof instance];
   }
 });
+
+/** Get the raw drizzle instance (needed by DrizzleAdapter which inspects the object type) */
+export { getDb };

@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { deleteAd } from "@/lib/redis/versions";
+import { requireAuth, verifyAdAccess, AuthError } from "@/lib/auth-helpers";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
@@ -13,31 +14,32 @@ export const runtime = "nodejs";
 /**
  * DELETE /api/ads/{adId}
  *
- * Delete an ad and all its associated Redis data:
- * - Metadata
- * - All version streams (voices, music, sfx)
- * - Mixer state
- * - Preview data
- * - Session index entry
- *
- * Headers:
- * - x-session-id: Session ID for index cleanup (optional, defaults to 'default-session')
+ * Delete an ad and all its associated Redis data.
+ * Only the ad owner or an admin can delete.
  */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { email, role } = await requireAuth();
     const { id: adId } = await params;
-    const sessionId =
-      request.headers.get("x-session-id") || "default-session";
 
-    console.log(`🗑️ Deleting ad ${adId} from session ${sessionId}`);
+    // Verify ownership
+    const allowed = await verifyAdAccess(adId, email, role);
+    if (!allowed) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
-    await deleteAd(adId, sessionId);
+    console.log(`🗑️ Deleting ad ${adId} by ${email}`);
+
+    await deleteAd(adId, email);
 
     return NextResponse.json({ success: true, adId });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("❌ Error deleting ad:", error);
     return NextResponse.json(
       {

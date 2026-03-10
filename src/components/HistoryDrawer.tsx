@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useAuth } from './AuthProvider'
+import { signOut } from 'next-auth/react'
 import { formatDistanceToNow } from 'date-fns'
 import {
   XMarkIcon,
@@ -36,6 +38,7 @@ type HistoryDrawerProps = {
 }
 
 export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerProps) {
+  const { isAdmin, user } = useAuth()
   const drawerRef = useRef<HTMLDivElement>(null)
   const [ads, setAds] = useState<Ad[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -85,14 +88,7 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
     setIsLoading(true)
     setError(null)
     try {
-      // Get session ID from localStorage (matches universal-session pattern)
-      const sessionId = typeof window !== 'undefined'
-        ? localStorage.getItem('universal-session') || 'default-session'
-        : 'default-session'
-
-      console.log('🔍 HistoryDrawer loading ads for session:', sessionId)
-      const res = await fetch(`/api/ads?sessionId=${sessionId}`)
-      console.log('🔍 HistoryDrawer API response status:', res.status)
+      const res = await fetch(`/api/ads${isAdmin ? '?all=true' : ''}`)
 
       if (res.ok) {
         const data = await res.json()
@@ -135,13 +131,8 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
 
     setDeletingAdId(adId)
     try {
-      const sessionId = typeof window !== 'undefined'
-        ? localStorage.getItem('universal-session') || 'default-session'
-        : 'default-session'
-
       const res = await fetch(`/api/ads/${adId}`, {
         method: 'DELETE',
-        headers: { 'x-session-id': sessionId }
       })
 
       if (res.ok) {
@@ -184,7 +175,7 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
         {/* Header */}
         <div className="sticky top-0 bg-black/90 backdrop-blur-md border-b border-white/10 z-10">
           <div className="flex items-center justify-between p-4 pb-2">
-            <h3 className="text-white font-medium text-lg">History</h3>
+            <h3 className="text-white font-medium text-lg">My Ads</h3>
             <button
               onClick={onClose}
               className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all"
@@ -203,7 +194,7 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
                   : 'text-white/50 hover:text-white/70 hover:bg-white/5'
               }`}
             >
-              Ads
+              Ads{ads.length > 0 ? ` (${ads.length})` : ''}
             </button>
             <button
               onClick={() => setActiveTab('chat')}
@@ -386,16 +377,25 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
           )}
         </div>
 
-        {/* Footer - outside scrollable area */}
-        {activeTab === 'ads' && !isLoading && !error && ads.length > 0 && (
-          <div className="flex-shrink-0 p-4 border-t border-white/10 bg-black/90 backdrop-blur-md">
-            <div className="flex items-center justify-between">
-              <span className="text-white/60 text-sm">
-                {ads.length} ad{ads.length !== 1 ? 's' : ''}
-              </span>
-            </div>
+        {/* Footer - user info + logout */}
+        <div className="flex-shrink-0 px-4 py-3 border-t border-white/10 bg-black/90 backdrop-blur-md">
+          <div className="flex items-center justify-between">
+            <span className="text-white/40 text-xs truncate">
+              {user?.email?.split("@")[0]}
+            </span>
+            <button
+              onClick={() => signOut({ callbackUrl: "/auth/signin" })}
+              className="p-1.5 text-white/30 hover:text-white/70 transition-colors"
+              title="Sign out"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 14H3C2.46957 14 1.96086 13.7893 1.58579 13.4142C1.21071 13.0391 1 12.5304 1 12V4C1 3.46957 1.21071 2.96086 1.58579 2.58579C1.96086 2.21071 2.46957 2 3 2H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M11 11L15 8L11 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M15 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
           </div>
-        )}
+        </div>
       </div>
     </>
   )
