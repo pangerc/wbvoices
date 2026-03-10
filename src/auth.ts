@@ -43,7 +43,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       <table width="480" cellpadding="0" cellspacing="0" style="background:linear-gradient(180deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);border:1px solid rgba(255,255,255,0.15);border-radius:16px;overflow:hidden;">
         <!-- Header -->
         <tr><td style="padding:32px 32px 24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);">
-          <img src="https://wb-voices.vercel.app/aca.png" alt="Aleph Creative Audio" width="160" style="display:inline-block;" />
+          <img src="https://alephcreative.cloud/aca.png" alt="Aleph Creative Audio" width="160" style="display:inline-block;" />
         </td></tr>
         <!-- Body -->
         <tr><td style="padding:32px;">
