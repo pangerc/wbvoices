@@ -10,6 +10,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string; versionId: string }> }
 ) {
   try {
+    const cookie = request.headers.get("cookie");
     const { id: adId, versionId } = await params;
     const body = await request.json();
     const { soundFxPrompts, promptIndex } = body as {
@@ -50,7 +51,7 @@ export async function POST(
           duration: prompt.duration || 3,
           projectId: adId,
         }),
-      });
+      }, cookie);
 
       if (!sfxResponse.ok) {
         const errorData = await sfxResponse.json().catch(() => ({}));

@@ -10,6 +10,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string; versionId: string }> }
 ) {
   try {
+    const cookie = request.headers.get("cookie");
     const { id: adId, versionId } = await params;
     const body = await request.json();
     const { prompt, provider, duration } = body as {
@@ -47,7 +48,7 @@ export async function POST(
         duration: adjustedDuration,
         projectId: adId,
       }),
-    });
+    }, cookie);
 
     if (!musicResponse.ok) {
       const errorData = await musicResponse.json().catch(() => ({}));
@@ -72,7 +73,9 @@ export async function POST(
         console.log(`  Polling attempt ${attempt + 1}/${maxAttempts}...`);
 
         const statusRes = await internalFetch(
-          `/api/music/mubert/status?id=${musicData.id}&customer_id=${musicData.customer_id}&access_token=${musicData.access_token}`
+          `/api/music/mubert/status?id=${musicData.id}&customer_id=${musicData.customer_id}&access_token=${musicData.access_token}`,
+          {},
+          cookie
         );
 
         if (!statusRes.ok) continue;
@@ -92,7 +95,7 @@ export async function POST(
               _internal_ready_url: generation.url,
               _internal_track_id: musicData.id,
             }),
-          });
+          }, cookie);
 
           if (finalRes.ok) {
             const finalData = await finalRes.json();

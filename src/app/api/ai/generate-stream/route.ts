@@ -152,6 +152,7 @@ const VOICE_ENDPOINTS: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
+  const cookie = req.headers.get("cookie");
   const body = await req.json();
   const {
     adId,
@@ -324,7 +325,7 @@ export async function POST(req: NextRequest) {
                   voiceInstructions: track.voiceInstructions,
                   speed: track.speed,
                 }),
-              });
+              }, cookie);
 
               if (!voiceRes.ok) {
                 const errData = await voiceRes.json().catch(() => ({}));
@@ -366,7 +367,7 @@ export async function POST(req: NextRequest) {
               await internalFetch(`/api/ads/${adId}/voices/${versionId}`, {
                 method: "PATCH",
                 body: JSON.stringify({ voiceTracks: updatedTracks }),
-              });
+              }, cookie);
             })
           );
         }
@@ -394,7 +395,7 @@ export async function POST(req: NextRequest) {
                 duration: adjustedDuration,
                 projectId: adId,
               }),
-            });
+            }, cookie);
 
             if (!musicRes.ok) {
               const errData = await musicRes.json().catch(() => ({}));
@@ -414,7 +415,9 @@ export async function POST(req: NextRequest) {
                 await new Promise((r) => setTimeout(r, interval));
 
                 const statusRes = await internalFetch(
-                  `/api/music/mubert/status?id=${musicData.id}&customer_id=${musicData.customer_id}&access_token=${musicData.access_token}`
+                  `/api/music/mubert/status?id=${musicData.id}&customer_id=${musicData.customer_id}&access_token=${musicData.access_token}`,
+                  {},
+                  cookie
                 );
 
                 if (!statusRes.ok) continue;
@@ -432,7 +435,7 @@ export async function POST(req: NextRequest) {
                       _internal_ready_url: generation.url,
                       _internal_track_id: musicData.id,
                     }),
-                  });
+                  }, cookie);
 
                   if (finalRes.ok) {
                     const finalData = await finalRes.json();
@@ -456,7 +459,7 @@ export async function POST(req: NextRequest) {
                 generatedUrl,
                 duration: adjustedDuration,
               }),
-            });
+            }, cookie);
 
             await sendEvent({ type: "music-ready", url: generatedUrl });
           } catch (error) {
@@ -489,7 +492,7 @@ export async function POST(req: NextRequest) {
                   duration: prompt.duration || 3,
                   projectId: adId,
                 }),
-              });
+              }, cookie);
 
               if (!sfxRes.ok) {
                 const errData = await sfxRes.json().catch(() => ({}));
@@ -523,7 +526,7 @@ export async function POST(req: NextRequest) {
                 await internalFetch(`/api/ads/${adId}/sfx/${versionId}`, {
                   method: "PATCH",
                   body: JSON.stringify({ generatedUrls: generatedUrls }),
-                });
+                }, cookie);
               }
             })
           );
