@@ -6,6 +6,7 @@ import {
   XMarkIcon,
   ClockIcon,
   TrashIcon,
+  PencilSquareIcon,
   ChatBubbleOvalLeftEllipsisIcon,
 } from '@heroicons/react/24/outline'
 
@@ -44,6 +45,9 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deletingAdId, setDeletingAdId] = useState<string | null>(null)
+  const [editingAdId, setEditingAdId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState('')
+  const editInputRef = useRef<HTMLInputElement>(null)
   const [activeTab, setActiveTab] = useState<TabType>('ads')
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [isChatLoading, setIsChatLoading] = useState(false)
@@ -123,6 +127,47 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
 
   const handleAdClick = (adId: string) => {
     window.location.href = `/ad/${adId}`
+  }
+
+  const startEditing = (e: React.MouseEvent, ad: Ad) => {
+    e.stopPropagation()
+    setEditingAdId(ad.adId)
+    setEditingName(ad.meta.name)
+    setTimeout(() => editInputRef.current?.select(), 0)
+  }
+
+  const saveRename = async () => {
+    if (!editingAdId || !editingName.trim()) {
+      setEditingAdId(null)
+      return
+    }
+
+    const trimmed = editingName.trim()
+    const ad = ads.find(a => a.adId === editingAdId)
+    if (ad && ad.meta.name === trimmed) {
+      setEditingAdId(null)
+      return
+    }
+
+    // Optimistic update
+    setAds(prev => prev.map(a =>
+      a.adId === editingAdId ? { ...a, meta: { ...a.meta, name: trimmed } } : a
+    ))
+    const savedId = editingAdId
+    setEditingAdId(null)
+
+    try {
+      const res = await fetch(`/api/ads/${savedId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      })
+      if (!res.ok) {
+        loadAds() // Revert on failure
+      }
+    } catch {
+      loadAds()
+    }
   }
 
   const handleDeleteAd = async (e: React.MouseEvent, adId: string) => {
@@ -257,12 +302,35 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           {/* Ad name with current indicator */}
-                          <h4 className="text-white font-medium truncate pr-2 flex items-center gap-2">
-                            {ad.meta.name}
-                            {currentAdId === ad.adId && (
-                              <span className="flex-shrink-0 w-2 h-2 bg-blue-400 rounded-full"></span>
-                            )}
-                          </h4>
+                          {editingAdId === ad.adId ? (
+                            <input
+                              ref={editInputRef}
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              onBlur={saveRename}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveRename()
+                                if (e.key === 'Escape') setEditingAdId(null)
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full bg-white/10 text-white font-medium text-sm rounded px-1.5 py-0.5 outline-none ring-1 ring-blue-500/50 focus:ring-blue-500"
+                              autoFocus
+                            />
+                          ) : (
+                            <h4 className="text-white font-medium truncate pr-2 flex items-center gap-2">
+                              {ad.meta.name}
+                              {currentAdId === ad.adId && (
+                                <span className="flex-shrink-0 w-2 h-2 bg-blue-400 rounded-full"></span>
+                              )}
+                              <button
+                                onClick={(e) => startEditing(e, ad)}
+                                className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-0.5 text-white/40 hover:text-white rounded transition-all"
+                                aria-label="Rename ad"
+                              >
+                                <PencilSquareIcon className="w-3.5 h-3.5" strokeWidth={1.5} />
+                              </button>
+                            </h4>
+                          )}
 
                           {/* Tags: language, format, provider */}
                           <div className="flex items-center gap-1.5 mt-1.5">
