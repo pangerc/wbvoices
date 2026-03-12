@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import { SpotifyPreview } from "@/components/SpotifyPreview";
 
 interface PreviewData {
@@ -106,7 +107,7 @@ export default function PreviewPage({ params }: PreviewPageProps) {
       </div>
 
       {/* Main Preview */}
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex flex-col items-center justify-center gap-6">
         <SpotifyPreview
           brand={previewData.brandName}
           slogan={previewData.slogan}
@@ -115,6 +116,26 @@ export default function PreviewPage({ params }: PreviewPageProps) {
           adImage={previewData.visualUrl}
           audioSrc={previewData.mixedAudioUrl}
         />
+        {previewData.mixedAudioUrl && (
+          <button
+            onClick={() => {
+              const downloadUrl = previewData.mixedAudioUrl!.replace(
+                /\/[^/]+$/,
+                (match) => `${match}?download=1`
+              );
+              const a = document.createElement("a");
+              a.href = downloadUrl;
+              a.style.display = "none";
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            Download Audio
+          </button>
+        )}
       </div>
     </div>
   );
