@@ -5,7 +5,8 @@ function isPublicRoute(pathname: string): boolean {
   return (
     pathname.startsWith("/preview") ||
     pathname.startsWith("/auth/signin") ||
-    pathname.startsWith("/api/auth")
+    pathname.startsWith("/api/auth") ||
+    /^\/api\/ads\/[^/]+\/preview/.test(pathname)
   );
 }
 
