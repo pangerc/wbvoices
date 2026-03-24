@@ -26,10 +26,11 @@ const LEGACY_OWNERS = ["universal-session", "default-session"];
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { targetEmail, language, owner } = body as {
+    const { targetEmail, language, owner, adIds } = body as {
       targetEmail: string;
       language?: string;
       owner?: string;
+      adIds?: string[];
     };
 
     if (!targetEmail) {
@@ -37,37 +38,34 @@ export async function POST(request: NextRequest) {
     }
 
     const redis = getRedisV3();
-
-    // Get all ad IDs
-    const allAdIds = (await redis.get<string[]>(ALL_ADS_KEY)) || [];
-    console.log(`📋 Scanning ${allAdIds.length} ads for reassignment...`);
-
-    // Batch-load all metadata
-    const metadataMap = await getAdMetadataBatch(allAdIds);
-
-    // Filter and reassign
-    const filterOwner = owner || null;
     const reassigned: string[] = [];
 
-    for (const [adId, meta] of metadataMap.entries()) {
-      // Owner filter: if specified, match exactly; otherwise match any legacy owner
-      const ownerMatch = filterOwner
-        ? meta.owner === filterOwner
-        : LEGACY_OWNERS.includes(meta.owner);
+    if (adIds && adIds.length > 0) {
+      // Direct mode: reassign specific ads by ID
+      const metadataMap = await getAdMetadataBatch(adIds);
+      for (const [adId, meta] of metadataMap.entries()) {
+        const updated: AdMetadata = { ...meta, owner: targetEmail, lastModified: Date.now() };
+        await setAdMetadata(adId, updated);
+        reassigned.push(adId);
+      }
+    } else {
+      // Filter mode: scan all ads and filter by language/owner
+      const allAdIds = (await redis.get<string[]>(ALL_ADS_KEY)) || [];
+      console.log(`📋 Scanning ${allAdIds.length} ads for reassignment...`);
+      const metadataMap = await getAdMetadataBatch(allAdIds);
+      const filterOwner = owner || null;
 
-      if (!ownerMatch) continue;
+      for (const [adId, meta] of metadataMap.entries()) {
+        const ownerMatch = filterOwner
+          ? meta.owner === filterOwner
+          : LEGACY_OWNERS.includes(meta.owner);
+        if (!ownerMatch) continue;
+        if (language && meta.brief?.selectedLanguage !== language) continue;
 
-      // Language filter (if specified)
-      if (language && meta.brief?.selectedLanguage !== language) continue;
-
-      // Reassign
-      const updated: AdMetadata = {
-        ...meta,
-        owner: targetEmail,
-        lastModified: Date.now(),
-      };
-      await setAdMetadata(adId, updated);
-      reassigned.push(adId);
+        const updated: AdMetadata = { ...meta, owner: targetEmail, lastModified: Date.now() };
+        await setAdMetadata(adId, updated);
+        reassigned.push(adId);
+      }
     }
 
     // Add all reassigned ads to target user's index
@@ -84,7 +82,7 @@ export async function POST(request: NextRequest) {
       reassigned: reassigned.length,
       adIds: reassigned,
       targetEmail,
-      filters: { language: language || "any", owner: filterOwner || "legacy" },
+      filters: { language: language || "any", owner: owner || "legacy", adIds: adIds || null },
     });
   } catch (error) {
     console.error("❌ Reassign failed:", error);

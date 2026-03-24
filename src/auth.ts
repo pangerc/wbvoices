@@ -18,6 +18,11 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
+const GUEST_EMAILS = (process.env.GUEST_EMAILS || "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(getDb(), {
     usersTable: users,
@@ -87,7 +92,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user }) {
       if (!user.email) return false;
       const email = user.email.toLowerCase();
-      return ALLOWED_DOMAINS.some((domain) => email.endsWith(domain));
+      return ALLOWED_DOMAINS.some((domain) => email.endsWith(domain)) || GUEST_EMAILS.includes(email);
     },
 
     async jwt({ token, user, trigger }) {
