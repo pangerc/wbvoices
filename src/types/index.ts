@@ -29,6 +29,7 @@ export type PronunciationDictionary = {
 
 export type Voice = {
   id: string;
+  externalId?: string; // Bare provider-native voice id; optional for backward compat with legacy persisted tracks
   name: string;
   provider?: Provider; // Voice provider (elevenlabs, openai, lovo)
   gender: "male" | "female" | null;

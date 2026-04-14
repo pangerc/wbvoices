@@ -46,6 +46,7 @@ async function fetchAndNormalizeVoices() {
 
       voices.push({
         id: voice.id,
+        externalId: voice.externalId,
         provider: "elevenlabs",
         catalogueId: `voice:elevenlabs:${voice.id}`,
         name: voice.name,
@@ -105,6 +106,7 @@ async function fetchAndNormalizeVoices() {
 
       voices.push({
         id: voice.id,
+        externalId: voice.externalId,
         provider: "lovo",
         catalogueId: `voice:lovo:${voice.id}`,
         name: voice.name,
@@ -147,6 +149,7 @@ async function fetchAndNormalizeVoices() {
 
       voices.push({
         id: voice.id,
+        externalId: voice.externalId,
         provider: "openai",
         catalogueId: `voice:openai:${voice.id}`,
         name: voice.name,
@@ -257,6 +260,7 @@ async function fetchAndNormalizeVoices() {
     // Chinese version
     voices.push({
       id: qwenVoice.id,
+      externalId: qwenVoice.id,
       provider: "qwen",
       catalogueId: `voice:qwen:${qwenVoice.id}`,
       name: qwenVoice.name,
@@ -279,6 +283,7 @@ async function fetchAndNormalizeVoices() {
     // English version (Qwen can handle mixed Chinese-English text)
     voices.push({
       id: `${qwenVoice.id}-en`,
+      externalId: qwenVoice.id,
       provider: "qwen",
       catalogueId: `voice:qwen:${qwenVoice.id}-en`,
       name: qwenVoice.name,
@@ -481,6 +486,7 @@ async function fetchAndNormalizeVoices() {
   for (const bytedanceVoice of bytedanceVoices) {
     voices.push({
       id: bytedanceVoice.id,
+      externalId: bytedanceVoice.id,
       provider: "bytedance",
       catalogueId: `voice:bytedance:${bytedanceVoice.id}`,
       name: bytedanceVoice.name,
@@ -513,6 +519,7 @@ async function fetchAndNormalizeVoices() {
     for (const voice of lahajatiVoices) {
       voices.push({
         id: voice.id,
+        externalId: voice.externalId,
         provider: "lahajati",
         catalogueId: `voice:lahajati:${voice.id}`,
         name: voice.name,

@@ -3,13 +3,15 @@ import { Provider, Language } from "@/types";
 import { accentRegions, normalizeLanguageCode } from "@/utils/language";
 import { voiceMetadataService } from "./voiceMetadataService";
 import { voiceDescriptionService } from "./voiceDescriptionService";
+import { getBlacklistLookupKeys } from "@/utils/blacklistKeys";
 
 // Actual provider types (excluding "any")
 type ActualProvider = Exclude<Provider, "any">;
 
 export type UnifiedVoice = {
   // Core identifiers
-  id: string; // Provider-specific ID
+  id: string; // Catalogue-synthesized ID (may include language/accent suffixes for uniqueness)
+  externalId: string; // Bare provider-native voice id (used for TTS calls and DB keys)
   provider: ActualProvider; // "elevenlabs" | "lovo" | "openai"
   catalogueId: string; // Redis key: "voice:{provider}:{id}"
 
@@ -162,6 +164,17 @@ export class VoiceCatalogueService {
       if (voice) return voice;
     }
     return null;
+  }
+
+  /**
+   * Read every voice from the data tower. Use sparingly — this returns the
+   * full catalogue (~thousands of voices). Intended for global aggregations
+   * like the language-list endpoint.
+   */
+  async getAllVoices(): Promise<UnifiedVoice[]> {
+    const dataTower =
+      (await redis.get<VoiceDataTower>(this.TOWER_KEYS.DATA)) || {};
+    return Object.values(dataTower);
   }
 
   async getVoicesByLanguage(language: Language): Promise<UnifiedVoice[]> {
@@ -646,8 +659,8 @@ export class VoiceCatalogueService {
     if (voices.length === 0) return [];
 
     try {
-      // Get voice keys
-      const voiceKeys = voices.map((v) => `${v.provider}:${v.id}`);
+      // Include legacy key shapes so pre-fix blacklist rows still filter.
+      const voiceKeys = voices.flatMap((v) => getBlacklistLookupKeys(v));
 
       // Bulk fetch blacklist entries with enhanced structure
       const blacklistMap = await voiceMetadataService.bulkGetBlacklistedEnhanced(
@@ -655,20 +668,7 @@ export class VoiceCatalogueService {
         language
       );
 
-      // Filter OUT blacklisted voices
-      return voices.filter((voice) => {
-        const voiceKey = `${voice.provider}:${voice.id}`;
-        const blacklistInfo = blacklistMap[voiceKey];
-
-        if (!blacklistInfo) return true; // Not blacklisted at all
-
-        // If language-wide blacklist exists, always filter out
-        if (blacklistInfo.hasLanguageWide) return false;
-
-        // Check accent-specific blacklist
-        const accentToCheck = accent || voice.accent;
-        return !blacklistInfo.accents.has(accentToCheck);
-      });
+      return voices.filter((voice) => !this.isVoiceBlacklisted(voice, blacklistMap, accent));
     } catch (error) {
       // Graceful degradation: if blacklist filtering fails, return all voices
       console.warn('⚠️ Blacklist filtering failed - returning all voices:', error);
@@ -686,19 +686,28 @@ export class VoiceCatalogueService {
     blacklistMap: PreloadedBlacklist,
     accent?: string
   ): UnifiedVoice[] {
-    return voices.filter((voice) => {
-      const voiceKey = `${voice.provider}:${voice.id}`;
-      const blacklistInfo = blacklistMap[voiceKey];
+    return voices.filter((voice) => !this.isVoiceBlacklisted(voice, blacklistMap, accent));
+  }
 
-      if (!blacklistInfo) return true; // Not blacklisted at all
-
-      // If language-wide blacklist exists, always filter out
-      if (blacklistInfo.hasLanguageWide) return false;
-
-      // Check accent-specific blacklist
-      const accentToCheck = accent || voice.accent;
-      return !blacklistInfo.accents.has(accentToCheck);
-    });
+  /**
+   * Merge blacklist signals across every lookup key for this voice.
+   * A voice is blacklisted if ANY key reports hasLanguageWide, or ANY key's
+   * accent set contains the target accent. Handles the dual (new + legacy)
+   * key shapes transparently.
+   */
+  private isVoiceBlacklisted(
+    voice: UnifiedVoice,
+    blacklistMap: Record<string, { accents: Set<string>; hasLanguageWide: boolean }>,
+    accent?: string
+  ): boolean {
+    const accentToCheck = accent || voice.accent;
+    for (const key of getBlacklistLookupKeys(voice)) {
+      const info = blacklistMap[key];
+      if (!info) continue;
+      if (info.hasLanguageWide) return true;
+      if (info.accents.has(accentToCheck)) return true;
+    }
+    return false;
   }
 
   // 🏗️ TOWER BUILDING OPERATIONS 🏗️
@@ -858,29 +867,16 @@ export class VoiceCatalogueService {
   async enrichWithDescriptions(voices: UnifiedVoice[]): Promise<UnifiedVoice[]> {
     if (voices.length === 0) return voices;
 
-    // Build voiceKeys for bulk lookup (strip ElevenLabs suffixes first!)
-    const voiceKeys = voices.map(v => {
-      let lookupId = v.id;
-      // For ElevenLabs, strip language suffix before querying DB
-      if (v.provider === 'elevenlabs') {
-        lookupId = v.id.replace(/-[a-z]{2}(-[A-Z]{2})?$/, '');
-      }
-      return `${v.provider}:${lookupId}`;
-    });
+    // Build voiceKeys for bulk lookup — use externalId so the key matches the
+    // bare provider voice_id stored in Neon (voice_descriptions, voice_blacklist)
+    const voiceKeys = voices.map(v => `${v.provider}:${v.externalId}`);
 
     // Bulk fetch descriptions from Neon
     const descriptionMap = await voiceDescriptionService.bulkGetDescriptions(voiceKeys);
 
     // Augment voices with descriptions
     const enrichedVoices = voices.map(voice => {
-      // For ElevenLabs voices, strip language suffix (our Redis artifact)
-      // Suffixes like -fr, -es, -es-MX, -pt-BR are not part of actual ElevenLabs voice IDs
-      let lookupId = voice.id;
-      if (voice.provider === 'elevenlabs') {
-        lookupId = voice.id.replace(/-[a-z]{2}(-[A-Z]{2})?$/, '');
-      }
-
-      const voiceKey = `${voice.provider}:${lookupId}`;
+      const voiceKey = `${voice.provider}:${voice.externalId}`;
       const description = descriptionMap[voiceKey];
 
       if (description) {

@@ -10,6 +10,7 @@ import { normalizeLanguageCode } from "@/utils/language";
 
 export type ProviderVoice = {
   id: string;
+  externalId: string; // Bare provider-native voice id, used for TTS calls and DB keying
   name: string;
   gender?: string;
   language?: string;
@@ -66,6 +67,18 @@ type LovoSpeaker = {
 };
 
 /**
+ * Slugify an accent string into a stable lowercase id-safe token.
+ * Used only to keep the synthesized ElevenLabs catalogue id unique per
+ * (voice × language × accent) tuple — the opaque token, not the authoritative
+ * accent label (which is normalizeAccent's job downstream).
+ */
+function accentSlug(accent: string | undefined): string {
+  if (!accent) return "default";
+  const slug = accent.toLowerCase().trim().replace(/\s+/g, "-");
+  return slug.length > 0 ? slug : "default";
+}
+
+/**
  * Fetch voices from ElevenLabs API
  */
 export async function fetchElevenLabsVoices(): Promise<ProviderVoice[]> {
@@ -116,7 +129,8 @@ export async function fetchElevenLabsVoices(): Promise<ProviderVoice[]> {
         }
 
         voices.push({
-          id: `${voice.voice_id}-${verifiedLang.language}`,
+          id: `${voice.voice_id}-${verifiedLang.language}-${accentSlug(accent)}`,
+          externalId: voice.voice_id,
           name: voice.name,
           gender: voice.labels?.gender,
           language: normalizedLanguage,
@@ -142,7 +156,8 @@ export async function fetchElevenLabsVoices(): Promise<ProviderVoice[]> {
           const accent = voice.labels.accent;
 
           voices.push({
-            id: `${voice.voice_id}-${voice.labels.language}`,
+            id: `${voice.voice_id}-${voice.labels.language}-${accentSlug(accent)}`,
+            externalId: voice.voice_id,
             name: voice.name,
             gender: voice.labels?.gender,
             language: normalizedLanguage,
@@ -180,6 +195,7 @@ export async function fetchElevenLabsVoices(): Promise<ProviderVoice[]> {
 
       voices.push({
         id: voice.voice_id,
+        externalId: voice.voice_id,
         name: voice.name,
         gender: voice.labels?.gender,
         language: normalizedLanguage,
@@ -238,6 +254,7 @@ export async function fetchLovoVoices(): Promise<ProviderVoice[]> {
 
       voices.push({
         id: styleId,
+        externalId: styleId, // Lovo TTS accepts the composite speakerId|styleId directly
         name: style.displayName === "Default"
           ? speaker.displayName
           : `${speaker.displayName} (${style.displayName})`,
@@ -365,6 +382,7 @@ export function getOpenAIVoices(): ProviderVoice[] {
     for (const voice of openAIVoiceVariants) {
       voices.push({
         id: `${voice.id}-${langCode}`,
+        externalId: voice.id, // OpenAI TTS accepts just the bare voice name (e.g. "alloy")
         name: voice.name,
         gender: voice.gender,
         language: normalizedLang,
@@ -433,6 +451,7 @@ export async function fetchLahajatiVoices(): Promise<ProviderVoice[]> {
       .filter(voice => !voice.is_cloned) // Only include non-cloned voices
       .map(voice => ({
         id: voice.id_voice,
+        externalId: voice.id_voice,
         name: voice.display_name,
         gender: voice.gender?.toLowerCase() || 'neutral',
         language: 'ar', // All Lahajati voices are Arabic

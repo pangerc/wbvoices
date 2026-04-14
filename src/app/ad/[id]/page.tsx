@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useAuth } from "@/components/AuthProvider";
 import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 import { MatrixBackground } from "@/components";
@@ -32,7 +31,6 @@ import type { ProjectBrief } from "@/types";
 export default function AdWorkspace() {
   const params = useParams();
   const router = useRouter();
-  const { isAdmin } = useAuth();
   const adId = params.id as string;
 
   // Stream operations via SWR-backed hooks
@@ -97,18 +95,14 @@ export default function AdWorkspace() {
 
     const loadAdMetadata = async () => {
       try {
-        const res = await fetch(`/api/ads${isAdmin ? '?all=true' : ''}`);
+        const res = await fetch(`/api/ads/${adId}/brief`);
         if (res.ok) {
           const data = await res.json();
-          const ad = data.ads.find((a: { adId: string }) => a.adId === adId);
-          if (ad) {
-            setAdName(ad.meta.name || adId);
-            setBriefData(ad.meta.brief || null);
-          } else {
-            setAdName(adId);
-            setBriefData(null);
-          }
+          setAdName(data.name || adId);
+          setBriefData(data.brief ?? null);
         } else {
+          // 403 (non-owner non-admin), 404 (not yet persisted), or other — fall back to defaults
+          setAdName(adId);
           setBriefData(null);
         }
       } catch (error) {
@@ -216,12 +210,11 @@ export default function AdWorkspace() {
     }
 
     // Reload brief from Redis
-    const metaRes = await fetch(`/api/ads${isAdmin ? '?all=true' : ''}`);
+    const metaRes = await fetch(`/api/ads/${adId}/brief`);
     if (metaRes.ok) {
       const data = await metaRes.json();
-      const ad = data.ads.find((a: { adId: string }) => a.adId === adId);
-      if (ad?.meta?.brief) {
-        setBriefData(ad.meta.brief);
+      if (data.brief) {
+        setBriefData(data.brief);
       }
     }
 

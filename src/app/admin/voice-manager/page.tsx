@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { GlassyCombobox, GlassyListbox, GlassyTextarea } from "@/components/ui";
 import { getFlagCode } from "@/utils/language";
+import { getBlacklistLookupKeys } from "@/utils/blacklistKeys";
 import type { Language, Provider, Voice } from "@/types";
 
 interface VoiceWithProvider extends Voice {
@@ -13,6 +14,7 @@ interface VoiceWithProvider extends Voice {
 interface AccentOption {
   code: string;
   displayName: string;
+  count: number;
 }
 
 interface ProviderOption {
@@ -41,10 +43,10 @@ export default function VoiceManagerPage() {
 
   // Available options
   const [availableLanguages, setAvailableLanguages] = useState<
-    Array<{ code: Language; name: string }>
+    Array<{ code: Language; name: string; count: number }>
   >([]);
   const [availableAccents, setAvailableAccents] = useState<
-    Array<{ code: string; displayName: string }>
+    Array<{ code: string; displayName: string; count: number }>
   >([]);
   const [availableProviders, setAvailableProviders] = useState<
     Array<{ provider: Provider; count: number }>
@@ -239,53 +241,55 @@ export default function VoiceManagerPage() {
     }
   }
 
-  async function toggleBlacklist(voiceId: string, provider: Provider, scope: 'language' | 'accent', voiceAccent: string) {
-    const voiceKey = `${provider}:${voiceId}`;
+  async function toggleBlacklist(voice: VoiceWithProvider, scope: 'language' | 'accent') {
+    const lookupKeys = getBlacklistLookupKeys({
+      provider: voice.provider,
+      id: voice.id,
+      externalId: voice.externalId,
+      language: voice.language ?? selectedLanguage,
+    });
+    const newKey = lookupKeys[0]; // canonical write key
+    const voiceAccent = voice.accent || 'neutral';
     const targetAccent = scope === 'language' ? '*' : voiceAccent;
     const currentBlacklist = scope === 'language' ? languageWideBlacklist : accentSpecificBlacklist;
-    const isCurrentlyBlacklisted = currentBlacklist.has(voiceKey);
+    const matchedKeys = lookupKeys.filter(k => currentBlacklist.has(k));
+    const isCurrentlyBlacklisted = matchedKeys.length > 0;
 
     try {
       if (isCurrentlyBlacklisted) {
-        // Remove from blacklist (make visible)
-        await fetch(
-          `/api/admin/voice-blacklist?voiceKey=${encodeURIComponent(
-            voiceKey
-          )}&language=${selectedLanguage}&accent=${targetAccent}`,
-          { method: "DELETE" }
+        // Remove every matching row — legacy and new shapes coexist transiently.
+        await Promise.all(
+          matchedKeys.map((k) =>
+            fetch(
+              `/api/admin/voice-blacklist?voiceKey=${encodeURIComponent(
+                k
+              )}&language=${selectedLanguage}&accent=${targetAccent}`,
+              { method: "DELETE" }
+            )
+          )
         );
 
-        if (scope === 'language') {
-          setLanguageWideBlacklist((prev) => {
-            const next = new Set(prev);
-            next.delete(voiceKey);
-            return next;
-          });
-        } else {
-          setAccentSpecificBlacklist((prev) => {
-            const next = new Set(prev);
-            next.delete(voiceKey);
-            return next;
-          });
-        }
+        const setter = scope === 'language' ? setLanguageWideBlacklist : setAccentSpecificBlacklist;
+        setter((prev) => {
+          const next = new Set(prev);
+          for (const k of matchedKeys) next.delete(k);
+          return next;
+        });
       } else {
-        // Add to blacklist (hide)
+        // Add to blacklist (hide) — writes use the new key only.
         await fetch(`/api/admin/voice-blacklist`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            voiceKey,
+            voiceKey: newKey,
             language: selectedLanguage,
             accent: targetAccent === '*' ? '' : targetAccent,
             scope,
           }),
         });
 
-        if (scope === 'language') {
-          setLanguageWideBlacklist((prev) => new Set(prev).add(voiceKey));
-        } else {
-          setAccentSpecificBlacklist((prev) => new Set(prev).add(voiceKey));
-        }
+        const setter = scope === 'language' ? setLanguageWideBlacklist : setAccentSpecificBlacklist;
+        setter((prev) => new Set(prev).add(newKey));
       }
     } catch (error) {
       console.error("Failed to toggle blacklist:", error);
@@ -360,7 +364,7 @@ export default function VoiceManagerPage() {
                 }
                 options={filteredLanguages.map((lang) => ({
                   value: lang.code,
-                  label: lang.name,
+                  label: `${lang.name} (${lang.count})`,
                   flag: getFlagCode(lang.code),
                 }))}
                 onQueryChange={setLanguageQuery}
@@ -378,7 +382,7 @@ export default function VoiceManagerPage() {
                   onChange={setSelectedAccent}
                   options={availableAccents.map((a) => ({
                     value: a.code,
-                    label: a.displayName,
+                    label: `${a.displayName} (${a.count})`,
                   }))}
                 />
               </div>
@@ -429,23 +433,27 @@ export default function VoiceManagerPage() {
                   scrollbarColor: '#374151 #111827'
                 }}
               >
-                {voices.map((voice) => (
-                  <VoiceCard
-                    key={`${voice.provider}:${voice.id}`}
-                    voice={voice}
-                    isLanguageWideBlacklisted={languageWideBlacklist.has(`${voice.provider}:${voice.id}`)}
-                    isAccentSpecificBlacklisted={accentSpecificBlacklist.has(`${voice.provider}:${voice.id}`)}
-                    onToggleLanguageWide={() =>
-                      toggleBlacklist(voice.id, voice.provider, 'language', voice.accent || 'neutral')
-                    }
-                    onToggleAccentSpecific={() =>
-                      toggleBlacklist(voice.id, voice.provider, 'accent', voice.accent || 'neutral')
-                    }
-                    sampleText={sampleText}
-                    selectedLanguage={selectedLanguage}
-                    availableLanguages={availableLanguages}
-                  />
-                ))}
+                {voices.map((voice) => {
+                  const lookupKeys = getBlacklistLookupKeys({
+                    provider: voice.provider,
+                    id: voice.id,
+                    externalId: voice.externalId,
+                    language: voice.language ?? selectedLanguage,
+                  });
+                  return (
+                    <VoiceCard
+                      key={`${voice.provider}:${voice.id}`}
+                      voice={voice}
+                      isLanguageWideBlacklisted={lookupKeys.some((k) => languageWideBlacklist.has(k))}
+                      isAccentSpecificBlacklisted={lookupKeys.some((k) => accentSpecificBlacklist.has(k))}
+                      onToggleLanguageWide={() => toggleBlacklist(voice, 'language')}
+                      onToggleAccentSpecific={() => toggleBlacklist(voice, 'accent')}
+                      sampleText={sampleText}
+                      selectedLanguage={selectedLanguage}
+                      availableLanguages={availableLanguages}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
@@ -473,7 +481,7 @@ function VoiceCard({
   onToggleAccentSpecific: () => void;
   sampleText: string;
   selectedLanguage: Language;
-  availableLanguages: Array<{ code: Language; name: string }>;
+  availableLanguages: Array<{ code: Language; name: string; count: number }>;
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadVoiceToBlob } from '@/utils/blob-storage';
+import { stripElevenLabsIdSuffix } from '@/lib/providers/elevenlabsIdUtils';
 
 export const runtime = 'edge';
 
@@ -83,8 +84,8 @@ async function generateAudio(
     throw new Error('ElevenLabs API key is missing');
   }
 
-  // Strip language suffix from voice ID if present
-  const cleanVoiceId = voiceId.replace(/-[a-z]{2}(-[A-Z]{2})?$/, '');
+  // Recover the bare ElevenLabs voice_id from the catalogue-synthesized id.
+  const cleanVoiceId = stripElevenLabsIdSuffix(voiceId);
 
   console.log(`🎭 Generating audio with ${modelId}:`);
   console.log(`  Voice ID: ${cleanVoiceId}`);

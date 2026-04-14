@@ -112,6 +112,7 @@ export async function createVoiceDraft(
       const voice: Voice = catalogueVoice
         ? {
             id: catalogueVoice.id,
+            externalId: catalogueVoice.externalId,
             name: catalogueVoice.name,
             gender: mapGender(catalogueVoice.gender),
             language: catalogueVoice.language,

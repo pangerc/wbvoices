@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { voiceCatalogue } from "@/services/voiceCatalogueService";
-import { Language, Voice } from "@/types";
+import { Language } from "@/types";
 import { normalizeLanguageCode } from "@/utils/language";
 
 // Note: Using Node.js runtime (not Edge) because voiceCatalogueService now depends on postgres
@@ -39,65 +39,35 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Get voices for this language from all providers to find ACTUAL accent codes
-    const availableAccents = new Set<string>();
-    const providers = ["elevenlabs", "lovo", "openai"] as const;
+    // Read the tower directly — internal HTTP roundtrips would hit the auth
+    // gate and silently degrade to an empty accent list.
+    const voices = await voiceCatalogue.getVoicesByLanguage(language);
 
-    // 🗡️ ATTACK ALL PROVIDERS SIMULTANEOUSLY!
-    const providerPromises = providers.map(async (provider) => {
-      try {
-        // Get voices for this provider/language combination (no accent filter!)
-        const url = new URL(req.url);
-        url.pathname = "/api/voice-catalogue";
-        url.search = "";
-        url.searchParams.set("operation", "voices");
-        url.searchParams.set("provider", provider);
-        url.searchParams.set("language", language); // Using normalized language!
-        // DON'T pass accent - we want to see all accents available
-
-        const response = await fetch(url);
-        if (response.ok) {
-          const voices = await response.json();
-
-          const providerAccents = new Set<string>();
-          // Collect ACTUAL accent codes from the stored voice data
-          voices.forEach((voice: Voice) => {
-            if (voice.accent) {
-              providerAccents.add(voice.accent);
-            }
-          });
-
-          return { provider, accents: Array.from(providerAccents) };
-        }
-        return { provider, accents: [] };
-      } catch {
-        return { provider, accents: [] };
-      }
-    });
-
-    // Wait for ALL providers to report their accents
-    const providerResults = await Promise.all(providerPromises);
-
-    // Merge ALL accents from ALL providers
-    providerResults.forEach((result) => {
-      result.accents.forEach((accent) => availableAccents.add(accent));
-    });
+    const accentCounts = new Map<string, number>();
+    let totalCount = 0;
+    for (const voice of voices) {
+      if (!voice.accent) continue;
+      totalCount++;
+      accentCounts.set(voice.accent, (accentCounts.get(voice.accent) || 0) + 1);
+    }
 
     // Convert to display format using ACTUAL accent codes
-    const accents = Array.from(availableAccents)
-      .filter((accent) => accent && accent !== "neutral") // Remove any empty or neutral accents
-      .map((accentCode) => ({
-        code: accentCode,
-        displayName: formatAccentDisplayName(accentCode, language),
+    const accents = Array.from(accentCounts.entries())
+      .filter(([code]) => code && code !== "neutral")
+      .map(([code, count]) => ({
+        code,
+        displayName: formatAccentDisplayName(code, language),
+        count,
       }));
 
     // Sort by display name
     accents.sort((a, b) => a.displayName.localeCompare(b.displayName));
 
-    // Always add neutral as first option
+    // Always add neutral as first option (covers all voices in the language)
     accents.unshift({
       code: "neutral",
       displayName: "Any Accent",
+      count: totalCount,
     });
 
     return NextResponse.json({ accents });

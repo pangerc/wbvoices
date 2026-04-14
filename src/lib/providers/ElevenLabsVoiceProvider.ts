@@ -7,6 +7,7 @@ import {
 import { uploadVoiceToBlob } from "@/utils/blob-storage";
 import { NextResponse } from "next/server";
 import { trackVoiceUsage } from "@/lib/usage/tracker";
+import { stripElevenLabsIdSuffix } from "./elevenlabsIdUtils";
 
 export class ElevenLabsVoiceProvider extends BaseAudioProvider {
   readonly providerName = "elevenlabs";
@@ -66,8 +67,10 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
     const { text, voiceId, style, useCase, pronunciationDictionaryId, pronunciationVersionId, speed } = params;
     const { apiKey } = credentials;
 
-    // Strip language suffix from voice ID if present (e.g., "zzBTsLBFM6AOJtkr1e9b-pl" -> "zzBTsLBFM6AOJtkr1e9b")
-    const cleanVoiceId = (voiceId as string).replace(/-[a-z]{2}(-[A-Z]{2})?$/, '');
+    // Recover the bare ElevenLabs voice_id from the catalogue-synthesized id.
+    // Handles legacy `-{lang}` / `-{lang}-{REGION}` shapes and the current
+    // `-{lang}-{accent}` shape. New callers should pass externalId directly.
+    const cleanVoiceId = stripElevenLabsIdSuffix(voiceId as string);
 
     console.log(`🎭 ElevenLabs V3 API Call:`);
     console.log(`  Text: "${(text as string).substring(0, 50)}..."`);
