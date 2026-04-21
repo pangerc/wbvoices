@@ -19,7 +19,8 @@ https://docs.genny.lovo.ai/reference/async-tts
 
 ### Qwen
 
-- https://modelstudio.console.alibabacloud.com/?tab=doc#/doc/?type=model&url=2879134
+- https://modelstudio.console.alibabacloud.com/?tab=doc#/doc/?type=model&url=2879134 -
+- https://bailian.console.alibabacloud.com/cn-beijing?tab=model&accounttraceid=ec6854e5a7ae4bea8d2d92e587a71dc7awav#/api-key
 
 - pangerc@326.capital, 3930618836, verona, unicredit red
 - dr.caterina.bristot@gmail.com, 3930618836, verona, unicredit black

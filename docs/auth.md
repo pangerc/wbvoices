@@ -89,8 +89,10 @@ Activates when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` env vars are set. A
 Enforced in the `signIn` callback — rejects any email not matching:
 - `@alephholding.com`
 - `@byselva.com`
+- `@alephdigital.com`
 - `@partners.alephholding.com`
 - `@partners.byselva.com`
+- `@partners.alephdigital.com`
 
 ### Session Shape
 
@@ -206,6 +208,6 @@ GOOGLE_CLIENT_SECRET=xxx
 
 ## Adding New Users
 
-No manual steps needed. Anyone with an allowed domain email (`@alephholding.com`, `@byselva.com`, `@partners.alephholding.com`) can sign in — they enter their email and get a magic link. A `users` row is auto-created on first login with `role: 'user'`.
+No manual steps needed. Anyone with an allowed domain email (`@alephholding.com`, `@byselva.com`, `@alephdigital.com`, or the `@partners.*` variant of any of these) can sign in — they enter their email and get a magic link. A `users` row is auto-created on first login with `role: 'user'`.
 
 To make someone admin: add their email to the `ADMIN_EMAILS` env var (both `.env` and Vercel). They get promoted on next sign-in.

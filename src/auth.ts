@@ -9,8 +9,10 @@ import { eq } from "drizzle-orm";
 const ALLOWED_DOMAINS = [
   "@alephholding.com",
   "@byselva.com",
+  "@alephdigital.com",
   "@partners.alephholding.com",
   "@partners.byselva.com",
+  "@partners.alephdigital.com",
 ];
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")

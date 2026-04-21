@@ -129,7 +129,7 @@ export function LoginForm({ error: serverError, hasGoogleProvider, callbackUrl =
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@alephholding.com"
+                      placeholder="you@alephdigital.com"
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent backdrop-blur-sm"
                       required
                       disabled={isLoading}
