@@ -2,6 +2,7 @@ export * from "./GlassyTextarea";
 export * from "./HighlightedScriptTextarea";
 export * from "./GlassyInput";
 export * from "./GlassyListbox";
+export * from "./ToneSelector";
 export * from "./GlassyOptionPicker";
 export * from "./GlassySlider";
 export * from "./GlassyCombobox";

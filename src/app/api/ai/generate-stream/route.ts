@@ -90,6 +90,7 @@ function buildUserMessage(params: {
   cta?: string;
   pacing?: string;
   tone?: string;
+  voiceInstructions?: string;
   adId: string;
   voiceProvider: string;
 }): string {
@@ -104,6 +105,7 @@ function buildUserMessage(params: {
     cta,
     pacing,
     tone,
+    voiceInstructions,
     adId,
     voiceProvider,
   } = params;
@@ -133,6 +135,11 @@ function buildUserMessage(params: {
     toneNote = `\n- Tone of Voice: ${tone}`;
   }
 
+  let voiceInstructionsNote = "";
+  if (voiceInstructions) {
+    voiceInstructionsNote = `\n- Voice Instructions: ${voiceInstructions}`;
+  }
+
   const totalWords = Math.round(duration * 2.5);
   const wordsPerSpeaker = campaignFormat === "dialog" ? Math.round(totalWords / 2) : totalWords;
 
@@ -143,7 +150,7 @@ function buildUserMessage(params: {
 - Language: ${languageName}
 - Voice Provider: ${voiceProvider} (REQUIRED - only search for voices from this provider)
 - Client: ${clientDescription}
-- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}${toneNote}
+- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}${toneNote}${voiceInstructionsNote}
 
 ## DURATION CONSTRAINT (CRITICAL)
 - STRICT LIMIT: Script MUST fit within ${duration} seconds when read at natural pace
@@ -182,20 +189,20 @@ export async function POST(req: NextRequest) {
     cta,
     pacing,
     tone: rawTone,
-    customTone: rawCustomTone,
+    voiceInstructions: rawVoiceInstructions,
     selectedProvider: rawSelectedProvider,
     autoGenerateAudio = true,
   } = body;
 
   const tonePreset: string | null = rawTone || null;
-  const customToneText: string | null =
-    typeof rawCustomTone === "string" && rawCustomTone.trim() ? rawCustomTone.trim() : null;
+  const voiceInstructionsText: string | null =
+    typeof rawVoiceInstructions === "string" && rawVoiceInstructions.trim()
+      ? rawVoiceInstructions.trim()
+      : null;
   const resolvedTone: string | undefined =
-    tonePreset === "custom"
-      ? customToneText || undefined
-      : tonePreset
-        ? TONE_PRESET_LABELS[tonePreset] || tonePreset
-        : undefined;
+    tonePreset && tonePreset !== "custom"
+      ? TONE_PRESET_LABELS[tonePreset] || tonePreset
+      : undefined;
 
   // Validate required fields
   if (!adId) {
@@ -256,6 +263,7 @@ export async function POST(req: NextRequest) {
         cta,
         pacing,
         tone: resolvedTone,
+        voiceInstructions: voiceInstructionsText || undefined,
         adId,
         voiceProvider,
       });
@@ -282,7 +290,7 @@ export async function POST(req: NextRequest) {
         selectedPacing: pacing || null,
         selectedCTA: cta || null,
         selectedTone: tonePreset,
-        customTone: tonePreset === "custom" ? customToneText : null,
+        voiceInstructions: voiceInstructionsText,
         selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
       };
 

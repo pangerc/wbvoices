@@ -140,7 +140,7 @@ export type ProjectBrief = {
   selectedCTA?: string | null; // Optional for backwards compatibility
   selectedPacing?: Pacing | null; // Optional for backwards compatibility
   selectedTone?: string | null; // Preset tone id (e.g. "professional") or "custom"
-  customTone?: string | null; // Free-form tone text, used when selectedTone === "custom"
+  voiceInstructions?: string | null; // Voice delivery instructions — template-seeded from tone preset, user-editable
 };
 
 export type ProjectMetadata = {
