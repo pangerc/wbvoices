@@ -2,17 +2,64 @@
 
 ## Local Development
 
-Create a `.env` file with these values
+### 1. Prerequisites
+
+- [Node.js](https://nodejs.org/) 20+
+- [pnpm](https://pnpm.io/) — `npm install -g pnpm`
+- [Docker](https://www.docker.com/) — for local PostgreSQL + Redis
+
+### 2. Install dependencies
 
 ```sh
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432
-V3_KV_REST_API_URL=http://localhost:8079
-V3_KV_REST_API_TOKEN=example_token
-ADMIN_EMAILS="your@email.address"
-AUTH_RESEND_FROM="Aleph Creative Audio <no-reply@alephcreative.cloud>"
+pnpm install
 ```
 
-And also add the rest of the needed environment variables as explained below.
+### 3. Set up environment variables
+
+Copy the team `.env` file into the project root (ask the team for the file, or see the Environment Variables section below for all required keys).
+
+### 4. Start local infrastructure (Docker)
+
+```sh
+docker compose up -d
+```
+
+This starts:
+- **PostgreSQL** on `localhost:5432` (`postgres/postgres`)
+- **Redis** on `localhost:6379`
+- **Serverless Redis HTTP** on `localhost:8079` — emulates the Upstash REST API locally
+
+> If you want to use the **production** Upstash + Neon instances instead (recommended for testing with real data), skip this step — the `.env` file already points to production by default.
+
+### 5. Run database migrations
+
+```sh
+pnpm drizzle-kit migrate
+```
+
+> Only needed on first setup or after pulling new migration files.
+
+### 6. Start the dev server
+
+```sh
+pnpm dev
+```
+
+App runs at **http://localhost:3003**
+
+Sign in with your `@partners.alephholding.com` email — a magic link will be sent via Resend.
+
+---
+
+### Local Docker overrides (optional)
+
+If you want to develop fully offline against local Docker services, override these variables in your `.env`:
+
+```sh
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+V3_KV_REST_API_URL=http://localhost:8079
+V3_KV_REST_API_TOKEN=example_token
+```
 
 ## Environment Variables
 

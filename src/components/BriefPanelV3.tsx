@@ -48,6 +48,16 @@ const CTA_OPTIONS = [
   { value: "watch-now", label: "Watch now" },
 ];
 
+const TONE_OPTIONS = [
+  { value: "none", label: "No specific tone" },
+  { value: "professional", label: "Professional" },
+  { value: "energetic", label: "Energetic" },
+  { value: "warm", label: "Warm" },
+  { value: "authoritative", label: "Authoritative" },
+  { value: "sarcastic", label: "Sarcastic" },
+  { value: "custom", label: "Custom…" },
+];
+
 const DURATION_TICK_MARKS = [
   { value: 10, label: "10s" },
   { value: 15, label: "15s" },
@@ -125,6 +135,8 @@ export function BriefPanelV3({
   const [adDuration, setAdDuration] = useState(initialBrief?.adDuration || 30);
   const [selectedCTA, setSelectedCTA] = useState<string | null>(initialBrief?.selectedCTA || null);
   const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(initialBrief?.selectedPacing || null);
+  const [selectedTone, setSelectedTone] = useState<string | null>(initialBrief?.selectedTone || null);
+  const [customTone, setCustomTone] = useState<string>(initialBrief?.customTone || "");
 
   // Voice selection state (local - replaces voiceManager)
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(initialBrief?.selectedLanguage || "en");
@@ -170,6 +182,8 @@ export function BriefPanelV3({
       if (initialBrief.adDuration) setAdDuration(initialBrief.adDuration);
       if (initialBrief.selectedCTA !== undefined) setSelectedCTA(initialBrief.selectedCTA);
       if (initialBrief.selectedPacing !== undefined) setSelectedPacing(initialBrief.selectedPacing);
+      if (initialBrief.selectedTone !== undefined) setSelectedTone(initialBrief.selectedTone);
+      if (initialBrief.customTone !== undefined) setCustomTone(initialBrief.customTone || "");
       // Voice selection state
       if (initialBrief.selectedLanguage) setSelectedLanguage(initialBrief.selectedLanguage);
       if (initialBrief.selectedRegion) setSelectedRegion(initialBrief.selectedRegion);
@@ -189,6 +203,8 @@ export function BriefPanelV3({
         adDuration,
         selectedCTA: selectedCTA || null,
         selectedPacing: selectedPacing || null,
+        selectedTone: selectedTone || null,
+        customTone: selectedTone === "custom" ? customTone.trim() || null : null,
         selectedLanguage,
         selectedRegion: selectedRegion || null,
         selectedAccent,
@@ -211,7 +227,7 @@ export function BriefPanelV3({
     }
   }, [
     adId, clientDescription, creativeBrief, campaignFormat, adDuration,
-    selectedCTA, selectedPacing,
+    selectedCTA, selectedPacing, selectedTone, customTone,
     selectedLanguage, selectedRegion, selectedAccent, selectedProvider
   ]);
 
@@ -244,7 +260,7 @@ export function BriefPanelV3({
   }, [
     initialBrief, // Add to deps so we re-evaluate when it loads
     clientDescription, creativeBrief, campaignFormat, adDuration,
-    selectedCTA, selectedPacing,
+    selectedCTA, selectedPacing, selectedTone, customTone,
     selectedLanguage, selectedRegion, selectedAccent, selectedProvider,
     saveBriefToRedis
   ]);
@@ -481,6 +497,8 @@ export function BriefPanelV3({
         accent: selectedAccent || undefined,
         cta: selectedCTA,
         pacing: selectedPacing,
+        tone: selectedTone,
+        customTone: selectedTone === "custom" ? customTone.trim() : null,
         selectedProvider: selectedProvider,
         autoGenerateAudio,
       };
@@ -794,6 +812,44 @@ export function BriefPanelV3({
             <p className="text-xs text-orange-400 mt-2">
               💡 Try another provider - {voiceCounts[selectedProvider] || 0} voices
             </p>
+          )}
+        </div>
+      </div>
+
+      {/* Row 3.5: Tone of Voice */}
+      <div className="grid grid-cols-3 gap-6 mb-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Tone of Voice
+          </label>
+          <GlassyListbox
+            value={selectedTone || "none"}
+            onChange={(value) =>
+              setSelectedTone(value === "none" ? null : value)
+            }
+            options={TONE_OPTIONS}
+            disabled={isLoading}
+          />
+        </div>
+        <div className="col-span-2">
+          {selectedTone === "custom" ? (
+            <>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Custom tone descriptors
+              </label>
+              <GlassyTextarea
+                value={customTone}
+                onChange={(e) => setCustomTone(e.target.value)}
+                placeholder="e.g. Playful and witty with a hint of nostalgia"
+                rows={2}
+              />
+            </>
+          ) : (
+            <div className="h-full flex items-end pb-1">
+              <p className="text-xs text-gray-500">
+                Shapes how the voice delivers the script. Pick “Custom…” to describe your own tone.
+              </p>
+            </div>
           )}
         </div>
       </div>
