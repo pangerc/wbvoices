@@ -298,6 +298,12 @@ export interface MixerTrack {
    * server-side id translation.
    */
   slotId?: SlotId;
+  /**
+   * Provenance of this track's current anchor. Lets content panels (SFX /
+   * Script / Music) show "you've moved this" indicators when a mixer
+   * user-edit has overridden the stream-level placement.
+   */
+  anchorOrigin?: AnchorOrigin;
   url: string;
   label: string;
   type: "voice" | "music" | "soundfx";

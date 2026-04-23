@@ -30,6 +30,17 @@ type SoundFxPanelProps = {
   onPlayPrompt?: (index: number) => void; // Play individual prompt (generate if needed)
   generatingPromptIndex?: number | null; // Which prompt is currently generating
   generatedUrls?: (string | null)[]; // Per-prompt generated URLs for play button state
+  /**
+   * Slot ids for which the mixer has a `user-edit` anchor — i.e. the user
+   * has manually repositioned the clip in the mixer, making the placement
+   * dropdown's value stale. The panel shows a badge on those entries.
+   */
+  mixerOverriddenSlotIds?: ReadonlySet<string>;
+  /**
+   * Reset a prompt's mixer anchor override back to its stream-level seed
+   * (the placement dropdown value). Called from the divergence badge.
+   */
+  onResetPlacement?: (index: number) => void;
 };
 
 // Default duration for sound effects
@@ -75,6 +86,8 @@ export function SoundFxPanel({
   onPlayPrompt,
   generatingPromptIndex,
   generatedUrls = [],
+  mixerOverriddenSlotIds,
+  onResetPlacement,
 }: SoundFxPanelProps) {
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
 
@@ -214,6 +227,26 @@ export function SoundFxPanel({
                     { value: "end", label: "At end (after all voices)" },
                   ]}
                 />
+
+                {/* Divergence hint: the user has moved this clip in the mixer
+                    timeline, so the dropdown above no longer reflects where it
+                    actually plays. Offer a reset back to the dropdown's value. */}
+                {prompt.slotId &&
+                  mixerOverriddenSlotIds?.has(prompt.slotId) && (
+                    <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs">
+                      <span className="text-amber-200/90">
+                        Moved in mixer — placement above is ignored
+                      </span>
+                      {onResetPlacement && (
+                        <button
+                          onClick={() => onResetPlacement(index)}
+                          className="text-amber-200 hover:text-white underline underline-offset-2 whitespace-nowrap"
+                        >
+                          Reset to this placement
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                 <label className="block text-base mb-1">
                   Duration{" "}

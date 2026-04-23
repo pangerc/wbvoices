@@ -310,27 +310,37 @@ export function TimelineTrack({
     });
   };
 
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerUp = async (e: React.PointerEvent<HTMLDivElement>) => {
     const session = dragSessionRef.current;
     if (!session || session.pointerId !== e.pointerId) return;
 
-    if (session.dragStarted) {
-      const deltaPx = e.clientX - session.originX;
-      const deltaSeconds = deltaPx / session.pxPerSecond;
-      const dropSeconds = Math.max(0, session.originSeconds + deltaSeconds);
-      onDrop?.(track.id, dropSeconds, e.altKey);
-    } else {
-      // Treated as a click — play/pause.
-      handlePlayPause();
-    }
-
-    setDragPreview(null);
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
       // Pointer was never captured (rare race). Ignore.
     }
     dragSessionRef.current = null;
+
+    if (!session.dragStarted) {
+      // Short tap — play/pause path. No anchor to persist.
+      handlePlayPause();
+      setDragPreview(null);
+      return;
+    }
+
+    // Keep dragPreview set (ribbon stays translated to drop position) until
+    // the PATCH resolves and SWR hydrates. This prevents the "jump back,
+    // then jump forward" flash: the ribbon holds its dropped position during
+    // the network round-trip, then lands once the server's new actualStartTime
+    // flows through.
+    const deltaPx = e.clientX - session.originX;
+    const deltaSeconds = deltaPx / session.pxPerSecond;
+    const dropSeconds = Math.max(0, session.originSeconds + deltaSeconds);
+    try {
+      await onDrop?.(track.id, dropSeconds, e.altKey);
+    } finally {
+      setDragPreview(null);
+    }
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {

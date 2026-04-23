@@ -9,6 +9,7 @@ import { useSfxDraftState, usePlaybackActions } from "@/hooks/useAudioPlayback";
 import { VersionIterationInput } from "@/components/ui";
 import type { DraftState } from "@/components/ui/DraftAccordion";
 import type { useStreamOperations } from "@/hooks/useStreamOperations";
+import { useMixerData } from "@/hooks/useMixerData";
 
 export interface SfxDraftEditorProps {
   adId: string;
@@ -368,6 +369,29 @@ export function SfxDraftEditor({
     setSoundFxPrompts(draftVersion.soundFxPrompts);
   };
 
+  // ============ Mixer divergence hint ============
+  //
+  // Build the set of slot ids whose mixer anchor has `origin: "user-edit"` —
+  // these are prompts the user dragged in the mixer, making the panel's
+  // "Placement" dropdown value stale. The panel renders a badge and a
+  // reset button on those entries.
+  const { data: mixerData, patchAnchors: mixerPatchAnchors } = useMixerData(adId);
+  const mixerOverriddenSlotIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const track of mixerData?.tracks ?? []) {
+      if (track.anchorOrigin === "user-edit" && track.slotId) {
+        ids.add(track.slotId);
+      }
+    }
+    return ids;
+  }, [mixerData]);
+
+  const handleResetPlacement = async (index: number) => {
+    const slotId = soundFxPrompts[index]?.slotId;
+    if (!slotId) return;
+    await mixerPatchAnchors({ [slotId]: null });
+  };
+
   return (
     <>
       <SoundFxPanel
@@ -384,6 +408,8 @@ export function SfxDraftEditor({
         onPlayPrompt={handlePlayPrompt}
         generatingPromptIndex={generatingPromptIndex}
         generatedUrls={generatedUrls}
+        mixerOverriddenSlotIds={mixerOverriddenSlotIds}
+        onResetPlacement={handleResetPlacement}
       />
       <VersionIterationInput
         adId={adId}

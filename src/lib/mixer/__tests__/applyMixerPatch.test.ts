@@ -207,6 +207,61 @@ describe("applyMixerPatch", () => {
     });
   });
 
+  it("null anchor update resets to the stream-level seed with llm-seed provenance", async () => {
+    // Start with a voice (so there's a slot id) and an sfx with a legacy
+    // "afterVoice" placement. The bootstrap's stream-anchor translator
+    // should produce a relativeTo(voice, end) seed on reset.
+    const voice: VoiceVersion = {
+      ...mockVoiceVersionFrozen,
+      voiceTracks: [{ ...mockVoiceTrack, slotId: "voice-slot-0" }],
+      generatedUrls: ["https://x/v.mp3"],
+    };
+    await createVersion(mockAdId, "voices", voice);
+    await setActiveVersion(mockAdId, "voices", "v1");
+
+    // Stash an sfx version whose prompt has a stream-level placement
+    // (afterVoice index 0). Slot id goes on the prompt.
+    const { createVersion: createV } = await import("../../redis/versions");
+    await createV(mockAdId, "sfx", {
+      soundFxPrompts: [
+        {
+          slotId: "sfx-slot-0",
+          description: "boom",
+          duration: 1,
+          placement: { type: "afterVoice", index: 0 },
+        },
+      ],
+      generatedUrls: ["https://x/s.mp3"],
+      createdAt: Date.now(),
+      createdBy: "llm",
+      status: "frozen",
+    });
+    await setActiveVersion(mockAdId, "sfx", "v1");
+
+    // First: user drag moves the sfx to absolute(5) on the mixer.
+    await applyMixerPatch(mockAdId, {
+      anchorUpdates: { "sfx-slot-0": { kind: "absolute", t: 5 } },
+    });
+    let draftId = (await getActiveVersion(mockAdId, "mixer"))!;
+    let mixer = (await getVersion(mockAdId, "mixer", draftId)) as MixerVersion;
+    expect(mixer.anchors["sfx-slot-0"]).toEqual({
+      anchor: { kind: "absolute", t: 5 },
+      origin: "user-edit",
+    });
+
+    // Now reset. Expect the stream-level placement to re-derive as
+    // relativeTo voice-slot-0 end.
+    await applyMixerPatch(mockAdId, {
+      anchorUpdates: { "sfx-slot-0": null },
+    });
+    draftId = (await getActiveVersion(mockAdId, "mixer"))!;
+    mixer = (await getVersion(mockAdId, "mixer", draftId)) as MixerVersion;
+    expect(mixer.anchors["sfx-slot-0"]).toEqual({
+      anchor: { kind: "relativeTo", slotId: "voice-slot-0", edge: "end" },
+      origin: "llm-seed",
+    });
+  });
+
   it("preserves layout metadata when overriding an existing anchor", async () => {
     const voice: VoiceVersion = {
       ...mockVoiceVersionFrozen,

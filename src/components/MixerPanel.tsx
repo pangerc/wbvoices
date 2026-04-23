@@ -100,9 +100,15 @@ export function MixerPanel({
         forceAbsolute,
       });
 
-      await patchAnchors({ [draggedSlotId]: anchor });
+      // Hydrate the store eagerly from the server response so the ribbon's
+      // new `left: {%}` and the cleared drag preview land on the same render
+      // frame. Relying on the existing SWR→useEffect→hydrateFromMixer chain
+      // leaves one frame where the ribbon is at its stale position with the
+      // drag translate cleared — visible as a flash.
+      const updated = await patchAnchors({ [draggedSlotId]: anchor });
+      if (updated) hydrateFromMixer(updated);
     },
-    [tracks, calculatedTracks, patchAnchors]
+    [tracks, calculatedTracks, patchAnchors, hydrateFromMixer]
   );
 
   // Hydrate Zustand store from SWR data (Redis is source of truth).

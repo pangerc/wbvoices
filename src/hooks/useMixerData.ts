@@ -35,9 +35,15 @@ export function useMixerData(adId: string) {
    * destructively on the server; existing anchors for untouched slots are
    * preserved. Forks a frozen active mixer version into a draft if needed
    * (that logic lives in applyMixerPatch).
+   *
+   * Returns the updated MixerState so callers can hydrate downstream stores
+   * synchronously (Zustand), avoiding the one-frame flash between "SWR
+   * cache updated" and "store hydration effect fires."
    */
-  const patchAnchors = async (anchorUpdates: Record<SlotId, Anchor>) => {
-    if (!adId || Object.keys(anchorUpdates).length === 0) return;
+  const patchAnchors = async (
+    anchorUpdates: Record<SlotId, Anchor | null>
+  ): Promise<MixerState | null> => {
+    if (!adId || Object.keys(anchorUpdates).length === 0) return null;
     const response = await fetch(`/api/ads/${adId}/mixer`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -46,10 +52,11 @@ export function useMixerData(adId: string) {
     if (!response.ok) {
       console.error("❌ Failed to patch anchors:", response.status);
       await mutate();
-      return;
+      return null;
     }
     const updated = (await response.json()) as MixerState;
     await mutate(updated, { revalidate: false });
+    return updated;
   };
 
   return { data, error, isLoading, mutate, removeStream, patchAnchors };

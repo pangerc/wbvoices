@@ -1,12 +1,14 @@
 import { create } from "zustand";
 import type { SoundFxPlacementIntent } from "@/types";
-import type { MixerState as RedisMixerState } from "@/types/versions";
+import type { AnchorOrigin, MixerState as RedisMixerState } from "@/types/versions";
 
 // Unified Track type for the mixer
 export type MixerTrack = {
   id: string;
   /** Stable slot id from the mixer version; keys anchor updates from drag. */
   slotId?: string;
+  /** Provenance of the slot's current anchor. "user-edit" flags mixer overrides. */
+  anchorOrigin?: AnchorOrigin;
   url: string;
   label: string;
   type: "voice" | "music" | "soundfx";

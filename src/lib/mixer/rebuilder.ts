@@ -88,13 +88,18 @@ export interface MixerPatch {
   /** URL of the most recent rendered mix uploaded to blob storage. */
   mixedAudioUrl?: string;
   /**
-   * Slot-id-keyed anchor updates, typically from a drag-drop interaction.
-   * Origin is stamped as `user-edit` on merge, so stage-6 precedence
-   * (user-edit wins on stream regen) kicks in automatically. Layout falls
-   * back to `overlay` unless the caller says otherwise. Merges non-
-   * destructively — anchors not referenced here are preserved.
+   * Slot-id-keyed anchor updates. Merges non-destructively — anchors not
+   * referenced here are preserved.
+   *
+   * - Non-null value: overwrite with `origin: "user-edit"`. Stage-6
+   *   precedence (user-edit wins on stream regen) kicks in automatically.
+   *   Existing `layout` is preserved.
+   * - `null` value: reset. Server re-derives from the stream-level seed
+   *   (legacy `placement` / `playAfter` / etc.) and writes with
+   *   `origin: "llm-seed"`. Used by the SFX panel's "Reset placement"
+   *   action when the user wants to revert a mixer drag.
    */
-  anchorUpdates?: Record<SlotId, Anchor>;
+  anchorUpdates?: Record<SlotId, Anchor | null>;
 }
 
 /**
@@ -141,7 +146,33 @@ export async function applyMixerPatch(
   }
   if (patch.anchorUpdates) {
     const nextAnchors: MixerVersion["anchors"] = { ...active.anchors };
+    // For null-valued entries we lazily load the legacy-seed translators
+    // so the common case (non-null drag updates) doesn't pay the import.
+    const needsReseed = Object.values(patch.anchorUpdates).some((v) => v === null);
+    const reseedHelpers = needsReseed
+      ? await loadReseedHelpers()
+      : null;
+
     for (const [slotId, anchor] of Object.entries(patch.anchorUpdates)) {
+      if (anchor === null) {
+        // Reset: re-derive from the pinned stream seed.
+        const seed = reseedHelpers
+          ? reseedHelpers.deriveSeed(slotId, pinned)
+          : null;
+        if (seed) {
+          const existingLayout = nextAnchors[slotId]?.layout;
+          nextAnchors[slotId] = {
+            anchor: seed,
+            origin: "llm-seed",
+            ...(existingLayout ? { layout: existingLayout } : {}),
+          };
+        } else {
+          // No recoverable stream seed — remove the override entirely; the
+          // resolver will fall back to its system-default behavior.
+          delete nextAnchors[slotId];
+        }
+        continue;
+      }
       if (!anchor) continue;
       const existingLayout = nextAnchors[slotId]?.layout;
       nextAnchors[slotId] = {
@@ -155,6 +186,66 @@ export async function applyMixerPatch(
   await updateVersion(adId, "mixer", activeId, updates);
 
   return deriveMixerStateFromActive(adId);
+}
+
+/**
+ * Lazily-loaded helper for resetting an anchor back to its stream-level
+ * seed. Called when `applyMixerPatch` receives a `null` value in
+ * `anchorUpdates`. Lives inside a dynamic import because the anchor-
+ * translation module pulls in the legacy `SoundFxPlacementIntent`
+ * vocabulary, which isn't needed by the common drag-update path.
+ */
+async function loadReseedHelpers(): Promise<{
+  deriveSeed: (
+    slotId: SlotId,
+    pinned: Awaited<ReturnType<typeof loadPinnedVersions>>
+  ) => Anchor | null;
+}> {
+  const {
+    anchorFromVoiceTrack,
+    anchorFromSoundFxPrompt,
+    anchorFromMusicVersion,
+  } = await import("@/lib/tools/anchorTranslation");
+
+  return {
+    deriveSeed(slotId, pinned) {
+      // Voice: lookup by slotId inside voiceTracks.
+      if (pinned.voice) {
+        const voiceSlotIds = pinned.voice.voiceTracks.map((t) => t.slotId);
+        const vIndex = voiceSlotIds.indexOf(slotId);
+        if (vIndex >= 0) {
+          return (
+            anchorFromVoiceTrack(
+              pinned.voice.voiceTracks[vIndex],
+              voiceSlotIds,
+              vIndex
+            ) ?? null
+          );
+        }
+      }
+      // Music: single slot.
+      if (pinned.music && pinned.music.slotId === slotId) {
+        return anchorFromMusicVersion(pinned.music);
+      }
+      // Sfx: lookup by slotId inside soundFxPrompts.
+      if (pinned.sfx) {
+        const sfxSlotIds = pinned.sfx.soundFxPrompts.map((p) => p.slotId);
+        const sIndex = sfxSlotIds.indexOf(slotId);
+        if (sIndex >= 0) {
+          const voiceSlotIds = pinned.voice?.voiceTracks.map((t) => t.slotId) ?? [];
+          return (
+            anchorFromSoundFxPrompt(
+              pinned.sfx.soundFxPrompts[sIndex],
+              voiceSlotIds,
+              sfxSlotIds,
+              sIndex
+            ) ?? null
+          );
+        }
+      }
+      return null;
+    },
+  };
 }
 
 async function loadPinnedVersions(adId: string, pins: MixerVersion["pins"]) {
@@ -275,7 +366,8 @@ async function deriveMixerState(
       voiceVersion as VoiceVersion,
       pins.voices!,
       tracks,
-      audioDurations
+      audioDurations,
+      mixerVersion.anchors
     );
   }
   if (musicVersion) {
@@ -283,7 +375,8 @@ async function deriveMixerState(
       musicVersion as MusicVersion,
       pins.music!,
       tracks,
-      audioDurations
+      audioDurations,
+      mixerVersion.anchors
     );
   }
   if (sfxVersion) {
@@ -291,7 +384,8 @@ async function deriveMixerState(
       sfxVersion as SfxVersion,
       pins.sfx!,
       tracks,
-      audioDurations
+      audioDurations,
+      mixerVersion.anchors
     );
   }
 
@@ -606,7 +700,8 @@ function collectVoiceTracks(
   voiceVersion: VoiceVersion,
   voiceVersionId: VersionId,
   tracks: MixerTrack[],
-  audioDurations: Record<string, number>
+  audioDurations: Record<string, number>,
+  anchors: MixerVersion["anchors"]
 ): void {
   const hasAudio =
     voiceVersion.voiceTracks.some((t) => !!t.generatedUrl) ||
@@ -625,6 +720,7 @@ function collectVoiceTracks(
     tracks.push({
       id: trackId,
       slotId: voiceTrack.slotId,
+      anchorOrigin: voiceTrack.slotId ? anchors[voiceTrack.slotId]?.origin : undefined,
       url,
       type: "voice",
       label: voiceTrack.voice?.name || `Voice ${index + 1}`,
@@ -646,7 +742,8 @@ function collectMusicTrack(
   musicVersion: MusicVersion,
   musicVersionId: VersionId,
   tracks: MixerTrack[],
-  audioDurations: Record<string, number>
+  audioDurations: Record<string, number>,
+  anchors: MixerVersion["anchors"]
 ): void {
   if (!musicVersion.generatedUrl) return;
 
@@ -667,6 +764,7 @@ function collectMusicTrack(
   tracks.push({
     id: trackId,
     slotId: musicVersion.slotId,
+    anchorOrigin: musicVersion.slotId ? anchors[musicVersion.slotId]?.origin : undefined,
     url: musicVersion.generatedUrl,
     type: "music",
     label,
@@ -683,7 +781,8 @@ function collectSfxTracks(
   sfxVersion: SfxVersion,
   sfxVersionId: VersionId,
   tracks: MixerTrack[],
-  audioDurations: Record<string, number>
+  audioDurations: Record<string, number>,
+  anchors: MixerVersion["anchors"]
 ): void {
   if (sfxVersion.generatedUrls.length === 0) return;
 
@@ -695,6 +794,7 @@ function collectSfxTracks(
     tracks.push({
       id: trackId,
       slotId: sfxPrompt.slotId,
+      anchorOrigin: sfxPrompt.slotId ? anchors[sfxPrompt.slotId]?.origin : undefined,
       url,
       type: "soundfx",
       label: sfxPrompt.description.substring(0, 50),
