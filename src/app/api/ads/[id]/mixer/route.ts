@@ -72,6 +72,7 @@ export async function PATCH(
       mixedAudioUrl:
         typeof body.mixedAudioUrl === "string" ? body.mixedAudioUrl : undefined,
       anchorUpdates: body.anchorUpdates as MixerPatch["anchorUpdates"],
+      trimUpdates: body.trimUpdates as MixerPatch["trimUpdates"],
     };
 
     console.log(`✏️ Patching mixer state for ad ${adId}`, {
@@ -79,6 +80,9 @@ export async function PATCH(
       hasMixedAudioUrl: !!patch.mixedAudioUrl,
       anchorUpdateCount: patch.anchorUpdates
         ? Object.keys(patch.anchorUpdates).length
+        : 0,
+      trimUpdateCount: patch.trimUpdates
+        ? Object.keys(patch.trimUpdates).length
         : 0,
     });
 

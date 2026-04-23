@@ -304,6 +304,74 @@ describe("applyMixerPatch", () => {
     });
   });
 
+  it("trimUpdates write onto overrides[slotId].trim", async () => {
+    const voice: VoiceVersion = {
+      ...mockVoiceVersionFrozen,
+      voiceTracks: [
+        { ...mockVoiceTrack, slotId: "voice-slot-0", generatedDuration: 10 },
+      ],
+      generatedUrls: ["https://x/v.mp3"],
+    };
+    await createVersion(mockAdId, "voices", voice);
+    await setActiveVersion(mockAdId, "voices", "v1");
+
+    await applyMixerPatch(mockAdId, {
+      trimUpdates: { "voice-slot-0": { start: 0, end: 7.5 } },
+    });
+
+    const activeId = (await getActiveVersion(mockAdId, "mixer"))!;
+    const mixer = (await getVersion(mockAdId, "mixer", activeId)) as MixerVersion;
+    expect(mixer.overrides?.["voice-slot-0"]?.trim).toEqual({
+      start: 0,
+      end: 7.5,
+    });
+  });
+
+  it("null trim update clears the trim while preserving other overrides", async () => {
+    const voice: VoiceVersion = {
+      ...mockVoiceVersionFrozen,
+      voiceTracks: [{ ...mockVoiceTrack, slotId: "voice-slot-0" }],
+      generatedUrls: ["https://x/v.mp3"],
+    };
+    await createVersion(mockAdId, "voices", voice);
+    await setActiveVersion(mockAdId, "voices", "v1");
+
+    // Set volume + trim first, then clear trim only. Volume should survive.
+    await applyMixerPatch(mockAdId, {
+      volumes: { "voice-v1-0": 0.6 },
+      trimUpdates: { "voice-slot-0": { start: 0, end: 5 } },
+    });
+    await applyMixerPatch(mockAdId, {
+      trimUpdates: { "voice-slot-0": null },
+    });
+
+    const activeId = (await getActiveVersion(mockAdId, "mixer"))!;
+    const mixer = (await getVersion(mockAdId, "mixer", activeId)) as MixerVersion;
+    expect(mixer.overrides?.["voice-slot-0"]?.trim).toBeUndefined();
+    expect(mixer.overrides?.["voice-slot-0"]?.volume).toBe(0.6);
+  });
+
+  it("rejects invalid trim shapes (end <= start, negative start)", async () => {
+    const voice: VoiceVersion = {
+      ...mockVoiceVersionFrozen,
+      voiceTracks: [{ ...mockVoiceTrack, slotId: "voice-slot-0" }],
+      generatedUrls: ["https://x/v.mp3"],
+    };
+    await createVersion(mockAdId, "voices", voice);
+    await setActiveVersion(mockAdId, "voices", "v1");
+
+    await applyMixerPatch(mockAdId, {
+      trimUpdates: { "voice-slot-0": { start: -1, end: 5 } },
+    });
+    await applyMixerPatch(mockAdId, {
+      trimUpdates: { "voice-slot-0": { start: 5, end: 3 } },
+    });
+
+    const activeId = (await getActiveVersion(mockAdId, "mixer"))!;
+    const mixer = (await getVersion(mockAdId, "mixer", activeId)) as MixerVersion;
+    expect(mixer.overrides?.["voice-slot-0"]?.trim).toBeUndefined();
+  });
+
   it("ignores legacy extra fields (tracks/totalDuration/lastCalculated)", async () => {
     const voice: VoiceVersion = {
       ...mockVoiceVersionFrozen,

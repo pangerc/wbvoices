@@ -11,6 +11,8 @@ export type MixerTrack = {
   anchorOrigin?: AnchorOrigin;
   /** Slot id this track's anchor references (for cycle checks on drag). */
   anchorRefSlotId?: string;
+  /** Current trim override — [start, end] window into the source blob. */
+  trim?: { start: number; end: number };
   url: string;
   label: string;
   type: "voice" | "music" | "soundfx";
@@ -77,6 +79,19 @@ export type DragPreview = {
   forceAbsolute: boolean;
 };
 
+/**
+ * Ephemeral trim-preview state for edge-drag resize. Distinct from
+ * DragPreview because it changes the ribbon's width (not position) and
+ * follows different release semantics (writes trim override, not anchor).
+ */
+export type TrimPreview = {
+  trackId: string;
+  /** Which edge is being dragged — MVP only supports "end" (tail trim). */
+  edge: "end";
+  /** Pixel delta from the edge's starting position. Negative = shrinking. */
+  deltaPx: number;
+};
+
 type MixerStoreState = {
   // Track data (hydrated from server via SWR, never recalculated client-side)
   tracks: MixerTrack[];
@@ -101,6 +116,9 @@ type MixerStoreState = {
 
   /** Drag preview state — null when no drag is in progress. */
   dragPreview: DragPreview | null;
+
+  /** Trim preview state for edge-drag resize. */
+  trimPreview: TrimPreview | null;
 
   /**
    * Hovered track id — drives anchor-relationship highlighting in the
@@ -131,6 +149,9 @@ type MixerStoreState = {
   // Drag lifecycle
   setDragPreview: (preview: DragPreview | null) => void;
 
+  // Trim lifecycle
+  setTrimPreview: (preview: TrimPreview | null) => void;
+
   // Hover lifecycle (anchor-relationship highlighting)
   setHoveredTrackId: (id: string | null) => void;
 };
@@ -149,6 +170,7 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
   previewUrl: null,
   uploadError: null,
   dragPreview: null,
+  trimPreview: null,
   hoveredTrackId: null,
 
   hydrateFromMixer: (state) => {
@@ -274,5 +296,6 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
   setIsPreviewValid: (isValid) => set({ isPreviewValid: isValid }),
   setUploadError: (error) => set({ uploadError: error }),
   setDragPreview: (dragPreview) => set({ dragPreview }),
+  setTrimPreview: (trimPreview) => set({ trimPreview }),
   setHoveredTrackId: (hoveredTrackId) => set({ hoveredTrackId }),
 }));

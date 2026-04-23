@@ -39,7 +39,7 @@ export function MixerPanel({
   const adId = params.id as string;
 
   // Fetch mixer state from Redis via SWR (source of truth)
-  const { data: mixerSWR, patchAnchors } = useMixerData(adId);
+  const { data: mixerSWR, patchAnchors, patchTrim } = useMixerData(adId);
 
   // Anchor-relationship hover highlighting. The hovered track and the two
   // derived slot ids (its ref target and the set of dependents that point at
@@ -133,6 +133,29 @@ export function MixerPanel({
       if (updated) hydrateFromMixer(updated);
     },
     [tracks, calculatedTracks, formatDuration, patchAnchors, hydrateFromMixer]
+  );
+
+  /**
+   * Tail-trim handler. Persists a clamped trim window on the mixer draft
+   * and eagerly hydrates the store from the server response so the ribbon
+   * lands at its new width in one motion (same flash-avoidance pattern as
+   * the reposition drop path).
+   */
+  const handleTrackTrim = useCallback(
+    async (
+      trackId: string,
+      newTrim: { start: number; end: number } | null
+    ) => {
+      const trimmedTrack = tracks.find((t) => t.id === trackId);
+      const slotId = trimmedTrack?.slotId;
+      if (!slotId) {
+        console.warn(`[mixer-trim] track ${trackId} has no slotId; skipping`);
+        return;
+      }
+      const updated = await patchTrim({ [slotId]: newTrim });
+      if (updated) hydrateFromMixer(updated);
+    },
+    [tracks, patchTrim, hydrateFromMixer]
   );
 
   // Hydrate Zustand store from SWR data (Redis is source of truth).
@@ -1253,6 +1276,7 @@ export function MixerPanel({
                     isTrackLoading={isTrackLoading(track)}
                     onChangeVoice={onChangeVoice}
                     onDrop={handleTrackDrop}
+                    onTrim={handleTrackTrim}
                     {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
                   />
                 ))}
@@ -1282,6 +1306,7 @@ export function MixerPanel({
                     onChangeMusic={onChangeMusic}
                     onRemove={onRemoveTrack}
                     onDrop={handleTrackDrop}
+                    onTrim={handleTrackTrim}
                     {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
                   />
                 ))}
@@ -1312,6 +1337,7 @@ export function MixerPanel({
                     onAudioError={() => handleAudioError(track.id, track.label)}
                     isTrackLoading={isTrackLoading(track)}
                     onDrop={handleTrackDrop}
+                    onTrim={handleTrackTrim}
                     {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
                   />
                 ))}

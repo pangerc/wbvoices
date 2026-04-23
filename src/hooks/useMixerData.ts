@@ -59,5 +59,37 @@ export function useMixerData(adId: string) {
     return updated;
   };
 
-  return { data, error, isLoading, mutate, removeStream, patchAnchors };
+  /**
+   * Persist trim overrides (edge-drag resize). Mirrors `patchAnchors`:
+   * server merges non-destructively; null entries clear the trim for that
+   * slot. Client is responsible for clamping values to the source duration.
+   */
+  const patchTrim = async (
+    trimUpdates: Record<SlotId, { start: number; end: number } | null>
+  ): Promise<MixerState | null> => {
+    if (!adId || Object.keys(trimUpdates).length === 0) return null;
+    const response = await fetch(`/api/ads/${adId}/mixer`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trimUpdates }),
+    });
+    if (!response.ok) {
+      console.error("❌ Failed to patch trim:", response.status);
+      await mutate();
+      return null;
+    }
+    const updated = (await response.json()) as MixerState;
+    await mutate(updated, { revalidate: false });
+    return updated;
+  };
+
+  return {
+    data,
+    error,
+    isLoading,
+    mutate,
+    removeStream,
+    patchAnchors,
+    patchTrim,
+  };
 }

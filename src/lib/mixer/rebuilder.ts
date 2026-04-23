@@ -100,6 +100,14 @@ export interface MixerPatch {
    *   action when the user wants to revert a mixer drag.
    */
   anchorUpdates?: Record<SlotId, Anchor | null>;
+  /**
+   * Slot-id-keyed trim updates. Writes onto `overrides[slotId].trim`.
+   * Null clears the trim (clip plays full source). Values must satisfy
+   * `0 <= start < end <= sourceDuration`; the server doesn't know the
+   * source duration at write time, so the client is responsible for
+   * clamping before sending.
+   */
+  trimUpdates?: Record<SlotId, { start: number; end: number } | null>;
 }
 
 /**
@@ -123,7 +131,7 @@ export async function applyMixerPatch(
 
   const pinned = await loadPinnedVersions(adId, active.pins);
 
-  const nextOverrides: Record<string, { volume?: number }> = {
+  const nextOverrides: Record<SlotId, ClipOverrides> = {
     ...(active.overrides ?? {}),
   };
   if (patch.volumes) {
@@ -137,6 +145,32 @@ export async function applyMixerPatch(
       );
       if (!slotId) continue;
       nextOverrides[slotId] = { ...(nextOverrides[slotId] ?? {}), volume };
+    }
+  }
+  if (patch.trimUpdates) {
+    for (const [slotId, trim] of Object.entries(patch.trimUpdates)) {
+      if (trim === null) {
+        // Clear trim; leave other overrides on the slot untouched.
+        if (nextOverrides[slotId]) {
+          const { trim: _trim, ...rest } = nextOverrides[slotId];
+          if (Object.keys(rest).length > 0) {
+            nextOverrides[slotId] = rest;
+          } else {
+            delete nextOverrides[slotId];
+          }
+        }
+        continue;
+      }
+      if (
+        !trim ||
+        typeof trim.start !== "number" ||
+        typeof trim.end !== "number" ||
+        trim.start < 0 ||
+        trim.end <= trim.start
+      ) {
+        continue;
+      }
+      nextOverrides[slotId] = { ...(nextOverrides[slotId] ?? {}), trim };
     }
   }
 
@@ -361,13 +395,15 @@ async function deriveMixerState(
   const tracks: MixerTrack[] = [];
   const audioDurations: Record<string, number> = {};
 
+  const overrides = mixerVersion.overrides ?? {};
   if (voiceVersion) {
     collectVoiceTracks(
       voiceVersion as VoiceVersion,
       pins.voices!,
       tracks,
       audioDurations,
-      mixerVersion.anchors
+      mixerVersion.anchors,
+      overrides
     );
   }
   if (musicVersion) {
@@ -376,7 +412,8 @@ async function deriveMixerState(
       pins.music!,
       tracks,
       audioDurations,
-      mixerVersion.anchors
+      mixerVersion.anchors,
+      overrides
     );
   }
   if (sfxVersion) {
@@ -385,7 +422,8 @@ async function deriveMixerState(
       pins.sfx!,
       tracks,
       audioDurations,
-      mixerVersion.anchors
+      mixerVersion.anchors,
+      overrides
     );
   }
 
@@ -717,7 +755,8 @@ function collectVoiceTracks(
   voiceVersionId: VersionId,
   tracks: MixerTrack[],
   audioDurations: Record<string, number>,
-  anchors: MixerVersion["anchors"]
+  anchors: MixerVersion["anchors"],
+  overrides: Record<SlotId, ClipOverrides>
 ): void {
   const hasAudio =
     voiceVersion.voiceTracks.some((t) => !!t.generatedUrl) ||
@@ -740,6 +779,7 @@ function collectVoiceTracks(
       anchorRefSlotId: voiceTrack.slotId
         ? refSlotFromAnchor(anchors[voiceTrack.slotId]?.anchor)
         : undefined,
+      trim: voiceTrack.slotId ? overrides[voiceTrack.slotId]?.trim : undefined,
       url,
       type: "voice",
       label: voiceTrack.voice?.name || `Voice ${index + 1}`,
@@ -762,7 +802,8 @@ function collectMusicTrack(
   musicVersionId: VersionId,
   tracks: MixerTrack[],
   audioDurations: Record<string, number>,
-  anchors: MixerVersion["anchors"]
+  anchors: MixerVersion["anchors"],
+  overrides: Record<SlotId, ClipOverrides>
 ): void {
   if (!musicVersion.generatedUrl) return;
 
@@ -787,6 +828,7 @@ function collectMusicTrack(
     anchorRefSlotId: musicVersion.slotId
       ? refSlotFromAnchor(anchors[musicVersion.slotId]?.anchor)
       : undefined,
+    trim: musicVersion.slotId ? overrides[musicVersion.slotId]?.trim : undefined,
     url: musicVersion.generatedUrl,
     type: "music",
     label,
@@ -804,7 +846,8 @@ function collectSfxTracks(
   sfxVersionId: VersionId,
   tracks: MixerTrack[],
   audioDurations: Record<string, number>,
-  anchors: MixerVersion["anchors"]
+  anchors: MixerVersion["anchors"],
+  overrides: Record<SlotId, ClipOverrides>
 ): void {
   if (sfxVersion.generatedUrls.length === 0) return;
 
@@ -820,6 +863,7 @@ function collectSfxTracks(
       anchorRefSlotId: sfxPrompt.slotId
         ? refSlotFromAnchor(anchors[sfxPrompt.slotId]?.anchor)
         : undefined,
+      trim: sfxPrompt.slotId ? overrides[sfxPrompt.slotId]?.trim : undefined,
       url,
       type: "soundfx",
       label: sfxPrompt.description.substring(0, 50),

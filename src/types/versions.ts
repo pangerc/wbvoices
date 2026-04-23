@@ -319,6 +319,14 @@ export interface MixerTrack {
    * Used client-side for cycle prevention on drag-drop.
    */
   anchorRefSlotId?: SlotId;
+  /**
+   * Current trim override from the mixer version. When present, the clip
+   * plays only the window [trim.start, trim.end] of the source blob. The
+   * resolver already applies this to compute effective duration; surfacing
+   * it on the track lets the UI draw trim handles and compute new trim
+   * values on edge-drag.
+   */
+  trim?: { start: number; end: number };
   url: string;
   label: string;
   type: "voice" | "music" | "soundfx";

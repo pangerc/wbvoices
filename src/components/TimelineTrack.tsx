@@ -124,6 +124,13 @@ type TimelineTrackProps = {
     forceAbsolute: boolean,
     allowPastFormat: boolean
   ) => void;
+  /**
+   * Called when a tail-trim (right-edge) drag completes. `newTrim` is the
+   * post-drag trim window clamped to [0, sourceDuration]. Null signals
+   * "clear trim" — not used by the edge-drag path today but supported so
+   * the data-flow contract matches the eventual reset-to-seed action.
+   */
+  onTrim?: (trackId: string, newTrim: { start: number; end: number } | null) => void;
   /** This track is the currently-hovered one (the "inspected" clip). */
   isHovered?: boolean;
   /** This track is the outbound anchor target of the currently-hovered track. */
@@ -150,6 +157,7 @@ export function TimelineTrack({
   onChangeSoundFx,
   onRemove,
   onDrop,
+  onTrim,
   isHoverTarget = false,
   isHoverDependent = false,
   isHovered = false,
@@ -159,20 +167,32 @@ export function TimelineTrack({
 
   // Drag state. `ribbonRef` is the ribbon DOM node so we can measure the
   // timeline container width at drag-start without threading a ref down.
+  // `trimHandleRef` is the dedicated right-edge trim handle — pointer-downs
+  // whose target is inside that element put the session into trim mode.
   const ribbonRef = useRef<HTMLDivElement>(null);
+  const trimHandleRef = useRef<HTMLDivElement>(null);
   const dragSessionRef = useRef<{
     pointerId: number;
     originX: number;
     pxPerSecond: number;
+    mode: "reposition" | "trimEnd";
     originSeconds: number;
+    /** Effective duration at drag-start; drives trim-preview pixel math. */
+    originEffectiveDuration: number;
     dragStarted: boolean;
   } | null>(null);
   const setDragPreview = useMixerStore((s) => s.setDragPreview);
   const dragPreview = useMixerStore((s) =>
     s.dragPreview?.trackId === track.id ? s.dragPreview : null
   );
+  const setTrimPreview = useMixerStore((s) => s.setTrimPreview);
+  const trimPreview = useMixerStore((s) =>
+    s.trimPreview?.trackId === track.id ? s.trimPreview : null
+  );
   const setHoveredTrackId = useMixerStore((s) => s.setHoveredTrackId);
-  const anyDragInProgress = useMixerStore((s) => s.dragPreview !== null);
+  const anyDragInProgress = useMixerStore(
+    (s) => s.dragPreview !== null || s.trimPreview !== null
+  );
   const DRAG_THRESHOLD_PX = 4;
 
   // Close menu when clicking outside
@@ -288,9 +308,13 @@ export function TimelineTrack({
   // threshold. Drag promotes on first pointermove past DRAG_THRESHOLD_PX.
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // Only primary button, not when clicking menu / audio controls nested inside.
     if (e.button !== 0) return;
-    if (!onDrop) return;
+    if (!onDrop && !onTrim) return;
+
+    // Ignore pointerdowns inside the menu button — it owns its click handler
+    // and we don't want drag capture stealing its tap.
+    if (menuRef.current?.contains(e.target as Node)) return;
+
     const timelineContainer = ribbonRef.current?.closest(
       ".timeline"
     ) as HTMLElement | null;
@@ -298,11 +322,18 @@ export function TimelineTrack({
     const rect = timelineContainer.getBoundingClientRect();
     if (rect.width <= 0 || totalDuration <= 0) return;
 
+    // Hit-test the dedicated trim handle. If the user grabbed that, we switch
+    // the session into tail-trim mode (resize right edge). Otherwise it's a
+    // reposition drag.
+    const isTrim = trimHandleRef.current?.contains(e.target as Node) ?? false;
+
     dragSessionRef.current = {
       pointerId: e.pointerId,
       originX: e.clientX,
       pxPerSecond: rect.width / totalDuration,
+      mode: isTrim ? "trimEnd" : "reposition",
       originSeconds: track.actualStartTime,
+      originEffectiveDuration: track.actualDuration,
       dragStarted: false,
     };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -316,6 +347,29 @@ export function TimelineTrack({
     if (!session.dragStarted) {
       if (Math.abs(deltaPx) < DRAG_THRESHOLD_PX) return;
       session.dragStarted = true;
+    }
+
+    if (session.mode === "trimEnd") {
+      // Clamp the live preview so the ribbon doesn't visually invert or
+      // extend past the raw source duration. The final persisted value is
+      // clamped again server-side for defense in depth.
+      const sourceDuration = track.duration ?? session.originEffectiveDuration;
+      const minEffectivePx = 0.1 * session.pxPerSecond;
+      const maxEffectiveSeconds = Math.max(
+        sourceDuration - (track.trim?.start ?? 0),
+        0.1
+      );
+      const maxDeltaPx =
+        (maxEffectiveSeconds - session.originEffectiveDuration) *
+        session.pxPerSecond;
+      const minDeltaPx = minEffectivePx - session.originEffectiveDuration * session.pxPerSecond;
+      const clampedDelta = Math.max(minDeltaPx, Math.min(maxDeltaPx, deltaPx));
+      setTrimPreview({
+        trackId: track.id,
+        edge: "end",
+        deltaPx: clampedDelta,
+      });
+      return;
     }
 
     const deltaSeconds = deltaPx / session.pxPerSecond;
@@ -340,9 +394,37 @@ export function TimelineTrack({
     dragSessionRef.current = null;
 
     if (!session.dragStarted) {
-      // Short tap — play/pause path. No anchor to persist.
-      handlePlayPause();
+      // Short tap — play/pause path (reposition mode only; a tap on the trim
+      // handle with no drag is a no-op).
+      if (session.mode === "reposition") handlePlayPause();
       setDragPreview(null);
+      setTrimPreview(null);
+      return;
+    }
+
+    if (session.mode === "trimEnd") {
+      // Compute the new trim window and PATCH. Keep the preview set until
+      // the server confirms + SWR hydrates, same flash-avoidance pattern as
+      // reposition drags.
+      const deltaPx = e.clientX - session.originX;
+      const sourceDuration = track.duration ?? session.originEffectiveDuration;
+      const trimStart = track.trim?.start ?? 0;
+      const newEffective = Math.max(
+        0.1,
+        Math.min(
+          sourceDuration - trimStart,
+          session.originEffectiveDuration + deltaPx / session.pxPerSecond
+        )
+      );
+      const newTrim = {
+        start: trimStart,
+        end: trimStart + newEffective,
+      };
+      try {
+        await onTrim?.(track.id, newTrim);
+      } finally {
+        setTrimPreview(null);
+      }
       return;
     }
 
@@ -365,6 +447,7 @@ export function TimelineTrack({
     const session = dragSessionRef.current;
     if (!session || session.pointerId !== e.pointerId) return;
     setDragPreview(null);
+    setTrimPreview(null);
     dragSessionRef.current = null;
   };
 
@@ -372,6 +455,12 @@ export function TimelineTrack({
   // follows the cursor with no server round-trip. When no drag is active,
   // fall through to the server-provided actualStartTime.
   const visibleTranslatePx = dragPreview?.deltaPx ?? 0;
+  /**
+   * Live width delta for in-flight trim preview. Added to the ribbon's base
+   * width via CSS calc so the visual keeps pace with the cursor with no
+   * server round-trip. Cleared when the patch resolves in onTrim.
+   */
+  const trimWidthDeltaPx = trimPreview?.deltaPx ?? 0;
 
   // Get background color for the progress overlay
   const getProgressColor = (type: "voice" | "music" | "soundfx") => {
@@ -446,12 +535,15 @@ export function TimelineTrack({
           }`}
           style={{
             left: `${left}%`,
-            width: `${width}%`, // Use exact width based on actual duration
-            minWidth: "8px", // Use minWidth instead of percentage to ensure visibility
+            width:
+              trimWidthDeltaPx !== 0
+                ? `calc(${width}% + ${trimWidthDeltaPx}px)`
+                : `${width}%`,
+            minWidth: "8px",
             transform: visibleTranslatePx
               ? `translateX(${visibleTranslatePx}px)`
               : undefined,
-            touchAction: "none", // let pointer events drive drag, not the browser
+            touchAction: "none",
           }}
         >
           {/* Progress overlay */}
@@ -501,6 +593,20 @@ export function TimelineTrack({
                 : cleanTrackLabel(track.label)}
             </div>
           </div>
+
+          {/* Tail-trim handle — thin vertical bar at the inner side of the
+              menu area. Clicking+dragging horizontally resizes the clip's
+              right edge, writing overrides.trim.end. Visible only on hover
+              of the ribbon (opacity 0 otherwise) so it doesn't clutter. */}
+          {onTrim && (
+            <div
+              ref={trimHandleRef}
+              className={`absolute right-6 top-1 bottom-1 w-[3px] rounded-sm bg-white/50 hover:bg-white/80 cursor-ew-resize z-[2] transition-opacity ${
+                isHovered || trimPreview ? "opacity-100" : "opacity-0"
+              }`}
+              aria-label="Trim tail"
+            />
+          )}
 
           {/* Handle with menu */}
           <div className="absolute right-1 top-0 h-full w-4 flex items-center" ref={menuRef}>
