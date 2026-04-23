@@ -6,7 +6,9 @@
  *   - Legacy ad with content: mixer:v1 created; legacy blob deleted; anchors
  *     derived with llm-seed provenance; slot ids backfilled; pins point at
  *     current stream actives.
- *   - In-flight draft at bootstrap: force-frozen with bootstrappedAt stamp.
+ *   - Draft stream versions stay drafts after bootstrap — no eager freeze.
+ *     (Earlier revisions force-froze drafts, which stole draft editability
+ *     from freshly-generated ads.)
  *   - Idempotency: second call is a no-op returning the existing active id.
  *   - Anchor translation parity with anchorFromVoiceTrack / ...FromMusic /
  *     ...FromSoundFxPrompt fixtures to prove bootstrap shares the stage-4
@@ -89,7 +91,6 @@ describe("bootstrapLegacyMixer", () => {
     const mixer = (await getVersion(mockAdId, "mixer", "v1")) as MixerVersion;
     expect(mixer.status).toBe("frozen");
     expect(mixer.pins).toEqual({ voices: "v1", music: null, sfx: null });
-    expect(mixer.bootstrappedAt).toBeGreaterThan(0);
 
     // Anchor graph is non-empty — voice slot got an llm-seed anchor.
     const anchorEntries = Object.values(mixer.anchors);
@@ -165,7 +166,10 @@ describe("bootstrapLegacyMixer", () => {
     });
   });
 
-  it("force-freezes an active draft stream version at bootstrap time", async () => {
+  it("preserves draft status on active stream versions — no eager freeze", async () => {
+    // Regression guard: bootstrap used to force-freeze active drafts, which
+    // stole draft editability from freshly-generated ads. Stream drafts must
+    // remain drafts until the next iteration triggers freezeExistingDraft.
     const voiceDraft: VoiceVersion = {
       ...mockVoiceVersionDraft,
       generatedUrls: ["https://x.mp3"],
@@ -174,14 +178,10 @@ describe("bootstrapLegacyMixer", () => {
     await createVersion(mockAdId, "voices", voiceDraft);
     await setActiveVersion(mockAdId, "voices", "v1");
 
-    const result = await bootstrapLegacyMixer(mockAdId);
+    await bootstrapLegacyMixer(mockAdId);
 
-    expect(result.forceFrozen.voices).toBe("v1");
-    const voicePost = (await getVersion(mockAdId, "voices", "v1")) as VoiceVersion & {
-      bootstrappedAt?: number;
-    };
-    expect(voicePost.status).toBe("frozen");
-    expect(voicePost.bootstrappedAt).toBeGreaterThan(0);
+    const voicePost = (await getVersion(mockAdId, "voices", "v1")) as VoiceVersion;
+    expect(voicePost.status).toBe("draft");
   });
 
   it("is idempotent — second call is a no-op returning the existing active id", async () => {

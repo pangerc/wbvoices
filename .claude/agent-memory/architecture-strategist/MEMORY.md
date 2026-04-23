@@ -1,0 +1,1 @@
+- [Stage-6 mixer bootstrap semantics](project_stage6_mixer_bootstrap.md) — force-freeze regression, mixer:v1 pinning mutable drafts is acceptable because freezeExistingDraft closes the window lazily

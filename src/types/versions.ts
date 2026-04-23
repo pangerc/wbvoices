@@ -468,8 +468,6 @@ export interface CachedResolverOutput {
  *   - Overrides carry per-slot trim/gain/fade that shouldn't bake into a
  *     content version (same voice, different mix tweaks).
  *   - `cachedResolverOutput` is an optimization on frozen versions only.
- *   - `bootstrappedAt` marks versions materialized by the stage-6 lazy
- *     bootstrap — useful for audits and to short-circuit re-bootstrap logic.
  */
 export interface MixerVersion {
   anchors: Record<SlotId, AnchorEntry>;
@@ -485,7 +483,6 @@ export interface MixerVersion {
   label?: string;
 
   cachedResolverOutput?: CachedResolverOutput;
-  bootstrappedAt?: number;
 
   /**
    * URL of the most recent rendered mix uploaded to blob storage. The mixer

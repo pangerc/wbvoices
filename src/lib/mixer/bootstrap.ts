@@ -10,17 +10,21 @@
  * Serialization: the whole sequence runs under `withAdLock` so two tabs
  * opening the same legacy ad can't both race to mint `mixer:v1`.
  *
- * In-flight drafts: if a content stream's active version is still a draft
- * at bootstrap time (user was mid-iteration at cutover), the draft is
- * force-frozen with a `bootstrappedAt` flag and used as the pin. Rejected
- * alternative: treating the draft as a seed for a new mixer draft — rejected
- * because bootstrap must produce a coherent frozen+active mixer version,
- * otherwise the UI has nothing to render.
+ * Stream-version status is preserved. Earlier revisions of this file
+ * force-froze active drafts at bootstrap time on the premise that mixer:v1
+ * must pin immutable content. That premise was wrong — it stole draft
+ * editability from freshly-generated ads. The correct reproducibility
+ * contract lives on `freezeExistingDraft` (stream iterations freeze the
+ * outgoing draft) and on future variant-fork (must freeze pinned drafts
+ * at fork time). Mixer:v1 frozen pinning a draft is an accepted soft
+ * invariant: the pin is stable in practice until the user iterates, at
+ * which point the old draft is frozen in place and the pin retroactively
+ * hardens.
  *
  * Slot-id backfill: stream versions predating stage 2 lack `slotId`. This
  * module fills them in on the fly so the anchor graph has stable referents.
- * This is the only site that mutates frozen stream versions — treated as an
- * idempotent migration write, not a model violation.
+ * This is an idempotent additive write — it only adds slotId, never
+ * changes semantic content.
  */
 
 import { getRedisV3 } from "@/lib/redis-v3";
@@ -56,12 +60,6 @@ export interface BootstrapResult {
   created: boolean;
   /** The active mixer version id after bootstrap (always set on success). */
   versionId: VersionId | null;
-  /** Version ids force-frozen during bootstrap, by stream. */
-  forceFrozen: {
-    voices?: VersionId;
-    music?: VersionId;
-    sfx?: VersionId;
-  };
   /** Legacy `ad:{id}:mixer` key deleted as part of this call. */
   legacyKeyDeleted: boolean;
 }
@@ -84,7 +82,6 @@ export async function bootstrapLegacyMixer(
     return {
       created: false,
       versionId: active,
-      forceFrozen: {},
       legacyKeyDeleted: false,
     };
   }
@@ -106,7 +103,6 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
     return {
       created: false,
       versionId: active,
-      forceFrozen: {},
       legacyKeyDeleted: false,
     };
   }
@@ -124,7 +120,6 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
     return {
       created: false,
       versionId: null,
-      forceFrozen: {},
       legacyKeyDeleted: false,
     };
   }
@@ -139,40 +134,11 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
     ? await getVersion(adId, "sfx", activeSfxId)
     : null;
 
-  // Force-freeze any active draft so the pin references an immutable version.
-  // `bootstrappedAt` tags the freeze so audit can tell "user was iterating at
-  // cutover" apart from a normal freeze. Apply changes to the in-memory
-  // version too, because the slot-id backfill below writes the full version
-  // back and would otherwise revert status → "draft".
-  const forceFrozen: BootstrapResult["forceFrozen"] = {};
-  const bootstrappedAt = Date.now();
-  if (voiceVersion && voiceVersion.status === "draft" && activeVoiceId) {
-    (voiceVersion as VoiceVersion & { bootstrappedAt?: number }).status = "frozen";
-    (voiceVersion as VoiceVersion & { bootstrappedAt?: number }).bootstrappedAt = bootstrappedAt;
-    await updateVersion(adId, "voices", activeVoiceId, {
-      status: "frozen",
-      bootstrappedAt,
-    } as Partial<VoiceVersion> & { bootstrappedAt: number });
-    forceFrozen.voices = activeVoiceId;
-  }
-  if (musicVersion && musicVersion.status === "draft" && activeMusicId) {
-    (musicVersion as MusicVersion & { bootstrappedAt?: number }).status = "frozen";
-    (musicVersion as MusicVersion & { bootstrappedAt?: number }).bootstrappedAt = bootstrappedAt;
-    await updateVersion(adId, "music", activeMusicId, {
-      status: "frozen",
-      bootstrappedAt,
-    } as Partial<MusicVersion> & { bootstrappedAt: number });
-    forceFrozen.music = activeMusicId;
-  }
-  if (sfxVersion && sfxVersion.status === "draft" && activeSfxId) {
-    (sfxVersion as SfxVersion & { bootstrappedAt?: number }).status = "frozen";
-    (sfxVersion as SfxVersion & { bootstrappedAt?: number }).bootstrappedAt = bootstrappedAt;
-    await updateVersion(adId, "sfx", activeSfxId, {
-      status: "frozen",
-      bootstrappedAt,
-    } as Partial<SfxVersion> & { bootstrappedAt: number });
-    forceFrozen.sfx = activeSfxId;
-  }
+  // Stream versions keep their current status. If they were drafts, they
+  // stay drafts — `freezeExistingDraft` (in tool-calling implementations)
+  // freezes the outgoing draft lazily when the next iteration is created,
+  // which is also the moment a pin would start mutating under mixer:v1's
+  // feet. Bootstrap doesn't need to do it preemptively.
 
   // Slot-id backfill: older stream versions lack slotIds. Fill missing ones
   // in place so the anchor graph has stable referents. Writes are idempotent —
@@ -234,10 +200,9 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
   const mixerV1: MixerVersion = {
     anchors,
     pins,
-    createdAt: bootstrappedAt,
+    createdAt: Date.now(),
     createdBy: "llm", // bootstrap materializes what the LLM already authored
     status: "frozen",
-    bootstrappedAt,
   };
 
   const versionId = await createVersion(adId, "mixer", mixerV1);
@@ -249,13 +214,12 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
   const deleted = await redis.del(legacyKey);
 
   console.log(
-    `[mixer-bootstrap] adId=${adId} versionId=${versionId} forceFrozen=${JSON.stringify(forceFrozen)} legacyDeleted=${deleted > 0}`
+    `[mixer-bootstrap] adId=${adId} versionId=${versionId} legacyDeleted=${deleted > 0}`
   );
 
   return {
     created: true,
     versionId,
-    forceFrozen,
     legacyKeyDeleted: deleted > 0,
   };
 }
