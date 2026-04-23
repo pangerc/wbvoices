@@ -654,13 +654,12 @@ export function TimelineTrack({
           )}
 
           {/* Track title. Click-to-play/pause is now handled by the ribbon's
-              pointer-up click path (distinguishes tap from drag). */}
+              pointer-up click path (distinguishes tap from drag). All three
+              stream types render with white text — voice was originally
+              black, but on the dark-grey voice ribbon the contrast was too
+              low to read against the warm-cream waveform. */}
           <div className="px-3 py-1 h-full flex items-center pointer-events-none">
-            <div
-              className={`font-medium text-xs truncate ${
-                track.type === "voice" ? "text-black" : ""
-              }`}
-            >
+            <div className="font-medium text-xs truncate text-white">
               {track.type === "voice"
                 ? extractCharacterName(cleanTrackLabel(track.label))
                 : cleanTrackLabel(track.label)}
