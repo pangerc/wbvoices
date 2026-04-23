@@ -292,6 +292,12 @@ export interface MixerState {
  */
 export interface MixerTrack {
   id: string;
+  /**
+   * Stable slot id — the anchor graph's referent. The client sends PATCH
+   * anchor updates keyed by slotId so payloads are valid as-is, with no
+   * server-side id translation.
+   */
+  slotId?: SlotId;
   url: string;
   label: string;
   type: "voice" | "music" | "soundfx";

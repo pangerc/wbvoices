@@ -1,5 +1,5 @@
 import useSWR from "swr";
-import type { MixerState } from "@/types/versions";
+import type { Anchor, MixerState, SlotId } from "@/types/versions";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -30,5 +30,27 @@ export function useMixerData(adId: string) {
     await mutate();
   };
 
-  return { data, error, isLoading, mutate, removeStream };
+  /**
+   * Persist user-edit anchor updates from a timeline drag. Merges non-
+   * destructively on the server; existing anchors for untouched slots are
+   * preserved. Forks a frozen active mixer version into a draft if needed
+   * (that logic lives in applyMixerPatch).
+   */
+  const patchAnchors = async (anchorUpdates: Record<SlotId, Anchor>) => {
+    if (!adId || Object.keys(anchorUpdates).length === 0) return;
+    const response = await fetch(`/api/ads/${adId}/mixer`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anchorUpdates }),
+    });
+    if (!response.ok) {
+      console.error("❌ Failed to patch anchors:", response.status);
+      await mutate();
+      return;
+    }
+    const updated = (await response.json()) as MixerState;
+    await mutate(updated, { revalidate: false });
+  };
+
+  return { data, error, isLoading, mutate, removeStream, patchAnchors };
 }

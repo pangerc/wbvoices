@@ -5,6 +5,8 @@ import type { MixerState as RedisMixerState } from "@/types/versions";
 // Unified Track type for the mixer
 export type MixerTrack = {
   id: string;
+  /** Stable slot id from the mixer version; keys anchor updates from drag. */
+  slotId?: string;
   url: string;
   label: string;
   type: "voice" | "music" | "soundfx";
@@ -55,6 +57,22 @@ const getDefaultVolume = (type: "voice" | "music" | "soundfx"): number => {
   }
 };
 
+/**
+ * Ephemeral drag-preview state. Lives in Zustand (not in the server
+ * snapshot) because it updates on every pointermove — we don't want to
+ * touch Redis or SWR during a drag. Cleared on drop.
+ */
+export type DragPreview = {
+  /** MixerPanel track id being dragged (e.g. "voice-v3-0"). */
+  trackId: string;
+  /** Pixel offset from drag origin. Drives the visual translateX. */
+  deltaPx: number;
+  /** Target drop position in seconds, recomputed on every move. */
+  dropSeconds: number;
+  /** User is holding alt/opt, signalling "force absolute" anchor. */
+  forceAbsolute: boolean;
+};
+
 type MixerStoreState = {
   // Track data (hydrated from server via SWR, never recalculated client-side)
   tracks: MixerTrack[];
@@ -70,6 +88,9 @@ type MixerStoreState = {
   isPreviewValid: boolean;
   previewUrl: string | null;
   uploadError: string | null;
+
+  /** Drag preview state — null when no drag is in progress. */
+  dragPreview: DragPreview | null;
 
   // Server-state hydration (called by MixerPanel from SWR)
   hydrateFromMixer: (state: RedisMixerState) => void;
@@ -89,6 +110,9 @@ type MixerStoreState = {
   setIsUploadingMix: (isUploading: boolean) => void;
   setIsPreviewValid: (isValid: boolean) => void;
   setUploadError: (error: string | null) => void;
+
+  // Drag lifecycle
+  setDragPreview: (preview: DragPreview | null) => void;
 };
 
 export const useMixerStore = create<MixerStoreState>((set, get) => ({
@@ -104,6 +128,7 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
   isPreviewValid: false,
   previewUrl: null,
   uploadError: null,
+  dragPreview: null,
 
   hydrateFromMixer: (state) => {
     const incomingTracks = (state.tracks ?? []) as MixerTrack[];
@@ -226,4 +251,5 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
   setIsUploadingMix: (isUploading) => set({ isUploadingMix: isUploading }),
   setIsPreviewValid: (isValid) => set({ isPreviewValid: isValid }),
   setUploadError: (error) => set({ uploadError: error }),
+  setDragPreview: (dragPreview) => set({ dragPreview }),
 }));

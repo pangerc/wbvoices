@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
-import { MixerTrack } from "@/store/mixerStore";
+import { MixerTrack, useMixerStore } from "@/store/mixerStore";
 
 // Helper function to clean track labels
 export function cleanTrackLabel(label: string): string {
@@ -111,6 +111,12 @@ type TimelineTrackProps = {
   onChangeMusic?: () => void;
   onChangeSoundFx?: () => void;
   onRemove?: (trackId: string) => void;
+  /**
+   * Called when a drop completes. `dropSeconds` is the new timeline position
+   * of the dragged track's left edge; `forceAbsolute` signals the user held
+   * the opt/alt modifier (force an absolute anchor vs proximity-derived).
+   */
+  onDrop?: (trackId: string, dropSeconds: number, forceAbsolute: boolean) => void;
 };
 
 export function TimelineTrack({
@@ -130,9 +136,26 @@ export function TimelineTrack({
   onChangeMusic,
   onChangeSoundFx,
   onRemove,
+  onDrop,
 }: TimelineTrackProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Drag state. `ribbonRef` is the ribbon DOM node so we can measure the
+  // timeline container width at drag-start without threading a ref down.
+  const ribbonRef = useRef<HTMLDivElement>(null);
+  const dragSessionRef = useRef<{
+    pointerId: number;
+    originX: number;
+    pxPerSecond: number;
+    originSeconds: number;
+    dragStarted: boolean;
+  } | null>(null);
+  const setDragPreview = useMixerStore((s) => s.setDragPreview);
+  const dragPreview = useMixerStore((s) =>
+    s.dragPreview?.trackId === track.id ? s.dragPreview : null
+  );
+  const DRAG_THRESHOLD_PX = 4;
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -241,6 +264,87 @@ export function TimelineTrack({
     }
   };
 
+  // ============ Drag lifecycle ============
+  //
+  // Distinguishes click (play/pause) from drag (reposition) by movement
+  // threshold. Drag promotes on first pointermove past DRAG_THRESHOLD_PX.
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Only primary button, not when clicking menu / audio controls nested inside.
+    if (e.button !== 0) return;
+    if (!onDrop) return;
+    const timelineContainer = ribbonRef.current?.closest(
+      ".timeline"
+    ) as HTMLElement | null;
+    if (!timelineContainer) return;
+    const rect = timelineContainer.getBoundingClientRect();
+    if (rect.width <= 0 || totalDuration <= 0) return;
+
+    dragSessionRef.current = {
+      pointerId: e.pointerId,
+      originX: e.clientX,
+      pxPerSecond: rect.width / totalDuration,
+      originSeconds: track.actualStartTime,
+      dragStarted: false,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const session = dragSessionRef.current;
+    if (!session || session.pointerId !== e.pointerId) return;
+    const deltaPx = e.clientX - session.originX;
+
+    if (!session.dragStarted) {
+      if (Math.abs(deltaPx) < DRAG_THRESHOLD_PX) return;
+      session.dragStarted = true;
+    }
+
+    const deltaSeconds = deltaPx / session.pxPerSecond;
+    const dropSeconds = Math.max(0, session.originSeconds + deltaSeconds);
+    setDragPreview({
+      trackId: track.id,
+      deltaPx,
+      dropSeconds,
+      forceAbsolute: e.altKey,
+    });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const session = dragSessionRef.current;
+    if (!session || session.pointerId !== e.pointerId) return;
+
+    if (session.dragStarted) {
+      const deltaPx = e.clientX - session.originX;
+      const deltaSeconds = deltaPx / session.pxPerSecond;
+      const dropSeconds = Math.max(0, session.originSeconds + deltaSeconds);
+      onDrop?.(track.id, dropSeconds, e.altKey);
+    } else {
+      // Treated as a click — play/pause.
+      handlePlayPause();
+    }
+
+    setDragPreview(null);
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // Pointer was never captured (rare race). Ignore.
+    }
+    dragSessionRef.current = null;
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    const session = dragSessionRef.current;
+    if (!session || session.pointerId !== e.pointerId) return;
+    setDragPreview(null);
+    dragSessionRef.current = null;
+  };
+
+  // While dragging this specific track, render from the preview so the ribbon
+  // follows the cursor with no server round-trip. When no drag is active,
+  // fall through to the server-provided actualStartTime.
+  const visibleTranslatePx = dragPreview?.deltaPx ?? 0;
+
   // Get background color for the progress overlay
   const getProgressColor = (type: "voice" | "music" | "soundfx") => {
     switch (type) {
@@ -283,17 +387,28 @@ export function TimelineTrack({
       >
         {/* The actual colored ribbon - positioned within the track container */}
         <div
+          ref={ribbonRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
           className={`absolute h-full rounded-full backdrop-blur-sm ${
             track.type === "voice"
               ? "bg-white/15 border border-white/20"
               : track.type === "music"
               ? "bg-wb-blue/20 border border-wb-blue/25"
               : "bg-red-500/20 border border-red-500/25"
-          } ${isMenuOpen ? "z-50" : "z-0"}`}
+          } ${isMenuOpen ? "z-50" : "z-0"} ${
+            dragPreview ? "cursor-grabbing opacity-80" : "cursor-grab"
+          }`}
           style={{
             left: `${left}%`,
             width: `${width}%`, // Use exact width based on actual duration
             minWidth: "8px", // Use minWidth instead of percentage to ensure visibility
+            transform: visibleTranslatePx
+              ? `translateX(${visibleTranslatePx}px)`
+              : undefined,
+            touchAction: "none", // let pointer events drive drag, not the browser
           }}
         >
           {/* Progress overlay */}
@@ -308,11 +423,9 @@ export function TimelineTrack({
             ></div>
           )}
 
-          {/* Track title that triggers playback */}
-          <div
-            className="px-3 py-1 h-full flex items-center cursor-pointer"
-            onClick={handlePlayPause}
-          >
+          {/* Track title. Click-to-play/pause is now handled by the ribbon's
+              pointer-up click path (distinguishes tap from drag). */}
+          <div className="px-3 py-1 h-full flex items-center pointer-events-none">
             <div
               className={`font-medium text-xs truncate ${
                 track.type === "voice" ? "text-black" : ""

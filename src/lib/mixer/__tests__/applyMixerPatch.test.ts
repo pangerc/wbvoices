@@ -160,6 +160,95 @@ describe("applyMixerPatch", () => {
     expect(result).toBeNull();
   });
 
+  it("merges anchorUpdates into mixerVersion.anchors with user-edit provenance", async () => {
+    const voice: VoiceVersion = {
+      ...mockVoiceVersionFrozen,
+      voiceTracks: [
+        { ...mockVoiceTrack, slotId: "voice-slot-a" },
+        { ...mockVoiceTrack, slotId: "voice-slot-b" },
+      ],
+      generatedUrls: ["https://x/a.mp3", "https://x/b.mp3"],
+    };
+    await createVersion(mockAdId, "voices", voice);
+    await setActiveVersion(mockAdId, "voices", "v1");
+
+    // First patch: move slot-a. Bootstrap creates mixer:v1 frozen with empty
+    // anchors; this patch forks to v2 draft and applies the anchor.
+    await applyMixerPatch(mockAdId, {
+      anchorUpdates: {
+        "voice-slot-a": { kind: "absolute", t: 1.5 },
+      },
+    });
+
+    let draftId = (await getActiveVersion(mockAdId, "mixer"))!;
+    let mixer = (await getVersion(mockAdId, "mixer", draftId)) as MixerVersion;
+    expect(mixer.status).toBe("draft");
+    expect(mixer.anchors["voice-slot-a"]).toEqual({
+      anchor: { kind: "absolute", t: 1.5 },
+      origin: "user-edit",
+    });
+
+    // Second patch: move slot-b. Must preserve slot-a's anchor (non-destructive merge).
+    await applyMixerPatch(mockAdId, {
+      anchorUpdates: {
+        "voice-slot-b": { kind: "relativeTo", slotId: "voice-slot-a", edge: "end" },
+      },
+    });
+
+    draftId = (await getActiveVersion(mockAdId, "mixer"))!;
+    mixer = (await getVersion(mockAdId, "mixer", draftId)) as MixerVersion;
+    expect(mixer.anchors["voice-slot-a"]).toEqual({
+      anchor: { kind: "absolute", t: 1.5 },
+      origin: "user-edit",
+    });
+    expect(mixer.anchors["voice-slot-b"]).toEqual({
+      anchor: { kind: "relativeTo", slotId: "voice-slot-a", edge: "end" },
+      origin: "user-edit",
+    });
+  });
+
+  it("preserves layout metadata when overriding an existing anchor", async () => {
+    const voice: VoiceVersion = {
+      ...mockVoiceVersionFrozen,
+      voiceTracks: [{ ...mockVoiceTrack, slotId: "voice-slot-0" }],
+      generatedUrls: ["https://x.mp3"],
+    };
+    await createVersion(mockAdId, "voices", voice);
+    await setActiveVersion(mockAdId, "voices", "v1");
+
+    // Seed a mixer version with layout: "push" on the slot so we can assert
+    // layout survives the patch.
+    const mixer: MixerVersion = {
+      anchors: {
+        "voice-slot-0": {
+          anchor: { kind: "absolute", t: 0 },
+          origin: "llm-seed",
+          layout: "push",
+        },
+      },
+      pins: { voices: "v1", music: null, sfx: null },
+      createdAt: Date.now(),
+      createdBy: "llm",
+      status: "frozen",
+    };
+    await createVersion(mockAdId, "mixer", mixer);
+    await setActiveVersion(mockAdId, "mixer", "v1");
+
+    await applyMixerPatch(mockAdId, {
+      anchorUpdates: {
+        "voice-slot-0": { kind: "absolute", t: 2.5 },
+      },
+    });
+
+    const draftId = (await getActiveVersion(mockAdId, "mixer"))!;
+    const post = (await getVersion(mockAdId, "mixer", draftId)) as MixerVersion;
+    expect(post.anchors["voice-slot-0"]).toEqual({
+      anchor: { kind: "absolute", t: 2.5 },
+      origin: "user-edit",
+      layout: "push",
+    });
+  });
+
   it("ignores legacy extra fields (tracks/totalDuration/lastCalculated)", async () => {
     const voice: VoiceVersion = {
       ...mockVoiceVersionFrozen,

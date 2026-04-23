@@ -39,7 +39,7 @@ export function MixerPanel({
   const adId = params.id as string;
 
   // Fetch mixer state from Redis via SWR (source of truth)
-  const { data: mixerSWR } = useMixerData(adId);
+  const { data: mixerSWR, patchAnchors } = useMixerData(adId);
 
   // Get data and actions from store
   const {
@@ -64,6 +64,46 @@ export function MixerPanel({
     clearTracks,
     hydrateFromMixer,
   } = useMixerStore();
+
+  /**
+   * Drop handler for timeline drags. Resolves the proximity anchor using the
+   * slot ids surfaced on the track list and persists via PATCH. The server
+   * forks a frozen mixer version into a draft if needed. Response is
+   * optimistic-mutated back into SWR by patchAnchors.
+   */
+  const handleTrackDrop = useCallback(
+    async (trackId: string, dropSeconds: number, forceAbsolute: boolean) => {
+      const draggedTrack = tracks.find((t) => t.id === trackId);
+      const draggedSlotId = draggedTrack?.slotId;
+      if (!draggedSlotId) {
+        console.warn(
+          `[mixer-drop] track ${trackId} has no slotId; cannot persist anchor`
+        );
+        return;
+      }
+
+      const others = calculatedTracks
+        .filter((ct) => ct.id !== trackId)
+        .map((ct) => {
+          const slotId = tracks.find((t) => t.id === ct.id)?.slotId;
+          if (!slotId) return null;
+          return {
+            slotId,
+            startTime: ct.actualStartTime,
+            duration: ct.actualDuration,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => !!x);
+
+      const { anchorFromDrop } = await import("@/services/anchorFromDrop");
+      const anchor = anchorFromDrop(draggedSlotId, dropSeconds, others, {
+        forceAbsolute,
+      });
+
+      await patchAnchors({ [draggedSlotId]: anchor });
+    },
+    [tracks, calculatedTracks, patchAnchors]
+  );
 
   // Hydrate Zustand store from SWR data (Redis is source of truth).
   // Server already calculated positions in rebuildMixer; client never recalculates.
@@ -1118,6 +1158,7 @@ export function MixerPanel({
                     onAudioError={() => handleAudioError(track.id, track.label)}
                     isTrackLoading={isTrackLoading(track)}
                     onChangeVoice={onChangeVoice}
+                    onDrop={handleTrackDrop}
                   />
                 ))}
 
@@ -1145,6 +1186,7 @@ export function MixerPanel({
                     isTrackLoading={isTrackLoading(track)}
                     onChangeMusic={onChangeMusic}
                     onRemove={onRemoveTrack}
+                    onDrop={handleTrackDrop}
                   />
                 ))}
 
@@ -1173,6 +1215,7 @@ export function MixerPanel({
                     onAudioLoaded={() => handleAudioLoaded(track.id)}
                     onAudioError={() => handleAudioError(track.id, track.label)}
                     isTrackLoading={isTrackLoading(track)}
+                    onDrop={handleTrackDrop}
                   />
                 ))}
             </div>

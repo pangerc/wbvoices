@@ -31,6 +31,7 @@ import {
 import { withAdLock } from "@/lib/redis/adLock";
 import { bootstrapLegacyMixer } from "@/lib/mixer/bootstrap";
 import {
+  Anchor,
   CachedResolverOutput,
   ClipOverrides,
   MixerPins,
@@ -86,6 +87,14 @@ export interface MixerPatch {
   volumes?: Record<string, number>;
   /** URL of the most recent rendered mix uploaded to blob storage. */
   mixedAudioUrl?: string;
+  /**
+   * Slot-id-keyed anchor updates, typically from a drag-drop interaction.
+   * Origin is stamped as `user-edit` on merge, so stage-6 precedence
+   * (user-edit wins on stream regen) kicks in automatically. Layout falls
+   * back to `overlay` unless the caller says otherwise. Merges non-
+   * destructively — anchors not referenced here are preserved.
+   */
+  anchorUpdates?: Record<SlotId, Anchor>;
 }
 
 /**
@@ -129,6 +138,19 @@ export async function applyMixerPatch(
   const updates: Partial<MixerVersion> = { overrides: nextOverrides };
   if (typeof patch.mixedAudioUrl === "string") {
     updates.mixedAudioUrl = patch.mixedAudioUrl;
+  }
+  if (patch.anchorUpdates) {
+    const nextAnchors: MixerVersion["anchors"] = { ...active.anchors };
+    for (const [slotId, anchor] of Object.entries(patch.anchorUpdates)) {
+      if (!anchor) continue;
+      const existingLayout = nextAnchors[slotId]?.layout;
+      nextAnchors[slotId] = {
+        anchor,
+        origin: "user-edit",
+        ...(existingLayout ? { layout: existingLayout } : {}),
+      };
+    }
+    updates.anchors = nextAnchors;
   }
   await updateVersion(adId, "mixer", activeId, updates);
 
@@ -602,6 +624,7 @@ function collectVoiceTracks(
 
     tracks.push({
       id: trackId,
+      slotId: voiceTrack.slotId,
       url,
       type: "voice",
       label: voiceTrack.voice?.name || `Voice ${index + 1}`,
@@ -643,6 +666,7 @@ function collectMusicTrack(
 
   tracks.push({
     id: trackId,
+    slotId: musicVersion.slotId,
     url: musicVersion.generatedUrl,
     type: "music",
     label,
@@ -670,6 +694,7 @@ function collectSfxTracks(
     const trackId = `sfx-${sfxVersionId}-${index}`;
     tracks.push({
       id: trackId,
+      slotId: sfxPrompt.slotId,
       url,
       type: "soundfx",
       label: sfxPrompt.description.substring(0, 50),
