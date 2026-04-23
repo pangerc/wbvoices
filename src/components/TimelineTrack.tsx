@@ -603,11 +603,16 @@ export function TimelineTrack({
             ></div>
           )}
 
-          {/* Waveform envelope. Ambient texture/rhythm — intentionally low
-              opacity so the label stays foreground-legible while the envelope
-              provides spatial orientation at a glance across many clips
-              simultaneously (the parallel-scanning the audio-ads-creative-
-              expert review called load-bearing). */}
+          {/* Waveform envelope. Ambient texture/rhythm — low opacity keeps
+              the label foreground-legible while the envelope gives at-a-
+              glance spatial orientation across many clips simultaneously.
+              Per-type tint also serves as a visual identity cue:
+                - voice: warm cream, bright on the neutral-grey ribbon
+                - music: cool white on the blue ribbon
+                - sfx:   white on the red ribbon
+              Both dark on light and light on dark were tried; tinted light
+              on all three reads consistently and keeps voice legible (the
+              previous dark-on-dark-grey was invisible). */}
           {waveformPath && (
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none"
@@ -619,8 +624,8 @@ export function TimelineTrack({
                 d={waveformPath}
                 fill={
                   track.type === "voice"
-                    ? "rgba(0,0,0,0.12)"
-                    : "rgba(255,255,255,0.15)"
+                    ? "rgba(255, 220, 180, 0.35)"
+                    : "rgba(255, 255, 255, 0.22)"
                 }
               />
             </svg>
@@ -662,10 +667,12 @@ export function TimelineTrack({
             </div>
           </div>
 
-          {/* Tail-trim handle — owns the rightmost edge of the ribbon now.
-              Per DAW convention, the clip edge is reserved exclusively for
-              the resize affordance. Hover-reveals a subtle indicator bar
-              inside the grab zone. The whole 8px strip is the hit target. */}
+          {/* Tail-trim handle — owns the rightmost edge of the ribbon. Per
+              DAW convention, the clip edge is reserved for the resize
+              affordance. Hover reveals a thin indicator only in the middle
+              third of the height, low opacity — subtle enough not to
+              compete with the ribbon's own silhouette. The whole 8px strip
+              is the hit target regardless. */}
           {onTrim && (
             <div
               ref={trimHandleRef}
@@ -673,7 +680,7 @@ export function TimelineTrack({
               aria-label="Trim tail"
             >
               <div
-                className={`absolute right-1 top-1 bottom-1 w-[2px] rounded-sm bg-white/60 transition-opacity ${
+                className={`absolute right-[3px] top-1/2 -translate-y-1/2 w-px h-2 rounded-full bg-white/35 transition-opacity ${
                   isHovered || trimPreview ? "opacity-100" : "opacity-0"
                 }`}
               />
@@ -795,8 +802,8 @@ export function TimelineTrack({
             e.stopPropagation();
             setIsMenuOpen((v) => !v);
           }}
-          className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/25 border border-white/20 transition-opacity ${
-            isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded hover:bg-white/10 transition-opacity duration-75 ${
+            isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-70"
           }`}
           style={{ left: `calc(${left + width}% + 6px)` }}
           aria-label="Track actions"
