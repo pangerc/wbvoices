@@ -624,7 +624,7 @@ export function TimelineTrack({
                 d={waveformPath}
                 fill={
                   track.type === "voice"
-                    ? "rgba(255, 220, 180, 0.35)"
+                    ? "rgba(255, 220, 180, 0.18)"
                     : "rgba(255, 255, 255, 0.22)"
                 }
               />
@@ -687,109 +687,108 @@ export function TimelineTrack({
             </div>
           )}
 
-          {/* Menu container. The three-dots button itself is rendered OUTSIDE
-              the ribbon (see below) — this container just holds the
-              dropdown, positioned at the ribbon's right edge so the popover
-              visually extends from where the trigger was clicked. */}
-          <div className="absolute right-1 top-0 h-full w-4 flex items-center" ref={menuRef}>
-            {/* The three-dots trigger is now rendered OUTSIDE the ribbon
-                (at the row level) so the ribbon's right edge is clear for
-                trim. See the external button below. */}
-
-            {/* Dropdown menu */}
-            {isMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-40 bg-black/90 backdrop-blur-md border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden">
-                {onToggleMute && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsMenuOpen(false);
-                      onToggleMute(track.id);
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center justify-between"
-                  >
-                    <span>{isMuted ? "Unmute" : "Mute"}</span>
-                    {isMuted && <span className="text-xs text-gray-400">M</span>}
-                  </button>
-                )}
-                {onToggleSolo && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsMenuOpen(false);
-                      onToggleSolo(track.id);
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center justify-between border-t border-white/10"
-                  >
-                    <span>{isSoloed ? "Unsolo" : "Solo"}</span>
-                    {isSoloed && <span className="text-xs text-yellow-400">S</span>}
-                  </button>
-                )}
-                {(onToggleMute || onToggleSolo) && (
-                  <div className="border-t border-white/10" />
-                )}
-                {track.type === "voice" && onChangeVoice && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsMenuOpen(false);
-                      onChangeVoice();
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
-                  >
-                    Change voice
-                  </button>
-                )}
-                {track.type === "music" && onChangeMusic && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsMenuOpen(false);
-                      onChangeMusic();
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
-                  >
-                    Change music
-                  </button>
-                )}
-                {track.type === "soundfx" && onChangeSoundFx && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsMenuOpen(false);
-                      onChangeSoundFx();
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
-                  >
-                    Change effect
-                  </button>
-                )}
-                {onRemove && (track.type === "music" || track.type === "soundfx") && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsMenuOpen(false);
-                      onRemove(track.id);
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/10"
-                  >
-                    Remove
-                  </button>
-                )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsMenuOpen(false);
-                    handleDownload();
-                  }}
-                  className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors border-t border-white/10"
-                >
-                  Download
-                </button>
-              </div>
-            )}
-          </div>
         </div>
+
+        {/* Dropdown menu — lives OUTSIDE the ribbon so the ribbon's
+            overflow-hidden (needed for the waveform SVG + glow overlays
+            clipping to the rounded shape) doesn't clip the popover.
+            Positioned at the same horizontal offset as the external
+            trigger button. */}
+        {isMenuOpen && (
+          <div
+            ref={menuRef}
+            className="absolute top-full mt-1 w-40 bg-black/90 backdrop-blur-md border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden"
+            style={{ left: `calc(${left + width}% + 6px)` }}
+          >
+            {onToggleMute && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onToggleMute(track.id);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center justify-between"
+              >
+                <span>{isMuted ? "Unmute" : "Mute"}</span>
+                {isMuted && <span className="text-xs text-gray-400">M</span>}
+              </button>
+            )}
+            {onToggleSolo && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onToggleSolo(track.id);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center justify-between border-t border-white/10"
+              >
+                <span>{isSoloed ? "Unsolo" : "Solo"}</span>
+                {isSoloed && <span className="text-xs text-yellow-400">S</span>}
+              </button>
+            )}
+            {(onToggleMute || onToggleSolo) && (
+              <div className="border-t border-white/10" />
+            )}
+            {track.type === "voice" && onChangeVoice && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onChangeVoice();
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
+              >
+                Change voice
+              </button>
+            )}
+            {track.type === "music" && onChangeMusic && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onChangeMusic();
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
+              >
+                Change music
+              </button>
+            )}
+            {track.type === "soundfx" && onChangeSoundFx && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onChangeSoundFx();
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
+              >
+                Change effect
+              </button>
+            )}
+            {onRemove && (track.type === "music" || track.type === "soundfx") && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onRemove(track.id);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/10"
+              >
+                Remove
+              </button>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsMenuOpen(false);
+                handleDownload();
+              }}
+              className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors border-t border-white/10"
+            >
+              Download
+            </button>
+          </div>
+        )}
 
         {/* External three-dots trigger — sits just past the ribbon's right
             edge and fades in on row hover. Keeps the ribbon edge clear for
