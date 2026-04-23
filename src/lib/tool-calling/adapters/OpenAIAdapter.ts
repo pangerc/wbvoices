@@ -32,7 +32,7 @@ export class OpenAIAdapter {
 
     const input = this.buildInput(messages, !!previousResponseId, currentToolResults);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const responseParams: any = {
       model: "gpt-5.4",
       input,
@@ -93,7 +93,7 @@ export class OpenAIAdapter {
    * - First call: simple string (system + user message)
    * - Subsequent calls with tool results: structured array with function_call_output items
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private buildInput(
     messages: ConversationMessage[],
     hasCoT: boolean,
@@ -119,7 +119,7 @@ export class OpenAIAdapter {
   /**
    * Extract tool calls from Responses API response
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private extractToolCalls(response: any): ToolCall[] {
     // The Responses API returns tool calls in the output array
     const toolCalls: ToolCall[] = [];

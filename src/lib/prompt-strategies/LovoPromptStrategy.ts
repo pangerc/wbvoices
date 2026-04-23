@@ -7,7 +7,7 @@ import { Voice, CampaignFormat } from "@/types";
 export class LovoPromptStrategy extends BasePromptStrategy {
   readonly provider = "lovo" as const;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   buildStyleInstructions(_context: PromptContext): string {
     return `Lovo voices have styles built into the voice selection (e.g., "Ava (Cheerful)" vs "Ava (Serious)"). The emotional style is already encoded in the voice ID you choose - no additional style parameter is needed or used by the API.`;
   }

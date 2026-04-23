@@ -44,6 +44,19 @@ export type Voice = {
 };
 
 export type VoiceTrack = {
+  /**
+   * Stable slot identifier that persists across regeneration.
+   * Server-minted at version creation; carried forward from parent by ordinal match.
+   * Anchors in a mixer version reference tracks by this id, not by array index,
+   * so anchor → clip bindings survive voice/text edits and provider swaps.
+   */
+  slotId?: string;
+  /**
+   * Optional authoring-time anchor seed (stage 4). Slot-id form. When present,
+   * stage 6 bootstrap uses this directly as the mixer anchor's `llm-seed`.
+   * When absent, bootstrap translates legacy playAfter / overlap / isConcurrent.
+   */
+  anchor?: import("./versions").Anchor;
   voice: Voice | null;
   text: string;
   trackProvider?: Provider; // Override provider for this track (defaults to global selectedProvider)
@@ -108,6 +121,17 @@ export type SoundFxPlacementIntent =
   | { type: "legacy"; playAfter: string };  // Backwards compatibility with old format
 
 export type SoundFxPrompt = {
+  /**
+   * Stable slot identifier — see VoiceTrack.slotId. Carried forward from the parent
+   * sfx version by ordinal match at draft creation.
+   */
+  slotId?: string;
+  /**
+   * Optional authoring-time anchor seed (stage 4). Slot-id form. When present,
+   * stage 6 bootstrap uses this directly as the mixer anchor's `llm-seed`.
+   * When absent, bootstrap translates legacy `placement` (SoundFxPlacementIntent).
+   */
+  anchor?: import("./versions").Anchor;
   description: string;
   playAfter?: string;  // Legacy field for backwards compatibility
   overlap?: number;

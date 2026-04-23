@@ -69,7 +69,7 @@ export function SoundFxPanel({
   onAddPrompt,
   adDuration, // We keep this for API compatibility, but use a fixed default duration for sound effects
   resetForm,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   voiceTrackCount: _voiceTrackCount = 0, // Kept for API compatibility, not currently used
   voiceTrackPreviews = [],
   onPlayPrompt,

@@ -286,7 +286,7 @@ export default function AccountingPage() {
                 <li>ElevenLabs balance is fetched live from their API (shows current billing period)</li>
                 <li>Lahajati and Loudly usage is tracked internally (no API available)</li>
                 <li>OpenAI TTS estimated at ~$15 per 1M characters</li>
-                <li>Cache hits for Loudly don't count towards your 3,000 track limit</li>
+                <li>Cache hits for Loudly don&apos;t count towards your 3,000 track limit</li>
               </ul>
             </div>
           </div>

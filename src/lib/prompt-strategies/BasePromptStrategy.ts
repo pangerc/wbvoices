@@ -74,7 +74,7 @@ export abstract class BasePromptStrategy implements PromptStrategy {
    * Format voice metadata - default implementation includes ALL relevant fields
    * INCLUDING GENDER (critical fix)
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   formatVoiceMetadata(voice: Voice, _context: PromptContext): string {
     let desc = `${voice.name} (id: ${voice.id})`;
 

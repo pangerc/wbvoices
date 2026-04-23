@@ -13,9 +13,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { continueConversation } from "@/lib/tool-calling";
 import { hasConversation } from "@/lib/redis/conversation";
 import { updateVersionMetadata, setActiveVersion } from "@/lib/redis/versions";
-import type { StreamType } from "@/types/versions";
+import type { ContentStreamType } from "@/types/versions";
 
-const STREAM_NAMES: Record<StreamType, string> = {
+const STREAM_NAMES: Record<ContentStreamType, string> = {
   voices: "VOICE",
   music: "MUSIC",
   sfx: "SOUND EFFECTS",
@@ -26,7 +26,7 @@ const STREAM_NAMES: Record<StreamType, string> = {
  */
 function buildFocusedMessage(
   message: string,
-  stream?: StreamType,
+  stream?: ContentStreamType,
   parentVersionId?: string
 ): string {
   if (!stream) return message;
@@ -51,7 +51,7 @@ export async function POST(
     const body = await req.json();
     const { message, stream, parentVersionId, freezeParent } = body as {
       message: string;
-      stream?: StreamType;
+      stream?: ContentStreamType;
       parentVersionId?: string;
       freezeParent?: boolean;
     };

@@ -19,12 +19,34 @@ export function createMockRedis(): Redis {
       const value = await mock.get(key);
       return value;
     },
-    set: async (key: string, value: string) => {
-      await mock.set(key, value);
-      return "OK";
+    set: async (
+      key: string,
+      value: string,
+      opts?: { nx?: boolean; ex?: number }
+    ) => {
+      // Translate Upstash-style options to ioredis-mock's positional SET args.
+      const extra: (string | number)[] = [];
+      if (opts?.ex) extra.push("EX", opts.ex);
+      if (opts?.nx) extra.push("NX");
+      const result = extra.length
+        ? await (mock as unknown as {
+            set: (...args: unknown[]) => Promise<unknown>;
+          }).set(key, value, ...extra)
+        : await mock.set(key, value);
+      // ioredis-mock returns "OK" on success and null when NX blocks the set.
+      return result === "OK" ? "OK" : result === null ? null : "OK";
     },
     del: async (...keys: string[]) => {
       return await mock.del(...keys);
+    },
+    eval: async (script: string, keys: string[], args: unknown[]) => {
+      // Upstash-style eval(script, keys, args) → ioredis-mock positional form.
+      return await (mock as unknown as {
+        eval: (...args: unknown[]) => Promise<unknown>;
+      }).eval(script, keys.length, ...keys, ...args);
+    },
+    expire: async (key: string, seconds: number) => {
+      return await mock.expire(key, seconds);
     },
     lpush: async (key: string, ...values: string[]) => {
       return await mock.lpush(key, ...values);

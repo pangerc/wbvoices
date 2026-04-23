@@ -19,9 +19,35 @@ import {
   VoiceVersion,
   MusicVersion,
   SfxVersion,
+  MixerVersion,
   AdMetadata,
   MixerState,
 } from "@/types/versions";
+
+/**
+ * Union of version payload shapes stored per stream. Mixer-stream versions
+ * join voice/music/sfx here under the shared CRUD machinery — keeping one
+ * code path avoids parallel key families for the arrangement stream.
+ */
+export type AnyVersion =
+  | VoiceVersion
+  | MusicVersion
+  | SfxVersion
+  | MixerVersion;
+
+/**
+ * Map a stream type to its stored payload. Used by overloaded getters so
+ * callers reading `voices` don't have to narrow against `MixerVersion`.
+ */
+export type VersionFor<T extends StreamType> = T extends "voices"
+  ? VoiceVersion
+  : T extends "music"
+    ? MusicVersion
+    : T extends "sfx"
+      ? SfxVersion
+      : T extends "mixer"
+        ? MixerVersion
+        : never;
 
 // ============ Key Builders ============
 
@@ -44,7 +70,15 @@ export const AD_KEYS = {
   version: (adId: string, streamType: StreamType, versionId: VersionId) =>
     `ad:${adId}:${streamType}:v:${versionId}`,
 
-  /** Mixer state: ad:{adId}:mixer */
+  /**
+   * Legacy mixer snapshot: ad:{adId}:mixer
+   *
+   * Pre-stage-6 single-key blob storing the full MixerState. Retained until
+   * each ad is bootstrapped into the mixer version stream, at which point
+   * this key is deleted. New reads/writes should route through the mixer
+   * version stream via the generic helpers (`AD_KEYS.versions(adId, "mixer")`
+   * etc.).
+   */
   mixer: (adId: string) => `ad:${adId}:mixer`,
 
   /** Preview data: ad:{adId}:preview */
@@ -69,7 +103,7 @@ export const AD_KEYS = {
 export async function createVersion(
   adId: string,
   streamType: StreamType,
-  data: VoiceVersion | MusicVersion | SfxVersion
+  data: AnyVersion
 ): Promise<VersionId> {
   const redis = getRedisV3();
 
@@ -133,11 +167,21 @@ async function getNextVersionId(
  * @param versionId - Version ID to retrieve
  * @returns Version data or null if not found
  */
+export async function getVersion<T extends StreamType>(
+  adId: string,
+  streamType: T,
+  versionId: VersionId
+): Promise<VersionFor<T> | null>;
 export async function getVersion(
   adId: string,
   streamType: StreamType,
   versionId: VersionId
-): Promise<VoiceVersion | MusicVersion | SfxVersion | null> {
+): Promise<AnyVersion | null>;
+export async function getVersion(
+  adId: string,
+  streamType: StreamType,
+  versionId: VersionId
+): Promise<AnyVersion | null> {
   const redis = getRedisV3();
   const versionKey = AD_KEYS.version(adId, streamType, versionId);
 
@@ -181,16 +225,21 @@ export async function listVersions(
  * @param streamType - Which stream
  * @returns Map of version ID -> version data
  */
+export async function getAllVersionsWithData<T extends StreamType>(
+  adId: string,
+  streamType: T
+): Promise<Record<VersionId, VersionFor<T>>>;
 export async function getAllVersionsWithData(
   adId: string,
   streamType: StreamType
-): Promise<Record<VersionId, VoiceVersion | MusicVersion | SfxVersion>> {
+): Promise<Record<VersionId, AnyVersion>>;
+export async function getAllVersionsWithData(
+  adId: string,
+  streamType: StreamType
+): Promise<Record<VersionId, AnyVersion>> {
   const versionIds = await listVersions(adId, streamType);
 
-  const versionsData: Record<
-    VersionId,
-    VoiceVersion | MusicVersion | SfxVersion
-  > = {};
+  const versionsData: Record<VersionId, AnyVersion> = {};
 
   // Load each version (TODO: optimize with mget if needed)
   for (const vId of versionIds) {
@@ -372,7 +421,7 @@ export async function updateVersion(
   adId: string,
   streamType: StreamType,
   versionId: VersionId,
-  updates: Partial<VoiceVersion | MusicVersion | SfxVersion>
+  updates: Partial<AnyVersion>
 ): Promise<void> {
   const redis = getRedisV3();
 
@@ -519,61 +568,6 @@ export async function deleteVersion(
   return { wasActive };
 }
 
-// ============ Mixer State ============
-
-/**
- * Get mixer state for an ad
- *
- * @param adId - Advertisement ID
- * @returns Mixer state or null if not found
- */
-export async function getMixerState(adId: string): Promise<MixerState | null> {
-  const redis = getRedisV3();
-  const mixerKey = AD_KEYS.mixer(adId);
-
-  const data = await redis.get(mixerKey);
-
-  if (!data) {
-    return null;
-  }
-
-  return typeof data === "string" ? JSON.parse(data) : data;
-}
-
-/**
- * Update mixer state (partial update, merges with existing)
- *
- * @param adId - Advertisement ID
- * @param updates - Partial mixer state to merge
- * @returns Updated mixer state
- */
-export async function updateMixerState(
-  adId: string,
-  updates: Partial<MixerState>
-): Promise<MixerState> {
-  const redis = getRedisV3();
-  const mixerKey = AD_KEYS.mixer(adId);
-
-  // Load existing state or create default
-  const existing = await getMixerState(adId);
-  const merged: MixerState = {
-    tracks: [],
-    volumes: {},
-    calculatedTracks: [],
-    totalDuration: 0,
-    lastCalculated: Date.now(),
-    activeVersions: { voices: null, music: null, sfx: null },
-    ...existing,
-    ...updates,
-  };
-
-  await redis.set(mixerKey, JSON.stringify(merged));
-
-  console.log(`✅ Updated mixer state for ad ${adId}`);
-
-  return merged;
-}
-
 // ============ Preview Data ============
 
 /**
@@ -657,10 +651,10 @@ export async function setPreviewData(
 export async function deleteAd(adId: string, sessionId: string): Promise<void> {
   const redis = getRedisV3();
 
-  const streamTypes: StreamType[] = ["voices", "music", "sfx"];
+  const streamTypes: StreamType[] = ["voices", "music", "sfx", "mixer"];
   const keysToDelete: string[] = [
     AD_KEYS.meta(adId),
-    AD_KEYS.mixer(adId),
+    AD_KEYS.mixer(adId), // legacy single-key blob, cleaned up here too
     AD_KEYS.preview(adId),
   ];
 

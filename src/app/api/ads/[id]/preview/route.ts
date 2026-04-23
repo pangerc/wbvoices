@@ -9,10 +9,10 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getPreviewData,
   setPreviewData,
-  getMixerState,
   getAdMetadata,
   type PreviewData,
 } from "@/lib/redis/versions";
+import { getMixerState } from "@/lib/mixer/rebuilder";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";

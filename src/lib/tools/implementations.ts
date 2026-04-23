@@ -10,11 +10,30 @@ import {
   DraftCreationResult,
   ReadAdStateResult,
   VoiceHistorySummary,
+  ParentVersionRef,
+  SlotReconciliation,
+  AnchorInput,
 } from "./types";
+import { reconcileSlots } from "./slotReconciliation";
+import {
+  translateAnchorInput,
+  type OrdinalRefs,
+} from "./anchorTranslation";
 import { voiceCatalogue } from "@/services/voiceCatalogueService";
-import { createVersion, listVersions, getVersion, getAllVersionsWithData, setAdMetadata, getAdMetadata, updateVersion } from "@/lib/redis/versions";
+import {
+  createVersion,
+  listVersions,
+  getVersion,
+  getAllVersionsWithData,
+  setAdMetadata,
+  getAdMetadata,
+  updateVersion,
+  getActiveVersion,
+} from "@/lib/redis/versions";
+import { withAdLock } from "@/lib/redis/adLock";
 import type { Language, Provider, Voice, MusicProvider, SoundFxPlacementIntent } from "@/types";
 import type {
+  Anchor,
   VoiceVersion,
   MusicVersion,
   SfxVersion,
@@ -36,6 +55,133 @@ async function freezeExistingDraft(adId: string, streamType: StreamType): Promis
       // No break - freeze ALL existing drafts to ensure only one draft exists
     }
   }
+}
+
+/**
+ * Resolve the parent version id for a new draft.
+ *
+ * - explicit VersionId: use it (caller is forking a specific version).
+ * - explicit null: no parent — fresh slate, fresh slot ids.
+ * - undefined (default): auto-infer — the most recent frozen version in the stream,
+ *   or null if none exists (first-ever draft in this stream).
+ *
+ * Call this AFTER `freezeExistingDraft` so the previous draft is included in the
+ * "most recent frozen" lookup.
+ */
+async function resolveParentVersionId(
+  adId: string,
+  streamType: StreamType,
+  explicit: ParentVersionRef
+): Promise<VersionId | null> {
+  if (explicit === null) return null;
+  if (typeof explicit === "string") return explicit;
+
+  const versions = await listVersions(adId, streamType);
+  for (let i = versions.length - 1; i >= 0; i--) {
+    const vId = versions[i];
+    const data = await getVersion(adId, streamType, vId);
+    if (data?.status === "frozen") return vId;
+  }
+  return null;
+}
+
+/**
+ * Helper to extract the parent slot id array for a given stream.
+ * Returns null when there's no parent version or the stream has no slot concept here.
+ */
+async function loadParentSlotIds(
+  adId: string,
+  streamType: "voices" | "sfx",
+  parentVersionId: VersionId | null
+): Promise<Array<string | undefined> | null> {
+  if (!parentVersionId) return null;
+  const data = await getVersion(adId, streamType, parentVersionId);
+  if (!data) return null;
+  if (streamType === "voices") {
+    return (data as VoiceVersion).voiceTracks.map((t) => t.slotId);
+  }
+  // sfx
+  return (data as SfxVersion).soundFxPrompts.map((p) => p.slotId);
+}
+
+/**
+ * Build the OrdinalRefs lookup table used to translate LLM ordinal-form anchor
+ * inputs ("voice-0", "sfx-2", "music") into slot-id-form Anchors.
+ *
+ * Uses currently-active stream versions for cross-stream refs (sfx-to-voice,
+ * music-to-voice). Callers pass their own draft's slot ids as `overrides` so
+ * intra-stream refs ("voice-0" within a new voice draft) resolve correctly.
+ */
+async function loadOrdinalRefs(
+  adId: string,
+  overrides: Partial<OrdinalRefs>
+): Promise<OrdinalRefs> {
+  const refs: OrdinalRefs = { ...overrides };
+
+  // Voice refs — for cross-stream anchors (sfx/music referencing voices).
+  if (!refs.voices) {
+    const activeVoiceId = await getActiveVersion(adId, "voices");
+    if (activeVoiceId) {
+      const voiceVersion = (await getVersion(
+        adId,
+        "voices",
+        activeVoiceId
+      )) as VoiceVersion | null;
+      if (voiceVersion) {
+        refs.voices = voiceVersion.voiceTracks.map((t) => t.slotId);
+      }
+    }
+  }
+
+  // SFX refs — rare cross-stream use; only loaded when explicitly requested.
+  if (!refs.sfx) {
+    const activeSfxId = await getActiveVersion(adId, "sfx");
+    if (activeSfxId) {
+      const sfxVersion = (await getVersion(
+        adId,
+        "sfx",
+        activeSfxId
+      )) as SfxVersion | null;
+      if (sfxVersion) {
+        refs.sfx = sfxVersion.soundFxPrompts.map((p) => p.slotId);
+      }
+    }
+  }
+
+  // Music refs — at most one slot id.
+  if (!refs.music) {
+    const activeMusicId = await getActiveVersion(adId, "music");
+    if (activeMusicId) {
+      const musicVersion = (await getVersion(
+        adId,
+        "music",
+        activeMusicId
+      )) as MusicVersion | null;
+      if (musicVersion?.slotId) refs.music = musicVersion.slotId;
+    }
+  }
+
+  return refs;
+}
+
+/**
+ * Attempt to translate an LLM-supplied AnchorInput to slot-id form. Silently
+ * returns undefined when the ordinal reference can't be resolved — caller's
+ * legacy fields remain the source of truth for positioning.
+ */
+function safeTranslateAnchor(
+  input: AnchorInput | undefined,
+  refs: OrdinalRefs
+): Anchor | undefined {
+  if (!input) return undefined;
+  const translated = translateAnchorInput(input, refs);
+  if (!translated) {
+    console.warn(
+      `[anchor-translate] Unresolvable trackRef in anchor input: ${JSON.stringify(input)}`
+    );
+    return undefined;
+  }
+  return translated;
 }
 
 /**
@@ -80,15 +226,39 @@ export async function searchVoices(
 }
 
 /**
- * Create voice draft in Redis
+ * Create voice draft in Redis.
+ *
+ * Wrapped in a per-ad lock so concurrent LLM calls on the same ad can't each
+ * see "no draft" and then both create one — the `freezeExistingDraft` →
+ * `createVersion` sequence isn't atomic on its own.
  */
 export async function createVoiceDraft(
   params: CreateVoiceDraftParams
 ): Promise<DraftCreationResult> {
-  const { adId, tracks } = params;
+  return withAdLock(params.adId, () => createVoiceDraftLocked(params));
+}
+
+async function createVoiceDraftLocked(
+  params: CreateVoiceDraftParams
+): Promise<DraftCreationResult> {
+  const { adId, tracks, parentVersionId: explicitParent } = params;
 
   // Freeze any existing draft before creating new one
   await freezeExistingDraft(adId, "voices");
+
+  // Resolve parent lineage + inherit slot ids by ordinal match
+  const parentVersionId = await resolveParentVersionId(adId, "voices", explicitParent);
+  const parentSlotIds = await loadParentSlotIds(adId, "voices", parentVersionId);
+  const { assigned: slotIds, report } = reconcileSlots(
+    parentSlotIds,
+    tracks.length,
+    "voices",
+    parentVersionId
+  );
+
+  // Ordinal refs for anchor translation — voices table is this draft's own slot
+  // ids (so "voice-N" ordinal refs resolve to the draft we're building).
+  const ordinalRefs = await loadOrdinalRefs(adId, { voices: slotIds });
 
   // Resolve voice IDs to full Voice objects from catalogue
   const resolvedTracks = await Promise.all(
@@ -131,7 +301,11 @@ export async function createVoiceDraft(
             provider: track.provider as Voice["provider"],
           };
 
+      const anchor = safeTranslateAnchor(track.anchor, ordinalRefs);
+
       return {
+        slotId: slotIds[index],
+        ...(anchor ? { anchor } : {}),
         voice,
         text: track.text,
         playAfter: track.playAfter || (index === 0 ? "start" : `track-${index - 1}`),
@@ -153,21 +327,25 @@ export async function createVoiceDraft(
     createdAt: Date.now(),
     createdBy: "llm",
     status: "draft",
+    ...(parentVersionId ? { parentVersionId } : {}),
   };
 
   // Create draft version in Redis
   const versionId = await createVersion(adId, "voices", voiceVersion);
 
-  return {
-    versionId,
-    status: "draft",
-  };
+  return slotReportedResult(adId, versionId, report);
 }
 
 /**
- * Create music draft in Redis
+ * Create music draft in Redis. See createVoiceDraft for the lock rationale.
  */
 export async function createMusicDraft(
+  params: CreateMusicDraftParams
+): Promise<DraftCreationResult> {
+  return withAdLock(params.adId, () => createMusicDraftLocked(params));
+}
+
+async function createMusicDraftLocked(
   params: CreateMusicDraftParams
 ): Promise<DraftCreationResult> {
   const {
@@ -178,6 +356,8 @@ export async function createMusicDraft(
     mubert,
     provider = "elevenlabs",
     duration,
+    parentVersionId: explicitParent,
+    anchor: anchorInput,
   } = params;
 
   // Derive duration from brief if LLM didn't provide it
@@ -193,8 +373,28 @@ export async function createMusicDraft(
   // Freeze any existing draft before creating new one
   await freezeExistingDraft(adId, "music");
 
+  // Resolve parent lineage. Music has exactly one slot per version; carry its id forward.
+  const parentVersionId = await resolveParentVersionId(adId, "music", explicitParent);
+  let parentSlotId: string | undefined;
+  if (parentVersionId) {
+    const parent = (await getVersion(adId, "music", parentVersionId)) as MusicVersion | null;
+    parentSlotId = parent?.slotId;
+  }
+  const { assigned: slotIds, report } = reconcileSlots(
+    parentSlotId ? [parentSlotId] : parentVersionId ? [undefined] : null,
+    1,
+    "music",
+    parentVersionId
+  );
+
+  // Anchor translation — music mostly references voices for ducking / swell.
+  const ordinalRefs = await loadOrdinalRefs(adId, { music: slotIds[0] });
+  const anchor = safeTranslateAnchor(anchorInput, ordinalRefs);
+
   // Use provider-specific prompts if provided, otherwise fallback to base prompt
   const musicVersion: MusicVersion = {
+    slotId: slotIds[0],
+    ...(anchor ? { anchor } : {}),
     musicPrompt: prompt,
     musicPrompts: {
       loudly: loudly || prompt || "",
@@ -207,29 +407,46 @@ export async function createMusicDraft(
     createdAt: Date.now(),
     createdBy: "llm",
     status: "draft",
+    ...(parentVersionId ? { parentVersionId } : {}),
   };
 
   const versionId = await createVersion(adId, "music", musicVersion);
 
-  return {
-    versionId,
-    status: "draft",
-  };
+  return slotReportedResult(adId, versionId, report);
 }
 
 /**
- * Create SFX draft in Redis
+ * Create SFX draft in Redis. See createVoiceDraft for the lock rationale.
  */
 export async function createSfxDraft(
   params: CreateSfxDraftParams
 ): Promise<DraftCreationResult> {
-  const { adId, prompts } = params;
+  return withAdLock(params.adId, () => createSfxDraftLocked(params));
+}
+
+async function createSfxDraftLocked(
+  params: CreateSfxDraftParams
+): Promise<DraftCreationResult> {
+  const { adId, prompts, parentVersionId: explicitParent } = params;
 
   // Freeze any existing draft before creating new one
   await freezeExistingDraft(adId, "sfx");
 
+  // Resolve parent lineage + inherit slot ids by ordinal match
+  const parentVersionId = await resolveParentVersionId(adId, "sfx", explicitParent);
+  const parentSlotIds = await loadParentSlotIds(adId, "sfx", parentVersionId);
+  const { assigned: slotIds, report } = reconcileSlots(
+    parentSlotIds,
+    prompts.length,
+    "sfx",
+    parentVersionId
+  );
+
+  // Anchor translation — sfx typically references voices in the active voice version.
+  const ordinalRefs = await loadOrdinalRefs(adId, { sfx: slotIds });
+
   const sfxVersion: SfxVersion = {
-    soundFxPrompts: prompts.map((p) => {
+    soundFxPrompts: prompts.map((p, index) => {
       // Convert placement to proper typed format
       let placement: SoundFxPlacementIntent | undefined;
       if (p.placement) {
@@ -247,7 +464,11 @@ export async function createSfxDraft(
         }
       }
 
+      const anchor = safeTranslateAnchor(p.anchor, ordinalRefs);
+
       return {
+        slotId: slotIds[index],
+        ...(anchor ? { anchor } : {}),
         description: p.description,
         placement: placement || { type: "end" },
         duration: p.duration || 3,
@@ -259,14 +480,41 @@ export async function createSfxDraft(
     createdAt: Date.now(),
     createdBy: "llm",
     status: "draft",
+    ...(parentVersionId ? { parentVersionId } : {}),
   };
 
   const versionId = await createVersion(adId, "sfx", sfxVersion);
 
-  return {
-    versionId,
-    status: "draft",
-  };
+  return slotReportedResult(adId, versionId, report);
+}
+
+/**
+ * Small helper: attach the slot-reconciliation report to a draft result only when
+ * the draft actually inherited from a parent. Fresh drafts with no parent return
+ * just `{ versionId, status }` — the report in that case would only be "created"
+ * entries, which callers don't need.
+ *
+ * Also emits a single structured log line per draft creation so orphan-drift
+ * rates are visible in production logs before stage 6 ships the UI-facing
+ * orphan affordance.
+ */
+function slotReportedResult(
+  adId: string,
+  versionId: VersionId,
+  report: SlotReconciliation
+): DraftCreationResult {
+  const inheritedFromParent =
+    report.parentVersionId !== null ||
+    report.preserved.length > 0 ||
+    report.orphaned.length > 0;
+
+  console.log(
+    `[slot-reconciliation] adId=${adId} stream=${report.stream} versionId=${versionId} parent=${report.parentVersionId ?? "none"} preserved=${report.preserved.length} created=${report.created.length} orphaned=${report.orphaned.length}`
+  );
+
+  return inheritedFromParent
+    ? { versionId, status: "draft", reconciliation: report }
+    : { versionId, status: "draft" };
 }
 
 /**

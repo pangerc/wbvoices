@@ -221,10 +221,36 @@ export function applyLoudnessNormalization(
 }
 
 /**
- * Normalize audio buffer to Spotify specifications
+ * Spotify Ad Studio delivery spec defaults.
+ *
+ * We currently target -16 LUFS integrated with a -2.0 dBTP peak ceiling. This
+ * is more conservative than Spotify's streaming normalization target (-14 LUFS,
+ * -1.0 dBTP), which is intentional for ads: the platform normalizes loud
+ * masters DOWN but does not normalize quiet masters UP, so a conservative
+ * master protects against limiter pumping on transients (CTAs, stingers, SFX
+ * buttons) and gives agency deliverables headroom margin.
+ *
+ * Per mixer-redesign plan notes: flipping to -14 LUFS / -1 dBTP requires A/B
+ * listening against real deliverables and is a separate PR. When that lands,
+ * change the defaults here — every call site picks it up automatically.
  */
-export function normalizeToSpotifySpec(audioBuffer: AudioBuffer): AudioBuffer {
-  return applyLoudnessNormalization(audioBuffer, -16, -2.0);
+export const SPOTIFY_LUFS_TARGET = -16;
+export const SPOTIFY_TRUE_PEAK_CEILING = -2.0;
+
+/**
+ * Normalize audio buffer to Spotify Ad Studio delivery spec.
+ *
+ * Accepts optional overrides so callers (e.g. A/B test harnesses) can try
+ * alternative targets without editing this file. Defaults match the currently
+ * approved delivery spec.
+ */
+export function normalizeToSpotifySpec(
+  audioBuffer: AudioBuffer,
+  options: { targetLufs?: number; ceilingDbtp?: number } = {}
+): AudioBuffer {
+  const targetLufs = options.targetLufs ?? SPOTIFY_LUFS_TARGET;
+  const ceilingDbtp = options.ceilingDbtp ?? SPOTIFY_TRUE_PEAK_CEILING;
+  return applyLoudnessNormalization(audioBuffer, targetLufs, ceilingDbtp);
 }
 
 /**

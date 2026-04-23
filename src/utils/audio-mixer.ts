@@ -174,6 +174,10 @@ export async function createMix(
     }))
   );
 
+  // Minimum per-edge fade to avoid DC-offset clicks on hard cuts.
+  // 8ms is inaudible as an envelope but sufficient to suppress sample-boundary pops.
+  const MICRO_FADE = 0.008;
+
   // Create and schedule the audio sources with correct timing
   for (const [url, timing] of trackTimings.entries()) {
     if (!audioBuffersMap.has(url)) continue;
@@ -184,29 +188,42 @@ export async function createMix(
 
     // Apply gain
     const gainNode = offlineCtx.createGain();
-    gainNode.gain.value = timing.gain;
 
-    // Apply fade-out for music tracks
+    // Music: long exponential fade-out at the tail in addition to the micro-fades.
     if (timing.type === "music") {
-      const FADEOUT_DURATION = 2.0; // seconds
-      const fadeOutStartTime = timing.end - FADEOUT_DURATION;
+      const FADEOUT_DURATION = 2.0;
+      const fadeOutStartTime = Math.max(
+        timing.start + MICRO_FADE,
+        timing.end - FADEOUT_DURATION
+      );
 
-      // Set the gain to stay constant until fade-out starts
-      gainNode.gain.setValueAtTime(timing.gain, timing.start);
+      gainNode.gain.setValueAtTime(0.0001, timing.start);
+      gainNode.gain.exponentialRampToValueAtTime(
+        Math.max(timing.gain, 0.0001),
+        timing.start + MICRO_FADE
+      );
       gainNode.gain.setValueAtTime(timing.gain, fadeOutStartTime);
-
-      // Apply exponential fade-out from full gain to near-zero
-      gainNode.gain.exponentialRampToValueAtTime(0.001, timing.end);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, timing.end);
 
       console.log(
         `Applied fade-out to music track from ${fadeOutStartTime}s to ${timing.end}s`
       );
+    } else {
+      // Voice + SFX: symmetric micro-fades at both edges to prevent clicks.
+      // Using setTargetAtTime / linearRampToValueAtTime keeps the envelope cheap.
+      const fadeOutStart = Math.max(
+        timing.start + MICRO_FADE,
+        timing.end - MICRO_FADE
+      );
+      gainNode.gain.setValueAtTime(0, timing.start);
+      gainNode.gain.linearRampToValueAtTime(timing.gain, timing.start + MICRO_FADE);
+      gainNode.gain.setValueAtTime(timing.gain, fadeOutStart);
+      gainNode.gain.linearRampToValueAtTime(0, timing.end);
     }
 
     source.connect(gainNode);
     gainNode.connect(offlineCtx.destination);
 
-    // Start the track at the calculated start time
     source.start(timing.start);
     console.log(
       `Started ${timing.type} at ${timing.start}s with gain ${timing.gain}`

@@ -140,7 +140,7 @@ export function VoiceDraftEditor({
         void generateAudio(selectedProvider as Provider);
       };
       // Store the function reference on the callback
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       (onGenerateAll as any).trigger = triggerGeneration;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -8,7 +8,7 @@ import { CampaignFormat } from "@/types";
 export class QwenPromptStrategy extends BasePromptStrategy {
   readonly provider = "qwen" as const;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   buildStyleInstructions(_context: PromptContext): string {
     // No special style instructions - direct voice control
     return "";

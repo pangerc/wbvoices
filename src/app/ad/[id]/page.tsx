@@ -39,7 +39,7 @@ export default function AdWorkspace() {
   const sfx = useStreamOperations(adId, "sfx");
 
   // Mixer data and operations
-  const { data: mixerData, removeStream } = useMixerData(adId);
+  const { data: mixerData, mutate: mutateMixer, removeStream } = useMixerData(adId);
 
   // Helper to get mixer URL for a track type
   const getMixerUrl = (type: "music" | "soundfx") =>
@@ -115,38 +115,7 @@ export default function AdWorkspace() {
     loadAdMetadata();
   }, [adId]);
 
-  // Load mixer state from Redis
-  const loadMixerState = async () => {
-    const { clearTracks, addTrack, setTrackVolume } = useMixerStore.getState();
-    clearTracks();
-
-    try {
-      const res = await fetch(`/api/ads/${adId}/mixer`);
-      if (res.ok) {
-        const mixerState = await res.json();
-        if (mixerState.tracks && mixerState.tracks.length > 0) {
-          mixerState.tracks.forEach((track: { id: string; url: string; label: string; type: "voice" | "music" | "soundfx"; volume?: number }) => {
-            addTrack(track);
-          });
-
-          if (mixerState.volumes) {
-            Object.entries(mixerState.volumes).forEach(([id, volume]) => {
-              setTrackVolume(id, volume as number);
-            });
-          }
-
-          console.log(`🔄 Loaded mixer state with ${mixerState.tracks.length} tracks`);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load mixer state:", error);
-    }
-  };
-
-  // Load mixer state from Redis on mount
-  useEffect(() => {
-    loadMixerState();
-  }, [adId]);
+  // Mixer state is hydrated directly from SWR inside MixerPanel; no manual load on mount.
 
   // Handle preview - plays all tracks from a frozen version
   // streamType is required to disambiguate version IDs (v1, v2, etc. exist in each stream)
@@ -268,13 +237,14 @@ export default function AdWorkspace() {
         break;
 
       case "complete":
-        // All generation complete - reload mixer and switch to mixer tab for "wow" effect
+        // All generation complete - refresh mixer + streams and switch to mixer tab for "wow" effect
         if (event.success) {
-          // Reload mixer state from Redis (server auto-activated and rebuilt)
-          await loadMixerState();
-          // Also refresh all streams to show final state
-          await Promise.all([voice.mutate(), music.mutate(), sfx.mutate()]);
-          // Switch to mixer tab
+          await Promise.all([
+            mutateMixer(),
+            voice.mutate(),
+            music.mutate(),
+            sfx.mutate(),
+          ]);
           setSelectedTab(4);
         }
         break;

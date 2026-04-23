@@ -56,36 +56,30 @@ export function MixerPanel({
     setTrackVolume,
     setTrackLoading,
     setTrackError,
-    setAudioDuration,
     setPreviewUrl,
     setIsExporting,
     setIsUploadingMix,
     setIsPreviewValid,
     setUploadError,
     clearTracks,
+    hydrateFromMixer,
   } = useMixerStore();
 
-  // Hydrate Zustand store from SWR data (Redis source of truth)
-  // This ensures mixer state is restored on page reload and after "send to mixer"
+  // Hydrate Zustand store from SWR data (Redis is source of truth).
+  // Server already calculated positions in rebuildMixer; client never recalculates.
   useEffect(() => {
     if (!mixerSWR?.tracks || mixerSWR.tracks.length === 0) return;
 
-    // Only hydrate if Zustand store is empty or has different tracks
     const currentTrackIds = new Set(tracks.map((t) => t.id));
     const swrTrackIds = new Set(mixerSWR.tracks.map((t) => t.id));
-
-    // Build URL map for current tracks to detect URL changes
     const currentTrackUrls = new Map(tracks.map((t) => [t.id, t.url]));
 
-    // Check if we need to hydrate (different track sets OR different URLs)
     const hasUrlChanges = mixerSWR.tracks.some(
       (swrTrack) => currentTrackUrls.get(swrTrack.id) !== swrTrack.url
     );
-
-    // Check if calculated track positions changed (e.g., SFX placement changed)
     const hasPositionChanges = mixerSWR.calculatedTracks?.some((swrCalc) => {
-      const zustandCalc = calculatedTracks.find((c) => c.id === swrCalc.id);
-      return !zustandCalc || zustandCalc.startTime !== swrCalc.startTime;
+      const local = calculatedTracks.find((c) => c.id === swrCalc.id);
+      return !local || local.actualStartTime !== swrCalc.startTime;
     });
 
     const needsHydration =
@@ -96,43 +90,12 @@ export function MixerPanel({
       hasPositionChanges;
 
     if (needsHydration) {
-      console.log("🔄 Hydrating mixer store from SWR data", {
+      console.log("🔄 Hydrating mixer store from SWR", {
         swrTracks: mixerSWR.tracks.length,
         storeTracks: tracks.length,
         activeVersions: mixerSWR.activeVersions,
       });
-
-      // Clear existing tracks and add SWR tracks
-      clearTracks();
-      const { addTrack, setAudioDuration } = useMixerStore.getState();
-
-      // Build a duration lookup from calculatedTracks (server-calculated, more accurate)
-      const calculatedDurations: Record<string, number> = {};
-      if (mixerSWR.calculatedTracks) {
-        mixerSWR.calculatedTracks.forEach((ct) => {
-          if (ct.duration) {
-            calculatedDurations[ct.id] = ct.duration;
-          }
-        });
-      }
-
-      // Add tracks AND pre-populate audioDurations
-      // Priority: calculatedTracks duration > track.duration
-      mixerSWR.tracks.forEach((track) => {
-        const duration = calculatedDurations[track.id] || track.duration;
-        // Pre-populate audioDuration BEFORE addTrack (which calls calculateTimings)
-        if (duration) {
-          setAudioDuration(track.id, duration);
-        }
-        addTrack(track as MixerTrack);
-      });
-
-      // Restore volumes if available
-      if (mixerSWR.volumes) {
-        Object.entries(mixerSWR.volumes).forEach(([id, volume]) => {
-          setTrackVolume(id, volume as number);
-        });
-      }
+      hydrateFromMixer(mixerSWR);
     }
   }, [mixerSWR]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -265,29 +228,13 @@ export function MixerPanel({
 
         audioRefs.current[track.id] = audio;
 
-        // Add event listener to update duration when metadata is loaded
+        // Server provides authoritative durations via generatedDuration on each version;
+        // clear any previous error once the element reports metadata.
         audio.addEventListener("loadedmetadata", () => {
           if (audio.duration && !isNaN(audio.duration)) {
-            // Clear any previous error for this track
             if (audioErrors[track.id]) {
               setTrackError(track.id, false);
             }
-            // Save actual duration
-            setAudioDuration(track.id, audio.duration);
-
-            // Debug sound FX track durations
-            if (track.type === "soundfx") {
-              console.log(
-                `Setting duration for soundFx track "${track.label}":`,
-                {
-                  id: track.id,
-                  actualDuration: audio.duration,
-                  url: track.url,
-                }
-              );
-            }
-
-            // Mark as loaded
             handleAudioLoaded(track.id);
           }
         });
@@ -1167,13 +1114,7 @@ export function MixerPanel({
                     onVolumeChange={(value) =>
                       handleVolumeChange(track.id, value)
                     }
-                    onAudioLoaded={() => {
-                      const audio = audioRefs.current[track.id];
-                      if (audio && audio.duration && !isNaN(audio.duration)) {
-                        setAudioDuration(track.id, audio.duration);
-                      }
-                      handleAudioLoaded(track.id);
-                    }}
+                    onAudioLoaded={() => handleAudioLoaded(track.id)}
                     onAudioError={() => handleAudioError(track.id, track.label)}
                     isTrackLoading={isTrackLoading(track)}
                     onChangeVoice={onChangeVoice}
@@ -1199,13 +1140,7 @@ export function MixerPanel({
                     onVolumeChange={(value) =>
                       handleVolumeChange(track.id, value)
                     }
-                    onAudioLoaded={() => {
-                      const audio = audioRefs.current[track.id];
-                      if (audio && audio.duration && !isNaN(audio.duration)) {
-                        setAudioDuration(track.id, audio.duration);
-                      }
-                      handleAudioLoaded(track.id);
-                    }}
+                    onAudioLoaded={() => handleAudioLoaded(track.id)}
                     onAudioError={() => handleAudioError(track.id, track.label)}
                     isTrackLoading={isTrackLoading(track)}
                     onChangeMusic={onChangeMusic}
@@ -1235,13 +1170,7 @@ export function MixerPanel({
                     onVolumeChange={(value) =>
                       handleVolumeChange(track.id, value)
                     }
-                    onAudioLoaded={() => {
-                      const audio = audioRefs.current[track.id];
-                      if (audio && audio.duration && !isNaN(audio.duration)) {
-                        setAudioDuration(track.id, audio.duration);
-                      }
-                      handleAudioLoaded(track.id);
-                    }}
+                    onAudioLoaded={() => handleAudioLoaded(track.id)}
                     onAudioError={() => handleAudioError(track.id, track.label)}
                     isTrackLoading={isTrackLoading(track)}
                   />

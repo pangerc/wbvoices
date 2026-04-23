@@ -1,5 +1,56 @@
 import { ToolDefinition } from "./types";
 
+/**
+ * JSON schema fragment for the unified ordinal-form anchor input (stage 4).
+ * Inlined into the voice/music/sfx tool schemas so the LLM can emit timing
+ * intent in a normalized vocabulary instead of the legacy playAfter strings.
+ *
+ * `trackRef` is an ordinal reference within a stream: "voice-0", "voice-1",
+ * "sfx-0", "music" (music has one slot per version).
+ */
+const ANCHOR_SCHEMA = {
+  type: "object",
+  description:
+    "Optional timing anchor. If omitted, legacy fields (playAfter/overlap/placement) are used. If provided, this takes precedence.",
+  properties: {
+    kind: {
+      type: "string",
+      enum: ["absolute", "relativeTo", "simultaneousWith", "atFraction"],
+      description:
+        "absolute: fixed t in seconds. relativeTo: at another clip's start or end + offset. simultaneousWith: aligned with another clip (start/end/center). atFraction: at fraction f of another clip's duration.",
+    },
+    t: {
+      type: "number",
+      description: "For kind=absolute: start time in seconds from timeline start.",
+    },
+    trackRef: {
+      type: "string",
+      description:
+        "Ordinal reference to another clip. Format: 'voice-N', 'sfx-N' (0-indexed), or 'music'. Used by relativeTo / simultaneousWith / atFraction.",
+    },
+    edge: {
+      type: "string",
+      enum: ["start", "end"],
+      description: "For kind=relativeTo: align this clip to the referenced clip's start or end.",
+    },
+    offset: {
+      type: "number",
+      description:
+        "For relativeTo / simultaneousWith: signed seconds added to the resolved position. Negative values create overlap.",
+    },
+    alignment: {
+      type: "string",
+      enum: ["startAtStart", "endAtEnd", "centerAtCenter"],
+      description: "For kind=simultaneousWith: how to align this clip with the referenced clip.",
+    },
+    fraction: {
+      type: "number",
+      description: "For kind=atFraction: 0..1; position at referenced clip's start + duration * fraction.",
+    },
+  },
+  required: ["kind"],
+};
+
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     type: "function",
@@ -66,14 +117,16 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                   description:
                     "Script text. For ElevenLabs: include [emotional tags] inline. For OpenAI: plain text.",
                 },
+                anchor: ANCHOR_SCHEMA,
                 playAfter: {
                   type: "string",
                   description:
-                    "What this plays after (e.g., 'start', 'track-0')",
+                    "LEGACY — prefer `anchor`. What this plays after (e.g., 'start', 'track-0'). Ignored if `anchor` is set.",
                 },
                 overlap: {
                   type: "number",
-                  description: "Overlap in seconds (can be negative for gap)",
+                  description:
+                    "LEGACY — prefer `anchor` with a negative offset. Overlap in seconds (can be negative for gap).",
                 },
                 description: {
                   type: "string",
@@ -163,6 +216,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             type: "number",
             description: "Duration in seconds",
           },
+          anchor: ANCHOR_SCHEMA,
         } as Record<string, unknown>,
         required: ["adId", "prompt"],
       },
@@ -186,9 +240,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                   type: "string",
                   description: "Sound effect description",
                 },
+                anchor: ANCHOR_SCHEMA,
                 placement: {
                   type: "object",
-                  description: "Where to place the SFX",
+                  description:
+                    "LEGACY — prefer `anchor`. Where to place the SFX.",
                   properties: {
                     type: {
                       type: "string",
