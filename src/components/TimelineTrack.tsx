@@ -215,7 +215,29 @@ export function TimelineTrack({
   // so reposition/trim remounts reuse the same data. Renders as an SVG
   // symmetric envelope inside the ribbon behind the title text.
   const { peaks } = useWaveform(track.url, 200);
-  const waveformPath = useMemo(() => buildWaveformPath(peaks), [peaks]);
+  // Crop to the committed trim window (if any) so the waveform stays
+  // time-aligned with the audible content — trimming tail shows only the
+  // surviving waveform portion, not a compressed full envelope.
+  const visiblePeaks = useMemo(() => {
+    if (peaks.length === 0) return peaks;
+    const source = track.duration ?? 0;
+    const trimStart = track.trim?.start ?? 0;
+    const trimEnd = track.trim?.end ?? source;
+    if (source <= 0 || (trimStart === 0 && trimEnd >= source)) return peaks;
+    const startIdx = Math.max(
+      0,
+      Math.floor((trimStart / source) * peaks.length)
+    );
+    const endIdx = Math.min(
+      peaks.length,
+      Math.ceil((trimEnd / source) * peaks.length)
+    );
+    return endIdx > startIdx ? peaks.slice(startIdx, endIdx) : peaks;
+  }, [peaks, track.duration, track.trim?.start, track.trim?.end]);
+  const waveformPath = useMemo(
+    () => buildWaveformPath(visiblePeaks),
+    [visiblePeaks]
+  );
 
   // Close menu when clicking outside
   useEffect(() => {
