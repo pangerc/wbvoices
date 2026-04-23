@@ -117,6 +117,8 @@ type TimelineTrackProps = {
    * the opt/alt modifier (force an absolute anchor vs proximity-derived).
    */
   onDrop?: (trackId: string, dropSeconds: number, forceAbsolute: boolean) => void;
+  /** This track is the currently-hovered one (the "inspected" clip). */
+  isHovered?: boolean;
   /** This track is the outbound anchor target of the currently-hovered track. */
   isHoverTarget?: boolean;
   /** This track is anchored to the currently-hovered track (inbound dependent). */
@@ -143,6 +145,7 @@ export function TimelineTrack({
   onDrop,
   isHoverTarget = false,
   isHoverDependent = false,
+  isHovered = false,
 }: TimelineTrackProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -418,7 +421,7 @@ export function TimelineTrack({
             if (anyDragInProgress) return;
             setHoveredTrackId(null);
           }}
-          className={`absolute h-full rounded-full backdrop-blur-sm ${
+          className={`absolute h-full rounded-full backdrop-blur-sm overflow-hidden ${
             track.type === "voice"
               ? "bg-white/15 border border-white/20"
               : track.type === "music"
@@ -427,15 +430,11 @@ export function TimelineTrack({
           } ${isMenuOpen ? "z-50" : "z-0"} ${
             dragPreview ? "cursor-grabbing opacity-80" : "cursor-grab"
           } ${
-            // Anchor-relationship highlighting. Cyan = the dragged hover track
-            // is anchored TO this one (outbound); Amber = this track is
-            // anchored to the hover target (inbound dependent). The two rings
-            // are mutually exclusive in practice — a slot can only reference
-            // one other, and the hovered slot can only have one target.
-            isHoverTarget
-              ? "ring-2 ring-cyan-400/70 ring-offset-1 ring-offset-black/40"
-              : isHoverDependent
-              ? "ring-2 ring-amber-400/60 ring-offset-1 ring-offset-black/40"
+            // Hovered clip gets a bright white ring so you can see which one
+            // you're actually inspecting. The relationship glows (below) live
+            // on the OTHER clips — never on the hovered clip itself.
+            isHovered
+              ? "ring-2 ring-white/80 ring-offset-1 ring-offset-black/50"
               : ""
           }`}
           style={{
@@ -458,6 +457,28 @@ export function TimelineTrack({
                 width: `${playbackProgress || 0}%`,
               }}
             ></div>
+          )}
+
+          {/* Anchor-relationship glow overlays. Half-ribbon gradients that
+              point toward the connection edge:
+                - Outbound target (this clip is anchored to BY the hover):
+                  glow on the right half, brightest at the right edge —
+                  that's where `relativeTo(this, "end")` anchors land.
+                - Inbound dependent (this clip anchors TO the hover): glow
+                  on the left half, brightest at the left edge — that's
+                  where this clip's own start connects to the hovered
+                  clip's end. */}
+          {isHoverTarget && (
+            <div
+              className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-r from-transparent to-white/40 pointer-events-none"
+              aria-hidden="true"
+            />
+          )}
+          {isHoverDependent && (
+            <div
+              className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-l from-transparent to-white/40 pointer-events-none"
+              aria-hidden="true"
+            />
           )}
 
           {/* Track title. Click-to-play/pause is now handled by the ribbon's

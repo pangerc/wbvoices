@@ -174,7 +174,12 @@ export function MixerPanel({
   const hoveredTrack = tracks.find((t) => t.id === hoveredTrackId);
   const hoveredSlotId = hoveredTrack?.slotId;
   const hoveredRefSlotId = hoveredTrack?.anchorRefSlotId;
-  const hoverRoleFor = (trackSlotId?: string, anchorRef?: string) => ({
+  const hoverRoleFor = (
+    trackId: string,
+    trackSlotId?: string,
+    anchorRef?: string
+  ) => ({
+    isHovered: trackId === hoveredTrackId,
     isHoverTarget: !!hoveredRefSlotId && trackSlotId === hoveredRefSlotId,
     isHoverDependent:
       !!hoveredSlotId && !!anchorRef && anchorRef === hoveredSlotId,
@@ -1200,7 +1205,7 @@ export function MixerPanel({
                     isTrackLoading={isTrackLoading(track)}
                     onChangeVoice={onChangeVoice}
                     onDrop={handleTrackDrop}
-                    {...hoverRoleFor(track.slotId, track.anchorRefSlotId)}
+                    {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
                   />
                 ))}
 
@@ -1229,7 +1234,7 @@ export function MixerPanel({
                     onChangeMusic={onChangeMusic}
                     onRemove={onRemoveTrack}
                     onDrop={handleTrackDrop}
-                    {...hoverRoleFor(track.slotId, track.anchorRefSlotId)}
+                    {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
                   />
                 ))}
 
@@ -1259,7 +1264,7 @@ export function MixerPanel({
                     onAudioError={() => handleAudioError(track.id, track.label)}
                     isTrackLoading={isTrackLoading(track)}
                     onDrop={handleTrackDrop}
-                    {...hoverRoleFor(track.slotId, track.anchorRefSlotId)}
+                    {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
                   />
                 ))}
             </div>
