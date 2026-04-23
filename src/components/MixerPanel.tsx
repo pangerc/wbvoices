@@ -158,6 +158,15 @@ export function MixerPanel({
     [tracks, patchTrim, hydrateFromMixer]
   );
 
+  /**
+   * The timeline's visible extent, hoisted early so `startPlaybackAnimation`
+   * can use it as the denominator for the playhead position. Using
+   * `audio.duration` (which matches totalDuration) would cause the playhead
+   * to drift past the last clip when formatDuration > totalDuration,
+   * because the timeline is wider than the content.
+   */
+  const displayDuration = Math.max(totalDuration, formatDuration ?? 0, 1);
+
   // Hydrate Zustand store from SWR data (Redis is source of truth).
   // Server already calculated positions in rebuildMixer; client never recalculates.
   useEffect(() => {
@@ -867,25 +876,23 @@ export function MixerPanel({
         return;
       }
 
-      // Only update position if we have valid duration and current time
+      // Only update position if we have valid duration and current time.
+      //
+      // IMPORTANT: denominator is `displayDuration` (the timeline's visible
+      // extent), NOT `audio.duration`. When the format target is larger
+      // than the resolved content (e.g. 30s format, 29s content), the
+      // timeline extends to 30s; using audio.duration here would make the
+      // playhead reach 100% (= right edge of the timeline) at the audio's
+      // end, visibly drifting past the last clip throughout playback.
       if (
-        audio.duration &&
-        !isNaN(audio.duration) &&
+        displayDuration > 0 &&
         !isNaN(audio.currentTime)
       ) {
-        const position = (audio.currentTime / audio.duration) * 100;
+        const position = Math.min(
+          100,
+          (audio.currentTime / displayDuration) * 100
+        );
         setPlaybackPosition(position);
-
-        // Debug every second or so
-        if (Math.floor(audio.currentTime) % 2 === 0) {
-          console.log(
-            `Playback progress: ${position.toFixed(
-              1
-            )}% (${audio.currentTime.toFixed(1)}s / ${audio.duration.toFixed(
-              1
-            )}s)`
-          );
-        }
       }
 
       // Continue the animation
@@ -894,7 +901,7 @@ export function MixerPanel({
 
     // Start the animation
     animationFrameRef.current = requestAnimationFrame(updatePosition);
-  }, [setIsPlaying, setPlaybackPosition]);
+  }, [setIsPlaying, setPlaybackPosition, displayDuration]);
 
   // Hidden audio element for playback
   const HiddenAudio = () => (
@@ -988,14 +995,6 @@ export function MixerPanel({
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-
-  /**
-   * The timeline's visible extent. Equals the larger of the actual resolved
-   * duration and the format target, so the format horizon marker and any
-   * over-budget shading both stay visible. Falls back to the resolved
-   * duration when there's no brief.
-   */
-  const displayDuration = Math.max(totalDuration, formatDuration ?? 0, 1);
 
   // Adjust markers to make sure they go to exactly the display duration.
   const getTotalMarkers = () => {
