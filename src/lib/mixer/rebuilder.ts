@@ -23,6 +23,7 @@
 import {
   createVersion,
   getActiveVersion,
+  getAllVersionsWithData,
   getVersion,
   setActiveVersion,
   updateVersion,
@@ -38,6 +39,7 @@ import {
   MixerState,
   MixerTrack,
   MixerVersion,
+  MixerVersionSummary,
   MusicVersion,
   SfxVersion,
   SlotId,
@@ -512,6 +514,20 @@ async function deriveMixerState(
     if (typeof v === "number") track.volume = v;
   }
 
+  // Mixer version summaries — powers the take-list UI. Keeping the full
+  // payload server-side; only id, status, timestamps, and label travel.
+  const allMixerVersions = await getAllVersionsWithData(adId, "mixer");
+  const mixerVersions: MixerVersionSummary[] = Object.entries(allMixerVersions)
+    .map(([id, v]) => ({
+      id,
+      status: v.status,
+      createdAt: v.createdAt,
+      createdBy: v.createdBy,
+      label: v.label,
+      parentVersionId: v.parentVersionId,
+    }))
+    .sort((a, b) => a.createdAt - b.createdAt);
+
   const mixerState: MixerState = {
     tracks,
     volumes,
@@ -525,6 +541,9 @@ async function deriveMixerState(
     },
     mixedAudioUrl: mixerVersion.mixedAudioUrl,
     formatDuration: brief?.adDuration,
+    mixerActiveVersionId: activeMixerId,
+    mixerActiveVersionStatus: mixerVersion.status,
+    mixerVersions,
   };
 
   return mixerState;

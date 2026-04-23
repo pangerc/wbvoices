@@ -1,6 +1,12 @@
 import { create } from "zustand";
 import type { SoundFxPlacementIntent } from "@/types";
-import type { AnchorOrigin, MixerState as RedisMixerState } from "@/types/versions";
+import type {
+  AnchorOrigin,
+  MixerState as RedisMixerState,
+  MixerVersionSummary,
+  VersionId,
+  VersionStatus,
+} from "@/types/versions";
 
 // Unified Track type for the mixer
 export type MixerTrack = {
@@ -103,6 +109,16 @@ type MixerStoreState = {
    * undefined for ads without a brief — UI falls back to no-horizon mode.
    */
   formatDuration?: number;
+
+  /**
+   * Active mixer version metadata — lets the mixer panel render a "Save
+   * take" affordance only when the current active is a draft, and mark
+   * which row in the take-list is currently playing.
+   */
+  mixerActiveVersionId?: VersionId;
+  mixerActiveVersionStatus?: VersionStatus;
+  /** Summary of all mixer versions for this ad (frozen + active draft). */
+  mixerVersions: MixerVersionSummary[];
   trackVolumes: { [key: string]: number };
 
   // Transient UI state
@@ -180,6 +196,7 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
   tracks: [],
   calculatedTracks: [],
   totalDuration: 0,
+  mixerVersions: [],
   trackVolumes: {},
   loadingStates: {},
   audioErrors: {},
@@ -226,6 +243,9 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
       calculatedTracks,
       totalDuration,
       formatDuration: state.formatDuration,
+      mixerActiveVersionId: state.mixerActiveVersionId,
+      mixerActiveVersionStatus: state.mixerActiveVersionStatus,
+      mixerVersions: state.mixerVersions ?? [],
       trackVolumes: nextVolumes,
       isPreviewValid: urlsChanged ? false : prev.isPreviewValid,
     }));

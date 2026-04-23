@@ -292,6 +292,35 @@ export interface MixerState {
    * for ads without a brief; clients should degrade gracefully.
    */
   formatDuration?: number;
+
+  /**
+   * Active mixer version id and its status. Lets the UI render a "Save
+   * take" affordance only when a draft is active, and mark the current
+   * version in the versions list.
+   */
+  mixerActiveVersionId?: VersionId;
+  mixerActiveVersionStatus?: VersionStatus;
+
+  /**
+   * Ordered summary of all mixer versions for this ad (frozen + draft).
+   * Powers the take-list UI — clicking a row activates that version.
+   * Kept flat so the client doesn't need a separate list endpoint.
+   */
+  mixerVersions?: MixerVersionSummary[];
+}
+
+/**
+ * Lightweight mixer version summary for list UIs. Full payload stays
+ * server-side; this is the minimum the take-list needs to render rows
+ * and offer an activate action.
+ */
+export interface MixerVersionSummary {
+  id: VersionId;
+  status: VersionStatus;
+  createdAt: number;
+  createdBy: CreatedBy;
+  label?: string;
+  parentVersionId?: VersionId;
 }
 
 /**

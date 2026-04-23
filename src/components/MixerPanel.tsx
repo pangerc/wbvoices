@@ -39,7 +39,13 @@ export function MixerPanel({
   const adId = params.id as string;
 
   // Fetch mixer state from Redis via SWR (source of truth)
-  const { data: mixerSWR, patchAnchors, patchTrim } = useMixerData(adId);
+  const {
+    data: mixerSWR,
+    patchAnchors,
+    patchTrim,
+    freezeMixer,
+    activateMixerVersion,
+  } = useMixerData(adId);
 
   // Anchor-relationship hover highlighting. The hovered track and the two
   // derived slot ids (its ref target and the set of dependents that point at
@@ -71,6 +77,11 @@ export function MixerPanel({
     clearTracks,
     hydrateFromMixer,
   } = useMixerStore();
+  const mixerActiveVersionId = useMixerStore((s) => s.mixerActiveVersionId);
+  const mixerActiveVersionStatus = useMixerStore(
+    (s) => s.mixerActiveVersionStatus
+  );
+  const mixerVersions = useMixerStore((s) => s.mixerVersions);
   const mutedTrackIds = useMixerStore((s) => s.mutedTrackIds);
   const soloedTrackIds = useMixerStore((s) => s.soloedTrackIds);
   const toggleMute = useMixerStore((s) => s.toggleMute);
@@ -138,6 +149,40 @@ export function MixerPanel({
       if (updated) hydrateFromMixer(updated);
     },
     [tracks, calculatedTracks, formatDuration, patchAnchors, hydrateFromMixer]
+  );
+
+  /**
+   * Freeze the active mixer draft into a named take. Eager-hydrates the
+   * store from the server response so the UI (status badge, versions
+   * list) flips to "frozen" on the same render frame.
+   */
+  const handleSaveTake = useCallback(async () => {
+    const defaultLabel = new Date().toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const updated = await freezeMixer(defaultLabel);
+    if (updated) hydrateFromMixer(updated);
+    setIsTakesMenuOpen(false);
+  }, [freezeMixer, hydrateFromMixer]);
+
+  /**
+   * Switch the active mixer version. Server auto-freezes any outgoing
+   * draft first so no work is lost.
+   */
+  const handleActivateTake = useCallback(
+    async (versionId: string) => {
+      if (versionId === mixerActiveVersionId) {
+        setIsTakesMenuOpen(false);
+        return;
+      }
+      const updated = await activateMixerVersion(versionId);
+      if (updated) hydrateFromMixer(updated);
+      setIsTakesMenuOpen(false);
+    },
+    [activateMixerVersion, hydrateFromMixer, mixerActiveVersionId]
   );
 
   /**
@@ -642,6 +687,7 @@ export function MixerPanel({
 
   // Add state for playback
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isTakesMenuOpen, setIsTakesMenuOpen] = useState(false);
   const [playbackPosition, setPlaybackPosition] = useState(0);
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -1215,8 +1261,120 @@ export function MixerPanel({
       {/* Timeline visualization with embedded audio controls */}
       {calculatedTracks.length > 0 && (
         <div className="mb-8">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-lg ">Timeline</h3>
+          <div className="flex justify-between items-center mb-2 gap-3">
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg">Timeline</h3>
+
+              {/* Takes (mixer versions) — shows the current take and opens
+                  a popover with the save action + list of saved takes.
+                  Only rendered once the mixer has been bootstrapped
+                  (mixerActiveVersionId is set). */}
+              {mixerActiveVersionId && (
+                <div className="relative">
+                  <button
+                    onClick={() => setIsTakesMenuOpen((v) => !v)}
+                    className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white transition-colors"
+                  >
+                    <span className="text-gray-400">Take</span>
+                    <span className="font-medium">{mixerActiveVersionId}</span>
+                    {mixerActiveVersionStatus === "draft" && (
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] uppercase tracking-wider">
+                        Draft
+                      </span>
+                    )}
+                    <svg
+                      className={`w-3 h-3 text-gray-400 transition-transform ${
+                        isTakesMenuOpen ? "rotate-180" : ""
+                      }`}
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
+
+                  {isTakesMenuOpen && (
+                    <>
+                      {/* backdrop that swallows outside clicks */}
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIsTakesMenuOpen(false)}
+                      />
+                      <div className="absolute left-0 top-full mt-1 w-72 bg-black/95 backdrop-blur-md border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden">
+                        <button
+                          onClick={handleSaveTake}
+                          disabled={mixerActiveVersionStatus !== "draft"}
+                          className="w-full px-3 py-2.5 text-left text-sm text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border-b border-white/10 flex items-center justify-between"
+                        >
+                          <span>💾 Save current take</span>
+                          {mixerActiveVersionStatus !== "draft" && (
+                            <span className="text-[10px] text-gray-500">
+                              already saved
+                            </span>
+                          )}
+                        </button>
+                        <div className="max-h-64 overflow-y-auto">
+                          {mixerVersions.length === 0 && (
+                            <div className="px-3 py-2 text-xs text-gray-500">
+                              No takes yet
+                            </div>
+                          )}
+                          {[...mixerVersions]
+                            .sort((a, b) => b.createdAt - a.createdAt)
+                            .map((v) => {
+                              const isActive = v.id === mixerActiveVersionId;
+                              const created = new Date(
+                                v.createdAt
+                              ).toLocaleString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              });
+                              return (
+                                <button
+                                  key={v.id}
+                                  onClick={() => handleActivateTake(v.id)}
+                                  className={`w-full px-3 py-2 text-left text-sm hover:bg-white/10 transition-colors flex items-center justify-between gap-2 ${
+                                    isActive ? "bg-white/5" : ""
+                                  }`}
+                                >
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="font-medium text-white truncate">
+                                      {v.label ?? `Take ${v.id}`}
+                                    </span>
+                                    <span className="text-[11px] text-gray-500">
+                                      {v.id} · {created}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    {v.status === "draft" && (
+                                      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] uppercase tracking-wider">
+                                        Draft
+                                      </span>
+                                    )}
+                                    {isActive && (
+                                      <span className="px-1.5 py-0.5 rounded bg-green-500/20 text-green-300 text-[10px] uppercase tracking-wider">
+                                        Active
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
             <PlayButton
               isPlaying={isPlaying}
               onClick={handlePlayPause}

@@ -83,6 +83,52 @@ export function useMixerData(adId: string) {
     return updated;
   };
 
+  /**
+   * Freeze the active mixer draft into an immutable take. Accepts an
+   * optional label (e.g. "Mandarin", "Before client call"). Returns the
+   * new MixerState so callers can hydrate the store without waiting for
+   * SWR's effect chain.
+   */
+  const freezeMixer = async (label?: string): Promise<MixerState | null> => {
+    if (!adId) return null;
+    const response = await fetch(`/api/ads/${adId}/mixer/freeze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(label ? { label } : {}),
+    });
+    if (!response.ok) {
+      console.error("❌ Failed to freeze mixer version:", response.status);
+      await mutate();
+      return null;
+    }
+    const updated = (await response.json()) as MixerState;
+    await mutate(updated, { revalidate: false });
+    return updated;
+  };
+
+  /**
+   * Switch the active mixer version. Auto-freezes the outgoing draft
+   * first (no data loss). The returned MixerState reflects the new
+   * active take's pins, anchors, overrides, and cached mix.
+   */
+  const activateMixerVersion = async (
+    versionId: string
+  ): Promise<MixerState | null> => {
+    if (!adId) return null;
+    const response = await fetch(
+      `/api/ads/${adId}/mixer/${versionId}/activate`,
+      { method: "POST" }
+    );
+    if (!response.ok) {
+      console.error("❌ Failed to activate mixer version:", response.status);
+      await mutate();
+      return null;
+    }
+    const updated = (await response.json()) as MixerState;
+    await mutate(updated, { revalidate: false });
+    return updated;
+  };
+
   return {
     data,
     error,
@@ -91,5 +137,7 @@ export function useMixerData(adId: string) {
     removeStream,
     patchAnchors,
     patchTrim,
+    freezeMixer,
+    activateMixerVersion,
   };
 }
