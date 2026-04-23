@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:18.3-alpine3.23
+    container_name: aca-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  redis:
+    image: redis:8.6.2-alpine3.23
+    container_name: aca-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    
+  serverless-redis-http:
+    image: hiett/serverless-redis-http:0.0.10
+    container_name: aca-redis-serverless
+    ports:
+      - "8079:80"
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: example_token
+      SRH_CONNECTION_STRING: "redis://redis:6379"
+
+volumes:
+  postgres_data:
+  redis_data:
