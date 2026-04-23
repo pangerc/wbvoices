@@ -71,6 +71,11 @@ export function MixerPanel({
     clearTracks,
     hydrateFromMixer,
   } = useMixerStore();
+  const mutedTrackIds = useMixerStore((s) => s.mutedTrackIds);
+  const soloedTrackIds = useMixerStore((s) => s.soloedTrackIds);
+  const toggleMute = useMixerStore((s) => s.toggleMute);
+  const toggleSolo = useMixerStore((s) => s.toggleSolo);
+  const anyTrackSoloed = soloedTrackIds.size > 0;
 
   /**
    * Drop handler for timeline drags. Resolves the proximity anchor using the
@@ -515,15 +520,22 @@ export function MixerPanel({
         soundFxCount: soundFxUrls.length,
       });
 
-      // Prepare timing information for the mixer
+      // Prepare timing information for the mixer. Mute/solo is applied by
+      // zeroing the gain — simpler than filtering tracks out of the mix
+      // because the resolver already computed correct timings.
       const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
+        const baseGain =
+          trackVolumes[track.id] || getDefaultVolumeForType(track.type);
+        const silenced =
+          mutedTrackIds.has(track.id) ||
+          (anyTrackSoloed && !soloedTrackIds.has(track.id));
         const timing = {
           id: track.id,
           url: track.url,
           type: track.type,
           startTime: track.actualStartTime,
           duration: track.actualDuration,
-          gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
+          gain: silenced ? 0 : baseGain,
         };
 
         // Use visualized duration for music to match timeline
@@ -677,15 +689,20 @@ export function MixerPanel({
       console.log("Total duration:", totalDuration);
       console.log("Track sources:", { voiceUrls, musicUrl, soundFxUrls });
 
-      // Prepare timing information for the mixer
+      // Prepare timing information for the mixer. Mute/solo zeros gain.
       const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
+        const baseGain =
+          trackVolumes[track.id] || getDefaultVolumeForType(track.type);
+        const silenced =
+          mutedTrackIds.has(track.id) ||
+          (anyTrackSoloed && !soloedTrackIds.has(track.id));
         const timing = {
           id: track.id,
           url: track.url,
           type: track.type,
           startTime: track.actualStartTime,
           duration: track.actualDuration,
-          gain: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
+          gain: silenced ? 0 : baseGain,
         };
 
         // IMPORTANT: Use the visualized duration for music to match the timeline
@@ -1309,6 +1326,13 @@ export function MixerPanel({
                     onChangeVoice={onChangeVoice}
                     onDrop={handleTrackDrop}
                     onTrim={handleTrackTrim}
+                    onToggleMute={toggleMute}
+                    onToggleSolo={toggleSolo}
+                    isMuted={mutedTrackIds.has(track.id)}
+                    isSoloed={soloedTrackIds.has(track.id)}
+                    isImplicitlyMuted={
+                      anyTrackSoloed && !soloedTrackIds.has(track.id)
+                    }
                     {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
                   />
                 ))}
@@ -1339,6 +1363,13 @@ export function MixerPanel({
                     onRemove={onRemoveTrack}
                     onDrop={handleTrackDrop}
                     onTrim={handleTrackTrim}
+                    onToggleMute={toggleMute}
+                    onToggleSolo={toggleSolo}
+                    isMuted={mutedTrackIds.has(track.id)}
+                    isSoloed={soloedTrackIds.has(track.id)}
+                    isImplicitlyMuted={
+                      anyTrackSoloed && !soloedTrackIds.has(track.id)
+                    }
                     {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
                   />
                 ))}
@@ -1370,6 +1401,13 @@ export function MixerPanel({
                     isTrackLoading={isTrackLoading(track)}
                     onDrop={handleTrackDrop}
                     onTrim={handleTrackTrim}
+                    onToggleMute={toggleMute}
+                    onToggleSolo={toggleSolo}
+                    isMuted={mutedTrackIds.has(track.id)}
+                    isSoloed={soloedTrackIds.has(track.id)}
+                    isImplicitlyMuted={
+                      anyTrackSoloed && !soloedTrackIds.has(track.id)
+                    }
                     {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
                   />
                 ))}

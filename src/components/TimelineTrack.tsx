@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
 import { MixerTrack, useMixerStore } from "@/store/mixerStore";
+import { useWaveform } from "@/hooks/useWaveform";
 
 // Helper function to clean track labels
 export function cleanTrackLabel(label: string): string {
@@ -137,6 +138,15 @@ type TimelineTrackProps = {
   isHoverTarget?: boolean;
   /** This track is anchored to the currently-hovered track (inbound dependent). */
   isHoverDependent?: boolean;
+  /** Track is muted — ribbon dims; silent in render/playback. */
+  isMuted?: boolean;
+  /** Track is in the solo group — ribbon highlights. */
+  isSoloed?: boolean;
+  /** At least one track on the timeline is soloed and this one isn't (implicit mute). */
+  isImplicitlyMuted?: boolean;
+  /** Store actions threaded from MixerPanel so the dropdown can flip state. */
+  onToggleMute?: (trackId: string) => void;
+  onToggleSolo?: (trackId: string) => void;
 };
 
 export function TimelineTrack({
@@ -161,6 +171,11 @@ export function TimelineTrack({
   isHoverTarget = false,
   isHoverDependent = false,
   isHovered = false,
+  isMuted = false,
+  isSoloed = false,
+  isImplicitlyMuted = false,
+  onToggleMute,
+  onToggleSolo,
 }: TimelineTrackProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -194,6 +209,12 @@ export function TimelineTrack({
     (s) => s.dragPreview !== null || s.trimPreview !== null
   );
   const DRAG_THRESHOLD_PX = 4;
+
+  // Waveform peaks for this clip. Decoded lazily on mount; cached by URL
+  // so reposition/trim remounts reuse the same data. Renders as an SVG
+  // symmetric envelope inside the ribbon behind the title text.
+  const { peaks } = useWaveform(track.url, 200);
+  const waveformPath = useMemo(() => buildWaveformPath(peaks), [peaks]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -533,7 +554,15 @@ export function TimelineTrack({
             isHovered
               ? "ring-2 ring-white/80 ring-offset-1 ring-offset-black/50"
               : ""
-          }`}
+          } ${
+            // Mute/solo visual state. Soloed tracks get a yellow ring that
+            // reads as "this one is isolated." Muted (or implicitly muted
+            // because something else is soloed) ribbons dim to ~35% — still
+            // visible so you can unmute, but clearly stepped-back.
+            isSoloed
+              ? "ring-2 ring-yellow-400/70"
+              : ""
+          } ${isMuted || isImplicitlyMuted ? "opacity-35" : ""}`}
           style={{
             left: `${left}%`,
             width:
@@ -557,6 +586,24 @@ export function TimelineTrack({
                 width: `${playbackProgress || 0}%`,
               }}
             ></div>
+          )}
+
+          {/* Waveform envelope. Symmetric around the ribbon's vertical
+              center, scaled to fit via preserveAspectRatio="none". Sits
+              behind the title text — lower opacity on voice (dark text
+              on light ribbon needs more contrast) than music/sfx. */}
+          {waveformPath && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              viewBox="0 0 200 100"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path
+                d={waveformPath}
+                fill={track.type === "voice" ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.35)"}
+              />
+            </svg>
           )}
 
           {/* Anchor-relationship glow overlays. Half-ribbon gradients that
@@ -625,6 +672,35 @@ export function TimelineTrack({
             {/* Dropdown menu */}
             {isMenuOpen && (
               <div className="absolute right-0 top-full mt-1 w-40 bg-black/90 backdrop-blur-md border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden">
+                {onToggleMute && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onToggleMute(track.id);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center justify-between"
+                  >
+                    <span>{isMuted ? "Unmute" : "Mute"}</span>
+                    {isMuted && <span className="text-xs text-gray-400">M</span>}
+                  </button>
+                )}
+                {onToggleSolo && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onToggleSolo(track.id);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center justify-between border-t border-white/10"
+                  >
+                    <span>{isSoloed ? "Unsolo" : "Solo"}</span>
+                    {isSoloed && <span className="text-xs text-yellow-400">S</span>}
+                  </button>
+                )}
+                {(onToggleMute || onToggleSolo) && (
+                  <div className="border-t border-white/10" />
+                )}
                 {track.type === "voice" && onChangeVoice && (
                   <button
                     onClick={(e) => {
@@ -705,4 +781,32 @@ export function TimelineTrack({
       )}
     </div>
   );
+}
+
+/**
+ * Build an SVG path string for a symmetric waveform envelope. Maps `peaks`
+ * (length N, values in [0, 1]) into a viewBox of 200×100 with the wave
+ * mirrored around y=50. Returns null for empty inputs so callers can skip
+ * rendering entirely (avoids an empty <path> node in the DOM).
+ */
+function buildWaveformPath(peaks: number[]): string | null {
+  if (!peaks || peaks.length === 0) return null;
+  const width = 200;
+  const height = 100;
+  const center = height / 2;
+  const n = peaks.length;
+  const stepX = width / n;
+
+  // Build a closed polygon: top edge left→right, then bottom edge right→left.
+  // Each bucket is drawn as a vertical bar of half-height proportional to peak;
+  // the polygon interpolates between them to produce a smooth envelope.
+  const top: string[] = [];
+  const bottom: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const x = i * stepX;
+    const half = Math.max(0.5, peaks[i] * (center - 1)); // min 1px so silent stretches still draw
+    top.push(`${x.toFixed(2)},${(center - half).toFixed(2)}`);
+    bottom.unshift(`${x.toFixed(2)},${(center + half).toFixed(2)}`);
+  }
+  return `M${top.join(" L")} L${bottom.join(" L")} Z`;
 }

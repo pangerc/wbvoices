@@ -127,6 +127,21 @@ type MixerStoreState = {
    */
   hoveredTrackId: string | null;
 
+  /**
+   * Muted track ids (by MixerTrack.id). Muted tracks output zero gain in
+   * the rendered mix and stay silent on individual previews. UI-only;
+   * not persisted to Redis — treating mute/solo as ephemeral mixing-
+   * session state rather than part of the arrangement.
+   */
+  mutedTrackIds: Set<string>;
+
+  /**
+   * Soloed track ids. When any track is soloed, all non-soloed tracks
+   * render silent (implicit mute). Soloing multiple tracks creates a
+   * "solo group" that plays together.
+   */
+  soloedTrackIds: Set<string>;
+
   // Server-state hydration (called by MixerPanel from SWR)
   hydrateFromMixer: (state: RedisMixerState) => void;
 
@@ -154,6 +169,10 @@ type MixerStoreState = {
 
   // Hover lifecycle (anchor-relationship highlighting)
   setHoveredTrackId: (id: string | null) => void;
+
+  // Mute/solo toggles
+  toggleMute: (trackId: string) => void;
+  toggleSolo: (trackId: string) => void;
 };
 
 export const useMixerStore = create<MixerStoreState>((set, get) => ({
@@ -172,6 +191,8 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
   dragPreview: null,
   trimPreview: null,
   hoveredTrackId: null,
+  mutedTrackIds: new Set<string>(),
+  soloedTrackIds: new Set<string>(),
 
   hydrateFromMixer: (state) => {
     const incomingTracks = (state.tracks ?? []) as MixerTrack[];
@@ -298,4 +319,20 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
   setDragPreview: (dragPreview) => set({ dragPreview }),
   setTrimPreview: (trimPreview) => set({ trimPreview }),
   setHoveredTrackId: (hoveredTrackId) => set({ hoveredTrackId }),
+
+  toggleMute: (trackId) =>
+    set((state) => {
+      const next = new Set(state.mutedTrackIds);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      return { mutedTrackIds: next, isPreviewValid: false };
+    }),
+
+  toggleSolo: (trackId) =>
+    set((state) => {
+      const next = new Set(state.soloedTrackIds);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      return { soloedTrackIds: next, isPreviewValid: false };
+    }),
 }));
