@@ -52,6 +52,14 @@ export interface AnchorFromDropOptions {
    * keys as "no ref."
    */
   existingRefs?: Readonly<Record<SlotId, SlotId | undefined>>;
+  /**
+   * Soft-elastic format horizon. If set and `allowPastFormat` is false,
+   * drops past this second-mark clamp to the horizon. Held-modifier
+   * override (`allowPastFormat`) disables the clamp so creative intent
+   * can still go over budget when the user explicitly asks for it.
+   */
+  formatDuration?: number;
+  allowPastFormat?: boolean;
 }
 
 const DEFAULT_EDGE_SNAP_SECONDS = 0.1;
@@ -67,7 +75,19 @@ export function anchorFromDrop(
   others: ReadonlyArray<DropReferenceClip>,
   options: AnchorFromDropOptions = {}
 ): Anchor {
-  const dropT = Math.max(0, dropSeconds);
+  let dropT = Math.max(0, dropSeconds);
+
+  // Soft-elastic format clamp: if a format target is set and the user hasn't
+  // held the override modifier, drops past the horizon snap back to the
+  // horizon itself. Done before forceAbsolute / proximity rules so all three
+  // code paths respect the same clamp.
+  if (
+    options.formatDuration !== undefined &&
+    !options.allowPastFormat &&
+    dropT > options.formatDuration
+  ) {
+    dropT = options.formatDuration;
+  }
 
   if (options.forceAbsolute) {
     return { kind: "absolute", t: dropT };

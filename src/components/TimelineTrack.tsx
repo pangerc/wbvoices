@@ -114,9 +114,16 @@ type TimelineTrackProps = {
   /**
    * Called when a drop completes. `dropSeconds` is the new timeline position
    * of the dragged track's left edge; `forceAbsolute` signals the user held
-   * the opt/alt modifier (force an absolute anchor vs proximity-derived).
+   * the opt/alt modifier (force an absolute anchor vs proximity-derived);
+   * `allowPastFormat` signals the user held shift to override the soft
+   * format-duration clamp.
    */
-  onDrop?: (trackId: string, dropSeconds: number, forceAbsolute: boolean) => void;
+  onDrop?: (
+    trackId: string,
+    dropSeconds: number,
+    forceAbsolute: boolean,
+    allowPastFormat: boolean
+  ) => void;
   /** This track is the currently-hovered one (the "inspected" clip). */
   isHovered?: boolean;
   /** This track is the outbound anchor target of the currently-hovered track. */
@@ -348,7 +355,7 @@ export function TimelineTrack({
     const deltaSeconds = deltaPx / session.pxPerSecond;
     const dropSeconds = Math.max(0, session.originSeconds + deltaSeconds);
     try {
-      await onDrop?.(track.id, dropSeconds, e.altKey);
+      await onDrop?.(track.id, dropSeconds, e.altKey, e.shiftKey);
     } finally {
       setDragPreview(null);
     }

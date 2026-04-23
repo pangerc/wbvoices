@@ -284,6 +284,14 @@ export interface MixerState {
 
   /** Permanent URL of final mixed audio (uploaded to blob storage) */
   mixedAudioUrl?: string;
+
+  /**
+   * Target ad duration in seconds, pulled from `AdMetadata.brief.adDuration`.
+   * Drives the soft-elastic format horizon in the mixer UI (marker line +
+   * over-budget shading) and the resolver's overBudget warnings. Optional
+   * for ads without a brief; clients should degrade gracefully.
+   */
+  formatDuration?: number;
 }
 
 /**

@@ -82,6 +82,12 @@ type MixerStoreState = {
   tracks: MixerTrack[];
   calculatedTracks: CalculatedTrack[];
   totalDuration: number;
+  /**
+   * Target ad duration in seconds (from `brief.adDuration`). Drives the
+   * soft-elastic format horizon: marker line + over-budget shading. May be
+   * undefined for ads without a brief — UI falls back to no-horizon mode.
+   */
+  formatDuration?: number;
   trackVolumes: { [key: string]: number };
 
   // Transient UI state
@@ -176,6 +182,7 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
       tracks: incomingTracks,
       calculatedTracks,
       totalDuration,
+      formatDuration: state.formatDuration,
       trackVolumes: nextVolumes,
       isPreviewValid: urlsChanged ? false : prev.isPreviewValid,
     }));

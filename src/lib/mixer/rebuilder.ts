@@ -393,6 +393,11 @@ async function deriveMixerState(
     `  Built ${tracks.length} mixer tracks for ad ${adId} mixer=${activeMixerId}`
   );
 
+  // Brief drives two things in this pass: the resolver's over-budget
+  // warnings + per-locale speedup cap, AND the mixer UI's soft-elastic
+  // format horizon. Load once, pass through.
+  const brief = (await getAdMetadata(adId))?.brief;
+
   // Resolve timeline via the pure resolver (stage 7 swap).
   //
   // Reuse a cached resolver output on frozen mixer versions — anchors + pins
@@ -415,7 +420,6 @@ async function deriveMixerState(
     );
     usedCache = true;
   } else {
-    const brief = (await getAdMetadata(adId))?.brief;
     resolved = resolveTimeline({
       slots: buildSlotStates(
         tracks,
@@ -482,6 +486,7 @@ async function deriveMixerState(
       sfx: pins.sfx,
     },
     mixedAudioUrl: mixerVersion.mixedAudioUrl,
+    formatDuration: brief?.adDuration,
   };
 
   return mixerState;

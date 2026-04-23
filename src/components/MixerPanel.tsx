@@ -52,6 +52,7 @@ export function MixerPanel({
     tracks,
     calculatedTracks,
     totalDuration,
+    formatDuration,
     trackVolumes,
     audioErrors,
     loadingStates,
@@ -78,7 +79,12 @@ export function MixerPanel({
    * optimistic-mutated back into SWR by patchAnchors.
    */
   const handleTrackDrop = useCallback(
-    async (trackId: string, dropSeconds: number, forceAbsolute: boolean) => {
+    async (
+      trackId: string,
+      dropSeconds: number,
+      forceAbsolute: boolean,
+      allowPastFormat: boolean
+    ) => {
       const draggedTrack = tracks.find((t) => t.id === trackId);
       const draggedSlotId = draggedTrack?.slotId;
       if (!draggedSlotId) {
@@ -114,6 +120,8 @@ export function MixerPanel({
       const anchor = anchorFromDrop(draggedSlotId, dropSeconds, others, {
         forceAbsolute,
         existingRefs,
+        formatDuration,
+        allowPastFormat,
       });
 
       // Hydrate the store eagerly from the server response so the ribbon's
@@ -124,7 +132,7 @@ export function MixerPanel({
       const updated = await patchAnchors({ [draggedSlotId]: anchor });
       if (updated) hydrateFromMixer(updated);
     },
-    [tracks, calculatedTracks, patchAnchors, hydrateFromMixer]
+    [tracks, calculatedTracks, formatDuration, patchAnchors, hydrateFromMixer]
   );
 
   // Hydrate Zustand store from SWR data (Redis is source of truth).
@@ -958,11 +966,20 @@ export function MixerPanel({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Adjust markers to make sure they go to exactly the total duration
+  /**
+   * The timeline's visible extent. Equals the larger of the actual resolved
+   * duration and the format target, so the format horizon marker and any
+   * over-budget shading both stay visible. Falls back to the resolved
+   * duration when there's no brief.
+   */
+  const displayDuration = Math.max(totalDuration, formatDuration ?? 0, 1);
+
+  // Adjust markers to make sure they go to exactly the display duration.
   const getTotalMarkers = () => {
-    // For durations that are exact seconds (like 19.0), include that second
-    // For durations with partial seconds (like 19.2), round up to the next second (20)
-    return Math.ceil(totalDuration) + (Number.isInteger(totalDuration) ? 1 : 0);
+    return (
+      Math.ceil(displayDuration) +
+      (Number.isInteger(displayDuration) ? 1 : 0)
+    );
   };
 
   // Render loading animation for a track
@@ -1139,6 +1156,38 @@ export function MixerPanel({
             ref={timelineRef}
             className="relative bg-white/3 backdrop-blur-sm border border-white/10 rounded-2xl overflow-visible timeline"
           >
+            {/* Format-horizon layer — red shading past the brief duration,
+                plus a dashed rule at the horizon itself. Wrapped in a rounded
+                overflow-hidden pane so the shading clips to the timeline's
+                corner radius. The parent container keeps overflow-visible so
+                per-track dropdown menus can spill out. */}
+            {formatDuration !== undefined && formatDuration > 0 && (
+              <div
+                className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none z-0"
+                aria-hidden="true"
+              >
+                {displayDuration > formatDuration && (
+                  <div
+                    className="absolute top-0 bottom-0 bg-red-500/10"
+                    style={{
+                      left: `${(formatDuration / displayDuration) * 100}%`,
+                      right: 0,
+                    }}
+                  />
+                )}
+                <div
+                  className={`absolute top-0 bottom-0 w-px border-l border-dashed ${
+                    displayDuration > formatDuration
+                      ? "border-red-400/70"
+                      : "border-white/40"
+                  }`}
+                  style={{
+                    left: `${(formatDuration / displayDuration) * 100}%`,
+                  }}
+                />
+              </div>
+            )}
+
             {/* Playback indicator line - positioned absolutely and doesn't interfere with mouse events */}
             {isPlaying && (
               <div
@@ -1155,9 +1204,8 @@ export function MixerPanel({
             >
               {/* Create markers that properly span the entire duration */}
               {Array.from({ length: getTotalMarkers() }).map((_, i) => {
-                // Calculate position based on actual seconds, not just percentage
                 const seconds = i;
-                const percent = (seconds / totalDuration) * 100;
+                const percent = (seconds / displayDuration) * 100;
 
                 return (
                   <div
@@ -1188,7 +1236,7 @@ export function MixerPanel({
                   <TimelineTrack
                     key={track.id}
                     track={track as TimelineTrackData}
-                    totalDuration={totalDuration}
+                    totalDuration={displayDuration}
                     isVolumeDrawerOpen={isVolumeDrawerOpen}
                     trackVolume={
                       trackVolumes[track.id] || getDefaultVolumeForType("voice")
@@ -1216,7 +1264,7 @@ export function MixerPanel({
                   <TimelineTrack
                     key={track.id}
                     track={track as TimelineTrackData}
-                    totalDuration={totalDuration}
+                    totalDuration={displayDuration}
                     isVolumeDrawerOpen={isVolumeDrawerOpen}
                     trackVolume={
                       trackVolumes[track.id] || getDefaultVolumeForType("music")
@@ -1245,7 +1293,7 @@ export function MixerPanel({
                   <TimelineTrack
                     key={track.id}
                     track={track as TimelineTrackData}
-                    totalDuration={totalDuration}
+                    totalDuration={displayDuration}
                     isVolumeDrawerOpen={isVolumeDrawerOpen}
                     trackVolume={
                       trackVolumes[track.id] ||

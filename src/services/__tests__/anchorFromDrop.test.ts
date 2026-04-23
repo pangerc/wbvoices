@@ -165,6 +165,61 @@ describe("anchorFromDrop", () => {
     });
   });
 
+  describe("format-duration soft clamp", () => {
+    it("drops past formatDuration clamp to the horizon", () => {
+      // Drop at 18s, format is 15s → clamped to 15s, rule 5 absolute.
+      const anchor = anchorFromDrop("x", 18, [], { formatDuration: 15 });
+      expect(anchor).toEqual({ kind: "absolute", t: 15 });
+    });
+
+    it("drops past formatDuration with allowPastFormat pass through", () => {
+      const anchor = anchorFromDrop("x", 18, [], {
+        formatDuration: 15,
+        allowPastFormat: true,
+      });
+      expect(anchor).toEqual({ kind: "absolute", t: 18 });
+    });
+
+    it("clamp happens before forceAbsolute — opt+shift still clamps without shift", () => {
+      const anchor = anchorFromDrop("x", 20, [], {
+        formatDuration: 15,
+        forceAbsolute: true,
+      });
+      expect(anchor).toEqual({ kind: "absolute", t: 15 });
+    });
+
+    it("clamp + allowPastFormat lets force-absolute drop past target", () => {
+      const anchor = anchorFromDrop("x", 20, [], {
+        formatDuration: 15,
+        forceAbsolute: true,
+        allowPastFormat: true,
+      });
+      expect(anchor).toEqual({ kind: "absolute", t: 20 });
+    });
+
+    it("drop within budget is unaffected", () => {
+      const others = [{ slotId: "a", startTime: 0, duration: 5 }];
+      const anchor = anchorFromDrop("x", 5.02, others, { formatDuration: 15 });
+      expect(anchor).toEqual({
+        kind: "relativeTo",
+        slotId: "a",
+        edge: "end",
+      });
+    });
+
+    it("clamped drop adjacent to an edge still picks relativeTo at the clamp", () => {
+      // Format is 15s; another clip ends at exactly 15s. Dropping at 18s
+      // clamps to 15s, which is within edgeSnap of that clip's end.
+      const others = [{ slotId: "a", startTime: 10, duration: 5 }];
+      const anchor = anchorFromDrop("x", 18, others, { formatDuration: 15 });
+      expect(anchor).toEqual({
+        kind: "relativeTo",
+        slotId: "a",
+        edge: "end",
+      });
+    });
+  });
+
   describe("cycle prevention", () => {
     it("falls back to absolute when the proposed anchor would close a cycle", async () => {
       // Classic waterfall: v0 → absolute(0), v1 → relativeTo(v0.end),
