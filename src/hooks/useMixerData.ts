@@ -84,20 +84,22 @@ export function useMixerData(adId: string) {
   };
 
   /**
-   * Freeze the active mixer draft into an immutable take. Accepts an
-   * optional label (e.g. "Mandarin", "Before client call"). Returns the
-   * new MixerState so callers can hydrate the store without waiting for
-   * SWR's effect chain.
+   * Start a new take. Atomic flow on the server: freezes the current draft
+   * (if any), forks it, activates the new draft. The outgoing take is
+   * preserved as a frozen version in the take list. Optional `label`
+   * lands on the frozen (outgoing) take — that's the one worth naming.
    */
-  const freezeMixer = async (label?: string): Promise<MixerState | null> => {
+  const startNewTake = async (
+    label?: string
+  ): Promise<MixerState | null> => {
     if (!adId) return null;
-    const response = await fetch(`/api/ads/${adId}/mixer/freeze`, {
+    const response = await fetch(`/api/ads/${adId}/mixer/new-take`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(label ? { label } : {}),
     });
     if (!response.ok) {
-      console.error("❌ Failed to freeze mixer version:", response.status);
+      console.error("❌ Failed to start new take:", response.status);
       await mutate();
       return null;
     }
@@ -137,7 +139,7 @@ export function useMixerData(adId: string) {
     removeStream,
     patchAnchors,
     patchTrim,
-    freezeMixer,
+    startNewTake,
     activateMixerVersion,
   };
 }

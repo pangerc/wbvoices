@@ -43,7 +43,7 @@ export function MixerPanel({
     data: mixerSWR,
     patchAnchors,
     patchTrim,
-    freezeMixer,
+    startNewTake,
     activateMixerVersion,
   } = useMixerData(adId);
 
@@ -152,21 +152,21 @@ export function MixerPanel({
   );
 
   /**
-   * Freeze the active mixer draft into a named take. Eager-hydrates the
-   * store from the server response so the UI (status badge, versions
-   * list) flips to "frozen" on the same render frame.
+   * Start a new take. Server freezes the current draft (preserving it in
+   * the take list), forks it, activates the new draft. Eager-hydrate so
+   * the Takes menu flips to the new version id on the same render frame.
    */
-  const handleSaveTake = useCallback(async () => {
+  const handleNewTake = useCallback(async () => {
     const defaultLabel = new Date().toLocaleString(undefined, {
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
-    const updated = await freezeMixer(defaultLabel);
+    const updated = await startNewTake(defaultLabel);
     if (updated) hydrateFromMixer(updated);
     setIsTakesMenuOpen(false);
-  }, [freezeMixer, hydrateFromMixer]);
+  }, [startNewTake, hydrateFromMixer]);
 
   /**
    * Switch the active mixer version. Server auto-freezes any outgoing
@@ -1307,16 +1307,18 @@ export function MixerPanel({
                       />
                       <div className="absolute left-0 top-full mt-1 w-72 bg-black/95 backdrop-blur-md border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden">
                         <button
-                          onClick={handleSaveTake}
-                          disabled={mixerActiveVersionStatus !== "draft"}
-                          className="w-full px-3 py-2.5 text-left text-sm text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border-b border-white/10 flex items-center justify-between"
+                          onClick={handleNewTake}
+                          className="w-full px-3 py-2.5 text-left text-sm text-white hover:bg-white/10 transition-colors border-b border-white/10 flex items-center gap-2"
                         >
-                          <span>💾 Save current take</span>
-                          {mixerActiveVersionStatus !== "draft" && (
+                          <span>➕</span>
+                          <div className="flex flex-col">
+                            <span>Start a new take</span>
                             <span className="text-[10px] text-gray-500">
-                              already saved
+                              {mixerActiveVersionStatus === "draft"
+                                ? "saves current draft, continue in a new copy"
+                                : "fork the current take into a new draft"}
                             </span>
-                          )}
+                          </div>
                         </button>
                         <div className="max-h-64 overflow-y-auto">
                           {mixerVersions.length === 0 && (
