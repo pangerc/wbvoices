@@ -304,6 +304,13 @@ export interface MixerTrack {
    * user-edit has overridden the stream-level placement.
    */
   anchorOrigin?: AnchorOrigin;
+  /**
+   * If this track's anchor references another slot (relativeTo /
+   * simultaneousWith / atFraction), the referenced slot id. `absolute`
+   * anchors and tracks without an anchor entry have this undefined.
+   * Used client-side for cycle prevention on drag-drop.
+   */
+  anchorRefSlotId?: SlotId;
   url: string;
   label: string;
   type: "voice" | "music" | "soundfx";

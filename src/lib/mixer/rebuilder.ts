@@ -696,6 +696,17 @@ export function slotIdForTrack(
   return null;
 }
 
+/**
+ * Extract the referenced slot id from an anchor, or undefined if the
+ * anchor is absolute / missing. Powers the client's cycle-prevention
+ * check in `anchorFromDrop`.
+ */
+function refSlotFromAnchor(anchor?: Anchor): SlotId | undefined {
+  if (!anchor) return undefined;
+  if (anchor.kind === "absolute") return undefined;
+  return anchor.slotId;
+}
+
 function collectVoiceTracks(
   voiceVersion: VoiceVersion,
   voiceVersionId: VersionId,
@@ -721,6 +732,9 @@ function collectVoiceTracks(
       id: trackId,
       slotId: voiceTrack.slotId,
       anchorOrigin: voiceTrack.slotId ? anchors[voiceTrack.slotId]?.origin : undefined,
+      anchorRefSlotId: voiceTrack.slotId
+        ? refSlotFromAnchor(anchors[voiceTrack.slotId]?.anchor)
+        : undefined,
       url,
       type: "voice",
       label: voiceTrack.voice?.name || `Voice ${index + 1}`,
@@ -765,6 +779,9 @@ function collectMusicTrack(
     id: trackId,
     slotId: musicVersion.slotId,
     anchorOrigin: musicVersion.slotId ? anchors[musicVersion.slotId]?.origin : undefined,
+    anchorRefSlotId: musicVersion.slotId
+      ? refSlotFromAnchor(anchors[musicVersion.slotId]?.anchor)
+      : undefined,
     url: musicVersion.generatedUrl,
     type: "music",
     label,
@@ -795,6 +812,9 @@ function collectSfxTracks(
       id: trackId,
       slotId: sfxPrompt.slotId,
       anchorOrigin: sfxPrompt.slotId ? anchors[sfxPrompt.slotId]?.origin : undefined,
+      anchorRefSlotId: sfxPrompt.slotId
+        ? refSlotFromAnchor(anchors[sfxPrompt.slotId]?.anchor)
+        : undefined,
       url,
       type: "soundfx",
       label: sfxPrompt.description.substring(0, 50),

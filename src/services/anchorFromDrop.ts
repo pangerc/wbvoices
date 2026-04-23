@@ -41,6 +41,17 @@ export interface AnchorFromDropOptions {
   alignSnapSeconds?: number;
   /** User held the force-absolute modifier (opt/alt). Overrides all other rules. */
   forceAbsolute?: boolean;
+  /**
+   * Map of slot-id → slot-id-it-currently-references. Used to detect
+   * would-be cycles: if the dragged slot's proposed anchor targets a slot
+   * whose ref chain leads back to the dragged slot, we fall back to
+   * `absolute(dropSeconds)` to keep the graph acyclic.
+   *
+   * A slot with no ref (absolute anchor or unanchored) maps to `undefined`
+   * — callers can omit those keys. The resolver will always treat missing
+   * keys as "no ref."
+   */
+  existingRefs?: Readonly<Record<SlotId, SlotId | undefined>>;
 }
 
 const DEFAULT_EDGE_SNAP_SECONDS = 0.1;
@@ -61,6 +72,27 @@ export function anchorFromDrop(
   if (options.forceAbsolute) {
     return { kind: "absolute", t: dropT };
   }
+
+  // Compute the best candidate anchor per proximity rules. If it would
+  // create a cycle against the existing ref graph, fall back to absolute.
+  const candidate = pickBestAnchor(draggedSlotId, dropT, others, options);
+  if (candidate.kind === "absolute") return candidate;
+  if (wouldCreateCycle(draggedSlotId, candidate.slotId, options.existingRefs)) {
+    return { kind: "absolute", t: dropT };
+  }
+  return candidate;
+}
+
+/**
+ * Proximity-rule candidate picker — the old function body, extracted so the
+ * top-level `anchorFromDrop` can wrap it in cycle detection.
+ */
+function pickBestAnchor(
+  draggedSlotId: SlotId,
+  dropT: number,
+  others: ReadonlyArray<DropReferenceClip>,
+  options: AnchorFromDropOptions
+): Anchor {
 
   const candidates = others.filter((c) => c.slotId !== draggedSlotId);
   const edgeSnap = options.edgeSnapSeconds ?? DEFAULT_EDGE_SNAP_SECONDS;
@@ -151,4 +183,33 @@ export function anchorFromDrop(
 
   // ---- Rule 5: fallback to absolute ----
   return { kind: "absolute", t: dropT };
+}
+
+/**
+ * Walk the ref chain from `startSlot` and check whether it leads back to
+ * `draggedSlotId`. If so, adding an edge draggedSlotId → startSlot would
+ * close a cycle.
+ *
+ * Guard: stop after `slots.length`-ish steps to avoid infinite loops in
+ * the (theoretically impossible) case the stored graph is already cyclic.
+ */
+function wouldCreateCycle(
+  draggedSlotId: SlotId,
+  startSlot: SlotId,
+  existingRefs: Readonly<Record<SlotId, SlotId | undefined>> | undefined
+): boolean {
+  if (startSlot === draggedSlotId) return true; // self-reference
+  if (!existingRefs) return false;
+
+  const visited = new Set<SlotId>();
+  let current: SlotId | undefined = startSlot;
+  // Bound to N+1 hops; any stored cycle is a bug upstream, not ours to fix.
+  for (let i = 0; i < 128; i++) {
+    if (!current) return false;
+    if (current === draggedSlotId) return true;
+    if (visited.has(current)) return false;
+    visited.add(current);
+    current = existingRefs[current];
+  }
+  return false;
 }

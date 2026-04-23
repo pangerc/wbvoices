@@ -95,9 +95,19 @@ export function MixerPanel({
         })
         .filter((x): x is NonNullable<typeof x> => !!x);
 
+      // Build the slot-id → referenced-slot-id map so anchorFromDrop can
+      // detect cycles and fall back to absolute rather than produce an
+      // un-resolvable graph (the resolver would bounce cyclic slots to t=0,
+      // which manifests as clips collapsing onto each other).
+      const existingRefs: Record<string, string | undefined> = {};
+      for (const t of tracks) {
+        if (t.slotId) existingRefs[t.slotId] = t.anchorRefSlotId;
+      }
+
       const { anchorFromDrop } = await import("@/services/anchorFromDrop");
       const anchor = anchorFromDrop(draggedSlotId, dropSeconds, others, {
         forceAbsolute,
+        existingRefs,
       });
 
       // Hydrate the store eagerly from the server response so the ribbon's
@@ -351,6 +361,12 @@ export function MixerPanel({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(mixerUpdate),
       });
+
+      if (response.status === 401 && typeof window !== 'undefined') {
+        const callbackUrl = encodeURIComponent(window.location.href);
+        window.location.href = `/auth/signin?callbackUrl=${callbackUrl}`;
+        return { permanentUrl: localPreviewUrl, downloadUrl: localPreviewUrl };
+      }
 
       if (!response.ok) {
         console.error('❌ Failed to save mixer state to V3 Redis');

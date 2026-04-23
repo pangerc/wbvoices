@@ -9,6 +9,8 @@ export type MixerTrack = {
   slotId?: string;
   /** Provenance of the slot's current anchor. "user-edit" flags mixer overrides. */
   anchorOrigin?: AnchorOrigin;
+  /** Slot id this track's anchor references (for cycle checks on drag). */
+  anchorRefSlotId?: string;
   url: string;
   label: string;
   type: "voice" | "music" | "soundfx";
