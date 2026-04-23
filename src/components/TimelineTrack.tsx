@@ -653,34 +653,43 @@ export function TimelineTrack({
             </svg>
           )}
 
-          {/* Anchor-relationship glow overlays. Half-ribbon gradients that
-              point toward the connection edge:
-                - Outbound target (this clip is anchored to BY the hover):
-                  glow on the right half, brightest at the right edge —
-                  that's where `relativeTo(this, "end")` anchors land.
-                - Inbound dependent (this clip anchors TO the hover): glow
-                  on the left half, brightest at the left edge — that's
-                  where this clip's own start connects to the hovered
-                  clip's end. */}
+          {/* Anchor-relationship dim + glow. Two-step effect so the glow
+              reads clearly against the waveform-populated ribbon:
+                1. Full-ribbon dark overlay dims the base (including the
+                   waveform) for any related clip.
+                2. Half-ribbon white gradient on top points toward the
+                   connection edge — right for outbound target (anchor
+                   lands on that clip's end), left for inbound dependent
+                   (its own start connects to the hovered clip's end). */}
+          {(isHoverTarget || isHoverDependent) && (
+            <div
+              className="absolute inset-0 bg-black/50 pointer-events-none"
+              aria-hidden="true"
+            />
+          )}
           {isHoverTarget && (
             <div
-              className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-r from-transparent to-white/40 pointer-events-none"
+              className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-r from-transparent to-white/70 pointer-events-none"
               aria-hidden="true"
             />
           )}
           {isHoverDependent && (
             <div
-              className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-l from-transparent to-white/40 pointer-events-none"
+              className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-l from-transparent to-white/70 pointer-events-none"
               aria-hidden="true"
             />
           )}
 
-          {/* Track title. Click-to-play/pause is now handled by the ribbon's
-              pointer-up click path (distinguishes tap from drag). All three
-              stream types render with white text — voice was originally
-              black, but on the dark-grey voice ribbon the contrast was too
-              low to read against the warm-cream waveform. */}
-          <div className="px-3 py-1 h-full flex items-center pointer-events-none">
+          {/* Track title. All three stream types render white now — the
+              previous black-on-grey was unreadable over the warm-cream
+              voice waveform. Label fades out on hover so the waveform
+              owns the visual space during inspection; it returns on
+              mouse-leave. */}
+          <div
+            className={`px-3 py-1 h-full flex items-center pointer-events-none transition-opacity duration-100 ${
+              isHovered ? "opacity-0" : "opacity-100"
+            }`}
+          >
             <div className="font-medium text-xs truncate text-white">
               {track.type === "voice"
                 ? extractCharacterName(cleanTrackLabel(track.label))
