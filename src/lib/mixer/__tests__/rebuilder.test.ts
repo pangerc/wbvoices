@@ -21,32 +21,9 @@ vi.mock("../../redis-v3", () => ({
   getRedisV3: () => mockRedis,
 }));
 
-// Mock LegacyTimelineCalculator
-vi.mock("@/services/legacyTimelineCalculator", () => ({
-  LegacyTimelineCalculator: {
-    calculateTimings: vi.fn((tracks, audioDurations) => {
-      // Simple mock that calculates sequential timing
-      let currentTime = 0;
-      const calculatedTracks = tracks.map((track: { id: string; type: string }) => {
-        const duration = audioDurations[track.id] || 3;
-        const startTime = currentTime;
-        currentTime += duration;
-
-        return {
-          id: track.id,
-          actualStartTime: startTime,
-          actualDuration: duration,
-          type: track.type,
-        };
-      });
-
-      return {
-        calculatedTracks,
-        totalDuration: currentTime,
-      };
-    }),
-  },
-}));
+// Post stage 7: rebuilder uses the real `resolveTimeline` — no mock needed.
+// The resolver is pure and fast; exercising it in tests gives better
+// coverage than a sequential-timing fake.
 
 let mockRedis: ReturnType<typeof createMockRedis>;
 

@@ -32,20 +32,9 @@ vi.mock("../../redis-v3", () => ({
   getRedisV3: () => mockRedis,
 }));
 
-// Simple timeline calculator mock — the PATCH tests don't exercise its math.
-vi.mock("@/services/legacyTimelineCalculator", () => ({
-  LegacyTimelineCalculator: {
-    calculateTimings: vi.fn((tracks) => ({
-      calculatedTracks: tracks.map((t: { id: string; type: string }) => ({
-        id: t.id,
-        actualStartTime: 0,
-        actualDuration: 1,
-        type: t.type,
-      })),
-      totalDuration: 0,
-    })),
-  },
-}));
+// Post stage 7: the rebuilder uses `resolveTimeline` directly; no calculator
+// mock needed. These tests only assert mixer-version persistence behavior,
+// not timing math.
 
 import {
   AD_KEYS,

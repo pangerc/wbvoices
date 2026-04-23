@@ -21,30 +21,33 @@
  */
 
 import {
-  AD_KEYS,
   createVersion,
   getActiveVersion,
   getVersion,
   setActiveVersion,
   updateVersion,
+  getAdMetadata,
 } from "@/lib/redis/versions";
 import { withAdLock } from "@/lib/redis/adLock";
 import { bootstrapLegacyMixer } from "@/lib/mixer/bootstrap";
 import {
+  CachedResolverOutput,
+  ClipOverrides,
   MixerPins,
   MixerState,
   MixerTrack,
   MixerVersion,
   MusicVersion,
   SfxVersion,
+  SlotId,
   VersionId,
   VoiceVersion,
 } from "@/types/versions";
-import { LegacyTimelineCalculator } from "@/services/legacyTimelineCalculator";
-
-// Silence unused-symbol warning while still keeping AD_KEYS imported for
-// downstream edits in stage 7 (cached resolver invalidation).
-void AD_KEYS;
+import {
+  resolveTimeline,
+  type ResolvedTimeline,
+  type SlotState,
+} from "@/services/timelineResolver";
 
 /**
  * Rebuild mixer state.
@@ -274,9 +277,65 @@ async function deriveMixerState(
     `  Built ${tracks.length} mixer tracks for ad ${adId} mixer=${activeMixerId}`
   );
 
-  const calculated = LegacyTimelineCalculator.calculateTimings(
+  // Resolve timeline via the pure resolver (stage 7 swap).
+  //
+  // Reuse a cached resolver output on frozen mixer versions — anchors + pins
+  // + overrides are all immutable on frozen versions, so the output is a
+  // pure function of the version and is safe to memoize. Drafts always
+  // resolve fresh because the anchor graph is still being authored.
+  let resolved: ResolvedTimeline;
+  let usedCache = false;
+  if (
+    mixerVersion.status === "frozen" &&
+    mixerVersion.cachedResolverOutput &&
+    cachedOutputMatches(mixerVersion.cachedResolverOutput, tracks)
+  ) {
+    resolved = projectCachedOutputThroughTracks(
+      mixerVersion.cachedResolverOutput,
+      tracks,
+      voiceVersion as VoiceVersion | null,
+      musicVersion as MusicVersion | null,
+      sfxVersion as SfxVersion | null
+    );
+    usedCache = true;
+  } else {
+    const brief = (await getAdMetadata(adId))?.brief;
+    resolved = resolveTimeline({
+      slots: buildSlotStates(
+        tracks,
+        voiceVersion as VoiceVersion | null,
+        musicVersion as MusicVersion | null,
+        sfxVersion as SfxVersion | null,
+        mixerVersion.overrides ?? {}
+      ),
+      anchors: mixerVersion.anchors,
+      formatDuration: brief?.adDuration,
+      locale: brief?.selectedLanguage,
+    });
+
+    // Lazy cache hydration for frozen versions that predate stage 7 (or any
+    // frozen version whose cache was invalidated). Best-effort: a failure
+    // here shouldn't block the read path.
+    if (mixerVersion.status === "frozen") {
+      void writeResolverCache(adId, activeMixerId, resolved, tracks).catch(
+        (err) => console.warn(`[rebuilder] failed to cache resolver output for ${activeMixerId}:`, err)
+      );
+    }
+  }
+
+  if (resolved.warnings.length > 0) {
+    console.log(
+      `  resolver warnings for ${activeMixerId}${usedCache ? " (cached)" : ""}:`,
+      resolved.warnings
+    );
+  }
+
+  const calculatedTracks = mapResolvedToCalculatedTracks(
+    resolved,
     tracks,
-    audioDurations
+    voiceVersion as VoiceVersion | null,
+    musicVersion as MusicVersion | null,
+    sfxVersion as SfxVersion | null
   );
 
   // Project per-slot overrides (the persisted form) back onto the track-id
@@ -298,13 +357,8 @@ async function deriveMixerState(
   const mixerState: MixerState = {
     tracks,
     volumes,
-    calculatedTracks: calculated.calculatedTracks.map((ct) => ({
-      id: ct.id,
-      startTime: ct.actualStartTime,
-      duration: ct.actualDuration,
-      type: ct.type,
-    })),
-    totalDuration: calculated.totalDuration,
+    calculatedTracks,
+    totalDuration: resolved.totalDuration,
     lastCalculated: Date.now(),
     activeVersions: {
       voices: pins.voices,
@@ -315,6 +369,166 @@ async function deriveMixerState(
   };
 
   return mixerState;
+}
+
+// ============ Resolver adapter ============
+
+/**
+ * Build `SlotState[]` — the resolver's input shape — from the mixer panel's
+ * track list plus pinned stream versions. Each track maps to exactly one
+ * slot; slot ids come from the content versions, trim comes from mixer
+ * overrides.
+ */
+function buildSlotStates(
+  tracks: MixerTrack[],
+  voiceVersion: VoiceVersion | null,
+  musicVersion: MusicVersion | null,
+  sfxVersion: SfxVersion | null,
+  overrides: Record<SlotId, ClipOverrides>
+): SlotState[] {
+  const slots: SlotState[] = [];
+  for (const track of tracks) {
+    const slotId = slotIdForTrack(track, voiceVersion, musicVersion, sfxVersion);
+    if (!slotId) continue; // Tracks without slot ids can't be resolved; skipped.
+    const sourceDuration = track.duration ?? 0;
+    const trim = overrides[slotId]?.trim;
+    slots.push({
+      slotId,
+      type: track.type,
+      sourceDuration,
+      trim,
+    });
+  }
+  return slots;
+}
+
+/**
+ * Map resolver output back to the track-id-keyed `calculatedTracks` shape the
+ * MixerPanel consumes today. Orphan slots (resolver returned nothing) are
+ * silently dropped — they're already warned upstream via `resolved.warnings`.
+ */
+function mapResolvedToCalculatedTracks(
+  resolved: ResolvedTimeline,
+  tracks: MixerTrack[],
+  voiceVersion: VoiceVersion | null,
+  musicVersion: MusicVersion | null,
+  sfxVersion: SfxVersion | null
+): MixerState["calculatedTracks"] {
+  const bySlot = new Map(resolved.tracks.map((t) => [t.slotId, t]));
+  const out: MixerState["calculatedTracks"] = [];
+  for (const track of tracks) {
+    const slotId = slotIdForTrack(track, voiceVersion, musicVersion, sfxVersion);
+    if (!slotId) continue;
+    const r = bySlot.get(slotId);
+    if (!r) continue;
+    out.push({
+      id: track.id,
+      startTime: r.startTime,
+      duration: r.duration,
+      type: track.type,
+    });
+  }
+  return out;
+}
+
+/**
+ * Persist resolver output on a frozen mixer version so future reads can
+ * skip the resolve step. Runs out-of-band of the derive path; a failure
+ * is a warning, not an error — next read will just re-resolve.
+ */
+async function writeResolverCache(
+  adId: string,
+  mixerVersionId: VersionId,
+  resolved: ResolvedTimeline,
+  tracks: MixerTrack[]
+): Promise<void> {
+  // Re-load the version to avoid trampling concurrent mutations (e.g. a
+  // freeze endpoint writing cachedResolverOutput itself). Only write if
+  // the cache is still empty.
+  const current = (await getVersion(adId, "mixer", mixerVersionId)) as MixerVersion | null;
+  if (!current || current.status !== "frozen" || current.cachedResolverOutput) return;
+
+  const cache: CachedResolverOutput = {
+    calculatedTracks: resolved.tracks
+      .map((r) => {
+        const track = tracks.find((t) => slotMatchesResolvedTrack(t, r.slotId));
+        if (!track) return null;
+        return {
+          id: track.id,
+          startTime: r.startTime,
+          duration: r.duration,
+          type: track.type,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => !!x),
+    totalDuration: resolved.totalDuration,
+    calculatedAt: Date.now(),
+  };
+  await updateVersion(adId, "mixer", mixerVersionId, {
+    cachedResolverOutput: cache,
+  } as Partial<MixerVersion>);
+}
+
+function slotMatchesResolvedTrack(track: MixerTrack, slotId: SlotId): boolean {
+  // Used only inside writeResolverCache, where we already know the pinned
+  // versions are active. Fast string prefix check suffices because ids carry
+  // the stream marker and the cache is track-id keyed.
+  return (
+    (track.type === "voice" && track.id.startsWith("voice-")) ||
+    (track.type === "music" && track.id.startsWith("music-")) ||
+    (track.type === "soundfx" && track.id.startsWith("sfx-"))
+  ) && !!slotId;
+}
+
+/**
+ * Decide whether a cached resolver output is still usable. We only check
+ * cardinality + track-id set equality — if the pinned versions moved or a
+ * slot was added/removed, the cache is stale and we recompute.
+ */
+function cachedOutputMatches(
+  cache: CachedResolverOutput,
+  tracks: MixerTrack[]
+): boolean {
+  if (cache.calculatedTracks.length !== tracks.length) return false;
+  const ids = new Set(tracks.map((t) => t.id));
+  return cache.calculatedTracks.every((ct) => ids.has(ct.id));
+}
+
+/**
+ * Reconstruct a `ResolvedTimeline` from the cached flat shape so the rest
+ * of the derive path can be uniform. `warnings` and `voiceActiveIntervals`
+ * are left empty because the cache is the post-resolution view.
+ */
+function projectCachedOutputThroughTracks(
+  cache: CachedResolverOutput,
+  tracks: MixerTrack[],
+  voiceVersion: VoiceVersion | null,
+  musicVersion: MusicVersion | null,
+  sfxVersion: SfxVersion | null
+): ResolvedTimeline {
+  const bySlot: ResolvedTimeline["tracks"] = [];
+  for (const ct of cache.calculatedTracks) {
+    const track = tracks.find((t) => t.id === ct.id);
+    if (!track) continue;
+    const slotId = slotIdForTrack(track, voiceVersion, musicVersion, sfxVersion);
+    if (!slotId) continue;
+    bySlot.push({
+      slotId,
+      type: ct.type,
+      startTime: ct.startTime,
+      duration: ct.duration,
+      resolvedFrom: null,
+    });
+  }
+  return {
+    tracks: bySlot,
+    totalDuration: cache.totalDuration,
+    warnings: [],
+    voiceActiveIntervals: bySlot
+      .filter((t) => t.type === "voice")
+      .map((t) => ({ start: t.startTime, end: t.startTime + t.duration }))
+      .sort((a, b) => a.start - b.start),
+  };
 }
 
 /**
