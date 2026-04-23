@@ -117,6 +117,10 @@ type TimelineTrackProps = {
    * the opt/alt modifier (force an absolute anchor vs proximity-derived).
    */
   onDrop?: (trackId: string, dropSeconds: number, forceAbsolute: boolean) => void;
+  /** This track is the outbound anchor target of the currently-hovered track. */
+  isHoverTarget?: boolean;
+  /** This track is anchored to the currently-hovered track (inbound dependent). */
+  isHoverDependent?: boolean;
 };
 
 export function TimelineTrack({
@@ -137,6 +141,8 @@ export function TimelineTrack({
   onChangeSoundFx,
   onRemove,
   onDrop,
+  isHoverTarget = false,
+  isHoverDependent = false,
 }: TimelineTrackProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -155,6 +161,8 @@ export function TimelineTrack({
   const dragPreview = useMixerStore((s) =>
     s.dragPreview?.trackId === track.id ? s.dragPreview : null
   );
+  const setHoveredTrackId = useMixerStore((s) => s.setHoveredTrackId);
+  const anyDragInProgress = useMixerStore((s) => s.dragPreview !== null);
   const DRAG_THRESHOLD_PX = 4;
 
   // Close menu when clicking outside
@@ -402,6 +410,14 @@ export function TimelineTrack({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
+          onMouseEnter={() => {
+            if (anyDragInProgress) return;
+            setHoveredTrackId(track.id);
+          }}
+          onMouseLeave={() => {
+            if (anyDragInProgress) return;
+            setHoveredTrackId(null);
+          }}
           className={`absolute h-full rounded-full backdrop-blur-sm ${
             track.type === "voice"
               ? "bg-white/15 border border-white/20"
@@ -410,6 +426,17 @@ export function TimelineTrack({
               : "bg-red-500/20 border border-red-500/25"
           } ${isMenuOpen ? "z-50" : "z-0"} ${
             dragPreview ? "cursor-grabbing opacity-80" : "cursor-grab"
+          } ${
+            // Anchor-relationship highlighting. Cyan = the dragged hover track
+            // is anchored TO this one (outbound); Amber = this track is
+            // anchored to the hover target (inbound dependent). The two rings
+            // are mutually exclusive in practice — a slot can only reference
+            // one other, and the hovered slot can only have one target.
+            isHoverTarget
+              ? "ring-2 ring-cyan-400/70 ring-offset-1 ring-offset-black/40"
+              : isHoverDependent
+              ? "ring-2 ring-amber-400/60 ring-offset-1 ring-offset-black/40"
+              : ""
           }`}
           style={{
             left: `${left}%`,

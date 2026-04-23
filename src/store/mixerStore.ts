@@ -96,6 +96,13 @@ type MixerStoreState = {
   /** Drag preview state — null when no drag is in progress. */
   dragPreview: DragPreview | null;
 
+  /**
+   * Hovered track id — drives anchor-relationship highlighting in the
+   * timeline (cyan ring on the hovered track's anchor target, amber ring
+   * on tracks that reference the hovered one). Ephemeral, UI-only.
+   */
+  hoveredTrackId: string | null;
+
   // Server-state hydration (called by MixerPanel from SWR)
   hydrateFromMixer: (state: RedisMixerState) => void;
 
@@ -117,6 +124,9 @@ type MixerStoreState = {
 
   // Drag lifecycle
   setDragPreview: (preview: DragPreview | null) => void;
+
+  // Hover lifecycle (anchor-relationship highlighting)
+  setHoveredTrackId: (id: string | null) => void;
 };
 
 export const useMixerStore = create<MixerStoreState>((set, get) => ({
@@ -133,6 +143,7 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
   previewUrl: null,
   uploadError: null,
   dragPreview: null,
+  hoveredTrackId: null,
 
   hydrateFromMixer: (state) => {
     const incomingTracks = (state.tracks ?? []) as MixerTrack[];
@@ -256,4 +267,5 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
   setIsPreviewValid: (isValid) => set({ isPreviewValid: isValid }),
   setUploadError: (error) => set({ uploadError: error }),
   setDragPreview: (dragPreview) => set({ dragPreview }),
+  setHoveredTrackId: (hoveredTrackId) => set({ hoveredTrackId }),
 }));

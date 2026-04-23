@@ -41,6 +41,12 @@ export function MixerPanel({
   // Fetch mixer state from Redis via SWR (source of truth)
   const { data: mixerSWR, patchAnchors } = useMixerData(adId);
 
+  // Anchor-relationship hover highlighting. The hovered track and the two
+  // derived slot ids (its ref target and the set of dependents that point at
+  // it) are computed once and passed down as per-track flags — avoids each
+  // TimelineTrack subscribing to the hover store with its own selector.
+  const hoveredTrackId = useMixerStore((s) => s.hoveredTrackId);
+
   // Get data and actions from store
   const {
     tracks,
@@ -160,6 +166,19 @@ export function MixerPanel({
 
   // Track references map for audio elements
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement | null }>({});
+
+  // Derive hover-role slot ids once per render. `hoveredRefSlotId` is the
+  // anchor target of whatever track is currently hovered (outbound). Inbound
+  // dependents are computed per-track below via `anchorRefSlotId ===
+  // hoveredSlotId`.
+  const hoveredTrack = tracks.find((t) => t.id === hoveredTrackId);
+  const hoveredSlotId = hoveredTrack?.slotId;
+  const hoveredRefSlotId = hoveredTrack?.anchorRefSlotId;
+  const hoverRoleFor = (trackSlotId?: string, anchorRef?: string) => ({
+    isHoverTarget: !!hoveredRefSlotId && trackSlotId === hoveredRefSlotId,
+    isHoverDependent:
+      !!hoveredSlotId && !!anchorRef && anchorRef === hoveredSlotId,
+  });
 
   // Separate tracks by type for easier rendering
   const voiceTracks = tracks.filter((track) => track.type === "voice");
@@ -1181,6 +1200,7 @@ export function MixerPanel({
                     isTrackLoading={isTrackLoading(track)}
                     onChangeVoice={onChangeVoice}
                     onDrop={handleTrackDrop}
+                    {...hoverRoleFor(track.slotId, track.anchorRefSlotId)}
                   />
                 ))}
 
@@ -1209,6 +1229,7 @@ export function MixerPanel({
                     onChangeMusic={onChangeMusic}
                     onRemove={onRemoveTrack}
                     onDrop={handleTrackDrop}
+                    {...hoverRoleFor(track.slotId, track.anchorRefSlotId)}
                   />
                 ))}
 
@@ -1238,6 +1259,7 @@ export function MixerPanel({
                     onAudioError={() => handleAudioError(track.id, track.label)}
                     isTrackLoading={isTrackLoading(track)}
                     onDrop={handleTrackDrop}
+                    {...hoverRoleFor(track.slotId, track.anchorRefSlotId)}
                   />
                 ))}
             </div>
