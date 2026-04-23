@@ -612,7 +612,7 @@ function mapResolvedToCalculatedTracks(
 /**
  * Persist resolver output on a frozen mixer version so future reads can
  * skip the resolve step. Runs out-of-band of the derive path; a failure
- * is a warning, not an error — next read will just re-resolve.
+ * is a warning, not an error. The next read will just re-resolve.
  */
 async function writeResolverCache(
   adId: string,
@@ -620,16 +620,23 @@ async function writeResolverCache(
   resolved: ResolvedTimeline,
   tracks: MixerTrack[]
 ): Promise<void> {
-  // Re-load the version to avoid trampling concurrent mutations (e.g. a
-  // freeze endpoint writing cachedResolverOutput itself). Only write if
-  // the cache is still empty.
   const current = (await getVersion(adId, "mixer", mixerVersionId)) as MixerVersion | null;
   if (!current || current.status !== "frozen" || current.cachedResolverOutput) return;
+
+  // Build a slot-id → track map so each resolved slot lands on its
+  // correct track id. An earlier revision of this code had a buggy
+  // `slotMatchesResolvedTrack` helper that just checked stream type
+  // and always returned the first track of that type, collapsing all
+  // voice/music/sfx slots onto a single id in the cache.
+  const trackBySlot = new Map<SlotId, MixerTrack>();
+  for (const t of tracks) {
+    if (t.slotId) trackBySlot.set(t.slotId, t);
+  }
 
   const cache: CachedResolverOutput = {
     calculatedTracks: resolved.tracks
       .map((r) => {
-        const track = tracks.find((t) => slotMatchesResolvedTrack(t, r.slotId));
+        const track = trackBySlot.get(r.slotId);
         if (!track) return null;
         return {
           id: track.id,
@@ -647,29 +654,23 @@ async function writeResolverCache(
   } as Partial<MixerVersion>);
 }
 
-function slotMatchesResolvedTrack(track: MixerTrack, slotId: SlotId): boolean {
-  // Used only inside writeResolverCache, where we already know the pinned
-  // versions are active. Fast string prefix check suffices because ids carry
-  // the stream marker and the cache is track-id keyed.
-  return (
-    (track.type === "voice" && track.id.startsWith("voice-")) ||
-    (track.type === "music" && track.id.startsWith("music-")) ||
-    (track.type === "soundfx" && track.id.startsWith("sfx-"))
-  ) && !!slotId;
-}
-
 /**
- * Decide whether a cached resolver output is still usable. We only check
- * cardinality + track-id set equality — if the pinned versions moved or a
- * slot was added/removed, the cache is stale and we recompute.
+ * Decide whether a cached resolver output is still usable. Strict
+ * multiset match on track ids — length equal, sorted id sequences
+ * equal. Catches the earlier cache-collapse bug where all entries
+ * shared one id (Set.has() would have silently accepted duplicates).
  */
 function cachedOutputMatches(
   cache: CachedResolverOutput,
   tracks: MixerTrack[]
 ): boolean {
   if (cache.calculatedTracks.length !== tracks.length) return false;
-  const ids = new Set(tracks.map((t) => t.id));
-  return cache.calculatedTracks.every((ct) => ids.has(ct.id));
+  const trackIds = tracks.map((t) => t.id).sort();
+  const cacheIds = cache.calculatedTracks.map((ct) => ct.id).sort();
+  for (let i = 0; i < trackIds.length; i++) {
+    if (trackIds[i] !== cacheIds[i]) return false;
+  }
+  return true;
 }
 
 /**

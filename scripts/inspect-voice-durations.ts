@@ -121,6 +121,36 @@ async function main() {
       console.log(`  overrides: ${JSON.stringify(mixer.overrides, null, 2)}`);
     }
   }
+
+  // All mixer versions — id, status, pins, voice track count
+  console.log();
+  console.log("=== All mixer versions ===");
+  const mixerList = (await redis.lrange(`ad:${adId}:mixer:versions`, 0, -1)) as string[];
+  for (const mid of mixerList) {
+    const raw = await redis.get(`ad:${adId}:mixer:v:${mid}`);
+    const m = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const voiceVer = m.pins?.voices;
+    let voiceTrackCount = "—";
+    if (voiceVer) {
+      const vraw = await redis.get(`ad:${adId}:voices:v:${voiceVer}`);
+      const v = typeof vraw === "string" ? JSON.parse(vraw) : vraw;
+      voiceTrackCount = String(v?.voiceTracks?.length ?? "?");
+    }
+    const cache = m.cachedResolverOutput;
+    const cacheInfo = cache
+      ? `cacheTracks=${cache.calculatedTracks?.length ?? "?"} cacheDuration=${cache.totalDuration ?? "?"}`
+      : "nocache";
+    console.log(
+      `  ${mid} [${m.status}] pins=(voices:${m.pins?.voices ?? "—"}, music:${m.pins?.music ?? "—"}, sfx:${m.pins?.sfx ?? "—"}) voiceTracks=${voiceTrackCount} anchors=${Object.keys(m.anchors ?? {}).length} ${cacheInfo} label=${m.label ?? "—"} createdAt=${new Date(m.createdAt).toISOString()}`
+    );
+    if (cache?.calculatedTracks) {
+      for (const ct of cache.calculatedTracks) {
+        console.log(
+          `    cached: ${ct.id} type=${ct.type} start=${ct.startTime} dur=${ct.duration}`
+        );
+      }
+    }
+  }
 }
 
 main().catch((err) => {
