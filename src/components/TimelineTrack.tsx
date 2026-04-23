@@ -505,6 +505,7 @@ export function TimelineTrack({
         {/* The actual colored ribbon - positioned within the track container */}
         <div
           ref={ribbonRef}
+          data-track-ribbon="true"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}

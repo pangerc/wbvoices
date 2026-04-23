@@ -167,6 +167,38 @@ export function MixerPanel({
    */
   const displayDuration = Math.max(totalDuration, formatDuration ?? 0, 1);
 
+  /**
+   * Click-to-seek on the timeline. Clicks inside a track ribbon fall through
+   * to the ribbon's own pointer handlers (play/pause or drag); clicks on the
+   * empty timeline area — time markers, gaps between ribbons, format-horizon
+   * zone — map the pointer x to seconds and seek the playback audio.
+   *
+   * If no audio is loaded yet (preview hasn't been generated), the playhead
+   * still jumps visually; when the user next hits Play, the mix is generated
+   * and `audio.currentTime` is pre-set from the current playback position
+   * (handled in handlePreview/handlePlayPause).
+   */
+  const handleTimelineClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if ((e.target as Element).closest("[data-track-ribbon]")) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      if (rect.width <= 0 || displayDuration <= 0) return;
+      const x = e.clientX - rect.left;
+      const seconds = Math.max(
+        0,
+        Math.min(displayDuration, (x / rect.width) * displayDuration)
+      );
+      const percent = (seconds / displayDuration) * 100;
+
+      const audio = playbackAudioRef.current;
+      if (audio && audio.duration && !isNaN(audio.duration)) {
+        audio.currentTime = Math.min(audio.duration, seconds);
+      }
+      setPlaybackPosition(percent);
+    },
+    [displayDuration]
+  );
+
   // Hydrate Zustand store from SWR data (Redis is source of truth).
   // Server already calculated positions in rebuildMixer; client never recalculates.
   useEffect(() => {
@@ -1176,7 +1208,8 @@ export function MixerPanel({
           </div>
           <div
             ref={timelineRef}
-            className="relative bg-white/3 backdrop-blur-sm border border-white/10 rounded-2xl overflow-visible timeline"
+            onClick={handleTimelineClick}
+            className="relative bg-white/3 backdrop-blur-sm border border-white/10 rounded-2xl overflow-visible timeline cursor-pointer"
           >
             {/* Format-horizon layer — red shading past the brief duration,
                 plus a dashed rule at the horizon itself. Wrapped in a rounded
