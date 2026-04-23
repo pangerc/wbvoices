@@ -179,6 +179,7 @@ export function TimelineTrack({
 }: TimelineTrackProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
 
   // Drag state. `ribbonRef` is the ribbon DOM node so we can measure the
   // timeline container width at drag-start without threading a ref down.
@@ -219,7 +220,13 @@ export function TimelineTrack({
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      // Consider both the dropdown container and the external trigger as
+      // "inside" — the trigger now lives outside the ribbon at the row
+      // level, so its clicks mustn't auto-close the menu they just opened.
+      const target = event.target as Node;
+      const insideDropdown = menuRef.current?.contains(target);
+      const insideTrigger = menuTriggerRef.current?.contains(target);
+      if (!insideDropdown && !insideTrigger) {
         setIsMenuOpen(false);
       }
     };
@@ -498,7 +505,7 @@ export function TimelineTrack({
   };
 
   return (
-    <div className="relative h-6 mb-2 flex items-center">
+    <div className="relative h-6 mb-2 flex items-center group">
       {!isTrackLoading && !audioError && (
         <audio
           src={track.url}
@@ -531,6 +538,14 @@ export function TimelineTrack({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
+          onContextMenu={(e) => {
+            // Right-click opens the per-clip action menu — matches DAW
+            // convention (Pro Tools, Logic, Ableton, Reaper all use this).
+            // preventDefault suppresses the browser's native context menu.
+            e.preventDefault();
+            e.stopPropagation();
+            setIsMenuOpen(true);
+          }}
           onMouseEnter={() => {
             if (anyDragInProgress) return;
             setHoveredTrackId(track.id);
@@ -588,10 +603,11 @@ export function TimelineTrack({
             ></div>
           )}
 
-          {/* Waveform envelope. Symmetric around the ribbon's vertical
-              center, scaled to fit via preserveAspectRatio="none". Sits
-              behind the title text — lower opacity on voice (dark text
-              on light ribbon needs more contrast) than music/sfx. */}
+          {/* Waveform envelope. Ambient texture/rhythm — intentionally low
+              opacity so the label stays foreground-legible while the envelope
+              provides spatial orientation at a glance across many clips
+              simultaneously (the parallel-scanning the audio-ads-creative-
+              expert review called load-bearing). */}
           {waveformPath && (
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none"
@@ -601,7 +617,11 @@ export function TimelineTrack({
             >
               <path
                 d={waveformPath}
-                fill={track.type === "voice" ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.35)"}
+                fill={
+                  track.type === "voice"
+                    ? "rgba(0,0,0,0.12)"
+                    : "rgba(255,255,255,0.15)"
+                }
               />
             </svg>
           )}
@@ -642,32 +662,32 @@ export function TimelineTrack({
             </div>
           </div>
 
-          {/* Tail-trim handle — thin vertical bar at the inner side of the
-              menu area. Clicking+dragging horizontally resizes the clip's
-              right edge, writing overrides.trim.end. Visible only on hover
-              of the ribbon (opacity 0 otherwise) so it doesn't clutter. */}
+          {/* Tail-trim handle — owns the rightmost edge of the ribbon now.
+              Per DAW convention, the clip edge is reserved exclusively for
+              the resize affordance. Hover-reveals a subtle indicator bar
+              inside the grab zone. The whole 8px strip is the hit target. */}
           {onTrim && (
             <div
               ref={trimHandleRef}
-              className={`absolute right-6 top-1 bottom-1 w-[3px] rounded-sm bg-white/50 hover:bg-white/80 cursor-ew-resize z-[2] transition-opacity ${
-                isHovered || trimPreview ? "opacity-100" : "opacity-0"
-              }`}
+              className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize z-[2]"
               aria-label="Trim tail"
-            />
+            >
+              <div
+                className={`absolute right-1 top-1 bottom-1 w-[2px] rounded-sm bg-white/60 transition-opacity ${
+                  isHovered || trimPreview ? "opacity-100" : "opacity-0"
+                }`}
+              />
+            </div>
           )}
 
-          {/* Handle with menu */}
+          {/* Menu container. The three-dots button itself is rendered OUTSIDE
+              the ribbon (see below) — this container just holds the
+              dropdown, positioned at the ribbon's right edge so the popover
+              visually extends from where the trigger was clicked. */}
           <div className="absolute right-1 top-0 h-full w-4 flex items-center" ref={menuRef}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsMenuOpen(!isMenuOpen);
-              }}
-              className="cursor-pointer hover:opacity-70 transition-opacity"
-              title="Track actions"
-            >
-              <EllipsisVerticalIcon className="h-3 w-3 text-black" />
-            </button>
+            {/* The three-dots trigger is now rendered OUTSIDE the ribbon
+                (at the row level) so the ribbon's right edge is clear for
+                trim. See the external button below. */}
 
             {/* Dropdown menu */}
             {isMenuOpen && (
@@ -763,6 +783,27 @@ export function TimelineTrack({
             )}
           </div>
         </div>
+
+        {/* External three-dots trigger — sits just past the ribbon's right
+            edge and fades in on row hover. Keeps the ribbon edge clear for
+            the trim affordance (per DAW convention) while still giving
+            non-power-users a discoverable way to access the per-clip menu.
+            Power users use right-click on the ribbon itself. */}
+        <button
+          ref={menuTriggerRef}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsMenuOpen((v) => !v);
+          }}
+          className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/25 border border-white/20 transition-opacity ${
+            isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+          style={{ left: `calc(${left + width}% + 6px)` }}
+          aria-label="Track actions"
+          title="Track actions (or right-click the clip)"
+        >
+          <EllipsisVerticalIcon className="h-3 w-3 text-white" />
+        </button>
       </div>
 
       {/* Integrated volume slider - visible only when volume mode is active */}
