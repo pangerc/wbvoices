@@ -6,6 +6,7 @@ import {
   integer,
   index,
   primaryKey,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -79,6 +80,26 @@ export const voiceDescriptions = pgTable(
   })
 );
 
+/**
+ * Suggested tones of voice — admin-managed presets surfaced in the brief selector.
+ * Seeds the voice-delivery instructions that flow into the creative LLM prompt.
+ */
+export const suggestedTones = pgTable(
+  "suggested_tones",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    voiceInstructions: text("voice_instructions").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    isActiveIdx: index("suggested_tones_is_active_idx").on(table.isActive),
+  })
+);
+
 // ============ Auth.js (NextAuth v5) adapter tables ============
 
 /**
@@ -136,3 +157,5 @@ export type VoiceDescription = typeof voiceDescriptions.$inferSelect;
 export type InsertVoiceMetadata = typeof voiceMetadata.$inferInsert;
 export type InsertVoiceBlacklist = typeof voiceBlacklist.$inferInsert;
 export type InsertVoiceDescription = typeof voiceDescriptions.$inferInsert;
+export type SuggestedTone = typeof suggestedTones.$inferSelect;
+export type InsertSuggestedTone = typeof suggestedTones.$inferInsert;

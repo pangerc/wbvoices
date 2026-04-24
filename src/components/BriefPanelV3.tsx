@@ -57,53 +57,57 @@ const TONE_EMPTY_OPTION: ToneOption = {
   description: "Let the system decide based on the brief and target audience.",
 };
 
-const TONE_OPTIONS: ToneOption[] = [
+// Sentinel option so users can ignore presets and write instructions freehand.
+const CUSTOM_TONE_OPTION: ToneOption = {
+  value: "custom",
+  title: "Custom…",
+  description:
+    "Describe the tone yourself in the Voice Instructions field below.",
+};
+
+// Fallback used before the API responds or if it errors. Also covers legacy
+// briefs that saved the slug-style tone value (e.g. "professional").
+const FALLBACK_TONE_OPTIONS: ToneOption[] = [
   {
-    value: "professional",
+    value: "Professional",
     title: "Professional",
     description:
       "Polished, measured, and trustworthy — for brands that want to sound like experts.",
   },
   {
-    value: "energetic",
+    value: "Energetic",
     title: "Energetic",
     description:
       "High-octane and enthusiastic — perfect for time-sensitive offers and exciting launches.",
   },
   {
-    value: "warm",
+    value: "Warm",
     title: "Warm",
     description:
       "Soft, inviting, and sincere — like a friendly recommendation from someone you trust.",
   },
   {
-    value: "authoritative",
+    value: "Authoritative",
     title: "Authoritative",
     description:
       "Confident, deep, and commanding — for brands that speak from a position of expertise.",
   },
   {
-    value: "sarcastic",
+    value: "Sarcastic",
     title: "Sarcastic",
     description:
       "Dry and tongue-in-cheek — for irreverent brands that aren’t afraid to wink at their audience.",
-  },
-  {
-    value: "custom",
-    title: "Custom…",
-    description:
-      "Describe the tone yourself in the Voice Instructions field below.",
   },
 ];
 
 // Per-preset voice delivery instruction templates. Seed the editable textarea
 // when the user picks a preset; user can then edit freely. "custom" clears it.
-const TONE_INSTRUCTIONS: Record<string, string> = {
-  professional: "Deliver with a polished, measured cadence. Keep the timbre authoritative yet warm. Crisp consonants and confident pacing — every word sounds intentional. Avoid vocal fry and filler tones.",
-  energetic: "Bring high energy and enthusiasm. Brisk pacing with upward inflections. Use vocal brightness and a smile-in-voice to signal urgency and excitement. Punch key phrases to drive momentum.",
-  warm: "Soft, inviting timbre. Slightly slower pace with relaxed breathing and gentle phrasing. Convey sincerity and closeness — as if speaking to a friend. Let key emotional beats breathe.",
-  authoritative: "Deep, confident delivery. Steady pace and minimal pitch variance. Emphasise key claims with sustained pitch and crisp diction. Project expertise and certainty throughout.",
-  sarcastic: "Dry, slightly exaggerated inflection. Subtle pauses before punchlines. Pitch irony through vocal raise on key words. Keep the wink obvious to the listener but never broad.",
+const FALLBACK_TONE_INSTRUCTIONS: Record<string, string> = {
+  Professional: "Deliver with a polished, measured cadence. Keep the timbre authoritative yet warm. Crisp consonants and confident pacing — every word sounds intentional. Avoid vocal fry and filler tones.",
+  Energetic: "Bring high energy and enthusiasm. Brisk pacing with upward inflections. Use vocal brightness and a smile-in-voice to signal urgency and excitement. Punch key phrases to drive momentum.",
+  Warm: "Soft, inviting timbre. Slightly slower pace with relaxed breathing and gentle phrasing. Convey sincerity and closeness — as if speaking to a friend. Let key emotional beats breathe.",
+  Authoritative: "Deep, confident delivery. Steady pace and minimal pitch variance. Emphasise key claims with sustained pitch and crisp diction. Project expertise and certainty throughout.",
+  Sarcastic: "Dry, slightly exaggerated inflection. Subtle pauses before punchlines. Pitch irony through vocal raise on key words. Keep the wink obvious to the listener but never broad.",
 };
 
 const DURATION_TICK_MARKS = [
@@ -188,6 +192,13 @@ export function BriefPanelV3({
   // Tracks the last template string we auto-applied, so we can detect whether the user has edited it.
   const lastAppliedTemplateRef = useRef<string>(initialBrief?.voiceInstructions || "");
 
+  // Admin-managed tone presets (loaded from /api/tone-of-voice). Falls back to the
+  // built-in list if the fetch fails so the brief panel keeps working.
+  const [dbToneOptions, setDbToneOptions] = useState<ToneOption[]>(FALLBACK_TONE_OPTIONS);
+  const [dbToneInstructions, setDbToneInstructions] = useState<Record<string, string>>(
+    FALLBACK_TONE_INSTRUCTIONS
+  );
+
   // Voice selection state (local - replaces voiceManager)
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(initialBrief?.selectedLanguage || "en");
   const [selectedRegion, setSelectedRegion] = useState<string | null>(initialBrief?.selectedRegion || null);
@@ -244,6 +255,42 @@ export function BriefPanelV3({
       // NOTE: Don't restore selectedProvider from initialBrief - let it auto-select based on language availability
     }
   }, [initialBrief]);
+
+  // Load admin-managed tones from the public endpoint. Active-only, sorted newest first.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/tone-of-voice", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          tones: Array<{ id: string; title: string; description: string; voiceInstructions: string }>;
+        };
+        if (cancelled || !Array.isArray(data.tones) || data.tones.length === 0) return;
+        setDbToneOptions(
+          data.tones.map((t) => ({
+            value: t.title,
+            title: t.title,
+            description: t.description,
+          }))
+        );
+        setDbToneInstructions(
+          Object.fromEntries(data.tones.map((t) => [t.title, t.voiceInstructions]))
+        );
+      } catch {
+        // Silent — fallback presets are already in state.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Full tone list shown in the ToneSelector = admin presets + the custom sentinel.
+  const toneOptions = useMemo<ToneOption[]>(
+    () => [...dbToneOptions, CUSTOM_TONE_OPTION],
+    [dbToneOptions]
+  );
 
   // Debounced save to Redis
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -354,8 +401,8 @@ export function BriefPanelV3({
   // "custom" and "none" clear the last-template tracker so any future preset pick seeds again.
   const handleToneChange = useCallback((value: string | null) => {
     setSelectedTone(value);
-    if (value && value !== "custom" && TONE_INSTRUCTIONS[value]) {
-      const template = TONE_INSTRUCTIONS[value];
+    if (value && value !== "custom" && dbToneInstructions[value]) {
+      const template = dbToneInstructions[value];
       const untouched = voiceInstructions === "" || voiceInstructions === lastAppliedTemplateRef.current;
       if (untouched) {
         setVoiceInstructions(template);
@@ -365,20 +412,20 @@ export function BriefPanelV3({
       // "custom" or null — stop tracking a template so further preset picks can seed again
       lastAppliedTemplateRef.current = "";
     }
-  }, [voiceInstructions]);
+  }, [voiceInstructions, dbToneInstructions]);
 
   // Restore Voice Instructions to the current preset's template (or empty for none/custom)
   // and re-enable future preset-driven seeding.
   const handleResetVoiceInstructions = useCallback(() => {
-    if (selectedTone && selectedTone !== "custom" && TONE_INSTRUCTIONS[selectedTone]) {
-      const template = TONE_INSTRUCTIONS[selectedTone];
+    if (selectedTone && selectedTone !== "custom" && dbToneInstructions[selectedTone]) {
+      const template = dbToneInstructions[selectedTone];
       setVoiceInstructions(template);
       lastAppliedTemplateRef.current = template;
     } else {
       setVoiceInstructions("");
       lastAppliedTemplateRef.current = "";
     }
-  }, [selectedTone]);
+  }, [selectedTone, dbToneInstructions]);
 
   // Reset accent when region changes and selected accent is no longer available
   useEffect(() => {
@@ -941,7 +988,7 @@ export function BriefPanelV3({
           <ToneSelector
             value={selectedTone}
             onChange={handleToneChange}
-            options={TONE_OPTIONS}
+            options={toneOptions}
             emptyOption={TONE_EMPTY_OPTION}
             disabled={isLoading}
           />
