@@ -6,6 +6,7 @@ import { useState } from "react";
 import { PencilIcon, PlusIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { GlassyInput } from "@/components/ui/GlassyInput";
 import { GlassyTextarea } from "@/components/ui/GlassyTextarea";
+import { Switch } from "@/components/ui/Switch";
 
 export type ToneFormInitial = {
   id?: string;
@@ -116,7 +117,11 @@ export function ToneOfVoiceForm({ initial }: { initial?: ToneFormInitial }) {
             >
               {isActive ? "Active" : "Inactive"}
             </span>
-            <Toggle checked={isActive} onChange={setIsActive} />
+            <Switch
+              checked={isActive}
+              onChange={setIsActive}
+              aria-label="Tone is active"
+            />
           </div>
           <p className="text-xs text-gray-400 mt-1">
             Make this tone active/inactive in the brief selector.
@@ -195,32 +200,6 @@ export function ToneOfVoiceForm({ initial }: { initial?: ToneFormInitial }) {
         </button>
       </div>
     </div>
-  );
-}
-
-function Toggle({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
-        checked ? "bg-wb-blue" : "bg-white/20"
-      }`}
-    >
-      <span
-        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
-          checked ? "translate-x-5" : "translate-x-0"
-        }`}
-      />
-    </button>
   );
 }
 

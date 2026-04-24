@@ -15,6 +15,7 @@ export * from "./SplitGenerateButton";
 export * from "./PlayButton";
 export * from "./AccordionPlayButton";
 export * from "./VolumeToggleButton";
+export * from "./Switch";
 export * from "./GlassTabBar";
 export * from "./GlassTab";
 export * from "./FileUpload";
