@@ -360,17 +360,34 @@ export function TimelineTrack({
     }
   };
 
-  // Handle play/pause toggle
+  // Handle play/pause toggle. Honours trim: on play we seek to trim.start,
+  // and a timeupdate listener pauses at trim.end so the user doesn't hear
+  // audio past the visual clip end. No-op if no trim override is set.
   const handlePlayPause = () => {
     const audio = document.querySelector(
       `audio[data-track-id="${track.id}"]`
-    ) as HTMLAudioElement;
-    if (audio) {
-      if (audio.paused) {
-        audio.play();
-      } else {
-        audio.pause();
+    ) as HTMLAudioElement | null;
+    if (!audio) return;
+    if (audio.paused) {
+      const trimStart = track.trim?.start ?? 0;
+      const trimEnd = track.trim?.end;
+      if (trimStart > 0 && !isNaN(audio.duration)) {
+        audio.currentTime = Math.min(audio.duration, trimStart);
       }
+      if (trimEnd !== undefined) {
+        // One-shot: attach a listener that pauses at trim.end, then cleans
+        // up. Reattached on each play so stale listeners don't accumulate.
+        const stopAtTrimEnd = () => {
+          if (audio.currentTime >= trimEnd) {
+            audio.pause();
+            audio.removeEventListener("timeupdate", stopAtTrimEnd);
+          }
+        };
+        audio.addEventListener("timeupdate", stopAtTrimEnd);
+      }
+      audio.play();
+    } else {
+      audio.pause();
     }
   };
 

@@ -628,23 +628,15 @@ export function MixerPanel({
         const silenced =
           mutedTrackIds.has(track.id) ||
           (anyTrackSoloed && !soloedTrackIds.has(track.id));
-        const timing = {
+        const timing: TrackTiming = {
           id: track.id,
           url: track.url,
           type: track.type,
           startTime: track.actualStartTime,
           duration: track.actualDuration,
           gain: silenced ? 0 : baseGain,
+          trim: track.trim,
         };
-
-        // Use visualized duration for music to match timeline
-        if (track.type === "music" && track.metadata?.originalDuration) {
-          timing.duration = track.actualDuration;
-          console.log(
-            `Using visualized music duration for mixing: ${timing.duration}s (original was ${track.metadata.originalDuration}s)`
-          );
-        }
-
         return timing;
       });
 
@@ -796,32 +788,22 @@ export function MixerPanel({
         const silenced =
           mutedTrackIds.has(track.id) ||
           (anyTrackSoloed && !soloedTrackIds.has(track.id));
-        const timing = {
+        const timing: TrackTiming = {
           id: track.id,
           url: track.url,
           type: track.type,
           startTime: track.actualStartTime,
           duration: track.actualDuration,
           gain: silenced ? 0 : baseGain,
+          trim: track.trim,
         };
-
-        // IMPORTANT: Use the visualized duration for music to match the timeline
-        // We used to use originalDuration here, but that creates an inconsistency
-        // between what's shown and what's heard
-        if (track.type === "music" && track.metadata?.originalDuration) {
-          // Only add a small fade-out buffer if needed
-          const playbackDuration = track.actualDuration;
-          timing.duration = playbackDuration;
-          console.log(
-            `Using visualized music duration for mixing: ${timing.duration}s (original was ${track.metadata.originalDuration}s)`
-          );
-        }
 
         // Debug timing info
         console.log(`Track timing for ${track.label} (${track.type}):`, {
           startTime: timing.startTime,
           duration: timing.duration,
           gain: timing.gain,
+          trim: timing.trim,
         });
 
         return timing;

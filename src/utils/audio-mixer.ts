@@ -12,8 +12,15 @@ export type TrackTiming = {
   type: "voice" | "music" | "soundfx";
   url: string;
   startTime: number;
+  /** Effective duration (post-trim) — when the clip plays. */
   duration: number;
   gain?: number;
+  /**
+   * Trim window into the source blob. When present, the clip plays only
+   * `[trim.start, trim.end]` of the source at its scheduled timeline
+   * position. Matches the resolver's effective-duration semantics.
+   */
+  trim?: { start: number; end: number };
 };
 
 export async function createMix(
@@ -73,10 +80,20 @@ export async function createMix(
   // Calculate the longest duration needed and final track timing
   let maxEndTime = 0;
 
-  // Create a map of actual track timings based on provided timing info or default sequential
+  // Create a map of actual track timings based on provided timing info or default sequential.
+  // `sourceOffset` + `playDuration` feed into `source.start(when, offset, duration)` so the
+  // underlying blob plays only the trim window. Without them the full blob plays even when
+  // the resolver's effective duration is shorter — the bug that made trims visible but not audible.
   const trackTimings = new Map<
     string,
-    { start: number; end: number; gain: number; type: string }
+    {
+      start: number;
+      end: number;
+      gain: number;
+      type: string;
+      sourceOffset: number;
+      playDuration: number;
+    }
   >();
 
   // If timing info is provided, use it
@@ -93,22 +110,33 @@ export async function createMix(
       }
 
       const audioBuffer = audioBuffersMap.get(info.url)!;
-      const duration = Math.min(
-        audioBuffer.duration,
+      // Trim window: clamp into the buffer's actual bounds so a stale trim
+      // that extends past a re-generated (shorter) blob doesn't throw.
+      const sourceOffset = info.trim
+        ? Math.max(0, Math.min(audioBuffer.duration, info.trim.start))
+        : 0;
+      const trimmedLen = info.trim
+        ? Math.max(0, info.trim.end - info.trim.start)
+        : audioBuffer.duration;
+      const playDuration = Math.min(
+        audioBuffer.duration - sourceOffset,
+        trimmedLen,
         info.duration || audioBuffer.duration
       );
-      const endTime = info.startTime + duration;
+      const endTime = info.startTime + playDuration;
 
       trackTimings.set(info.url, {
         start: info.startTime,
         end: endTime,
         gain: info.gain || getDefaultGainForType(info.type),
         type: info.type,
+        sourceOffset,
+        playDuration,
       });
 
       maxEndTime = Math.max(maxEndTime, endTime);
       console.log(
-        `Scheduled ${info.type} at ${info.startTime}s, duration: ${duration}s, end: ${endTime}s`
+        `Scheduled ${info.type} at ${info.startTime}s, offset: ${sourceOffset}s, duration: ${playDuration}s, end: ${endTime}s`
       );
     });
   } else {
@@ -124,6 +152,8 @@ export async function createMix(
         end: audioBuffer.duration,
         gain: getDefaultGainForType("music"),
         type: "music",
+        sourceOffset: 0,
+        playDuration: audioBuffer.duration,
       });
       maxEndTime = Math.max(maxEndTime, audioBuffer.duration);
     }
@@ -138,6 +168,8 @@ export async function createMix(
         end: audioBuffer.duration,
         gain: getDefaultGainForType("soundfx"),
         type: "soundfx",
+        sourceOffset: 0,
+        playDuration: audioBuffer.duration,
       });
 
       // Sound effects at start shift voice tracks forward
@@ -155,6 +187,8 @@ export async function createMix(
         end: currentTime + audioBuffer.duration,
         gain: getDefaultGainForType("voice"),
         type: "voice",
+        sourceOffset: 0,
+        playDuration: audioBuffer.duration,
       });
 
       maxEndTime = Math.max(maxEndTime, currentTime + audioBuffer.duration);
@@ -224,9 +258,15 @@ export async function createMix(
     source.connect(gainNode);
     gainNode.connect(offlineCtx.destination);
 
-    source.start(timing.start);
+    // start(when, offset, duration) honours the clip's trim window — the
+    // source plays only the [trim.start, trim.end] slice of the blob at its
+    // scheduled timeline position. `duration` is the second argument that
+    // was missing before; without it, the full buffer played past timing.end
+    // (inaudible thanks to the gain-to-zero ramp, but still affected
+    // maxEndTime bookkeeping and the rendered wav length).
+    source.start(timing.start, timing.sourceOffset, timing.playDuration);
     console.log(
-      `Started ${timing.type} at ${timing.start}s with gain ${timing.gain}`
+      `Started ${timing.type} at ${timing.start}s offset=${timing.sourceOffset}s dur=${timing.playDuration}s gain=${timing.gain}`
     );
   }
 
