@@ -139,6 +139,8 @@ export type ProjectBrief = {
   musicProvider?: MusicProvider; // Optional for backwards compatibility
   selectedCTA?: string | null; // Optional for backwards compatibility
   selectedPacing?: Pacing | null; // Optional for backwards compatibility
+  selectedTone?: string | null; // Preset tone id (e.g. "professional") or "custom"
+  voiceInstructions?: string | null; // Voice delivery instructions — template-seeded from tone preset, user-editable
 };
 
 export type ProjectMetadata = {

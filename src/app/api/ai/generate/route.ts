@@ -25,6 +25,15 @@ import { ensureAdExists } from "@/lib/redis/ensureAd";
 import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
 import type { ProjectBrief } from "@/types";
 
+// Labels for tone presets (mirrors TONE_OPTIONS in BriefPanelV3). "custom" passes through customTone text.
+const TONE_PRESET_LABELS: Record<string, string> = {
+  professional: "Professional",
+  energetic: "Energetic",
+  warm: "Warm",
+  authoritative: "Authoritative",
+  sarcastic: "Sarcastic",
+};
+
 /**
  * Extract brand name from client description for fallback ad title.
  * LLM should set title via set_ad_title tool, but this is a safety net.
@@ -62,6 +71,8 @@ function buildUserMessage(params: {
   accent?: string;
   cta?: string;
   pacing?: string;
+  tone?: string;
+  voiceInstructions?: string;
   adId: string;
   voiceProvider: string;
 }): string {
@@ -75,6 +86,8 @@ function buildUserMessage(params: {
     accent,
     cta,
     pacing,
+    tone,
+    voiceInstructions,
     adId,
     voiceProvider,
   } = params;
@@ -99,6 +112,16 @@ function buildUserMessage(params: {
     ctaNote = `\n- Call to Action: ${cta}`;
   }
 
+  let toneNote = "";
+  if (tone) {
+    toneNote = `\n- Tone of Voice: ${tone}`;
+  }
+
+  let voiceInstructionsNote = "";
+  if (voiceInstructions) {
+    voiceInstructionsNote = `\n- Voice Instructions: ${voiceInstructions}`;
+  }
+
   // Calculate word count targets based on duration (~2.5 words/sec)
   const totalWords = Math.round(duration * 2.5);
   const wordsPerSpeaker = campaignFormat === "dialog" ? Math.round(totalWords / 2) : totalWords;
@@ -110,7 +133,7 @@ function buildUserMessage(params: {
 - Language: ${languageName}
 - Voice Provider: ${voiceProvider} (REQUIRED - only search for voices from this provider)
 - Client: ${clientDescription}
-- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}
+- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}${toneNote}${voiceInstructionsNote}
 
 ## DURATION CONSTRAINT (CRITICAL)
 - STRICT LIMIT: Script MUST fit within ${duration} seconds when read at natural pace
@@ -136,8 +159,21 @@ export async function POST(req: NextRequest) {
       accent,
       cta,
       pacing,
+      tone: rawTone,
+      voiceInstructions: rawVoiceInstructions,
       selectedProvider: rawSelectedProvider,
     } = body;
+
+    const tonePreset: string | null = rawTone || null;
+    const voiceInstructionsText: string | null =
+      typeof rawVoiceInstructions === "string" && rawVoiceInstructions.trim()
+        ? rawVoiceInstructions.trim()
+        : null;
+    // Short tone label for the LLM ("Professional" / "Energetic" / …); skipped for "custom" and "none"
+    const resolvedTone: string | undefined =
+      tonePreset && tonePreset !== "custom"
+        ? TONE_PRESET_LABELS[tonePreset] || tonePreset
+        : undefined;
 
     // Voice provider - default to elevenlabs if not specified
     const voiceProvider = rawSelectedProvider || "elevenlabs";
@@ -191,6 +227,8 @@ export async function POST(req: NextRequest) {
       accent,
       cta,
       pacing,
+      tone: resolvedTone,
+      voiceInstructions: voiceInstructionsText || undefined,
       adId,
       voiceProvider,
     });
@@ -221,6 +259,8 @@ export async function POST(req: NextRequest) {
       selectedAccent: accent || null,
       selectedPacing: pacing || null,
       selectedCTA: cta || null,
+      selectedTone: tonePreset,
+      voiceInstructions: voiceInstructionsText,
       selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
     };
 
