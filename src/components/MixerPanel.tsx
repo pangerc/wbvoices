@@ -10,6 +10,7 @@ import {
 import { ResetButton } from "@/components/ui/ResetButton";
 import { VolumeToggleButton } from "@/components/ui/VolumeToggleButton";
 import { PlayButton } from "@/components/ui/PlayButton";
+import { LoudnessMeter } from "@/components/LoudnessMeter";
 import { useParams } from "next/navigation";
 import { uploadMixedAudioToBlob } from "@/utils/blob-storage";
 
@@ -1413,11 +1414,17 @@ export function MixerPanel({
               )}
             </div>
 
-            <PlayButton
-              isPlaying={isPlaying}
-              onClick={handlePlayPause}
-              disabled={isExporting || tracks.length === 0}
-            />
+            <div className="flex items-center gap-3">
+              <LoudnessMeter
+                audioRef={playbackAudioRef}
+                isPlaying={isPlaying}
+              />
+              <PlayButton
+                isPlaying={isPlaying}
+                onClick={handlePlayPause}
+                disabled={isExporting || tracks.length === 0}
+              />
+            </div>
           </div>
           <div
             ref={timelineRef}
