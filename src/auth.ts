@@ -35,15 +35,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Resend({
       from: process.env.AUTH_RESEND_FROM || "onboarding@resend.dev",
       async sendVerificationRequest({ identifier: email, url, provider }) {
-        // Dev fallback: print the magic link to stdout so local sign-in works
-        // even when AUTH_RESEND_KEY is invalid or the from-domain isn't verified.
-        // Added for DEV purposes because AUTH_RESEND_KEY became invalid
-        if (process.env.NODE_ENV !== "production") {
-          const banner = "═".repeat(70);
-          console.log(
-            `\n${banner}\n🔐 DEV SIGN-IN LINK for ${email}\n${url}\n${banner}\n`
-          );
-        }
         const { Resend: ResendClient } = await import("resend");
         const resend = new ResendClient(process.env.AUTH_RESEND_KEY);
         await resend.emails.send({
