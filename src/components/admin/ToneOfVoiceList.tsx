@@ -14,19 +14,26 @@ export function ToneOfVoiceList() {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const loadTones = async () => {
-    try {
-      const res = await fetch("/api/admin/tone-of-voice", { cache: "no-store" });
-      if (!res.ok) throw new Error(await readError(res));
-      const data = (await res.json()) as { tones: ApiTone[] };
-      setTones(data.tones);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load tones");
-    }
-  };
-
   useEffect(() => {
-    loadTones();
+    const abortController = new AbortController();
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/tone-of-voice", {
+          cache: "no-store",
+          signal: abortController.signal,
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const data = (await res.json()) as { tones: ApiTone[] };
+        if (abortController.signal.aborted) return;
+        setTones(data.tones);
+      } catch (err) {
+        if (abortController.signal.aborted) return;
+        setError(err instanceof Error ? err.message : "Failed to load tones");
+      }
+    })();
+    return () => {
+      abortController.abort();
+    };
   }, []);
 
   const handleDelete = async (id: string, title: string) => {

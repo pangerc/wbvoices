@@ -19,13 +19,16 @@ export default function EditTonePage({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    const abortController = new AbortController();
     (async () => {
       try {
-        const res = await fetch(`/api/admin/tone-of-voice/${id}`, { cache: "no-store" });
+        const res = await fetch(`/api/admin/tone-of-voice/${id}`, {
+          cache: "no-store",
+          signal: abortController.signal,
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if (cancelled) return;
+        if (abortController.signal.aborted) return;
         setInitial({
           id: data.tone.id,
           title: data.tone.title,
@@ -34,13 +37,13 @@ export default function EditTonePage({
           isActive: data.tone.isActive,
         });
       } catch (err) {
-        if (!cancelled) {
+        if (!abortController.signal.aborted) {
           setError(err instanceof Error ? err.message : "Failed to load tone");
         }
       }
     })();
     return () => {
-      cancelled = true;
+      abortController.abort();
     };
   }, [id]);
 

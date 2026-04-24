@@ -258,15 +258,18 @@ export function BriefPanelV3({
 
   // Load admin-managed tones from the public endpoint. Active-only, sorted newest first.
   useEffect(() => {
-    let cancelled = false;
+    const abortController = new AbortController();
     (async () => {
       try {
-        const res = await fetch("/api/tone-of-voice", { cache: "no-store" });
+        const res = await fetch("/api/tone-of-voice", {
+          cache: "no-store",
+          signal: abortController.signal,
+        });
         if (!res.ok) return;
         const data = (await res.json()) as {
           tones: Array<{ id: string; title: string; description: string; voiceInstructions: string }>;
         };
-        if (cancelled || !Array.isArray(data.tones) || data.tones.length === 0) return;
+        if (abortController.signal.aborted || !Array.isArray(data.tones) || data.tones.length === 0) return;
         setDbToneOptions(
           data.tones.map((t) => ({
             value: t.title,
@@ -282,7 +285,7 @@ export function BriefPanelV3({
       }
     })();
     return () => {
-      cancelled = true;
+      abortController.abort();
     };
   }, []);
 
