@@ -209,6 +209,26 @@ export function MixerPanel({
   );
 
   /**
+   * Reset a track's anchor back to its stream-level seed. Sends a null
+   * value to patchAnchors, which the server interprets as "re-derive from
+   * the pinned stream version via anchorFromX translators" and writes
+   * with origin=llm-seed.
+   */
+  const handleResetPosition = useCallback(
+    async (trackId: string) => {
+      const track = tracks.find((t) => t.id === trackId);
+      const slotId = track?.slotId;
+      if (!slotId) {
+        console.warn(`[mixer-reset] track ${trackId} has no slotId; skipping`);
+        return;
+      }
+      const updated = await patchAnchors({ [slotId]: null });
+      if (updated) hydrateFromMixer(updated);
+    },
+    [tracks, patchAnchors, hydrateFromMixer]
+  );
+
+  /**
    * The timeline's visible extent, hoisted early so `startPlaybackAnimation`
    * can use it as the denominator for the playhead position. Using
    * `audio.duration` (which matches totalDuration) would cause the playhead
@@ -218,28 +238,28 @@ export function MixerPanel({
   const displayDuration = Math.max(totalDuration, formatDuration ?? 0, 1);
 
   /**
-   * Click-to-seek on the timeline. Clicks inside a track ribbon fall through
-   * to the ribbon's own pointer handlers (play/pause or drag); clicks on the
-   * empty timeline area — time markers, gaps between ribbons, format-horizon
-   * zone — map the pointer x to seconds and seek the playback audio.
+   * Pointer-based seek + scrub on the timeline. Pointerdown outside any
+   * track ribbon starts a scrub session: captures the pointer, seeks to
+   * the initial position, then continues seeking on every pointermove
+   * until release. Clicks inside a ribbon fall through to the ribbon's
+   * own pointer handlers (play/pause, drag to reposition, edge-drag to
+   * trim).
    *
-   * If no audio is loaded yet (preview hasn't been generated), the playhead
-   * still jumps visually; when the user next hits Play, the mix is generated
-   * and `audio.currentTime` is pre-set from the current playback position
-   * (handled in handlePreview/handlePlayPause).
+   * If no audio is loaded yet (preview hasn't been generated), the
+   * playhead still moves visually; next Play picks up from that position
+   * via audio.currentTime.
    */
-  const handleTimelineClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if ((e.target as Element).closest("[data-track-ribbon]")) return;
-      const rect = e.currentTarget.getBoundingClientRect();
+  const scrubSessionRef = useRef<{ pointerId: number } | null>(null);
+
+  const seekToPointerX = useCallback(
+    (clientX: number, rect: DOMRect) => {
       if (rect.width <= 0 || displayDuration <= 0) return;
-      const x = e.clientX - rect.left;
+      const x = clientX - rect.left;
       const seconds = Math.max(
         0,
         Math.min(displayDuration, (x / rect.width) * displayDuration)
       );
       const percent = (seconds / displayDuration) * 100;
-
       const audio = playbackAudioRef.current;
       if (audio && audio.duration && !isNaN(audio.duration)) {
         audio.currentTime = Math.min(audio.duration, seconds);
@@ -247,6 +267,40 @@ export function MixerPanel({
       setPlaybackPosition(percent);
     },
     [displayDuration]
+  );
+
+  const handleTimelinePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      if ((e.target as Element).closest("[data-track-ribbon]")) return;
+      scrubSessionRef.current = { pointerId: e.pointerId };
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      seekToPointerX(e.clientX, e.currentTarget.getBoundingClientRect());
+    },
+    [seekToPointerX]
+  );
+
+  const handleTimelinePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const session = scrubSessionRef.current;
+      if (!session || session.pointerId !== e.pointerId) return;
+      seekToPointerX(e.clientX, e.currentTarget.getBoundingClientRect());
+    },
+    [seekToPointerX]
+  );
+
+  const handleTimelinePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const session = scrubSessionRef.current;
+      if (!session || session.pointerId !== e.pointerId) return;
+      scrubSessionRef.current = null;
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {
+        // pointer already released — ignore
+      }
+    },
+    []
   );
 
   // Hydrate Zustand store from SWR data (Redis is source of truth).
@@ -1385,8 +1439,11 @@ export function MixerPanel({
           </div>
           <div
             ref={timelineRef}
-            onClick={handleTimelineClick}
-            className="relative bg-white/3 backdrop-blur-sm border border-white/10 rounded-2xl overflow-visible timeline cursor-pointer"
+            onPointerDown={handleTimelinePointerDown}
+            onPointerMove={handleTimelinePointerMove}
+            onPointerUp={handleTimelinePointerUp}
+            onPointerCancel={handleTimelinePointerUp}
+            className="relative bg-white/3 backdrop-blur-sm border border-white/10 rounded-2xl overflow-visible timeline cursor-pointer touch-none"
           >
             {/* Format-horizon layer — red shading past the brief duration,
                 plus a dashed rule at the horizon itself. Wrapped in a rounded
@@ -1486,6 +1543,7 @@ export function MixerPanel({
                     onChangeVoice={onChangeVoice}
                     onDrop={handleTrackDrop}
                     onTrim={handleTrackTrim}
+                    onResetPosition={handleResetPosition}
                     onToggleMute={toggleMute}
                     onToggleSolo={toggleSolo}
                     isMuted={mutedTrackIds.has(track.id)}
@@ -1523,6 +1581,7 @@ export function MixerPanel({
                     onRemove={onRemoveTrack}
                     onDrop={handleTrackDrop}
                     onTrim={handleTrackTrim}
+                    onResetPosition={handleResetPosition}
                     onToggleMute={toggleMute}
                     onToggleSolo={toggleSolo}
                     isMuted={mutedTrackIds.has(track.id)}
@@ -1561,6 +1620,7 @@ export function MixerPanel({
                     isTrackLoading={isTrackLoading(track)}
                     onDrop={handleTrackDrop}
                     onTrim={handleTrackTrim}
+                    onResetPosition={handleResetPosition}
                     onToggleMute={toggleMute}
                     onToggleSolo={toggleSolo}
                     isMuted={mutedTrackIds.has(track.id)}

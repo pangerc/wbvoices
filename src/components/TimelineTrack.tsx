@@ -128,10 +128,15 @@ type TimelineTrackProps = {
   /**
    * Called when a tail-trim (right-edge) drag completes. `newTrim` is the
    * post-drag trim window clamped to [0, sourceDuration]. Null signals
-   * "clear trim" — not used by the edge-drag path today but supported so
-   * the data-flow contract matches the eventual reset-to-seed action.
+   * "clear trim" — used by the reset-to-seed menu action too.
    */
   onTrim?: (trackId: string, newTrim: { start: number; end: number } | null) => void;
+  /**
+   * Reset this track's anchor back to its stream-level seed (the original
+   * LLM-authored placement). The menu only surfaces this when the current
+   * anchor is a user-edit, so there's something to undo.
+   */
+  onResetPosition?: (trackId: string) => void;
   /** This track is the currently-hovered one (the "inspected" clip). */
   isHovered?: boolean;
   /** This track is the outbound anchor target of the currently-hovered track. */
@@ -168,6 +173,7 @@ export function TimelineTrack({
   onRemove,
   onDrop,
   onTrim,
+  onResetPosition,
   isHoverTarget = false,
   isHoverDependent = false,
   isHovered = false,
@@ -218,22 +224,38 @@ export function TimelineTrack({
   // Crop to the committed trim window (if any) so the waveform stays
   // time-aligned with the audible content — trimming tail shows only the
   // surviving waveform portion, not a compressed full envelope.
+  //
+  // During an active trim drag, `trimPreview.deltaSeconds` is folded into
+  // `trimEnd` so the cropped window updates live with the cursor. Post-
+  // release, the preview clears and committed `track.trim` takes over.
   const visiblePeaks = useMemo(() => {
     if (peaks.length === 0) return peaks;
     const source = track.duration ?? 0;
     const trimStart = track.trim?.start ?? 0;
-    const trimEnd = track.trim?.end ?? source;
-    if (source <= 0 || (trimStart === 0 && trimEnd >= source)) return peaks;
+    const committedEnd = track.trim?.end ?? source;
+    const pendingEnd = trimPreview
+      ? Math.max(
+          trimStart + 0.1,
+          Math.min(source, committedEnd + trimPreview.deltaSeconds)
+        )
+      : committedEnd;
+    if (source <= 0 || (trimStart === 0 && pendingEnd >= source)) return peaks;
     const startIdx = Math.max(
       0,
       Math.floor((trimStart / source) * peaks.length)
     );
     const endIdx = Math.min(
       peaks.length,
-      Math.ceil((trimEnd / source) * peaks.length)
+      Math.ceil((pendingEnd / source) * peaks.length)
     );
     return endIdx > startIdx ? peaks.slice(startIdx, endIdx) : peaks;
-  }, [peaks, track.duration, track.trim?.start, track.trim?.end]);
+  }, [
+    peaks,
+    track.duration,
+    track.trim?.start,
+    track.trim?.end,
+    trimPreview,
+  ]);
   const waveformPath = useMemo(
     () => buildWaveformPath(visiblePeaks),
     [visiblePeaks]
@@ -418,6 +440,7 @@ export function TimelineTrack({
         trackId: track.id,
         edge: "end",
         deltaPx: clampedDelta,
+        deltaSeconds: clampedDelta / session.pxPerSecond,
       });
       return;
     }
@@ -793,6 +816,34 @@ export function TimelineTrack({
                 className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
               >
                 Change effect
+              </button>
+            )}
+            {/* Reset actions — only surfaced when there's something to undo
+                (a user-edit anchor or a trim override). Both are non-
+                destructive on the stream side: they just drop the mixer-
+                version override and fall back to the LLM-authored seed. */}
+            {onResetPosition && track.slotId && track.anchorOrigin === "user-edit" && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onResetPosition(track.id);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors border-t border-white/10"
+              >
+                Reset position
+              </button>
+            )}
+            {onTrim && track.slotId && track.trim && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onTrim(track.id, null);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors border-t border-white/10"
+              >
+                Reset trim
               </button>
             )}
             {onRemove && (track.type === "music" || track.type === "soundfx") && (

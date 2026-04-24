@@ -96,6 +96,12 @@ export type TrimPreview = {
   edge: "end";
   /** Pixel delta from the edge's starting position. Negative = shrinking. */
   deltaPx: number;
+  /**
+   * Same delta expressed in seconds. Lets the waveform-crop logic in
+   * TimelineTrack compute a live pending trim window at render time
+   * without having to re-measure ribbon pixels against source duration.
+   */
+  deltaSeconds: number;
 };
 
 type MixerStoreState = {
