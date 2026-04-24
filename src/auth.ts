@@ -11,8 +11,10 @@ const ALLOWED_DOMAINS = [
   "@partners.alephdigital.com",
   "@alephholding.com",
   "@byselva.com",
+  "@alephdigital.com",
   "@partners.alephholding.com",
   "@partners.byselva.com",
+  "@partners.alephdigital.com",
 ];
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
