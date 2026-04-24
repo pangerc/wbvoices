@@ -7,8 +7,6 @@ import { users, accounts, verificationTokens } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 const ALLOWED_DOMAINS = [
-  "@alephdigital.com",
-  "@partners.alephdigital.com",
   "@alephholding.com",
   "@byselva.com",
   "@alephdigital.com",

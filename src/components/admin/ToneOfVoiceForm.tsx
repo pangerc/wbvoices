@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PencilIcon, PlusIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { GlassyInput } from "@/components/ui/GlassyInput";
 import { GlassyTextarea } from "@/components/ui/GlassyTextarea";
 
@@ -91,7 +92,11 @@ export function ToneOfVoiceForm({ initial }: { initial?: ToneFormInitial }) {
       <div className="flex items-start justify-between mb-8">
         <div>
           <div className="flex items-center gap-3">
-            {isEdit ? <PencilIcon /> : <PlusIcon />}
+            {isEdit ? (
+              <PencilIcon className="w-5 h-5 text-white" />
+            ) : (
+              <PlusIcon className="w-5 h-5 text-white" />
+            )}
             <h1 className="text-3xl font-bold">
               {isEdit ? "Edit Tone of Voice" : "New Tone of Voice"}
             </h1>
@@ -159,7 +164,7 @@ export function ToneOfVoiceForm({ initial }: { initial?: ToneFormInitial }) {
         disabled={isGenerating}
         className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm text-white disabled:opacity-50"
       >
-        <SparkleIcon />
+        <SparklesIcon className="w-4 h-4" />
         {isGenerating ? "Generating…" : "Generate instructions with AI"}
       </button>
 
@@ -228,36 +233,3 @@ async function readError(res: Response): Promise<string> {
   }
 }
 
-function PencilIcon() {
-  return (
-    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-      />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-    </svg>
-  );
-}
-
-function SparkleIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M5 3v4M3 5h4M19 13v4m-2-2h4M11 3l2.5 6.5L20 12l-6.5 2.5L11 21l-2.5-6.5L2 12l6.5-2.5L11 3z"
-      />
-    </svg>
-  );
-}
