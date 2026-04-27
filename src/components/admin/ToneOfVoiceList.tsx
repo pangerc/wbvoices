@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PencilIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { SuggestedTone } from "@/lib/db/schema";
 
 type ApiTone = Omit<SuggestedTone, "createdAt" | "updatedAt"> & {
@@ -14,6 +15,7 @@ export function ToneOfVoiceList() {
   const [tones, setTones] = useState<ApiTone[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ApiTone | null>(null);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -37,15 +39,18 @@ export function ToneOfVoiceList() {
     };
   }, []);
 
-  const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Delete tone "${title}"? This cannot be undone.`)) return;
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    const { id } = pendingDelete;
     setDeletingId(id);
     try {
       const res = await fetch(`/api/admin/tone-of-voice/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(await readError(res));
       setTones((prev) => (prev ? prev.filter((t) => t.id !== id) : prev));
+      setPendingDelete(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete tone");
+      setError(err instanceof Error ? err.message : "Failed to delete tone");
+      setPendingDelete(null);
     } finally {
       setDeletingId(null);
     }
@@ -121,7 +126,7 @@ export function ToneOfVoiceList() {
                     </Link>
                     <button
                       type="button"
-                      onClick={() => handleDelete(tone.id, tone.title)}
+                      onClick={() => setPendingDelete(tone)}
                       disabled={deletingId === tone.id}
                       className="p-2 rounded hover:bg-white/10 text-gray-400 hover:text-red-400 disabled:opacity-50"
                       aria-label={`Delete ${tone.title}`}
@@ -143,6 +148,22 @@ export function ToneOfVoiceList() {
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        isOpen={!!pendingDelete}
+        title="Delete tone of voice"
+        message={
+          <>
+            Delete <span className="font-semibold text-white">&ldquo;{pendingDelete?.title}&rdquo;</span>?
+            This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete"
+        variant="danger"
+        isConfirming={!!deletingId}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
