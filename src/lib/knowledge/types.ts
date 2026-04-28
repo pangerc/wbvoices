@@ -28,9 +28,7 @@ export interface KnowledgeContext {
 
   // Stage-3 brief expansion fields. All optional. Threaded from
   // ProjectBrief through buildUserMessage into per-provider modules so
-  // they can adapt guidance (e.g. ElevenLabs leans harder on emotional
-  // tags when toneOfVoice includes "playful").
-  toneOfVoice?: string[];
+  // they can adapt guidance.
   brandVoice?: string;
   hasProvidedScript?: boolean;
 }

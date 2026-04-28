@@ -25,7 +25,6 @@ import type {
   BrandRef,
   Language,
   ProjectBrief,
-  ToneOfVoiceTag,
 } from "@/types";
 
 export const runtime = "nodejs";
@@ -41,7 +40,6 @@ const MAX_LIMIT = 50;
  * (clientDescription, creativeBrief, creativeAngle, etc.).
  */
 export interface InheritableBriefDefaults {
-  toneOfVoice?: ToneOfVoiceTag[];
   brandVoice?: string | null;
   selectedLanguage?: Language;
   selectedRegion?: string | null;
@@ -97,9 +95,6 @@ function deriveBrandName(brief: ProjectBrief | undefined): string | null {
 
 function pickInheritable(brief: ProjectBrief): InheritableBriefDefaults {
   const out: InheritableBriefDefaults = {};
-  if (Array.isArray(brief.toneOfVoice) && brief.toneOfVoice.length) {
-    out.toneOfVoice = brief.toneOfVoice;
-  }
   if (typeof brief.brandVoice === "string" && brief.brandVoice.trim()) {
     out.brandVoice = brief.brandVoice;
   }

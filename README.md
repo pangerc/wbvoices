@@ -1,36 +1,131 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Aleph Creative Audio
 
-## Getting Started
+## Local Development
 
-First, run the development server:
+### 1. Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- [Node.js](https://nodejs.org/) 20+
+- [pnpm](https://pnpm.io/) — `npm install -g pnpm`
+- [Docker](https://www.docker.com/) — for local PostgreSQL + Redis
+
+### 2. Install dependencies
+
+```sh
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Set up environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy the team `.env` file into the project root (ask the team for the file, or see the Environment Variables section below for all required keys).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Start local infrastructure (Docker)
 
-## Learn More
+```sh
+docker compose up -d
+```
 
-To learn more about Next.js, take a look at the following resources:
+This starts:
+- **PostgreSQL** on `localhost:5432` (`postgres/postgres`)
+- **Redis** on `localhost:6379`
+- **Serverless Redis HTTP** on `localhost:8079` — emulates the Upstash REST API locally
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+> If you want to use the **production** Upstash + Neon instances instead (recommended for testing with real data), skip this step — the `.env` file already points to production by default.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 5. Run database migrations
 
-## Deploy on Vercel
+```sh
+pnpm drizzle-kit migrate
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+> Only needed on first setup or after pulling new migration files.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 6. Start the dev server
+
+```sh
+pnpm dev
+```
+
+App runs at **http://localhost:3003**
+
+Sign in with your `@partners.alephholding.com` email — a magic link will be sent via Resend.
+
+---
+
+### Local Docker overrides (optional)
+
+If you want to develop fully offline against local Docker services, override these variables in your `.env`:
+
+```sh
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+V3_KV_REST_API_URL=http://localhost:8079
+V3_KV_REST_API_TOKEN=example_token
+```
+
+## Environment Variables
+
+### Authentication
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ADMIN_EMAILS` | Yes | Comma-separated list of email addresses granted admin access |
+| `GUEST_EMAILS` | Yes | Comma-separated list of email addresses granted guest access |
+| `AUTH_RESEND_KEY` | Yes | API key for [Resend](https://resend.com) — used to send magic-link sign-in emails |
+| `AUTH_RESEND_FROM` | No | Sender address for sign-in emails. Defaults to `onboarding@resend.dev` |
+| `GOOGLE_CLIENT_ID` | No | Google OAuth client ID. When set (with secret), enables Google sign-in button |
+| `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret |
+| `NEXT_PUBLIC_HAS_GOOGLE_PROVIDER` | No | Set to `true` to show the Google sign-in button in the UI (should match whether the OAuth keys are set) |
+
+### Database & Storage
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string used by Drizzle ORM (migrations and runtime queries) |
+| `KV_REST_API_URL` | Yes | Upstash Redis REST URL — stores production project/ad data |
+| `KV_REST_API_TOKEN` | Yes | Auth token for the production Upstash Redis instance |
+| `V3_KV_REST_API_URL` | Yes | Upstash Redis REST URL for the v3 version-streams namespace (isolated from production) |
+| `V3_KV_REST_API_TOKEN` | Yes | Auth token for the v3 Redis instance |
+| `BLOB_READ_WRITE_TOKEN` | Yes | Vercel Blob token — enables client-side direct audio uploads (bypasses 4.5 MB serverless limit) |
+
+### LLM / Orchestration
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OPENAI_API_KEY` | Yes | OpenAI API key — primary LLM orchestrator for script generation, headline creation, chat, and voice synthesis fallback |
+| `NEXT_PUBLIC_OPENAI_API_KEY` | No | Client-side OpenAI key (optional fallback for browser-side voice synthesis) |
+
+### Voice Providers
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ELEVENLABS_API_KEY` | Yes | ElevenLabs API key for voice synthesis, sound effects, and music generation |
+| `NEXT_PUBLIC_ELEVENLABS_API_KEY` | No | Client-side ElevenLabs key (optional fallback for browser-side SFX calls) |
+| `QWEN_BEIJING_API_KEY` | No | Alibaba Qwen TTS key (Beijing region) — required for Chinese-language voices |
+| `LOVO_API_KEY` | No | Lovo voice synthesis API key |
+| `LAHAJATI_SECRET_KEY` | No | Lahajati Arabic TTS API key — required for Arabic dialect voices |
+| `BYTEDANCE_APP_KEY` | No | ByteDance TTS 2.0 key — required for ByteDance multi-language voices |
+
+### Music Generation
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `LOUDLY_API_KEY` | No | Loudly API key for royalty-free background music generation |
+| `MUBERT_COMPANY_ID` | No | Mubert company identifier — required for Mubert music generation |
+| `MUBERT_LICENSE_TOKEN` | No | Mubert license token (paired with `MUBERT_COMPANY_ID`) |
+
+### Regional Configuration & Proxy
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ALEPHREGION` | No | Deployment region: `apac`, `americas`, or `europe`. Controls default language and available providers. Defaults to `americas` |
+| `AMERICAS_API_URL` | No | Base URL of the regional OpenAI proxy. Defaults to `https://wb-voices.vercel.app` |
+| `PROXY_API_KEY` | No | API key for the regional proxy service (used with `AMERICAS_API_URL`) |
+
+### Deployment
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VERCEL_URL` | Auto | Set automatically by Vercel. Used to build the base URL for internal server-to-server API calls |
+| `PORT` | No | Local dev server port. Defaults to `3003` |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | No | Secret for bypassing Vercel Deployment Protection on internal API calls. Only needed if protection is enabled |
+| `NEXT_PUBLIC_BASE_URL` | No | Base URL used by scripts (e.g. `scripts/create-test-ad.ts`). Defaults to `http://localhost:3003` |
+| `NODE_ENV` | Auto | Standard Node.js environment (`development`, `production`, `test`). Used in Redis error logging |

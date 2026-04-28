@@ -6,7 +6,6 @@ import {
   Provider,
   Pacing,
   ProjectBrief,
-  ToneOfVoiceTag,
 } from "@/types";
 import { getFlagCode } from "@/utils/language";
 import { useBriefOptions, useLanguageOptions } from "@/hooks/useBriefOptions";
@@ -18,8 +17,17 @@ import {
   ProviderSelectionModal,
   TurtleIcon,
   RabbitIcon,
+  ToneSelector,
 } from "./ui";
-import { ArrowTopRightOnSquareIcon, MicrophoneIcon, ChevronDownIcon, MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import type { ToneOption } from "./ui/ToneSelector";
+import {
+  ArrowTopRightOnSquareIcon,
+  MicrophoneIcon,
+  ChevronDownIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+  ArrowPathIcon,
+} from "@heroicons/react/24/outline";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 
 // Constants extracted from JSX for better readability
@@ -48,6 +56,66 @@ const CTA_OPTIONS = [
   { value: "watch-now", label: "Watch now" },
 ];
 
+// Each preset = short title + one-line description, shown in the tone card and the dropdown.
+const TONE_EMPTY_OPTION: ToneOption = {
+  value: "none",
+  title: "No specific tone",
+  description: "Let the system decide based on the brief and target audience.",
+};
+
+// Sentinel option so users can ignore presets and write instructions freehand.
+const CUSTOM_TONE_OPTION: ToneOption = {
+  value: "custom",
+  title: "Custom…",
+  description:
+    "Describe the tone yourself in the Voice Instructions field below.",
+};
+
+// Fallback used before the API responds or if it errors. Also covers legacy
+// briefs that saved the slug-style tone value (e.g. "professional").
+const FALLBACK_TONE_OPTIONS: ToneOption[] = [
+  {
+    value: "Professional",
+    title: "Professional",
+    description:
+      "Polished, measured, and trustworthy — for brands that want to sound like experts.",
+  },
+  {
+    value: "Energetic",
+    title: "Energetic",
+    description:
+      "High-octane and enthusiastic — perfect for time-sensitive offers and exciting launches.",
+  },
+  {
+    value: "Warm",
+    title: "Warm",
+    description:
+      "Soft, inviting, and sincere — like a friendly recommendation from someone you trust.",
+  },
+  {
+    value: "Authoritative",
+    title: "Authoritative",
+    description:
+      "Confident, deep, and commanding — for brands that speak from a position of expertise.",
+  },
+  {
+    value: "Sarcastic",
+    title: "Sarcastic",
+    description:
+      "Dry and tongue-in-cheek — for irreverent brands that aren’t afraid to wink at their audience.",
+  },
+];
+
+// Per-preset voice delivery instruction templates. Seed the editable textarea
+// when the user picks a preset; user can then edit freely. "custom" clears it.
+const FALLBACK_TONE_INSTRUCTIONS: Record<string, string> = {
+  Professional: "Deliver with a polished, measured cadence. Keep the timbre authoritative yet warm. Crisp consonants and confident pacing — every word sounds intentional. Avoid vocal fry and filler tones.",
+  Energetic: "Bring high energy and enthusiasm. Brisk pacing with upward inflections. Use vocal brightness and a smile-in-voice to signal urgency and excitement. Punch key phrases to drive momentum.",
+  Warm: "Soft, inviting timbre. Slightly slower pace with relaxed breathing and gentle phrasing. Convey sincerity and closeness — as if speaking to a friend. Let key emotional beats breathe.",
+  Authoritative: "Deep, confident delivery. Steady pace and minimal pitch variance. Emphasise key claims with sustained pitch and crisp diction. Project expertise and certainty throughout.",
+  Sarcastic: "Dry, slightly exaggerated inflection. Subtle pauses before punchlines. Pitch irony through vocal raise on key words. Keep the wink obvious to the listener but never broad.",
+};
+
 const DURATION_TICK_MARKS = [
   { value: 10, label: "10s" },
   { value: 15, label: "15s" },
@@ -72,22 +140,6 @@ const CREATIVE_FORMAT_OPTIONS: Array<{ value: CampaignFormat; label: string }> =
   { value: "vox_pop", label: "Vox pop (street interviews)" },
   { value: "dramatized_scene", label: "Dramatized scene (characters)" },
   { value: "radio_skit", label: "Radio skit (comedic sketch)" },
-];
-
-// Brand register multi-select. Distinct from per-voice acting tone — this
-// is how the BRAND should feel, not how a single line should be performed.
-const TONE_OF_VOICE_OPTIONS: Array<{ value: ToneOfVoiceTag; label: string }> = [
-  { value: "warm", label: "Warm" },
-  { value: "urgent", label: "Urgent" },
-  { value: "playful", label: "Playful" },
-  { value: "authoritative", label: "Authoritative" },
-  { value: "conversational", label: "Conversational" },
-  { value: "earnest", label: "Earnest" },
-  { value: "sardonic", label: "Sardonic" },
-  { value: "tender", label: "Tender" },
-  { value: "confident", label: "Confident" },
-  { value: "intimate", label: "Intimate" },
-  { value: "irreverent", label: "Irreverent" },
 ];
 
 /**
@@ -188,9 +240,19 @@ export function BriefPanelV3({
   const [adDuration, setAdDuration] = useState(initialBrief?.adDuration || 30);
   const [selectedCTA, setSelectedCTA] = useState<string | null>(initialBrief?.selectedCTA || null);
   const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(initialBrief?.selectedPacing || null);
+  const [selectedTone, setSelectedTone] = useState<string | null>(initialBrief?.selectedTone || null);
+  const [voiceInstructions, setVoiceInstructions] = useState<string>(initialBrief?.voiceInstructions || "");
+  // Tracks the last template string we auto-applied, so we can detect whether the user has edited it.
+  const lastAppliedTemplateRef = useRef<string>(initialBrief?.voiceInstructions || "");
+
+  // Admin-managed tone presets (loaded from /api/tone-of-voice). Falls back to the
+  // built-in list if the fetch fails so the brief panel keeps working.
+  const [dbToneOptions, setDbToneOptions] = useState<ToneOption[]>(FALLBACK_TONE_OPTIONS);
+  const [dbToneInstructions, setDbToneInstructions] = useState<Record<string, string>>(
+    FALLBACK_TONE_INSTRUCTIONS
+  );
 
   // Stage-3 brief expansion state — all optional, all default empty.
-  const [toneOfVoice, setToneOfVoice] = useState<ToneOfVoiceTag[]>(initialBrief?.toneOfVoice || []);
   const [brandVoice, setBrandVoice] = useState(initialBrief?.brandVoice || "");
   const [referenceUrlsText, setReferenceUrlsText] = useState(
     (initialBrief?.referenceUrls || []).join("\n")
@@ -233,8 +295,9 @@ export function BriefPanelV3({
   const [showCreativeBrief, setShowCreativeBrief] = useState(
     !!(
       initialBrief?.creativeAngle ||
-      initialBrief?.toneOfVoice?.length ||
-      initialBrief?.brandVoice
+      initialBrief?.brandVoice ||
+      initialBrief?.selectedTone ||
+      initialBrief?.voiceInstructions
     )
   );
   const [showReferences, setShowReferences] = useState(
@@ -283,6 +346,11 @@ export function BriefPanelV3({
       if (initialBrief.adDuration) setAdDuration(initialBrief.adDuration);
       if (initialBrief.selectedCTA !== undefined) setSelectedCTA(initialBrief.selectedCTA);
       if (initialBrief.selectedPacing !== undefined) setSelectedPacing(initialBrief.selectedPacing);
+      if (initialBrief.selectedTone !== undefined) setSelectedTone(initialBrief.selectedTone);
+      if (initialBrief.voiceInstructions !== undefined) {
+        setVoiceInstructions(initialBrief.voiceInstructions || "");
+        lastAppliedTemplateRef.current = initialBrief.voiceInstructions || "";
+      }
       // Voice selection state
       if (initialBrief.selectedLanguage) setSelectedLanguage(initialBrief.selectedLanguage);
       if (initialBrief.selectedRegion) setSelectedRegion(initialBrief.selectedRegion);
@@ -290,7 +358,6 @@ export function BriefPanelV3({
       // NOTE: Don't restore selectedProvider from initialBrief - let it auto-select based on language availability
 
       // Stage-3 brief expansion fields
-      if (initialBrief.toneOfVoice) setToneOfVoice(initialBrief.toneOfVoice);
       if (initialBrief.brandVoice !== undefined) setBrandVoice(initialBrief.brandVoice || "");
       if (initialBrief.referenceUrls)
         setReferenceUrlsText(initialBrief.referenceUrls.join("\n"));
@@ -345,7 +412,6 @@ export function BriefPanelV3({
     lastUsedAt: number;
     adCount: number;
     inheritable: {
-      toneOfVoice?: ToneOfVoiceTag[];
       brandVoice?: string | null;
       selectedLanguage?: Language;
       selectedRegion?: string | null;
@@ -378,7 +444,6 @@ export function BriefPanelV3({
 
   function applyInheritable(row: RecentBrandRow) {
     const inh = row.inheritable;
-    if (inh.toneOfVoice) setToneOfVoice(inh.toneOfVoice);
     if (inh.brandVoice !== undefined && inh.brandVoice !== null) setBrandVoice(inh.brandVoice);
     if (inh.selectedLanguage) setSelectedLanguage(inh.selectedLanguage);
     if (inh.selectedRegion !== undefined) setSelectedRegion(inh.selectedRegion ?? null);
@@ -514,6 +579,45 @@ export function BriefPanelV3({
     !creativeAngle.trim() &&
     !!(brand?.salesforceAccountId || brand?.name || parsedReferenceUrls.length > 0);
 
+  // Load admin-managed tones from the public endpoint. Active-only, sorted newest first.
+  useEffect(() => {
+    const abortController = new AbortController();
+    (async () => {
+      try {
+        const res = await fetch("/api/tone-of-voice", {
+          cache: "no-store",
+          signal: abortController.signal,
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          tones: Array<{ id: string; title: string; description: string; voiceInstructions: string }>;
+        };
+        if (abortController.signal.aborted || !Array.isArray(data.tones) || data.tones.length === 0) return;
+        setDbToneOptions(
+          data.tones.map((t) => ({
+            value: t.title,
+            title: t.title,
+            description: t.description,
+          }))
+        );
+        setDbToneInstructions(
+          Object.fromEntries(data.tones.map((t) => [t.title, t.voiceInstructions]))
+        );
+      } catch {
+        // Silent — fallback presets are already in state.
+      }
+    })();
+    return () => {
+      abortController.abort();
+    };
+  }, []);
+
+  // Full tone list shown in the ToneSelector = admin presets + the custom sentinel.
+  const toneOptions = useMemo<ToneOption[]>(
+    () => [...dbToneOptions, CUSTOM_TONE_OPTION],
+    [dbToneOptions]
+  );
+
   // Debounced save to Redis
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const saveBriefToRedis = useCallback(async () => {
@@ -525,11 +629,12 @@ export function BriefPanelV3({
         adDuration,
         selectedCTA: selectedCTA || null,
         selectedPacing: selectedPacing || null,
+        selectedTone: selectedTone || null,
+        voiceInstructions: voiceInstructions.trim() || null,
         selectedLanguage,
         selectedRegion: selectedRegion || null,
         selectedAccent,
         selectedProvider,
-        ...(toneOfVoice.length ? { toneOfVoice } : {}),
         ...(brandVoice.trim() ? { brandVoice: brandVoice.trim() } : {}),
         ...(parsedReferenceUrls.length ? { referenceUrls: parsedReferenceUrls } : {}),
         ...(forbiddenWords.trim() ? { forbiddenWords: forbiddenWords.trim() } : {}),
@@ -559,9 +664,9 @@ export function BriefPanelV3({
     }
   }, [
     adId, clientDescription, creativeBrief, campaignFormat, adDuration,
-    selectedCTA, selectedPacing,
+    selectedCTA, selectedPacing, selectedTone, voiceInstructions,
     selectedLanguage, selectedRegion, selectedAccent, selectedProvider,
-    toneOfVoice, brandVoice, parsedReferenceUrls, forbiddenWords,
+    brandVoice, parsedReferenceUrls, forbiddenWords,
     providedScript,
     brand, creativeAngle,
   ]);
@@ -595,9 +700,9 @@ export function BriefPanelV3({
   }, [
     initialBrief, // Add to deps so we re-evaluate when it loads
     clientDescription, creativeBrief, campaignFormat, adDuration,
-    selectedCTA, selectedPacing,
+    selectedCTA, selectedPacing, selectedTone, voiceInstructions,
     selectedLanguage, selectedRegion, selectedAccent, selectedProvider,
-    toneOfVoice, brandVoice, parsedReferenceUrls, forbiddenWords,
+    brandVoice, parsedReferenceUrls, forbiddenWords,
     providedScript,
     brand, creativeAngle,
     saveBriefToRedis
@@ -632,6 +737,38 @@ export function BriefPanelV3({
       setSelectedAccent("neutral");
     }
   }, [selectedLanguage, languageOptions]);
+
+  // Seed voiceInstructions from the preset template when the user hasn't edited.
+  // If the current textarea equals the last template we applied (or is empty),
+  // overwrite with the new preset's template. Otherwise, preserve user edits.
+  // "custom" and "none" clear the last-template tracker so any future preset pick seeds again.
+  const handleToneChange = useCallback((value: string | null) => {
+    setSelectedTone(value);
+    if (value && value !== "custom" && dbToneInstructions[value]) {
+      const template = dbToneInstructions[value];
+      const untouched = voiceInstructions === "" || voiceInstructions === lastAppliedTemplateRef.current;
+      if (untouched) {
+        setVoiceInstructions(template);
+        lastAppliedTemplateRef.current = template;
+      }
+    } else {
+      // "custom" or null — stop tracking a template so further preset picks can seed again
+      lastAppliedTemplateRef.current = "";
+    }
+  }, [voiceInstructions, dbToneInstructions]);
+
+  // Restore Voice Instructions to the current preset's template (or empty for none/custom)
+  // and re-enable future preset-driven seeding.
+  const handleResetVoiceInstructions = useCallback(() => {
+    if (selectedTone && selectedTone !== "custom" && dbToneInstructions[selectedTone]) {
+      const template = dbToneInstructions[selectedTone];
+      setVoiceInstructions(template);
+      lastAppliedTemplateRef.current = template;
+    } else {
+      setVoiceInstructions("");
+      lastAppliedTemplateRef.current = "";
+    }
+  }, [selectedTone, dbToneInstructions]);
 
   // Reset accent when region changes and selected accent is no longer available
   useEffect(() => {
@@ -835,11 +972,12 @@ export function BriefPanelV3({
         accent: selectedAccent || undefined,
         cta: selectedCTA,
         pacing: selectedPacing,
+        tone: selectedTone,
+        voiceInstructions: voiceInstructions.trim() || null,
         selectedProvider: selectedProvider,
         autoGenerateAudio,
         // Stage-3 brief expansion fields. Send only when populated so legacy
         // consumers don't see noise.
-        ...(toneOfVoice.length ? { toneOfVoice } : {}),
         ...(brandVoice.trim() ? { brandVoice: brandVoice.trim() } : {}),
         ...(parsedReferenceUrls.length ? { referenceUrls: parsedReferenceUrls } : {}),
         ...(forbiddenWords.trim() ? { forbiddenWords: forbiddenWords.trim() } : {}),
@@ -1143,15 +1281,13 @@ export function BriefPanelV3({
         </div>
       </div>
 
-      {/* Row 4: Pacing and Duration */}
+      {/* Row 3.5: Pacing (col 1) + Tone of Voice (cols 2-3) */}
       <div className="grid grid-cols-3 gap-6 mb-6">
-        {/* Column 1: Pacing */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
             Pacing
           </label>
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
-            {/* Normal option */}
             <div
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
                 selectedPacing === null
@@ -1164,8 +1300,6 @@ export function BriefPanelV3({
               <TurtleIcon />
               <span className="text-xs">Normal</span>
             </div>
-
-            {/* Fast option */}
             <div
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
                 selectedPacing === "fast"
@@ -1180,8 +1314,49 @@ export function BriefPanelV3({
             </div>
           </div>
         </div>
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Tone of Voice <span className="text-gray-500 font-normal">(choose how your ad should sound)</span>
+          </label>
+          <ToneSelector
+            value={selectedTone}
+            onChange={handleToneChange}
+            options={toneOptions}
+            emptyOption={TONE_EMPTY_OPTION}
+            disabled={isLoading}
+          />
+        </div>
+      </div>
 
-        {/* Column 2-3: Duration (spans 2 columns) */}
+      {/* Row 3.6: Voice Instructions (cols 2-3) with Reset to Default below the textarea */}
+      <div className="grid grid-cols-3 gap-6 mb-6">
+        <div />
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Voice Instructions <span className="text-gray-500 font-normal">— fine-tune how this voice is delivered. You can edit or rewrite these instructions.</span>
+          </label>
+          <GlassyTextarea
+            value={voiceInstructions}
+            onChange={(e) => setVoiceInstructions(e.target.value)}
+            placeholder="e.g. Deliver with a polished, measured cadence. Crisp consonants and confident pacing…"
+            rows={4}
+          />
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={handleResetVoiceInstructions}
+              className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs px-4 py-2 transition-colors"
+            >
+              <ArrowPathIcon className="h-3.5 w-3.5" />
+              <span>Reset to Default</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 4: Ad Duration — cols 2-3, aligned under Tone / Voice Instructions */}
+      <div className="grid grid-cols-3 gap-6 mb-6">
+        <div />
         <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-300 mb-1">
             Ad Duration{" "}
@@ -1198,11 +1373,8 @@ export function BriefPanelV3({
             step={5}
             tickMarks={DURATION_TICK_MARKS}
           />
-
-          {/* Spotify Compliance Warning */}
           <div className="mt-3 text-xs text-gray-500">
-            Spotify: Standard ads max 30s. Long-form (60s) in select markets
-            only.
+            Spotify: Standard ads max 30s. Long-form (60s) in select markets only.
             {adDuration > 30 && (
               <span className="text-red-900 ml-1">
                 Duration exceeds 30s standard.
@@ -1505,41 +1677,6 @@ export function BriefPanelV3({
                   ⚠️ Without an angle, the script will brand-anchor cleanly but lose the per-spot edge — type one sentence specific to THIS spot.
                 </p>
               )}
-            </div>
-
-            {/* Tone of voice multi-select chips */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Brand register / Tone of voice
-                <span className="ml-2 text-xs text-gray-500">
-                  (multi-select — distinct from per-voice acting tone)
-                </span>
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {TONE_OF_VOICE_OPTIONS.map((opt) => {
-                  const selected = toneOfVoice.includes(opt.value);
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() =>
-                        setToneOfVoice((prev) =>
-                          prev.includes(opt.value)
-                            ? prev.filter((v) => v !== opt.value)
-                            : [...prev, opt.value]
-                        )
-                      }
-                      className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                        selected
-                          ? "bg-wb-blue/30 text-white border-wb-blue/50"
-                          : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
 
             {/* Brand voice (full width) — the brand archetype constant. The

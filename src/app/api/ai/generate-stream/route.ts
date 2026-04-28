@@ -92,9 +92,9 @@ function buildUserMessage(params: {
   accent?: string;
   cta?: string;
   pacing?: string;
+  voiceInstructions?: string;
   adId: string;
   voiceProvider: string;
-  toneOfVoice?: string[];
   brandVoice?: string;
   referenceUrls?: string[];
   forbiddenWords?: string;
@@ -115,9 +115,9 @@ function buildUserMessage(params: {
     accent,
     cta,
     pacing,
+    voiceInstructions,
     adId,
     voiceProvider,
-    toneOfVoice,
     brandVoice,
     referenceUrls,
     forbiddenWords,
@@ -136,10 +136,9 @@ function buildUserMessage(params: {
 
   const pacingNote = pacing && pacing !== "normal" ? `\n- Pacing: ${pacing}` : "";
   const ctaNote = cta ? `\n- Call to Action: ${cta}` : "";
-  const toneNote =
-    toneOfVoice && toneOfVoice.length
-      ? `\n- Brand register / tone-of-voice: ${toneOfVoice.join(", ")}`
-      : "";
+  const voiceInstructionsNote = voiceInstructions && voiceInstructions.trim()
+    ? `\n- Voice delivery instructions: ${voiceInstructions.trim()}`
+    : "";
   const brandVoiceSection = brandVoice && brandVoice.trim()
     ? `\n\n## Brand Voice\n${brandVoice.trim()}`
     : "";
@@ -168,7 +167,7 @@ function buildUserMessage(params: {
 - Language: ${languageName}
 - Voice Provider: ${voiceProvider} (REQUIRED - only search for voices from this provider)
 - Client: ${clientDescription}
-- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}${toneNote}${brandVoiceSection}${referenceSection}${forbiddenSection}${providedScriptSection}${creativeAngleSection}${enrichmentSections || ""}
+- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}${voiceInstructionsNote}${brandVoiceSection}${referenceSection}${forbiddenSection}${providedScriptSection}${creativeAngleSection}${enrichmentSections || ""}
 
 ## DURATION CONSTRAINT (CRITICAL)
 - STRICT LIMIT: Script MUST fit within ${duration} seconds when read at natural pace
@@ -206,10 +205,11 @@ export async function POST(req: NextRequest) {
     accent,
     cta,
     pacing,
+    tone: rawTone,
+    voiceInstructions: rawVoiceInstructions,
     selectedProvider: rawSelectedProvider,
     autoGenerateAudio = true,
     // Stage-3 brief expansion fields (all optional)
-    toneOfVoice,
     brandVoice,
     referenceUrls,
     forbiddenWords,
@@ -228,6 +228,16 @@ export async function POST(req: NextRequest) {
       ? ((brand as { salesforceAccountId: string }).salesforceAccountId)
       : null) ||
     (typeof salesforceAccountId === "string" ? salesforceAccountId : null);
+
+  // selectedTone is the preset id (UI state — the user picked "Professional");
+  // voiceInstructions is the resolved TTS-delivery prose seeded from the
+  // preset's template and editable. The LLM only sees voiceInstructions; the
+  // preset id is persisted to the brief but never injected into the prompt.
+  const tonePreset: string | null = rawTone || null;
+  const voiceInstructionsText: string | null =
+    typeof rawVoiceInstructions === "string" && rawVoiceInstructions.trim()
+      ? rawVoiceInstructions.trim()
+      : null;
 
   // Validate required fields
   if (!adId) {
@@ -274,7 +284,6 @@ export async function POST(req: NextRequest) {
         language: language,
         voiceProvider: voiceProvider,
         campaignFormat: campaignFormat as KnowledgeContext["campaignFormat"],
-        toneOfVoice: Array.isArray(toneOfVoice) && toneOfVoice.length ? toneOfVoice : undefined,
         brandVoice: brandVoice && typeof brandVoice === "string" && brandVoice.trim() ? brandVoice : undefined,
         hasProvidedScript: !!(providedScript && typeof providedScript === "string" && providedScript.trim()),
       };
@@ -299,9 +308,9 @@ export async function POST(req: NextRequest) {
         accent,
         cta,
         pacing,
+        voiceInstructions: voiceInstructionsText || undefined,
         adId,
         voiceProvider,
-        toneOfVoice,
         brandVoice,
         referenceUrls,
         forbiddenWords,
@@ -358,8 +367,9 @@ export async function POST(req: NextRequest) {
         selectedAccent: accent || null,
         selectedPacing: pacing || null,
         selectedCTA: cta || null,
+        selectedTone: tonePreset,
+        voiceInstructions: voiceInstructionsText,
         selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
-        ...(Array.isArray(toneOfVoice) && toneOfVoice.length ? { toneOfVoice } : {}),
         ...(brandVoice && typeof brandVoice === "string" && brandVoice.trim() ? { brandVoice: brandVoice.trim() } : {}),
         ...(Array.isArray(referenceUrls) && referenceUrls.length ? { referenceUrls } : {}),
         ...(forbiddenWords && typeof forbiddenWords === "string" && forbiddenWords.trim() ? { forbiddenWords: forbiddenWords.trim() } : {}),

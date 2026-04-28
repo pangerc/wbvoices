@@ -145,9 +145,6 @@ function buildPrompt(
   const briefParts: string[] = [];
   if (context?.pacing) briefParts.push(`pacing=${context.pacing}`);
   if (context?.campaignFormat) briefParts.push(`format=${context.campaignFormat}`);
-  if (context?.toneOfVoice?.length) {
-    briefParts.push(`tone=${context.toneOfVoice.join(",")}`);
-  }
   if (context?.brandVoice) briefParts.push(`brand=${context.brandVoice}`);
   const briefLine = briefParts.length ? briefParts.join(", ") : "—";
 

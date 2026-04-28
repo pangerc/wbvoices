@@ -88,24 +88,6 @@ export type CampaignFormat =
   | "dramatized_scene"
   | "radio_skit";
 
-/**
- * Brand-register tone vocabulary. Multi-select. Distinct from per-voice
- * acting tone — this is how the BRAND should feel, not how a single line
- * should be performed.
- */
-export type ToneOfVoiceTag =
-  | "warm"
-  | "urgent"
-  | "playful"
-  | "authoritative"
-  | "conversational"
-  | "earnest"
-  | "sardonic"
-  | "tender"
-  | "confident"
-  | "intimate"
-  | "irreverent";
-
 export type MusicProvider = "loudly" | "mubert" | "elevenlabs" | "custom";
 
 export type MusicPrompts = {
@@ -192,7 +174,6 @@ export type ProjectBrief = {
   // to load. Renders into the LLM user message via buildUserMessage in the
   // generate routes; routed into per-provider knowledge modules via
   // KnowledgeContext.
-  toneOfVoice?: ToneOfVoiceTag[];
   brandVoice?: string;
   referenceUrls?: string[];
   forbiddenWords?: string;
@@ -231,6 +212,14 @@ export type ProjectBrief = {
   // briefs the sales team brings to the pitch). Legacy briefs without
   // `brand` keep working — backfill is lazy on next save.
   brand?: BrandRef;
+
+  // Tone-of-voice preset (DB-backed via `suggested_tones`). `selectedTone`
+  // is the preset id (or "custom" / null); `voiceInstructions` is the
+  // resolved TTS-delivery prose seeded from the preset's template and
+  // user-editable. Only `voiceInstructions` is sent to the LLM — the
+  // preset id is UI state.
+  selectedTone?: string | null;
+  voiceInstructions?: string | null;
 };
 
 /**
