@@ -1,128 +1,17 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useBriefOptions, useLanguageOptions } from "@/hooks/useBriefOptions";
+import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import {
   CampaignFormat,
   Language,
-  Provider,
   Pacing,
   ProjectBrief,
+  Provider,
 } from "@/types";
-import { getFlagCode } from "@/utils/language";
-import { useBriefOptions, useLanguageOptions } from "@/hooks/useBriefOptions";
-import {
-  GlassyTextarea,
-  GlassyListbox,
-  GlassySlider,
-  GlassyCombobox,
-  ProviderSelectionModal,
-  DialogueIcon,
-  SingleVoiceIcon,
-  TurtleIcon,
-  RabbitIcon,
-  ToneSelector,
-} from "./ui";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BriefPanelBase } from "./BriefPanelBase";
+import { ProviderSelectionModal } from "./ui";
 import type { ToneOption } from "./ui/ToneSelector";
-import { ArrowTopRightOnSquareIcon, MicrophoneIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
-import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
-
-// Constants extracted from JSX for better readability
-const CTA_OPTIONS = [
-  { value: "none", label: "No specific CTA" },
-  { value: "apply-now", label: "Apply now" },
-  { value: "book-now", label: "Book now" },
-  { value: "buy-now", label: "Buy now" },
-  { value: "buy-tickets", label: "Buy tickets" },
-  { value: "click-now", label: "Click now" },
-  { value: "download", label: "Download" },
-  { value: "find-stores", label: "Find stores" },
-  { value: "get-coupon", label: "Get coupon" },
-  { value: "get-info", label: "Get info" },
-  { value: "learn-more", label: "Learn more" },
-  { value: "listen-now", label: "Listen now" },
-  { value: "more-info", label: "More info" },
-  { value: "order-now", label: "Order now" },
-  { value: "pre-save", label: "Pre-save" },
-  { value: "save-now", label: "Save now" },
-  { value: "share", label: "Share" },
-  { value: "shop-now", label: "Shop now" },
-  { value: "sign-up", label: "Sign up" },
-  { value: "visit-profile", label: "Visit profile" },
-  { value: "visit-site", label: "Visit site" },
-  { value: "watch-now", label: "Watch now" },
-];
-
-// Each preset = short title + one-line description, shown in the tone card and the dropdown.
-const TONE_EMPTY_OPTION: ToneOption = {
-  value: "none",
-  title: "No specific tone",
-  description: "Let the system decide based on the brief and target audience.",
-};
-
-// Sentinel option so users can ignore presets and write instructions freehand.
-const CUSTOM_TONE_OPTION: ToneOption = {
-  value: "custom",
-  title: "Custom…",
-  description:
-    "Describe the tone yourself in the Voice Instructions field below.",
-};
-
-// Fallback used before the API responds or if it errors. Also covers legacy
-// briefs that saved the slug-style tone value (e.g. "professional").
-const FALLBACK_TONE_OPTIONS: ToneOption[] = [
-  {
-    value: "Professional",
-    title: "Professional",
-    description:
-      "Polished, measured, and trustworthy — for brands that want to sound like experts.",
-  },
-  {
-    value: "Energetic",
-    title: "Energetic",
-    description:
-      "High-octane and enthusiastic — perfect for time-sensitive offers and exciting launches.",
-  },
-  {
-    value: "Warm",
-    title: "Warm",
-    description:
-      "Soft, inviting, and sincere — like a friendly recommendation from someone you trust.",
-  },
-  {
-    value: "Authoritative",
-    title: "Authoritative",
-    description:
-      "Confident, deep, and commanding — for brands that speak from a position of expertise.",
-  },
-  {
-    value: "Sarcastic",
-    title: "Sarcastic",
-    description:
-      "Dry and tongue-in-cheek — for irreverent brands that aren’t afraid to wink at their audience.",
-  },
-];
-
-// Per-preset voice delivery instruction templates. Seed the editable textarea
-// when the user picks a preset; user can then edit freely. "custom" clears it.
-const FALLBACK_TONE_INSTRUCTIONS: Record<string, string> = {
-  Professional: "Deliver with a polished, measured cadence. Keep the timbre authoritative yet warm. Crisp consonants and confident pacing — every word sounds intentional. Avoid vocal fry and filler tones.",
-  Energetic: "Bring high energy and enthusiasm. Brisk pacing with upward inflections. Use vocal brightness and a smile-in-voice to signal urgency and excitement. Punch key phrases to drive momentum.",
-  Warm: "Soft, inviting timbre. Slightly slower pace with relaxed breathing and gentle phrasing. Convey sincerity and closeness — as if speaking to a friend. Let key emotional beats breathe.",
-  Authoritative: "Deep, confident delivery. Steady pace and minimal pitch variance. Emphasise key claims with sustained pitch and crisp diction. Project expertise and certainty throughout.",
-  Sarcastic: "Dry, slightly exaggerated inflection. Subtle pauses before punchlines. Pitch irony through vocal raise on key words. Keep the wink obvious to the listener but never broad.",
-};
-
-const DURATION_TICK_MARKS = [
-  { value: 10, label: "10s" },
-  { value: 15, label: "15s" },
-  { value: 20, label: "20s" },
-  { value: 25, label: "25s" },
-  { value: 30, label: "30s" },
-  { value: 35, label: "35s" },
-  { value: 40, label: "40s" },
-  { value: 45, label: "45s" },
-  { value: 50, label: "50s" },
-  { value: 55, label: "55s" },
-  { value: 60, label: "60s" },
-];
+import { useToneOfVoice } from "@/hooks/useToneOfVoice";
 
 /**
  * BRIEF PANEL V3 - REDIS-FIRST!
@@ -132,7 +21,7 @@ const DURATION_TICK_MARKS = [
  *
  * Flow:
  * 1. User fills form
- * 2. Click Generate → Call LLM
+ * 2. Click Generate â†’ Call LLM
  * 3. Parse JSON response
  * 4. POST drafts directly to Redis via APIs
  * 5. Notify parent via callback
@@ -140,13 +29,39 @@ const DURATION_TICK_MARKS = [
 
 // SSE event types for stream updates
 export type StreamUpdateEvent =
-  | { stream: "drafts"; drafts: { voices?: string; music?: string; sfx?: string }; adName: string }
-  | { stream: "voices"; status: "generating" | "ready" | "failed"; index: number; total?: number; url?: string; error?: string }
-  | { stream: "music"; status: "generating" | "ready" | "failed"; url?: string; error?: string }
-  | { stream: "sfx"; status: "generating" | "ready" | "failed"; index: number; total?: number; url?: string; error?: string }
+  | {
+      stream: "drafts";
+      drafts: { voices?: string; music?: string; sfx?: string };
+      adName: string;
+    }
+  | {
+      stream: "voices";
+      status: "generating" | "ready" | "failed";
+      index: number;
+      total?: number;
+      url?: string;
+      error?: string;
+    }
+  | {
+      stream: "music";
+      status: "generating" | "ready" | "failed";
+      url?: string;
+      error?: string;
+    }
+  | {
+      stream: "sfx";
+      status: "generating" | "ready" | "failed";
+      index: number;
+      total?: number;
+      url?: string;
+      error?: string;
+    }
   | { stream: "complete"; success: boolean };
 
 export type BriefPanelV3Props = {
+  // Trigger ad auto-generation. Used when duplicating the ad
+  autoGenerate: boolean;
+
   // Required: which ad are we creating drafts for?
   adId: string;
 
@@ -173,6 +88,7 @@ export type BriefPanelV3Props = {
 };
 
 export function BriefPanelV3({
+  autoGenerate,
   adId,
   initialBrief,
   onDraftsCreated,
@@ -181,50 +97,71 @@ export function BriefPanelV3({
   onStreamUpdate,
 }: BriefPanelV3Props) {
   // Form state - initialized from initialBrief if provided
-  const [clientDescription, setClientDescription] = useState(initialBrief?.clientDescription || "");
-  const [creativeBrief, setCreativeBrief] = useState(initialBrief?.creativeBrief || "");
-  const [campaignFormat, setCampaignFormat] = useState<CampaignFormat>(initialBrief?.campaignFormat || "ad_read");
+  const [clientDescription, setClientDescription] = useState(
+    initialBrief?.clientDescription || "",
+  );
+  const [creativeBrief, setCreativeBrief] = useState(
+    initialBrief?.creativeBrief || "",
+  );
+  const [campaignFormat, setCampaignFormat] = useState<CampaignFormat>(
+    initialBrief?.campaignFormat || "ad_read",
+  );
   const [adDuration, setAdDuration] = useState(initialBrief?.adDuration || 30);
-  const [selectedCTA, setSelectedCTA] = useState<string | null>(initialBrief?.selectedCTA || null);
-  const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(initialBrief?.selectedPacing || null);
-  const [selectedTone, setSelectedTone] = useState<string | null>(initialBrief?.selectedTone || null);
-  const [voiceInstructions, setVoiceInstructions] = useState<string>(initialBrief?.voiceInstructions || "");
-  // Tracks the last template string we auto-applied, so we can detect whether the user has edited it.
-  const lastAppliedTemplateRef = useRef<string>(initialBrief?.voiceInstructions || "");
-
-  // Admin-managed tone presets (loaded from /api/tone-of-voice). Falls back to the
-  // built-in list if the fetch fails so the brief panel keeps working.
-  const [dbToneOptions, setDbToneOptions] = useState<ToneOption[]>(FALLBACK_TONE_OPTIONS);
-  const [dbToneInstructions, setDbToneInstructions] = useState<Record<string, string>>(
-    FALLBACK_TONE_INSTRUCTIONS
+  const [selectedCTA, setSelectedCTA] = useState<string | null>(
+    initialBrief?.selectedCTA || null,
+  );
+  const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(
+    initialBrief?.selectedPacing || null,
+  );
+  const [selectedTone, setSelectedTone] = useState<string | null>(
+    initialBrief?.selectedTone || null,
+  );
+  const [voiceInstructions, setVoiceInstructions] = useState<string>(
+    initialBrief?.voiceInstructions || "",
   );
 
+  const { dbToneOptions, dbToneInstructions } = useToneOfVoice();
+
   // Voice selection state (local - replaces voiceManager)
-  const [selectedLanguage, setSelectedLanguage] = useState<Language>(initialBrief?.selectedLanguage || "en");
-  const [selectedRegion, setSelectedRegion] = useState<string | null>(initialBrief?.selectedRegion || null);
-  const [selectedAccent, setSelectedAccent] = useState<string>(initialBrief?.selectedAccent || "neutral");
-  const [selectedProvider, setSelectedProvider] = useState<Provider>(initialBrief?.selectedProvider || "any");
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(
+    initialBrief?.selectedLanguage || "en",
+  );
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(
+    initialBrief?.selectedRegion || null,
+  );
+  const [selectedAccent, setSelectedAccent] = useState<string>(
+    initialBrief?.selectedAccent || "neutral",
+  );
+  const [selectedProvider, setSelectedProvider] = useState<Provider>(
+    initialBrief?.selectedProvider || "any",
+  );
 
   // Static data (loaded once on mount)
-  const { languages: availableLanguages, isLoading: isLoadingLanguages } = useBriefOptions();
+  const { languages: availableLanguages, isLoading: isLoadingLanguages } =
+    useBriefOptions();
 
   // Language-dependent options (single API call when language/format/region/provider/accent changes)
   // Region filters accents, provider/accent determine dialogReady
-  const { options: languageOptions, isLoading: isLoadingOptions } = useLanguageOptions(
-    selectedLanguage,
-    campaignFormat,
-    selectedRegion,
-    selectedProvider,
-    selectedAccent
-  );
+  const { options: languageOptions, isLoading: isLoadingOptions } =
+    useLanguageOptions(
+      selectedLanguage,
+      campaignFormat,
+      selectedRegion,
+      selectedProvider,
+      selectedAccent,
+    );
 
   // Derived state from languageOptions
-  const availableRegions = languageOptions?.regions || [];
   const availableAccents = languageOptions?.accents || [];
-  const voiceCounts = languageOptions?.voiceCounts || { elevenlabs: 0, lovo: 0, openai: 0, qwen: 0, bytedance: 0, lahajati: 0, any: 0 };
-  const hasRegions = languageOptions?.hasRegions ?? false;
-  const hasAccents = languageOptions?.hasAccents ?? false;
-  const dialogReady = languageOptions?.dialogReady ?? true;
+  const voiceCounts = languageOptions?.voiceCounts || {
+    elevenlabs: 0,
+    lovo: 0,
+    openai: 0,
+    qwen: 0,
+    bytedance: 0,
+    lahajati: 0,
+    any: 0,
+  };
   const isLoading = isLoadingLanguages || isLoadingOptions;
 
   // Track if initialBrief has been loaded (for auto-save skip on first render)
@@ -237,63 +174,32 @@ export function BriefPanelV3({
       initialBriefLoadedRef.current = true;
 
       // Update all form fields from initialBrief
-      if (initialBrief.clientDescription) setClientDescription(initialBrief.clientDescription);
-      if (initialBrief.creativeBrief) setCreativeBrief(initialBrief.creativeBrief);
-      if (initialBrief.campaignFormat) setCampaignFormat(initialBrief.campaignFormat);
+      if (initialBrief.clientDescription)
+        setClientDescription(initialBrief.clientDescription);
+      if (initialBrief.creativeBrief)
+        setCreativeBrief(initialBrief.creativeBrief);
+      if (initialBrief.campaignFormat)
+        setCampaignFormat(initialBrief.campaignFormat);
       if (initialBrief.adDuration) setAdDuration(initialBrief.adDuration);
-      if (initialBrief.selectedCTA !== undefined) setSelectedCTA(initialBrief.selectedCTA);
-      if (initialBrief.selectedPacing !== undefined) setSelectedPacing(initialBrief.selectedPacing);
-      if (initialBrief.selectedTone !== undefined) setSelectedTone(initialBrief.selectedTone);
+      if (initialBrief.selectedCTA !== undefined)
+        setSelectedCTA(initialBrief.selectedCTA);
+      if (initialBrief.selectedPacing !== undefined)
+        setSelectedPacing(initialBrief.selectedPacing);
+      if (initialBrief.selectedTone !== undefined)
+        setSelectedTone(initialBrief.selectedTone);
       if (initialBrief.voiceInstructions !== undefined) {
         setVoiceInstructions(initialBrief.voiceInstructions || "");
-        lastAppliedTemplateRef.current = initialBrief.voiceInstructions || "";
       }
       // Voice selection state
-      if (initialBrief.selectedLanguage) setSelectedLanguage(initialBrief.selectedLanguage);
-      if (initialBrief.selectedRegion) setSelectedRegion(initialBrief.selectedRegion);
-      if (initialBrief.selectedAccent) setSelectedAccent(initialBrief.selectedAccent);
+      if (initialBrief.selectedLanguage)
+        setSelectedLanguage(initialBrief.selectedLanguage);
+      if (initialBrief.selectedRegion)
+        setSelectedRegion(initialBrief.selectedRegion);
+      if (initialBrief.selectedAccent)
+        setSelectedAccent(initialBrief.selectedAccent);
       // NOTE: Don't restore selectedProvider from initialBrief - let it auto-select based on language availability
     }
   }, [initialBrief]);
-
-  // Load admin-managed tones from the public endpoint. Active-only, sorted newest first.
-  useEffect(() => {
-    const abortController = new AbortController();
-    (async () => {
-      try {
-        const res = await fetch("/api/tone-of-voice", {
-          cache: "no-store",
-          signal: abortController.signal,
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as {
-          tones: Array<{ id: string; title: string; description: string; voiceInstructions: string }>;
-        };
-        if (abortController.signal.aborted || !Array.isArray(data.tones) || data.tones.length === 0) return;
-        setDbToneOptions(
-          data.tones.map((t) => ({
-            value: t.title,
-            title: t.title,
-            description: t.description,
-          }))
-        );
-        setDbToneInstructions(
-          Object.fromEntries(data.tones.map((t) => [t.title, t.voiceInstructions]))
-        );
-      } catch {
-        // Silent — fallback presets are already in state.
-      }
-    })();
-    return () => {
-      abortController.abort();
-    };
-  }, []);
-
-  // Full tone list shown in the ToneSelector = admin presets + the custom sentinel.
-  const toneOptions = useMemo<ToneOption[]>(
-    () => [...dbToneOptions, CUSTOM_TONE_OPTION],
-    [dbToneOptions]
-  );
 
   // Debounced save to Redis
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -329,9 +235,19 @@ export function BriefPanelV3({
       console.error("Failed to save brief:", error);
     }
   }, [
-    adId, clientDescription, creativeBrief, campaignFormat, adDuration,
-    selectedCTA, selectedPacing, selectedTone, voiceInstructions,
-    selectedLanguage, selectedRegion, selectedAccent, selectedProvider
+    adId,
+    clientDescription,
+    creativeBrief,
+    campaignFormat,
+    adDuration,
+    selectedCTA,
+    selectedPacing,
+    selectedTone,
+    voiceInstructions,
+    selectedLanguage,
+    selectedRegion,
+    selectedAccent,
+    selectedProvider,
   ]);
 
   // Auto-save brief when form values change (debounced)
@@ -343,7 +259,11 @@ export function BriefPanelV3({
     }
 
     // Skip if no content and we haven't loaded anything yet
-    if (!initialBriefLoadedRef.current && !clientDescription && !creativeBrief) {
+    if (
+      !initialBriefLoadedRef.current &&
+      !clientDescription &&
+      !creativeBrief
+    ) {
       return;
     }
 
@@ -362,16 +282,24 @@ export function BriefPanelV3({
     };
   }, [
     initialBrief, // Add to deps so we re-evaluate when it loads
-    clientDescription, creativeBrief, campaignFormat, adDuration,
-    selectedCTA, selectedPacing, selectedTone, voiceInstructions,
-    selectedLanguage, selectedRegion, selectedAccent, selectedProvider,
-    saveBriefToRedis
+    clientDescription,
+    creativeBrief,
+    campaignFormat,
+    adDuration,
+    selectedCTA,
+    selectedPacing,
+    selectedTone,
+    voiceInstructions,
+    selectedLanguage,
+    selectedRegion,
+    selectedAccent,
+    selectedProvider,
+    saveBriefToRedis,
   ]);
 
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [languageQuery, setLanguageQuery] = useState("");
 
   // Modal state
   const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
@@ -384,9 +312,14 @@ export function BriefPanelV3({
     // 1. We have options that match the current language (not stale data)
     // 2. We haven't already auto-selected for this language
     const optionsMatchLanguage = languageOptions?.language === selectedLanguage;
-    const alreadyAutoSelected = lastAutoSelectedLanguageRef.current === selectedLanguage;
+    const alreadyAutoSelected =
+      lastAutoSelectedLanguageRef.current === selectedLanguage;
 
-    if (optionsMatchLanguage && languageOptions?.suggestedProvider && !alreadyAutoSelected) {
+    if (
+      optionsMatchLanguage &&
+      languageOptions?.suggestedProvider &&
+      !alreadyAutoSelected
+    ) {
       // Mark as auto-selected FIRST to prevent re-runs during state updates
       lastAutoSelectedLanguageRef.current = selectedLanguage;
 
@@ -398,69 +331,24 @@ export function BriefPanelV3({
     }
   }, [selectedLanguage, languageOptions]);
 
-  // Seed voiceInstructions from the preset template when the user hasn't edited.
-  // If the current textarea equals the last template we applied (or is empty),
-  // overwrite with the new preset's template. Otherwise, preserve user edits.
-  // "custom" and "none" clear the last-template tracker so any future preset pick seeds again.
-  const handleToneChange = useCallback((value: string | null) => {
-    setSelectedTone(value);
-    if (value && value !== "custom" && dbToneInstructions[value]) {
-      const template = dbToneInstructions[value];
-      const untouched = voiceInstructions === "" || voiceInstructions === lastAppliedTemplateRef.current;
-      if (untouched) {
-        setVoiceInstructions(template);
-        lastAppliedTemplateRef.current = template;
-      }
-    } else {
-      // "custom" or null — stop tracking a template so further preset picks can seed again
-      lastAppliedTemplateRef.current = "";
-    }
-  }, [voiceInstructions, dbToneInstructions]);
-
-  // Restore Voice Instructions to the current preset's template (or empty for none/custom)
-  // and re-enable future preset-driven seeding.
-  const handleResetVoiceInstructions = useCallback(() => {
-    if (selectedTone && selectedTone !== "custom" && dbToneInstructions[selectedTone]) {
-      const template = dbToneInstructions[selectedTone];
-      setVoiceInstructions(template);
-      lastAppliedTemplateRef.current = template;
-    } else {
-      setVoiceInstructions("");
-      lastAppliedTemplateRef.current = "";
-    }
-  }, [selectedTone, dbToneInstructions]);
-
   // Reset accent when region changes and selected accent is no longer available
   useEffect(() => {
     if (availableAccents.length > 0 && selectedAccent !== "neutral") {
-      const accentStillAvailable = availableAccents.some(a => a.code === selectedAccent);
+      const accentStillAvailable = availableAccents.some(
+        (a) => a.code === selectedAccent,
+      );
       if (!accentStillAvailable) {
         setSelectedAccent("neutral");
       }
     }
   }, [availableAccents, selectedAccent]);
 
-  // Warnings
-  const shouldWarnAboutDialog = !dialogReady && campaignFormat === "dialog";
-  const shouldSuggestProvider =
-    voiceCounts && (voiceCounts[selectedProvider] || 0) === 0;
-
-  // Filter languages based on search
-  const filteredLanguages = useMemo(() => {
-    if (!availableLanguages || availableLanguages.length === 0) return [];
-    if (languageQuery === "") return availableLanguages;
-    return availableLanguages.filter(
-      (lang) =>
-        lang &&
-        lang.name &&
-        lang.name.toLowerCase().includes(languageQuery.toLowerCase())
-    );
-  }, [languageQuery, availableLanguages]);
-
   /**
    * Parse SSE events from text chunk
    */
-  const parseSSEEvents = (text: string): Array<{ type: string; data: Record<string, unknown> }> => {
+  const parseSSEEvents = (
+    text: string,
+  ): Array<{ type: string; data: Record<string, unknown> }> => {
     const events: Array<{ type: string; data: Record<string, unknown> }> = [];
     const lines = text.split("\n");
     let currentEvent: { type?: string; data?: string } = {};
@@ -490,7 +378,10 @@ export function BriefPanelV3({
    * Handle SSE event from generate-stream endpoint
    * Updates audioPlaybackStore and notifies parent
    */
-  const handleGenerationEvent = (event: { type: string; data: Record<string, unknown> }) => {
+  const handleGenerationEvent = (event: {
+    type: string;
+    data: Record<string, unknown>;
+  }) => {
     const {
       setGeneratingCreative,
       setGeneratingVoice,
@@ -505,7 +396,10 @@ export function BriefPanelV3({
         break;
 
       case "drafts-created": {
-        const { drafts, adName } = event.data as { drafts: { voices?: string; music?: string; sfx?: string }; adName: string };
+        const { drafts, adName } = event.data as {
+          drafts: { voices?: string; music?: string; sfx?: string };
+          adName: string;
+        };
         // LLM is done, now generating audio
         setGeneratingCreative(false);
         // Notify parent to invalidate SWR and update UI
@@ -515,9 +409,18 @@ export function BriefPanelV3({
       }
 
       case "voice-generating": {
-        const { index, total, versionId } = event.data as { index: number; total: number; versionId: string };
+        const { index, total, versionId } = event.data as {
+          index: number;
+          total: number;
+          versionId: string;
+        };
         setGeneratingVoice(true, index, versionId);
-        onStreamUpdate?.({ stream: "voices", status: "generating", index, total });
+        onStreamUpdate?.({
+          stream: "voices",
+          status: "generating",
+          index,
+          total,
+        });
         break;
       }
 
@@ -619,7 +522,9 @@ export function BriefPanelV3({
     setError(null);
 
     try {
-      console.log(`🚀 Starting V3 generation for ad ${adId} (autoGenerateAudio: ${autoGenerateAudio})`);
+      console.log(
+        `🚀 Starting V3 generation for ad ${adId} (autoGenerateAudio: ${autoGenerateAudio})`,
+      );
 
       const requestBody = {
         adId,
@@ -675,7 +580,7 @@ export function BriefPanelV3({
           }
         }
 
-        console.log(`✅ SSE generation complete for ad ${adId}`);
+        console.log(`âœ… SSE generation complete for ad ${adId}`);
       } else {
         // Regular API mode (drafts only, no audio)
         const response = await fetch("/api/ai/generate", {
@@ -705,13 +610,19 @@ export function BriefPanelV3({
     } catch (error) {
       console.error("Error generating creative:", error);
       setError(
-        error instanceof Error ? error.message : "Failed to generate creative"
+        error instanceof Error ? error.message : "Failed to generate creative",
       );
     } finally {
       setIsGenerating(false);
       onGeneratingChange?.(false);
     }
   };
+
+  useEffect(() => {
+    if (autoGenerate) {
+      handleGenerateCreative();
+    }
+  }, [autoGenerate]);
 
   return (
     <div className="flex-1 h-full overflow-y-auto p-8 text-white">
@@ -739,327 +650,35 @@ export function BriefPanelV3({
         </button>
       </div>
 
-      {/* Row 1: Client Description and Creative Brief */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
-        {/* Column 1: Client Description */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            What are we promoting (brand name, product, service)?
-          </label>
-          <GlassyTextarea
-            value={clientDescription}
-            onChange={(e) => setClientDescription(e.target.value)}
-            placeholder="Describe the client, product, or service..."
-            rows={6}
-          />
-        </div>
-
-        {/* Column 2-3: Creative Brief (spans 2 columns) */}
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Creative Brief (description of the ad)
-          </label>
-          <GlassyTextarea
-            value={creativeBrief}
-            onChange={(e) => setCreativeBrief(e.target.value)}
-            placeholder="Describe the creative direction, key messages, and target audience..."
-            rows={6}
-          />
-        </div>
-      </div>
-
-      {/* Row 2: Language, Region, Accent */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
-        {/* Column 1: Language */}
-        <div>
-          <label className="flex justify-between text-sm font-medium text-gray-300 mb-2">
-            Language
-            <span className="text-ml text-gray-600 pr-6">
-              {getFlagCode(selectedLanguage)}
-            </span>
-          </label>
-          <GlassyCombobox
-            value={
-              availableLanguages.find((l) => l.code === selectedLanguage)
-                ? {
-                    value: selectedLanguage,
-                    label: availableLanguages.find(
-                      (l) => l.code === selectedLanguage
-                    )!.name,
-                    flag: getFlagCode(selectedLanguage),
-                  }
-                : null
-            }
-            onChange={(item) =>
-              item && setSelectedLanguage(item.value as Language)
-            }
-            options={filteredLanguages
-              .filter((lang) => lang && lang.code && lang.name)
-              .map((lang) => ({
-                value: lang.code,
-                label: lang.name,
-                flag: getFlagCode(lang.code),
-              }))}
-            onQueryChange={setLanguageQuery}
-            disabled={isLoading}
-          />
-        </div>
-
-        {/* Column 2: Region */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Region
-          </label>
-          {hasRegions ? (
-            <GlassyListbox
-              value={selectedRegion || "all"}
-              onChange={(value) => setSelectedRegion(value || null)}
-              options={availableRegions.map((r) => ({
-                value: r.code,
-                label: r.displayName,
-              }))}
-              disabled={isLoading || availableRegions.length === 0}
-              loading={isLoadingOptions}
-            />
-          ) : (
-            <div className="bg-white/5 backdrop-blur-sm rounded-xl py-3 px-4 text-sm text-gray-400">
-              No regional variations
-            </div>
-          )}
-        </div>
-
-        {/* Column 3: Accent */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Accent
-          </label>
-          {hasAccents ? (
-            <GlassyListbox
-              value={selectedAccent}
-              onChange={setSelectedAccent}
-              options={availableAccents.map((a) => ({
-                value: a.code,
-                label: a.displayName,
-              }))}
-              disabled={isLoading || availableAccents.length === 0}
-              loading={isLoadingOptions}
-            />
-          ) : (
-            <div className="bg-white/5 backdrop-blur-sm rounded-xl py-3 px-4 text-sm text-gray-400">
-              No accent variations
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Row 3: Ad Format, CTA, and Voice Provider */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
-        {/* Column 1: Ad Format */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Ad Format
-          </label>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
-            {/* Single Voice option */}
-            <div
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
-                campaignFormat === "ad_read"
-                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                  : "bg-transparent hover:bg-white/10 text-gray-300"
-              }`}
-              onClick={() => setCampaignFormat("ad_read")}
-              title="Single Voice Ad Read"
-            >
-              <SingleVoiceIcon />
-              <span className="text-xs">Single</span>
-            </div>
-
-            {/* Dialogue option */}
-            <div
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
-                campaignFormat === "dialog"
-                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                  : "bg-transparent hover:bg-white/10 text-gray-300"
-              }`}
-              onClick={() => setCampaignFormat("dialog")}
-              title="Dialogue"
-            >
-              <DialogueIcon />
-              <span className="text-xs">Dialogue</span>
-            </div>
-          </div>
-          {shouldWarnAboutDialog && (
-            <p className="text-xs text-yellow-400 mt-2">
-              ⚠️ Not enough voices for dialogue - need at least 2
-            </p>
-          )}
-        </div>
-
-        {/* Column 2: Call to Action */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Call to Action (CTA)
-          </label>
-          <GlassyListbox
-            value={selectedCTA || "none"}
-            onChange={(value) =>
-              setSelectedCTA(value === "none" ? null : value)
-            }
-            options={CTA_OPTIONS}
-            disabled={isLoading}
-          />
-        </div>
-
-        {/* Column 3: Voice Provider link */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Voice Provider
-          </label>
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setIsProviderModalOpen(true)}
-              className="flex items-center gap-2 text-sm text-wb-blue hover:text-wb-blue/80 transition-colors"
-            >
-              <MicrophoneIcon className="h-3 w-3" />
-              <span>
-                {selectedProvider === "any"
-                  ? "Any"
-                  : selectedProvider.charAt(0).toUpperCase() +
-                    selectedProvider.slice(1)}
-                {" ("}
-                {isLoading
-                  ? "..."
-                  : voiceCounts[selectedProvider] || 0}
-                {")"}
-              </span>
-            </button>
-            <a
-              href="/admin/voice-manager"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-300 transition-colors"
-            >
-              <span>Voice Manager</span>
-              <ArrowTopRightOnSquareIcon className="h-3 w-3" />
-            </a>
-          </div>
-          {shouldSuggestProvider && (
-            <p className="text-xs text-orange-400 mt-2">
-              💡 Try another provider - {voiceCounts[selectedProvider] || 0} voices
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Row 3.5: Pacing (col 1) + Tone of Voice (cols 2-3) */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Pacing
-          </label>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
-            <div
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
-                selectedPacing === null
-                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                  : "bg-transparent hover:bg-white/10 text-gray-300"
-              }`}
-              onClick={() => setSelectedPacing(null)}
-              title="Normal - Standard delivery pace"
-            >
-              <TurtleIcon />
-              <span className="text-xs">Normal</span>
-            </div>
-            <div
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
-                selectedPacing === "fast"
-                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                  : "bg-transparent hover:bg-white/10 text-gray-300"
-              }`}
-              onClick={() => setSelectedPacing("fast")}
-              title="Fast - Energetic, urgent delivery"
-            >
-              <RabbitIcon />
-              <span className="text-xs">Fast</span>
-            </div>
-          </div>
-        </div>
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Tone of Voice <span className="text-gray-500 font-normal">(choose how your ad should sound)</span>
-          </label>
-          <ToneSelector
-            value={selectedTone}
-            onChange={handleToneChange}
-            options={toneOptions}
-            emptyOption={TONE_EMPTY_OPTION}
-            disabled={isLoading}
-          />
-        </div>
-      </div>
-
-      {/* Row 3.6: Voice Instructions (cols 2-3) with Reset to Default below the textarea */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
-        <div />
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Voice Instructions <span className="text-gray-500 font-normal">— fine-tune how this voice is delivered. You can edit or rewrite these instructions.</span>
-          </label>
-          <GlassyTextarea
-            value={voiceInstructions}
-            onChange={(e) => setVoiceInstructions(e.target.value)}
-            placeholder="e.g. Deliver with a polished, measured cadence. Crisp consonants and confident pacing…"
-            rows={4}
-          />
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={handleResetVoiceInstructions}
-              className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs px-4 py-2 transition-colors"
-            >
-              <ArrowPathIcon className="h-3.5 w-3.5" />
-              <span>Reset to Default</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Row 4: Ad Duration — cols 2-3, aligned under Tone / Voice Instructions */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
-        <div />
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-300 mb-1">
-            Ad Duration{" "}
-            <span className="text-sm text-gray-400">
-              {adDuration} seconds
-            </span>
-          </label>
-          <GlassySlider
-            label={null}
-            value={adDuration}
-            onChange={setAdDuration}
-            min={10}
-            max={60}
-            step={5}
-            tickMarks={DURATION_TICK_MARKS}
-          />
-          <div className="mt-3 text-xs text-gray-500">
-            Spotify: Standard ads max 30s. Long-form (60s) in select markets only.
-            {adDuration > 30 && (
-              <span className="text-red-900 ml-1">
-                Duration exceeds 30s standard.
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Error message */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-          <p className="text-red-400 text-sm">{error}</p>
-        </div>
-      )}
+      <BriefPanelBase
+        clientDescription={clientDescription}
+        onClientDescriptionChanged={setClientDescription}
+        creativeBrief={creativeBrief}
+        onCreativeBriefChanged={setCreativeBrief}
+        language={selectedLanguage}
+        onLanguageChanged={setSelectedLanguage}
+        campaignFormat={campaignFormat}
+        onCampaignFormatChanged={setCampaignFormat}
+        region={selectedRegion}
+        onRegionChanged={setSelectedRegion}
+        provider={selectedProvider}
+        onProviderChanged={setSelectedProvider}
+        accent={selectedAccent}
+        onAccentChanged={setSelectedAccent}
+        cta={selectedCTA}
+        onCTAChanged={setSelectedCTA}
+        pacing={selectedPacing}
+        onPacingChanged={setSelectedPacing}
+        toneOfVoice={selectedTone}
+        onToneOfVoiceChanged={setSelectedTone}
+        toneOfVoiceOptions={dbToneOptions}
+        toneOfVoiceList={dbToneInstructions}
+        voiceInstructions={voiceInstructions}
+        onVoiceInstructionsChanged={setVoiceInstructions}
+        adDuration={adDuration}
+        onAdDurationChanged={setAdDuration}
+        error={error}
+      />
 
       {/* Modals */}
       <ProviderSelectionModal

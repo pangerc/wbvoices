@@ -1,220 +1,246 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { useAuth } from './AuthProvider'
-import { signOut } from 'next-auth/react'
-import { formatDistanceToNow } from 'date-fns'
+import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "./AuthProvider";
+import { signOut } from "next-auth/react";
+import { formatDistanceToNow } from "date-fns";
 import {
   XMarkIcon,
   ClockIcon,
   TrashIcon,
   PencilSquareIcon,
+  DocumentDuplicateIcon,
   ChatBubbleOvalLeftEllipsisIcon,
-} from '@heroicons/react/24/outline'
+} from "@heroicons/react/24/outline";
+import { DuplicateAdPopup } from "./DuplicateAdPopup";
+import { ProjectBrief } from "@/types";
 
-type Ad = {
-  adId: string
+export type Ad = {
+  adId: string;
   meta: {
-    name: string
-    createdAt: number
-    lastModified: number
-    owner: string
-    brief?: {
-      selectedLanguage?: string
-      campaignFormat?: 'ad_read' | 'dialog'
-      selectedProvider?: string
-    }
-  }
-}
+    name: string;
+    createdAt: number;
+    lastModified: number;
+    owner: string;
+    brief: ProjectBrief;
+  };
+};
 
 type ChatMessage = {
-  role: 'user' | 'assistant'
-  content: string
-}
+  role: "user" | "assistant";
+  content: string;
+};
 
-type TabType = 'ads' | 'chat'
+type TabType = "ads" | "chat";
 
 type HistoryDrawerProps = {
-  isOpen: boolean
-  onClose: () => void
-  currentAdId?: string
-}
+  isOpen: boolean;
+  onClose: () => void;
+  currentAdId?: string;
+};
 
-export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerProps) {
-  const { isAdmin, user } = useAuth()
-  const drawerRef = useRef<HTMLDivElement>(null)
-  const [ads, setAds] = useState<Ad[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [deletingAdId, setDeletingAdId] = useState<string | null>(null)
-  const [editingAdId, setEditingAdId] = useState<string | null>(null)
-  const [editingName, setEditingName] = useState('')
-  const editInputRef = useRef<HTMLInputElement>(null)
-  const [activeTab, setActiveTab] = useState<TabType>('ads')
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
-  const [isChatLoading, setIsChatLoading] = useState(false)
-  const [chatError, setChatError] = useState<string | null>(null)
+export function HistoryDrawer({
+  isOpen,
+  onClose,
+  currentAdId,
+}: HistoryDrawerProps) {
+  const { isAdmin, user } = useAuth();
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deletingAdId, setDeletingAdId] = useState<string | null>(null);
+  const [editingAdId, setEditingAdId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const [activeTab, setActiveTab] = useState<TabType>("ads");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [duplicatingAd, setDuplicatingAd] = useState<Ad | null>(null);
 
   // Load ads when drawer opens
   useEffect(() => {
     if (isOpen) {
-      loadAds()
+      loadAds();
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   // Load chat messages when switching to chat tab
   useEffect(() => {
-    if (activeTab === 'chat' && currentAdId) {
-      loadChatHistory()
+    if (activeTab === "chat" && currentAdId) {
+      loadChatHistory();
     }
-  }, [activeTab, currentAdId])
+  }, [activeTab, currentAdId]);
 
   const loadChatHistory = async () => {
-    if (!currentAdId) return
+    if (!currentAdId) return;
 
-    setIsChatLoading(true)
-    setChatError(null)
+    setIsChatLoading(true);
+    setChatError(null);
     try {
-      const res = await fetch(`/api/ads/${currentAdId}/conversation`)
+      const res = await fetch(`/api/ads/${currentAdId}/conversation`);
       if (res.ok) {
-        const data = await res.json()
-        setChatMessages(data.messages || [])
+        const data = await res.json();
+        setChatMessages(data.messages || []);
       } else {
-        setChatError('Failed to load chat history')
+        setChatError("Failed to load chat history");
       }
     } catch (err) {
-      setChatError('Failed to load chat history')
-      console.error('Error loading chat history:', err)
+      setChatError("Failed to load chat history");
+      console.error("Error loading chat history:", err);
     } finally {
-      setIsChatLoading(false)
+      setIsChatLoading(false);
     }
-  }
+  };
 
   const loadAds = async () => {
-    setIsLoading(true)
-    setError(null)
+    setIsLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/ads${isAdmin ? '?all=true' : ''}`)
+      const res = await fetch(`/api/ads${isAdmin ? "?all=true" : ""}`);
 
       if (res.ok) {
-        const data = await res.json()
-        console.log('🔍 HistoryDrawer received ads:', data.ads)
-        setAds(data.ads || [])
+        const data = await res.json();
+        console.log("🔍 HistoryDrawer received ads:", data.ads);
+        setAds(data.ads || []);
       } else {
-        const errorData = await res.json()
-        console.error('🔍 HistoryDrawer API error:', errorData)
-        setError('Failed to load ads')
+        const errorData = await res.json();
+        console.error("🔍 HistoryDrawer API error:", errorData);
+        setError("Failed to load ads");
       }
     } catch (err) {
-      setError('Failed to load ads')
-      console.error('Error loading ads:', err)
+      setError("Failed to load ads");
+      console.error("Error loading ads:", err);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Handle escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose()
+      if (e.key === "Escape" && isOpen) {
+        onClose();
       }
-    }
+    };
 
     if (isOpen) {
-      document.addEventListener('keydown', handleEscape)
-      return () => document.removeEventListener('keydown', handleEscape)
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose]);
 
   const handleAdClick = (adId: string) => {
-    window.location.href = `/ad/${adId}`
-  }
+    window.location.href = `/ad/${adId}`;
+  };
 
   const startEditing = (e: React.MouseEvent, ad: Ad) => {
-    e.stopPropagation()
-    setEditingAdId(ad.adId)
-    setEditingName(ad.meta.name)
-    setTimeout(() => editInputRef.current?.select(), 0)
-  }
+    e.stopPropagation();
+    setEditingAdId(ad.adId);
+    setEditingName(ad.meta.name);
+    setTimeout(() => editInputRef.current?.select(), 0);
+  };
+
+  const startDuplicating = (e: React.MouseEvent, ad: Ad) => {
+    e.stopPropagation();
+
+    setDuplicatingAd(ad);
+  };
+
+  const onDuplicatePopupClose = async (ad?: Ad) => {
+    setDuplicatingAd(null);
+
+    console.log("new ad", ad, ads.length);
+
+    if (ad) {
+      setAds([...ads, ad]);
+    }
+  };
 
   const saveRename = async () => {
     if (!editingAdId || !editingName.trim()) {
-      setEditingAdId(null)
-      return
+      setEditingAdId(null);
+      return;
     }
 
-    const trimmed = editingName.trim()
-    const ad = ads.find(a => a.adId === editingAdId)
+    const trimmed = editingName.trim();
+    const ad = ads.find((a) => a.adId === editingAdId);
     if (ad && ad.meta.name === trimmed) {
-      setEditingAdId(null)
-      return
+      setEditingAdId(null);
+      return;
     }
 
     // Optimistic update
-    setAds(prev => prev.map(a =>
-      a.adId === editingAdId ? { ...a, meta: { ...a.meta, name: trimmed } } : a
-    ))
-    const savedId = editingAdId
-    setEditingAdId(null)
+    setAds((prev) =>
+      prev.map((a) =>
+        a.adId === editingAdId
+          ? { ...a, meta: { ...a.meta, name: trimmed } }
+          : a,
+      ),
+    );
+    const savedId = editingAdId;
+    setEditingAdId(null);
 
     try {
       const res = await fetch(`/api/ads/${savedId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmed }),
-      })
+      });
       if (!res.ok) {
-        loadAds() // Revert on failure
+        loadAds(); // Revert on failure
       }
     } catch {
-      loadAds()
+      loadAds();
     }
-  }
+  };
 
   const handleDeleteAd = async (e: React.MouseEvent, adId: string) => {
-    e.stopPropagation() // Prevent navigation
-    if (!confirm('Delete this ad? This cannot be undone.')) return
+    e.stopPropagation(); // Prevent navigation
+    if (!confirm("Delete this ad? This cannot be undone.")) return;
 
-    setDeletingAdId(adId)
+    setDeletingAdId(adId);
     try {
       const res = await fetch(`/api/ads/${adId}`, {
-        method: 'DELETE',
-      })
+        method: "DELETE",
+      });
 
       if (res.ok) {
         // If deleting current ad, redirect to home
         if (currentAdId === adId) {
-          window.location.href = '/'
+          window.location.href = "/";
         } else {
-          loadAds() // Refresh list
+          loadAds(); // Refresh list
         }
       } else {
-        console.error('Failed to delete ad')
+        console.error("Failed to delete ad");
       }
     } catch (err) {
-      console.error('Error deleting ad:', err)
+      console.error("Error deleting ad:", err);
     } finally {
-      setDeletingAdId(null)
+      setDeletingAdId(null);
     }
-  }
+  };
+
+  console.log("ADS", ads.length);
 
   return (
     <>
       {/* Backdrop */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300"
           onClick={onClose}
         />
       )}
-      
+
       {/* Drawer */}
-      <div 
+      <div
         ref={drawerRef}
         className={`
           fixed top-0 right-0 h-full w-full sm:w-96 bg-black/95 backdrop-blur-md 
           border-l border-white/20 shadow-2xl z-50 transform transition-transform duration-300
           flex flex-col
-          ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+          ${isOpen ? "translate-x-0" : "translate-x-full"}
         `}
       >
         {/* Header */}
@@ -232,23 +258,23 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
           {/* Tab bar */}
           <div className="flex px-4 pb-2 gap-1">
             <button
-              onClick={() => setActiveTab('ads')}
+              onClick={() => setActiveTab("ads")}
               className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-lg transition-all ${
-                activeTab === 'ads'
-                  ? 'bg-white/10 text-white'
-                  : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+                activeTab === "ads"
+                  ? "bg-white/10 text-white"
+                  : "text-white/50 hover:text-white/70 hover:bg-white/5"
               }`}
             >
-              Ads{ads.length > 0 ? ` (${ads.length})` : ''}
+              Ads{ads.length > 0 ? ` (${ads.length})` : ""}
             </button>
             <button
-              onClick={() => setActiveTab('chat')}
+              onClick={() => setActiveTab("chat")}
               disabled={!currentAdId}
               className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-lg transition-all ${
-                activeTab === 'chat'
-                  ? 'bg-white/10 text-white'
-                  : 'text-white/50 hover:text-white/70 hover:bg-white/5'
-              } ${!currentAdId ? 'opacity-40 cursor-not-allowed' : ''}`}
+                activeTab === "chat"
+                  ? "bg-white/10 text-white"
+                  : "text-white/50 hover:text-white/70 hover:bg-white/5"
+              } ${!currentAdId ? "opacity-40 cursor-not-allowed" : ""}`}
             >
               Chat
             </button>
@@ -258,7 +284,7 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
           {/* Ads Tab */}
-          {activeTab === 'ads' && (
+          {activeTab === "ads" && (
             <>
               {/* Loading state */}
               {isLoading && (
@@ -278,7 +304,10 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
               {/* Empty state */}
               {!isLoading && !error && ads.length === 0 && (
                 <div className="p-12 text-center">
-                  <ClockIcon className="w-16 h-16 text-white/20 mx-auto mb-4" strokeWidth={1.5} />
+                  <ClockIcon
+                    className="w-16 h-16 text-white/20 mx-auto mb-4"
+                    strokeWidth={1.5}
+                  />
                   <p className="text-white/60 text-base mb-1">No ads yet</p>
                   <p className="text-white/40 text-sm">
                     Create your first ad to see it here
@@ -295,8 +324,8 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
                       onClick={() => handleAdClick(ad.adId)}
                       className={`
                         group px-4 py-3 hover:bg-white/5 cursor-pointer transition-all
-                        ${currentAdId === ad.adId ? 'bg-blue-500/10 border-l-2 border-l-blue-500' : ''}
-                        ${deletingAdId === ad.adId ? 'opacity-50 pointer-events-none' : ''}
+                        ${currentAdId === ad.adId ? "bg-blue-500/10 border-l-2 border-l-blue-500" : ""}
+                        ${deletingAdId === ad.adId ? "opacity-50 pointer-events-none" : ""}
                       `}
                     >
                       <div className="flex items-start justify-between">
@@ -309,8 +338,8 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
                               onChange={(e) => setEditingName(e.target.value)}
                               onBlur={saveRename}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter') saveRename()
-                                if (e.key === 'Escape') setEditingAdId(null)
+                                if (e.key === "Enter") saveRename();
+                                if (e.key === "Escape") setEditingAdId(null);
                               }}
                               onClick={(e) => e.stopPropagation()}
                               className="w-full bg-white/10 text-white font-medium text-sm rounded px-1.5 py-0.5 outline-none ring-1 ring-blue-500/50 focus:ring-blue-500"
@@ -327,7 +356,20 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
                                 className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-0.5 text-white/40 hover:text-white rounded transition-all"
                                 aria-label="Rename ad"
                               >
-                                <PencilSquareIcon className="w-3.5 h-3.5" strokeWidth={1.5} />
+                                <PencilSquareIcon
+                                  className="w-3.5 h-3.5"
+                                  strokeWidth={1.5}
+                                />
+                              </button>
+                              <button
+                                onClick={(e) => startDuplicating(e, ad)}
+                                className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-0.5 text-white/40 hover:text-white rounded transition-all"
+                                aria-label="Rename ad"
+                              >
+                                <DocumentDuplicateIcon
+                                  className="w-3.5 h-3.5"
+                                  strokeWidth={1.5}
+                                />
                               </button>
                             </h4>
                           )}
@@ -340,8 +382,17 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
                               </span>
                             )}
                             {ad.meta.brief?.campaignFormat && (
-                              <span className="text-white/50" title={ad.meta.brief.campaignFormat === 'dialog' ? 'Dialog' : 'Ad Read'}>
-                                {ad.meta.brief.campaignFormat === 'dialog' ? '💬' : '🔊'}
+                              <span
+                                className="text-white/50"
+                                title={
+                                  ad.meta.brief.campaignFormat === "dialog"
+                                    ? "Dialog"
+                                    : "Ad Read"
+                                }
+                              >
+                                {ad.meta.brief.campaignFormat === "dialog"
+                                  ? "💬"
+                                  : "🔊"}
                               </span>
                             )}
                             {ad.meta.brief?.selectedProvider && (
@@ -354,7 +405,10 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
                           {/* Timestamp */}
                           <div className="flex items-center justify-between mt-1">
                             <span className="text-white/40 text-xs">
-                              {formatDistanceToNow(new Date(ad.meta.lastModified), { addSuffix: true })}
+                              {formatDistanceToNow(
+                                new Date(ad.meta.lastModified),
+                                { addSuffix: true },
+                              )}
                             </span>
                           </div>
                         </div>
@@ -381,7 +435,7 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
           )}
 
           {/* Chat Tab */}
-          {activeTab === 'chat' && (
+          {activeTab === "chat" && (
             <>
               {/* Loading state */}
               {isChatLoading && (
@@ -401,7 +455,10 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
               {/* No ad selected */}
               {!currentAdId && (
                 <div className="p-12 text-center">
-                  <ChatBubbleOvalLeftEllipsisIcon className="w-16 h-16 text-white/20 mx-auto mb-4" strokeWidth={1.5} />
+                  <ChatBubbleOvalLeftEllipsisIcon
+                    className="w-16 h-16 text-white/20 mx-auto mb-4"
+                    strokeWidth={1.5}
+                  />
                   <p className="text-white/60 text-base mb-1">Select an ad</p>
                   <p className="text-white/40 text-sm">
                     Choose an ad to view its chat history
@@ -410,15 +467,23 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
               )}
 
               {/* Empty state */}
-              {!isChatLoading && !chatError && currentAdId && chatMessages.length === 0 && (
-                <div className="p-12 text-center">
-                  <ChatBubbleOvalLeftEllipsisIcon className="w-16 h-16 text-white/20 mx-auto mb-4" strokeWidth={1.5} />
-                  <p className="text-white/60 text-base mb-1">No chat history</p>
-                  <p className="text-white/40 text-sm">
-                    Conversations will appear here
-                  </p>
-                </div>
-              )}
+              {!isChatLoading &&
+                !chatError &&
+                currentAdId &&
+                chatMessages.length === 0 && (
+                  <div className="p-12 text-center">
+                    <ChatBubbleOvalLeftEllipsisIcon
+                      className="w-16 h-16 text-white/20 mx-auto mb-4"
+                      strokeWidth={1.5}
+                    />
+                    <p className="text-white/60 text-base mb-1">
+                      No chat history
+                    </p>
+                    <p className="text-white/40 text-sm">
+                      Conversations will appear here
+                    </p>
+                  </div>
+                )}
 
               {/* Chat messages */}
               {!isChatLoading && !chatError && chatMessages.length > 0 && (
@@ -426,16 +491,18 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
                   {chatMessages.map((msg, idx) => (
                     <div
                       key={idx}
-                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                     >
                       <div
                         className={`max-w-[85%] px-3 py-2 rounded-xl text-sm ${
-                          msg.role === 'user'
-                            ? 'bg-blue-600 text-white rounded-br-sm'
-                            : 'bg-white/10 text-white/90 rounded-bl-sm'
+                          msg.role === "user"
+                            ? "bg-blue-600 text-white rounded-br-sm"
+                            : "bg-white/10 text-white/90 rounded-bl-sm"
                         }`}
                       >
-                        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                        <p className="whitespace-pre-wrap break-words">
+                          {msg.content}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -456,26 +523,55 @@ export function HistoryDrawer({ isOpen, onClose, currentAdId }: HistoryDrawerPro
               className="p-1.5 text-white/30 hover:text-white/70 transition-colors"
               title="Sign out"
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6 14H3C2.46957 14 1.96086 13.7893 1.58579 13.4142C1.21071 13.0391 1 12.5304 1 12V4C1 3.46957 1.21071 2.96086 1.58579 2.58579C1.96086 2.21071 2.46957 2 3 2H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M11 11L15 8L11 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M15 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M6 14H3C2.46957 14 1.96086 13.7893 1.58579 13.4142C1.21071 13.0391 1 12.5304 1 12V4C1 3.46957 1.21071 2.96086 1.58579 2.58579C1.96086 2.21071 2.46957 2 3 2H6"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M11 11L15 8L11 5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M15 8H6"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Duplicating Ad */}
+      {duplicatingAd && (
+        <DuplicateAdPopup ad={duplicatingAd} onClose={onDuplicatePopupClose} />
+      )}
     </>
-  )
+  );
 }
 
 // Hook for managing drawer state
 export function useHistoryDrawer() {
-  const [isOpen, setIsOpen] = useState(false)
-  
-  const toggle = () => setIsOpen(prev => !prev)
-  const close = () => setIsOpen(false)
-  const open = () => setIsOpen(true)
-  
-  return { isOpen, toggle, close, open }
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggle = () => setIsOpen((prev) => !prev);
+  const close = () => setIsOpen(false);
+  const open = () => setIsOpen(true);
+
+  return { isOpen, toggle, close, open };
 }
