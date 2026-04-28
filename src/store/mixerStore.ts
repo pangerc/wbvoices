@@ -19,6 +19,8 @@ export type MixerTrack = {
   anchorRefSlotId?: string;
   /** Current trim override — [start, end] window into the source blob. */
   trim?: { start: number; end: number };
+  /** Integrated LUFS of the stem (when measured); absent = assume-at-target. */
+  integratedLufs?: number;
   url: string;
   label: string;
   type: "voice" | "music" | "soundfx";

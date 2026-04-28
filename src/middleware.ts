@@ -1,5 +1,11 @@
-import { auth } from "@/auth";
+import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
+import { authConfig } from "@/auth.config";
+
+// Edge-safe auth wrapper: `authConfig` has no DB adapter, so this bundle
+// contains only JWT decode logic (no postgres / Drizzle). The full `auth()`
+// from `@/auth` must not be imported here.
+const { auth } = NextAuth(authConfig);
 
 function isPublicRoute(pathname: string): boolean {
   return (
@@ -17,22 +23,23 @@ function isAdminRoute(pathname: string): boolean {
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
-  // Public routes — no auth required
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 
-  // Not authenticated — redirect to sign-in
   if (!req.auth) {
+    // API routes: clean 401 JSON so fetch-based clients don't crash on
+    // JSON.parse of the sign-in HTML. Page routes: redirect to sign-in.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const signInUrl = new URL("/auth/signin", req.url);
     signInUrl.searchParams.set("callbackUrl", req.url);
     return NextResponse.redirect(signInUrl);
   }
 
-  // Admin routes — require admin role
   if (isAdminRoute(pathname)) {
     if (req.auth.user?.role !== "admin") {
-      // API routes get 403, page routes redirect to home
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
@@ -45,13 +52,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

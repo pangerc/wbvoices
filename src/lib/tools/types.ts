@@ -1,5 +1,14 @@
 import type { VoiceVersion, MusicVersion, SfxVersion, VersionId, StreamType } from "@/types/versions";
 import type { AnchorInput } from "./anchorTranslation";
+import type { KnowledgeContext } from "@/lib/knowledge/types";
+import type {
+  AgeBracket,
+  EnergyLevel,
+  WarmthLevel,
+  PaceTendency,
+  UseCaseTag,
+  DialectRegister,
+} from "@/services/voiceMetadataSynthesis";
 
 export type { AnchorInput };
 
@@ -38,6 +47,26 @@ export interface SearchVoicesParams {
   gender?: "male" | "female";
   accent?: string;
   count?: number;
+  /**
+   * Server-injected ad id. Not part of the LLM tool schema — the executor
+   * injects it from the agent context so searchVoices can seed a stable,
+   * per-ad shuffle over the candidate pool. Same ad re-runs get the same
+   * voice set; different ads get different sets. Without a seed the pool is
+   * sliced deterministically in provider-cache order, which is the root
+   * cause of the "same voices keep appearing" complaint.
+   */
+  adId?: string;
+
+  // Semantic filter args — LLM-visible. Closed enums only. Resolved against
+  // the synthesized structured metadata (see voiceMetadataSynthesis.ts) so
+  // filters work uniformly across all providers, including those with thin
+  // native metadata. Missing values on a voice do not exclude it.
+  age_bracket?: AgeBracket;
+  energy?: EnergyLevel;
+  warmth?: WarmthLevel;
+  pace_tendency?: PaceTendency;
+  use_case?: UseCaseTag;
+  dialect_register?: DialectRegister;
 }
 
 /**
@@ -52,6 +81,13 @@ export type ParentVersionRef = VersionId | null | undefined;
 export interface CreateVoiceDraftParams {
   adId: string;
   parentVersionId?: ParentVersionRef;
+  /**
+   * KnowledgeContext snapshot to pin on the new voice version. Not part of
+   * the LLM tool schema — injected server-side by the agent executor from
+   * either the initial brief (first version) or the parent version's
+   * inherited context plus optional overrides (iteration).
+   */
+  knowledgeContext?: KnowledgeContext;
   tracks: Array<{
     voiceId: string;
     text: string;
@@ -162,8 +198,42 @@ export interface SearchVoicesResult {
     gender: string;
     accent?: string;
     style?: string;
+    /**
+     * Human-curated personality description from the Neon `voice_descriptions`
+     * table (e.g. "Middle-aged french man, serious intonation. Great for
+     * Commercials." or "Reflects a neutral Middle Eastern accent with clear
+     * articulation."). The casting agent reads this to discriminate between
+     * candidates that pass the structural filters — without it, two voices
+     * with identical accent/gender/age look interchangeable even when their
+     * acoustic identity is wildly different.
+     */
+    description?: string;
+    provider?: string;
+    // Synthesized structured metadata — uniform across all providers. Any
+    // of these may be undefined when the source data didn't carry the
+    // signal; the LLM should read `casting_note` for the vibe glue.
+    age_bracket?: AgeBracket;
+    energy?: EnergyLevel;
+    warmth?: WarmthLevel;
+    pace_tendency?: PaceTendency;
+    use_case?: UseCaseTag;
+    dialect_register?: DialectRegister;
+    /**
+     * One-liner casting note: "when to cast this voice", distilled from
+     * the structured axes above and any provider-native personality text.
+     * The vibe-glue discriminator between candidates that passed the filter.
+     */
+    casting_note: string;
   }>;
   count: number;
+  /**
+   * Present only when the catalogue auto-broadened the search because the
+   * caller's filters returned an empty pool. Lists the dimensions that
+   * were dropped, in the order they were dropped (semantic filters →
+   * accent → gender). The agent treats these voices as still valid for
+   * casting and does NOT need to re-search.
+   */
+  broadened_from?: string[];
 }
 
 export interface DraftCreationResult {

@@ -23,6 +23,10 @@ import { getLanguageName } from "@/utils/language";
 import { setAdMetadata, getAdMetadata } from "@/lib/redis/versions";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
 import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
+import {
+  prefetchBriefEnrichments,
+  renderEnrichmentSections,
+} from "@/lib/brief-enrichment";
 import type { ProjectBrief } from "@/types";
 
 /**
@@ -49,7 +53,12 @@ function extractBrandName(description: string): string {
 }
 
 /**
- * Build the user message from the brief data
+ * Build the user message from the brief data.
+ *
+ * Renders the structured brief fields (tone-of-voice tags, brand voice,
+ * reference URLs, forbidden words, provided script) as clearly labelled
+ * sections so the LLM gets discrete signal instead of having to re-parse
+ * everything from `clientDescription` + `creativeBrief` prose.
  */
 function buildUserMessage(params: {
   language: string;
@@ -64,6 +73,16 @@ function buildUserMessage(params: {
   pacing?: string;
   adId: string;
   voiceProvider: string;
+  toneOfVoice?: string[];
+  brandVoice?: string;
+  referenceUrls?: string[];
+  forbiddenWords?: string;
+  providedScript?: string;
+  creativeAngle?: string;
+  /** Pre-rendered SF + URL + brand-voice sections from
+   *  brief-enrichment.renderEnrichmentSections. Empty string when no
+   *  enrichments were configured or all of them dropped. */
+  enrichmentSections?: string;
 }): string {
   const {
     languageName,
@@ -77,29 +96,47 @@ function buildUserMessage(params: {
     pacing,
     adId,
     voiceProvider,
+    toneOfVoice,
+    brandVoice,
+    referenceUrls,
+    forbiddenWords,
+    providedScript,
+    creativeAngle,
+    enrichmentSections,
   } = params;
 
   let dialectNote = "";
   if (accent && accent !== "neutral") {
     dialectNote = `\n- Dialect/Accent: ${accent}`;
-    if (region) {
-      dialectNote += ` (${region})`;
-    }
+    if (region) dialectNote += ` (${region})`;
   } else if (region) {
     dialectNote = `\n- Region: ${region} (use local expressions)`;
   }
 
-  let pacingNote = "";
-  if (pacing && pacing !== "normal") {
-    pacingNote = `\n- Pacing: ${pacing}`;
-  }
+  const pacingNote = pacing && pacing !== "normal" ? `\n- Pacing: ${pacing}` : "";
+  const ctaNote = cta ? `\n- Call to Action: ${cta}` : "";
+  const toneNote =
+    toneOfVoice && toneOfVoice.length
+      ? `\n- Brand register / tone-of-voice: ${toneOfVoice.join(", ")}`
+      : "";
+  const brandVoiceSection = brandVoice && brandVoice.trim()
+    ? `\n\n## Brand Voice\n${brandVoice.trim()}`
+    : "";
+  const referenceSection =
+    referenceUrls && referenceUrls.length
+      ? `\n\n## Reference URLs\n${referenceUrls.map((u) => `- ${u}`).join("\n")}`
+      : "";
+  const forbiddenSection = forbiddenWords && forbiddenWords.trim()
+    ? `\n\n## Forbidden words / phrases (do NOT use)\n${forbiddenWords.trim()}`
+    : "";
+  const providedScriptSection = providedScript && providedScript.trim()
+    ? `\n\n## Provided Script (USE VERBATIM)\nThe user has supplied the script text below. Use it exactly as written; only write acting instructions, music, and SFX around it. Do not edit, translate, or paraphrase.\n\n\`\`\`\n${providedScript.trim()}\n\`\`\``
+    : "";
+  const creativeAngleSection = creativeAngle && creativeAngle.trim()
+    ? `\n\n## Creative angle (THIS spot only)\n${creativeAngle.trim()}\nThis is the variance — what makes THIS ad different from every other ad for this brand. Brand voice is the constant; treat the angle as load-bearing.`
+    : "";
 
-  let ctaNote = "";
-  if (cta) {
-    ctaNote = `\n- Call to Action: ${cta}`;
-  }
-
-  // Calculate word count targets based on duration (~2.5 words/sec)
+  // Word count targets (~2.5 words/sec)
   const totalWords = Math.round(duration * 2.5);
   const wordsPerSpeaker = campaignFormat === "dialog" ? Math.round(totalWords / 2) : totalWords;
 
@@ -110,7 +147,7 @@ function buildUserMessage(params: {
 - Language: ${languageName}
 - Voice Provider: ${voiceProvider} (REQUIRED - only search for voices from this provider)
 - Client: ${clientDescription}
-- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}
+- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}${toneNote}${brandVoiceSection}${referenceSection}${forbiddenSection}${providedScriptSection}${creativeAngleSection}${enrichmentSections || ""}
 
 ## DURATION CONSTRAINT (CRITICAL)
 - STRICT LIMIT: Script MUST fit within ${duration} seconds when read at natural pace
@@ -137,7 +174,27 @@ export async function POST(req: NextRequest) {
       cta,
       pacing,
       selectedProvider: rawSelectedProvider,
+      // Stage-3 brief expansion fields (all optional)
+      toneOfVoice,
+      brandVoice,
+      referenceUrls,
+      forbiddenWords,
+      providedScript,
+      // Stage C — alaric/SFDC integration (all optional)
+      salesforceAccountId,
+      creativeAngle,
+      // v2 Stage H — unified brand reference. When present,
+      // brand.salesforceAccountId wins over the top-level field.
+      brand,
     } = body;
+
+    // Read order matches the brief schema deprecation contract: brand
+    // wins, top-level salesforceAccountId is the legacy fallback.
+    const effectiveSfAccountId: string | null =
+      (brand && typeof brand === "object" && typeof (brand as Record<string, unknown>).salesforceAccountId === "string"
+        ? ((brand as { salesforceAccountId: string }).salesforceAccountId)
+        : null) ||
+      (typeof salesforceAccountId === "string" ? salesforceAccountId : null);
 
     // Voice provider - default to elevenlabs if not specified
     const voiceProvider = rawSelectedProvider || "elevenlabs";
@@ -176,8 +233,24 @@ export async function POST(req: NextRequest) {
       region: region || undefined,
       language: language,
       voiceProvider: voiceProvider,
-      campaignFormat: campaignFormat as "dialog" | "ad_read",
+      campaignFormat: campaignFormat as KnowledgeContext["campaignFormat"],
+      toneOfVoice: Array.isArray(toneOfVoice) && toneOfVoice.length ? toneOfVoice : undefined,
+      brandVoice: brandVoice && typeof brandVoice === "string" && brandVoice.trim() ? brandVoice : undefined,
+      hasProvidedScript: !!(providedScript && typeof providedScript === "string" && providedScript.trim()),
     };
+
+    // Pre-fetch enrichments (alaric SF lookup + URL scrape) BEFORE building
+    // the user message. Bounded by a 12s wall-clock cap inside the helper;
+    // misses are dropped silently with a structured log line so alaric
+    // being unreachable never blocks generation. The output is a pre-
+    // rendered string of structured sections that buildUserMessage drops
+    // into the user message verbatim.
+    const enrichments = await prefetchBriefEnrichments({
+      adId,
+      salesforceAccountId: effectiveSfAccountId,
+      referenceUrls: Array.isArray(referenceUrls) ? referenceUrls : undefined,
+    });
+    const enrichmentSections = renderEnrichmentSections(enrichments);
 
     // Build user message first (used for intent detection in buildSystemPrompt)
     const userMessage = buildUserMessage({
@@ -193,6 +266,13 @@ export async function POST(req: NextRequest) {
       pacing,
       adId,
       voiceProvider,
+      toneOfVoice,
+      brandVoice,
+      referenceUrls,
+      forbiddenWords,
+      providedScript,
+      creativeAngle: typeof creativeAngle === "string" ? creativeAngle : undefined,
+      enrichmentSections,
     });
 
     // Build system prompt with modular knowledge
@@ -205,6 +285,7 @@ export async function POST(req: NextRequest) {
       adId,
       reasoningEffort: "medium",
       maxIterations: 5,
+      knowledgeContext,
     });
 
     console.log(`[/api/ai/generate] Agent completed with ${result.toolCallHistory.length} tool calls`);
@@ -222,6 +303,18 @@ export async function POST(req: NextRequest) {
       selectedPacing: pacing || null,
       selectedCTA: cta || null,
       selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
+      ...(Array.isArray(toneOfVoice) && toneOfVoice.length ? { toneOfVoice } : {}),
+      ...(brandVoice && typeof brandVoice === "string" && brandVoice.trim() ? { brandVoice: brandVoice.trim() } : {}),
+      ...(Array.isArray(referenceUrls) && referenceUrls.length ? { referenceUrls } : {}),
+      ...(forbiddenWords && typeof forbiddenWords === "string" && forbiddenWords.trim() ? { forbiddenWords: forbiddenWords.trim() } : {}),
+      ...(providedScript && typeof providedScript === "string" && providedScript.trim() ? { providedScript: providedScript.trim() } : {}),
+      // Persist both the legacy top-level field AND the new brand.* shape
+      // so v1 readers keep working while v2 readers prefer brand.*.
+      ...(effectiveSfAccountId ? { salesforceAccountId: effectiveSfAccountId } : {}),
+      ...(typeof creativeAngle === "string" && creativeAngle.trim() ? { creativeAngle: creativeAngle.trim() } : {}),
+      ...(brand && typeof brand === "object"
+        ? { brand: brand as ProjectBrief["brand"] }
+        : {}),
     };
 
     // Ensure ad exists (lazy creation)

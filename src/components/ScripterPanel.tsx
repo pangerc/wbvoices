@@ -358,23 +358,41 @@ export function ScripterPanel({
                       </Tooltip>
                     )}
 
-                    {/* Configure button */}
-                    {(selectedProvider === "openai" ||
-                      selectedProvider === "elevenlabs" ||
-                      selectedProvider === "lahajati") && (
-                      <Tooltip content="Configure voice settings">
-                        <button
-                          onClick={() => setEditingInstructionsIndex(index)}
-                          className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
-                            track.speed !== undefined || track.voiceInstructions
-                              ? "text-wb-blue bg-wb-blue/10 border-wb-blue/20"
-                              : "text-gray-500 hover:text-wb-blue hover:bg-wb-blue/10 border-transparent hover:border-wb-blue/20"
-                          }`}
-                        >
-                          <Cog6ToothIcon className="w-4 h-4" strokeWidth={2} />
-                        </button>
-                      </Tooltip>
-                    )}
+                    {/* Configure button — uses per-track effective provider so
+                        a track whose provider was overridden (e.g. ad is
+                        ElevenLabs-wide but this track is ByteDance) still
+                        shows its knobs. Qwen/Lovo are intentionally hidden:
+                        they have no per-track configuration surface. */}
+                    {(() => {
+                      const effective = getEffectiveProvider(track, selectedProvider as Provider);
+                      const hasConfigKnobs =
+                        effective === "openai" ||
+                        effective === "elevenlabs" ||
+                        effective === "lahajati" ||
+                        effective === "bytedance";
+                      if (!hasConfigKnobs) return null;
+                      const hasCustomConfig =
+                        track.speed !== undefined ||
+                        !!track.voiceInstructions ||
+                        !!track.emotion ||
+                        track.postProcessingSpeedup !== undefined ||
+                        track.postProcessingPitch !== undefined ||
+                        track.targetDuration !== undefined;
+                      return (
+                        <Tooltip content="Configure voice settings">
+                          <button
+                            onClick={() => setEditingInstructionsIndex(index)}
+                            className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
+                              hasCustomConfig
+                                ? "text-wb-blue bg-wb-blue/10 border-wb-blue/20"
+                                : "text-gray-500 hover:text-wb-blue hover:bg-wb-blue/10 border-transparent hover:border-wb-blue/20"
+                            }`}
+                          >
+                            <Cog6ToothIcon className="w-4 h-4" strokeWidth={2} />
+                          </button>
+                        </Tooltip>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -418,6 +436,12 @@ export function ScripterPanel({
           }
           dialectId={voiceTracks[editingInstructionsIndex]?.dialectId}
           performanceId={voiceTracks[editingInstructionsIndex]?.performanceId}
+          emotion={voiceTracks[editingInstructionsIndex]?.emotion}
+          trackText={voiceTracks[editingInstructionsIndex]?.text}
+          trackLanguage={
+            voiceTracks[editingInstructionsIndex]?.voice?.language ||
+            selectedLanguage
+          }
           onSave={(
             instructions,
             speed,
@@ -426,7 +450,9 @@ export function ScripterPanel({
             postProcessingPitch,
             targetDuration,
             dialectId,
-            performanceId
+            performanceId,
+            emotion,
+            convertedText
           ) => {
             const currentTrack = voiceTracks[editingInstructionsIndex];
             const providerChanged =
@@ -441,6 +467,11 @@ export function ScripterPanel({
               targetDuration: targetDuration,
               dialectId: dialectId,
               performanceId: performanceId,
+              emotion: emotion,
+              // LLM-converted script text lands here when provider changed.
+              // When unchanged or conversion skipped, fall through to the
+              // existing text.
+              ...(convertedText ? { text: convertedText } : {}),
               // Clear voice if provider changed (user needs to select new voice)
               voice: providerChanged ? null : currentTrack.voice,
             });

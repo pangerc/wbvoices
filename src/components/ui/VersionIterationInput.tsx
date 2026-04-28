@@ -37,6 +37,48 @@ interface VersionIterationInputProps {
   expandRef?: React.MutableRefObject<(() => void) | null>;
 }
 
+/**
+ * localStorage key for the in-flight iteration request per (ad, stream,
+ * parent). Radix Accordion unmounts our content on collapse, so component
+ * state doesn't survive accordion toggles / re-expands — persisting here
+ * lets the user type something, collapse the accordion, re-open it, and
+ * find their draft still there. Cleared on successful submit.
+ */
+function draftStorageKey(adId: string, stream: string, parentVersionId: string) {
+  return `vii-draft:${adId}:${stream}:${parentVersionId}`;
+}
+
+interface StoredDraft {
+  expanded: boolean;
+  text: string;
+}
+
+function readStoredDraft(key: string): StoredDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredDraft;
+    if (typeof parsed.text !== "string" || typeof parsed.expanded !== "boolean") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredDraft(key: string, draft: StoredDraft) {
+  if (typeof window === "undefined") return;
+  try {
+    if (!draft.expanded && !draft.text) {
+      window.localStorage.removeItem(key);
+    } else {
+      window.localStorage.setItem(key, JSON.stringify(draft));
+    }
+  } catch {
+    // quota exceeded / privacy mode — non-fatal
+  }
+}
+
 export function VersionIterationInput({
   adId,
   stream,
@@ -47,15 +89,32 @@ export function VersionIterationInput({
   disabledReason,
   expandRef,
 }: VersionIterationInputProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [request, setRequest] = useState("");
+  const storageKey = draftStorageKey(adId, stream, parentVersionId);
+
+  // Lazily seed from localStorage on first render so a component that remounts
+  // after an accordion collapse picks up the user's previous draft.
+  const [isExpanded, setIsExpanded] = useState<boolean>(() => {
+    const stored = readStoredDraft(storageKey);
+    return stored?.expanded ?? false;
+  });
+  const [request, setRequest] = useState<string>(() => {
+    const stored = readStoredDraft(storageKey);
+    return stored?.text ?? "";
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDisabledAlert, setShowDisabledAlert] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Reset form when a new draft version is created
+  // Persist draft to localStorage whenever it changes. Survives unmount.
+  useEffect(() => {
+    writeStoredDraft(storageKey, { expanded: isExpanded, text: request });
+  }, [storageKey, isExpanded, request]);
+
+  // Reset form when the parent version changes (e.g. a new draft was just
+  // created). The new parent's stored draft — if any — will be seeded on
+  // the next mount.
   useEffect(() => {
     setIsExpanded(false);
     setRequest("");
@@ -109,9 +168,21 @@ export function VersionIterationInput({
 
       if (newVersionId) {
         setRequest("");
+        // Successful submit — drop the saved draft so a future mount doesn't
+        // resurrect the now-consumed request text.
+        writeStoredDraft(storageKey, { expanded: false, text: "" });
         onNewVersion(newVersionId);
       } else {
-        setError("No new version was created. Try a different request.");
+        // Chat endpoint returned 200 but the LLM didn't produce a draft —
+        // usually because it replied conversationally ("I need more detail
+        // about what you want to change"). Surface that reply instead of
+        // the generic fallback, so the user can act on it. The draft text
+        // stays in storage so retrying (or sharpening the request) is cheap.
+        const llmMessage = typeof result.message === "string" ? result.message.trim() : "";
+        setError(
+          llmMessage ||
+            "No new version was created. Try rephrasing — be specific about what should change."
+        );
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

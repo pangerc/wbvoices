@@ -110,38 +110,40 @@ Include accent in Pronunciation field: "${accent}${region ? ` (${region})` : ""}
 
     return `## OpenAI TTS Voice Guidance
 
-OpenAI TTS processes each track INDEPENDENTLY. Each track's voiceInstructions must be self-contained - describing only THAT track's delivery, not the overall ad concept.
+OpenAI TTS processes each track INDEPENDENTLY. Each track's voiceInstructions must be self-contained — describing only THAT track's delivery, not the overall ad concept.
 
-### voiceInstructions Format (required for each track)
+### What makes an instruction land
+The difference between flat ("Tone: enthusiastic, upbeat") and alive is character + situation + sonic detail.
+
+✅ Alive — "Voice affect: a friend who just got back from the trip and can't wait to tell you about it. Energy leans forward, slightly out of breath on the verbs. Pronunciation: clear ${accent ? `${accent} ` : ""}accent."
+
+✅ Alive — "Voice affect: a bartender at 1am who's seen everything. Weary amusement crackling under the recommendation. Pacing: unhurried, lands consonants. Trust earned by not trying."
+
+✅ Alive — "Voice affect: the calmest person in the room during a small crisis. Low pitch, unhurried, doesn't raise volume to claim authority. Emphasis: lands hard on the call to action without telegraphing it."
+
+❌ Flat — "Voice Affect: Energetic and enthusiastic; Tone: Excited, upbeat; Pacing: Quick, punchy" — generic, model-like, regresses to corporate-narrator-safe.
+
+Pattern: name the character, place them in a situation, give one physical/sonic detail. The detail is what stops you regressing to "warm and engaging".
+
+### Recommended structure (use what you need; not all 7 fields are required)
 \`\`\`
-Voice Affect: <this track's voice character>
-Tone: <this track's emotional tone>
-Pacing: <this track's speed>${pacingGuidance}
-Emotion: <this track's emotional delivery>
-Emphasis: <words to highlight in this track>
-Pronunciation: <articulation style, accent if needed>
-Pauses: <pause placement for this track>
+Voice Affect: <character + situation + one sonic detail>
+Tone: <emotional register>
+Pacing: <natural speed for this character>${pacingGuidance}
+Emotion: <what they feel about what they're saying>
+Emphasis: <which words land hardest>
+Pronunciation: <accent / articulation>
+Pauses: <where breath beats matter>
 \`\`\`
 
-### Good vs Bad Examples
+Skip fields that don't add signal. A two-line instruction that names the character precisely beats a seven-line one that lists generic adjectives.
 
-✅ CORRECT - Track-specific, self-contained:
-"Voice Affect: Energetic and enthusiastic; Tone: Excited, upbeat; Pacing: Quick, punchy; Emotion: Genuine excitement; Emphasis: 'amazing' and 'today'; Pronunciation: Clear, crisp; Pauses: Brief pause before the reveal."
+### Hard rules
 
-❌ WRONG - Contains ad-wide creative direction:
-"Voice Affect: The first speaker in this energetic dialogue about summer drinks, setting up the playful banter..."
-
-❌ WRONG - Contains inline tags (will appear as literal text):
-"[excited]Check out our amazing sale!"
-→ Use voiceInstructions field instead: "Emotion: excited and enthusiastic"
-${arabicGuidance}${accentGuidance}
-
-### Key Rules
-1. voiceInstructions is REQUIRED - no plain text style control
-2. Each track is independent - no references to "other speaker" or "dialogue flow"
-3. NO inline tags like [happy], [laughs], [excited] - these render as literal text
-4. Script text should be PLAIN TEXT only
-5. Match affect/tone to the brand, but describe only this track's delivery`;
+1. NO inline tags like [happy], [laughs], [excited] — these render as literal text in the audio. Put delivery cues in the voiceInstructions field, never in script text.
+2. Each track is independent — no references to "other speaker" or "dialogue flow"; the model generating audio doesn't see the full ad.
+3. Script text is plain text only.
+4. Describe THIS track's delivery, not the brand or the campaign concept.${arabicGuidance}${accentGuidance}`;
 
   },
 };

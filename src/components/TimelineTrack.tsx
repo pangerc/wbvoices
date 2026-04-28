@@ -72,21 +72,12 @@ export function getTrackGlassProps(type: "voice" | "music" | "soundfx") {
   }
 }
 
-// Get default volume based on track type
-export function getDefaultVolumeForType(
-  type: "voice" | "music" | "soundfx"
-): number {
-  switch (type) {
-    case "voice":
-      return 1.0;
-    case "music":
-      return 0.25;
-    case "soundfx":
-      return 0.7;
-    default:
-      return 1.0;
-  }
-}
+// Per-stem normalization handles the type defaults now (audio-mixer.ts
+// targets voice -16, music -23, sfx -20 LUFS). User volume is a dB trim
+// around unity, default 0 dB.
+const VOLUME_MIN_DB = -12;
+const VOLUME_MAX_DB = 6;
+const VOLUME_STEP_DB = 0.5;
 
 // Extended type for tracks that includes calculated timeline properties
 export interface TimelineTrackData extends MixerTrack {
@@ -97,13 +88,14 @@ export interface TimelineTrackData extends MixerTrack {
 type TimelineTrackProps = {
   track: TimelineTrackData;
   totalDuration: number;
-  isVolumeDrawerOpen: boolean;
-  trackVolume: number;
+  /** dB trim around unity (post-stem-normalization). 0 = no change. */
+  trackVolumeDb: number;
   audioError: boolean;
   playingState: boolean;
   playbackProgress: number;
   audioRef: (element: HTMLAudioElement | null) => void;
-  onVolumeChange: (value: number) => void;
+  /** Receives dB values now, not 0..1 multipliers. */
+  onVolumeChange: (valueDb: number) => void;
   onAudioLoaded: () => void;
   onAudioError: () => void;
   isTrackLoading: boolean;
@@ -157,8 +149,7 @@ type TimelineTrackProps = {
 export function TimelineTrack({
   track,
   totalDuration,
-  isVolumeDrawerOpen,
-  trackVolume,
+  trackVolumeDb,
   audioError,
   playingState,
   playbackProgress,
@@ -587,11 +578,7 @@ export function TimelineTrack({
       )}
 
       {/* Track ribbon container */}
-      <div
-        className={`relative ${
-          isVolumeDrawerOpen ? "w-[calc(100%-100px)]" : "w-full"
-        } h-full`}
-      >
+      <div className="relative w-full h-full">
         {/* The actual colored ribbon - positioned within the track container */}
         <div
           ref={ribbonRef}
@@ -799,6 +786,39 @@ export function TimelineTrack({
             {(onToggleMute || onToggleSolo) && (
               <div className="border-t border-white/10" />
             )}
+            {/* Per-track volume — dB trim around unity (0 = balanced).
+                Stem is normalized to its per-type LUFS target before this
+                trim applies, so 0 dB is genuinely "broadcast-balanced",
+                not "raw stem at full level." */}
+            <div
+              className="px-3 py-2 border-t border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="text-gray-400">Volume</span>
+                <button
+                  type="button"
+                  onClick={() => onVolumeChange(0)}
+                  className="text-white tabular-nums hover:text-gray-300 transition-colors"
+                  title="Reset to 0 dB"
+                >
+                  {trackVolumeDb === 0
+                    ? "0.0 dB"
+                    : trackVolumeDb > 0
+                      ? `+${trackVolumeDb.toFixed(1)} dB`
+                      : `${trackVolumeDb.toFixed(1)} dB`}
+                </button>
+              </div>
+              <input
+                type="range"
+                min={VOLUME_MIN_DB}
+                max={VOLUME_MAX_DB}
+                step={VOLUME_STEP_DB}
+                value={Math.max(VOLUME_MIN_DB, Math.min(VOLUME_MAX_DB, trackVolumeDb))}
+                onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
+                className="w-full h-1 cursor-pointer"
+              />
+            </div>
             {track.type === "voice" && onChangeVoice && (
               <button
                 onClick={(e) => {
@@ -910,20 +930,9 @@ export function TimelineTrack({
         </button>
       </div>
 
-      {/* Integrated volume slider - visible only when volume mode is active */}
-      {isVolumeDrawerOpen && (
-        <div className="ml-4 w-[80px] flex-shrink-0">
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={trackVolume}
-            onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-            className="w-full h-1"
-          />
-        </div>
-      )}
+      {/* Volume slider lives inside the kebab menu now (see below). The
+          drawer pattern was retired so the timeline edge stays clear for
+          the playhead-scrub pointer surface. */}
     </div>
   );
 }

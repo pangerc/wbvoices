@@ -18,6 +18,10 @@ import { internalFetch } from "@/utils/internal-fetch";
 import { setAdMetadata, getAdMetadata, getVersion, setActiveVersion } from "@/lib/redis/versions";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
 import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
+import {
+  prefetchBriefEnrichments,
+  renderEnrichmentSections,
+} from "@/lib/brief-enrichment";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
 import type { ProjectBrief } from "@/types";
 import type { VoiceVersion, MusicVersion, SfxVersion } from "@/types/versions";
@@ -53,6 +57,12 @@ export const maxDuration = 300; // 5 minutes
 type StreamEvent =
   | { type: "llm-thinking" } // LLM agent loop starting
   | { type: "status"; message: string }
+  // Stage-5 streaming events: per-token model output + per-tool-call markers
+  // for perceived-latency. The user sees the model thinking out loud and
+  // composing tool arguments instead of staring at a "Thinking…" spinner.
+  | { type: "model-text-delta"; text: string }
+  | { type: "model-tool-call-start"; name: string; callId: string }
+  | { type: "model-tool-call-args-delta"; callId: string; delta: string }
   | { type: "drafts-created"; drafts: { voices?: string; music?: string; sfx?: string }; adName: string }
   | { type: "voice-generating"; index: number; total: number; versionId: string }
   | { type: "voice-ready"; index: number; url: string }
@@ -67,7 +77,9 @@ type StreamEvent =
   | { type: "error"; message: string };
 
 /**
- * Build the user message from the brief data
+ * Build the user message from the brief data.
+ * Mirrors the helper in /api/ai/generate/route.ts — kept in sync so
+ * streaming and non-streaming paths see identical user messages.
  */
 function buildUserMessage(params: {
   language: string;
@@ -82,6 +94,16 @@ function buildUserMessage(params: {
   pacing?: string;
   adId: string;
   voiceProvider: string;
+  toneOfVoice?: string[];
+  brandVoice?: string;
+  referenceUrls?: string[];
+  forbiddenWords?: string;
+  providedScript?: string;
+  creativeAngle?: string;
+  /** Pre-rendered SF + URL + brand-voice sections from
+   *  brief-enrichment.renderEnrichmentSections. Empty string when no
+   *  enrichments were configured or all of them dropped. */
+  enrichmentSections?: string;
 }): string {
   const {
     languageName,
@@ -95,27 +117,46 @@ function buildUserMessage(params: {
     pacing,
     adId,
     voiceProvider,
+    toneOfVoice,
+    brandVoice,
+    referenceUrls,
+    forbiddenWords,
+    providedScript,
+    creativeAngle,
+    enrichmentSections,
   } = params;
 
   let dialectNote = "";
   if (accent && accent !== "neutral") {
     dialectNote = `\n- Dialect/Accent: ${accent}`;
-    if (region) {
-      dialectNote += ` (${region})`;
-    }
+    if (region) dialectNote += ` (${region})`;
   } else if (region) {
     dialectNote = `\n- Region: ${region} (use local expressions)`;
   }
 
-  let pacingNote = "";
-  if (pacing && pacing !== "normal") {
-    pacingNote = `\n- Pacing: ${pacing}`;
-  }
+  const pacingNote = pacing && pacing !== "normal" ? `\n- Pacing: ${pacing}` : "";
+  const ctaNote = cta ? `\n- Call to Action: ${cta}` : "";
+  const toneNote =
+    toneOfVoice && toneOfVoice.length
+      ? `\n- Brand register / tone-of-voice: ${toneOfVoice.join(", ")}`
+      : "";
+  const brandVoiceSection = brandVoice && brandVoice.trim()
+    ? `\n\n## Brand Voice\n${brandVoice.trim()}`
+    : "";
+  const referenceSection =
+    referenceUrls && referenceUrls.length
+      ? `\n\n## Reference URLs\n${referenceUrls.map((u) => `- ${u}`).join("\n")}`
+      : "";
+  const forbiddenSection = forbiddenWords && forbiddenWords.trim()
+    ? `\n\n## Forbidden words / phrases (do NOT use)\n${forbiddenWords.trim()}`
+    : "";
+  const providedScriptSection = providedScript && providedScript.trim()
+    ? `\n\n## Provided Script (USE VERBATIM)\nThe user has supplied the script text below. Use it exactly as written; only write acting instructions, music, and SFX around it. Do not edit, translate, or paraphrase.\n\n\`\`\`\n${providedScript.trim()}\n\`\`\``
+    : "";
 
-  let ctaNote = "";
-  if (cta) {
-    ctaNote = `\n- Call to Action: ${cta}`;
-  }
+  const creativeAngleSection = creativeAngle && creativeAngle.trim()
+    ? `\n\n## Creative angle (THIS spot only)\n${creativeAngle.trim()}\nThis is the variance — what makes THIS ad different from every other ad for this brand. Brand voice is the constant; treat the angle as load-bearing.`
+    : "";
 
   const totalWords = Math.round(duration * 2.5);
   const wordsPerSpeaker = campaignFormat === "dialog" ? Math.round(totalWords / 2) : totalWords;
@@ -127,7 +168,7 @@ function buildUserMessage(params: {
 - Language: ${languageName}
 - Voice Provider: ${voiceProvider} (REQUIRED - only search for voices from this provider)
 - Client: ${clientDescription}
-- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}
+- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}${toneNote}${brandVoiceSection}${referenceSection}${forbiddenSection}${providedScriptSection}${creativeAngleSection}${enrichmentSections || ""}
 
 ## DURATION CONSTRAINT (CRITICAL)
 - STRICT LIMIT: Script MUST fit within ${duration} seconds when read at natural pace
@@ -167,7 +208,26 @@ export async function POST(req: NextRequest) {
     pacing,
     selectedProvider: rawSelectedProvider,
     autoGenerateAudio = true,
+    // Stage-3 brief expansion fields (all optional)
+    toneOfVoice,
+    brandVoice,
+    referenceUrls,
+    forbiddenWords,
+    providedScript,
+    // Stage C — alaric/SFDC integration (all optional)
+    salesforceAccountId,
+    creativeAngle,
+    // v2 Stage H — unified brand reference. brand.salesforceAccountId
+    // wins over the top-level field when both are set.
+    brand,
   } = body;
+
+  // Same precedence rule as /api/ai/generate. Keep the two routes in lockstep.
+  const effectiveSfAccountId: string | null =
+    (brand && typeof brand === "object" && typeof (brand as Record<string, unknown>).salesforceAccountId === "string"
+      ? ((brand as { salesforceAccountId: string }).salesforceAccountId)
+      : null) ||
+    (typeof salesforceAccountId === "string" ? salesforceAccountId : null);
 
   // Validate required fields
   if (!adId) {
@@ -213,8 +273,20 @@ export async function POST(req: NextRequest) {
         region: region || undefined,
         language: language,
         voiceProvider: voiceProvider,
-        campaignFormat: campaignFormat as "dialog" | "ad_read",
+        campaignFormat: campaignFormat as KnowledgeContext["campaignFormat"],
+        toneOfVoice: Array.isArray(toneOfVoice) && toneOfVoice.length ? toneOfVoice : undefined,
+        brandVoice: brandVoice && typeof brandVoice === "string" && brandVoice.trim() ? brandVoice : undefined,
+        hasProvidedScript: !!(providedScript && typeof providedScript === "string" && providedScript.trim()),
       };
+
+      // Pre-fetch enrichments before building the user message — same
+      // pattern as the non-streaming /api/ai/generate route.
+      const enrichments = await prefetchBriefEnrichments({
+        adId,
+        salesforceAccountId: effectiveSfAccountId,
+        referenceUrls: Array.isArray(referenceUrls) ? referenceUrls : undefined,
+      });
+      const enrichmentSections = renderEnrichmentSections(enrichments);
 
       const userMessage = buildUserMessage({
         language,
@@ -229,14 +301,48 @@ export async function POST(req: NextRequest) {
         pacing,
         adId,
         voiceProvider,
+        toneOfVoice,
+        brandVoice,
+        referenceUrls,
+        forbiddenWords,
+        providedScript,
+        creativeAngle: typeof creativeAngle === "string" ? creativeAngle : undefined,
+        enrichmentSections,
       });
 
       const systemPrompt = buildSystemPrompt(userMessage, knowledgeContext);
+
+      // Forward model stream events as SSE so the UI can render tokens as
+      // they arrive. Errors in the SSE write are swallowed — the agent
+      // loop must keep going even if the client disconnected.
+      const forwardModelEvent = (event: { type: string } & Record<string, unknown>) => {
+        try {
+          if (event.type === "text_delta") {
+            void sendEvent({ type: "model-text-delta", text: event.text as string });
+          } else if (event.type === "tool_call_start") {
+            void sendEvent({
+              type: "model-tool-call-start",
+              name: event.name as string,
+              callId: event.callId as string,
+            });
+          } else if (event.type === "tool_call_args_delta") {
+            void sendEvent({
+              type: "model-tool-call-args-delta",
+              callId: event.callId as string,
+              delta: event.delta as string,
+            });
+          }
+        } catch {
+          // SSE write failures are non-fatal during streaming.
+        }
+      };
 
       const result = await runAgentLoop(systemPrompt, userMessage, {
         adId,
         reasoningEffort: "medium",
         maxIterations: 5,
+        knowledgeContext,
+        onModelEvent: forwardModelEvent,
       });
 
       console.log(`[generate-stream] Agent completed, drafts:`, result.drafts);
@@ -253,6 +359,16 @@ export async function POST(req: NextRequest) {
         selectedPacing: pacing || null,
         selectedCTA: cta || null,
         selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
+        ...(Array.isArray(toneOfVoice) && toneOfVoice.length ? { toneOfVoice } : {}),
+        ...(brandVoice && typeof brandVoice === "string" && brandVoice.trim() ? { brandVoice: brandVoice.trim() } : {}),
+        ...(Array.isArray(referenceUrls) && referenceUrls.length ? { referenceUrls } : {}),
+        ...(forbiddenWords && typeof forbiddenWords === "string" && forbiddenWords.trim() ? { forbiddenWords: forbiddenWords.trim() } : {}),
+        ...(providedScript && typeof providedScript === "string" && providedScript.trim() ? { providedScript: providedScript.trim() } : {}),
+        ...(effectiveSfAccountId ? { salesforceAccountId: effectiveSfAccountId } : {}),
+        ...(typeof creativeAngle === "string" && creativeAngle.trim() ? { creativeAngle: creativeAngle.trim() } : {}),
+        ...(brand && typeof brand === "object"
+          ? { brand: brand as ProjectBrief["brand"] }
+          : {}),
       };
 
       const { requireAuth } = await import("@/lib/auth-helpers");

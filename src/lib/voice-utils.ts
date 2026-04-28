@@ -144,8 +144,11 @@ export async function generateVoiceTrack(
   let audioUrl = data.audio_url;
   let duration = data.duration || 0;
 
-  // Apply post-processing speedup if specified (ElevenLabs only)
-  if (provider === 'elevenlabs' && (track.postProcessingSpeedup || track.targetDuration)) {
+  // Apply post-processing time-stretch if specified. The transform is
+  // provider-agnostic (WSOLA on the generated blob) so any provider that
+  // produces audio benefits — Qwen / Lovo / ByteDance have no native speed
+  // control, so this is their only path to a faster read.
+  if (track.postProcessingSpeedup || track.targetDuration) {
     const processed = await applyPostProcessing(audioUrl, track, duration);
     audioUrl = processed.audioUrl;
     duration = processed.duration;

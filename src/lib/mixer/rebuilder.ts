@@ -796,6 +796,7 @@ function collectVoiceTracks(
       id: trackId,
       slotId: voiceTrack.slotId,
       anchorOrigin: voiceTrack.slotId ? anchors[voiceTrack.slotId]?.origin : undefined,
+      integratedLufs: voiceVersion.integratedLufs?.[index] ?? undefined,
       anchorRefSlotId: voiceTrack.slotId
         ? refSlotFromAnchor(anchors[voiceTrack.slotId]?.anchor)
         : undefined,
@@ -845,6 +846,7 @@ function collectMusicTrack(
     id: trackId,
     slotId: musicVersion.slotId,
     anchorOrigin: musicVersion.slotId ? anchors[musicVersion.slotId]?.origin : undefined,
+    integratedLufs: musicVersion.integratedLufs ?? undefined,
     anchorRefSlotId: musicVersion.slotId
       ? refSlotFromAnchor(anchors[musicVersion.slotId]?.anchor)
       : undefined,
@@ -880,6 +882,7 @@ function collectSfxTracks(
       id: trackId,
       slotId: sfxPrompt.slotId,
       anchorOrigin: sfxPrompt.slotId ? anchors[sfxPrompt.slotId]?.origin : undefined,
+      integratedLufs: sfxVersion.integratedLufs?.[index] ?? undefined,
       anchorRefSlotId: sfxPrompt.slotId
         ? refSlotFromAnchor(anchors[sfxPrompt.slotId]?.anchor)
         : undefined,

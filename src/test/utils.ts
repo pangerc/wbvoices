@@ -72,6 +72,22 @@ export function createMockRedis(): Redis {
     incr: async (key: string) => {
       return await mock.incr(key);
     },
+    hset: async (key: string, fields: Record<string, string | number>) => {
+      // Upstash-style hset(key, {a:1, b:2}) → ioredis-mock hset(key, "a", 1, "b", 2)
+      const args: (string | number)[] = [];
+      for (const [k, v] of Object.entries(fields)) {
+        args.push(k, v);
+      }
+      return await (mock as unknown as {
+        hset: (...a: unknown[]) => Promise<number>;
+      }).hset(key, ...args);
+    },
+    hget: async (key: string, field: string) => {
+      return await mock.hget(key, field);
+    },
+    hgetall: async (key: string) => {
+      return await mock.hgetall(key);
+    },
     flushall: async () => {
       await mock.flushall();
       return "OK";

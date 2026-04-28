@@ -5,7 +5,7 @@ declare global {
   }
 }
 
-import { normalizeToSpotifySpec } from './audio-processing';
+import { calculateLUFS, normalizeToSpotifySpec } from './audio-processing';
 
 export type TrackTiming = {
   id: string;
@@ -14,7 +14,21 @@ export type TrackTiming = {
   startTime: number;
   /** Effective duration (post-trim) — when the clip plays. */
   duration: number;
-  gain?: number;
+  /**
+   * User volume trim in dB around unity. 0 = no change, positive = louder,
+   * negative = quieter. Applied AFTER per-stem normalization to a per-type
+   * LUFS target. Replaces the old 0..1 multiplier; legacy values in 0..1
+   * range now read as small positive trims (acceptable degradation until
+   * the user touches the slider).
+   */
+  gainDb?: number;
+  /**
+   * Pre-measured integrated loudness of the stem in LUFS (BS.1770). When
+   * present, the mix render computes the gain needed to bring the stem
+   * to its per-type target before applying user trim. Absent stems are
+   * assumed-at-target (no normalization adjustment).
+   */
+  integratedLufs?: number;
   /**
    * Trim window into the source blob. When present, the clip plays only
    * `[trim.start, trim.end]` of the source at its scheduled timeline
@@ -22,6 +36,35 @@ export type TrackTiming = {
    */
   trim?: { start: number; end: number };
 };
+
+/**
+ * Per-type LUFS targets for stem normalization. Stems hotter than their
+ * target are attenuated; quieter stems are boosted. These constants codify
+ * the "music sits 7 LU under voice" broadcast convention so the user's
+ * volume trim slider can mean "trim around a balanced mix" rather than
+ * "guess at a multiplier that compensates for raw stem loudness."
+ *
+ * Currently constants; should move to config if producers want per-ad
+ * tuning (per the architecture-strategist's guidance on the volume-
+ * semantics decision).
+ */
+const STEM_TARGET_LUFS = {
+  voice: -16,
+  music: -23,
+  soundfx: -20,
+} as const;
+
+/** Hard ceiling on per-stem gain so a corrupt LUFS measurement can't blow speakers. */
+const MAX_PER_STEM_GAIN_DB = 12;
+const MIN_PER_STEM_GAIN_DB = -36;
+
+function dbToLinear(db: number): number {
+  return Math.pow(10, db / 20);
+}
+
+function clampDb(db: number): number {
+  return Math.max(MIN_PER_STEM_GAIN_DB, Math.min(MAX_PER_STEM_GAIN_DB, db));
+}
 
 export async function createMix(
   voiceUrls: string[],
@@ -125,10 +168,32 @@ export async function createMix(
       );
       const endTime = info.startTime + playDuration;
 
+      // Compute the per-stem linear gain via dB-domain math:
+      //   normalizationDb = targetLufs - integratedLufs    (assume-at-target if unmeasured)
+      //   userTrimDb      = info.gainDb ?? 0               (default 0 = unity)
+      //   total           = clamp(normalizationDb + userTrimDb)
+      // Result is a linear multiplier handed to the GainNode below.
+      const targetLufs =
+        STEM_TARGET_LUFS[info.type as keyof typeof STEM_TARGET_LUFS] ?? -16;
+      const integratedLufs =
+        typeof info.integratedLufs === "number"
+          ? info.integratedLufs
+          : measureLufsLazy(audioBuffer, info.url);
+      const normalizationDb =
+        typeof integratedLufs === "number"
+          ? targetLufs - integratedLufs
+          : 0;
+      const userTrimDb = typeof info.gainDb === "number" ? info.gainDb : 0;
+      const totalDb = clampDb(normalizationDb + userTrimDb);
+      // Silence pass-through: if the patch sender wanted the track muted
+      // (handled today by sending gain=0 in the legacy path), preserve
+      // that by treating "explicit zero gainDb under -36" as silence.
+      const linearGain = userTrimDb <= MIN_PER_STEM_GAIN_DB ? 0 : dbToLinear(totalDb);
+
       trackTimings.set(info.url, {
         start: info.startTime,
         end: endTime,
-        gain: info.gain || getDefaultGainForType(info.type),
+        gain: linearGain,
         type: info.type,
         sourceOffset,
         playDuration,
@@ -136,7 +201,7 @@ export async function createMix(
 
       maxEndTime = Math.max(maxEndTime, endTime);
       console.log(
-        `Scheduled ${info.type} at ${info.startTime}s, offset: ${sourceOffset}s, duration: ${playDuration}s, end: ${endTime}s`
+        `Scheduled ${info.type} at ${info.startTime}s, offset: ${sourceOffset}s, duration: ${playDuration}s, end: ${endTime}s, normDb=${normalizationDb.toFixed(1)} userDb=${userTrimDb.toFixed(1)} total=${totalDb.toFixed(1)}dB`
       );
     });
   } else {
@@ -150,7 +215,7 @@ export async function createMix(
       trackTimings.set(musicUrl, {
         start: 0,
         end: audioBuffer.duration,
-        gain: getDefaultGainForType("music"),
+        gain: 1.0,
         type: "music",
         sourceOffset: 0,
         playDuration: audioBuffer.duration,
@@ -166,7 +231,7 @@ export async function createMix(
       trackTimings.set(url, {
         start: 0,
         end: audioBuffer.duration,
-        gain: getDefaultGainForType("soundfx"),
+        gain: 1.0,
         type: "soundfx",
         sourceOffset: 0,
         playDuration: audioBuffer.duration,
@@ -185,7 +250,7 @@ export async function createMix(
       trackTimings.set(url, {
         start: currentTime,
         end: currentTime + audioBuffer.duration,
-        gain: getDefaultGainForType("voice"),
+        gain: 1.0,
         type: "voice",
         sourceOffset: 0,
         playDuration: audioBuffer.duration,
@@ -284,17 +349,33 @@ export async function createMix(
   return { blob: wavBlob };
 }
 
-function getDefaultGainForType(type: "voice" | "music" | "soundfx"): number {
-  switch (type) {
-    case "voice":
-      return 1.0; // Full volume
-    case "music":
-      return 0.25; // Reduced volume further (from 0.4 to 0.25)
-    case "soundfx":
-      return 0.7; // Medium volume
-    default:
-      return 1.0;
+/**
+ * Per-render LUFS measurement cache. Stems decoded for the current mix
+ * are measured on-demand when no `integratedLufs` was supplied via
+ * TrackTiming, then cached by URL so successive timing entries that
+ * happen to share the same buffer (rare but possible across takes)
+ * don't pay the cost twice. Cleared between mix renders implicitly via
+ * module-level lifetime. Trade-off vs the strategist's preference for
+ * server-side measurement at stem generation: lazy here means N×~50ms
+ * per render for unmeasured stems, fine for single-render preview;
+ * stage 9 A/B compare will need the cached-on-stream-version path
+ * (lazy backfill via PATCH) to avoid recompute on every preview.
+ */
+const lazyLufsCache = new Map<string, number>();
+
+function measureLufsLazy(buffer: AudioBuffer, url: string): number | undefined {
+  const cached = lazyLufsCache.get(url);
+  if (typeof cached === "number") return cached;
+  try {
+    const lufs = calculateLUFS(buffer);
+    if (Number.isFinite(lufs)) {
+      lazyLufsCache.set(url, lufs);
+      return lufs;
+    }
+  } catch (err) {
+    console.warn(`[mixer] LUFS measurement failed for ${url}:`, err);
   }
+  return undefined;
 }
 
 async function loadAudioBuffer(

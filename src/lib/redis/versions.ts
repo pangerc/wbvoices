@@ -684,3 +684,45 @@ export async function deleteAd(adId: string, sessionId: string): Promise<void> {
     `✅ Deleted ad ${adId} (${keysToDelete.length} keys + session index)`
   );
 }
+
+// ============ Tag Lint Telemetry ============
+
+/**
+ * Per-track tag-lint metrics for an ElevenLabs voice version. Written
+ * by createVoiceDraft after Stage L runs. Body-tag and total-tag counts
+ * are MEASURED but not enforced — they're the signal that lets us judge
+ * whether the Stage N tag-weaver is improving distribution over time.
+ *
+ * Stored as a Redis hash keyed `tag-lint:metrics:{adId}:{versionId}` so
+ * we can grep telemetry without scanning version JSON, with a 30-day
+ * TTL so it doesn't pile up indefinitely.
+ */
+export async function writeTagLintTelemetry(
+  adId: string,
+  versionId: VersionId,
+  entries: Array<{
+    trackIndex: number;
+    openingStackSize: number;
+    bodyTags: number;
+    totalTags: number;
+    accentPresent: boolean;
+    lintPassed: boolean;
+    violations: string[];
+  }>
+): Promise<void> {
+  if (!entries.length) return;
+  const redis = getRedisV3();
+  const key = `tag-lint:metrics:${adId}:${versionId}`;
+  const payload: Record<string, string> = {
+    adId,
+    versionId,
+    writtenAt: String(Date.now()),
+    trackCount: String(entries.length),
+  };
+  for (const e of entries) {
+    payload[`track:${e.trackIndex}`] = JSON.stringify(e);
+  }
+  await redis.hset(key, payload);
+  await redis.expire(key, 60 * 60 * 24 * 30); // 30 days
+}
+

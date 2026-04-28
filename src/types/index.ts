@@ -68,8 +68,8 @@ export type VoiceTrack = {
   description?: string; // ElevenLabs baseline tone (cheerful, excited, calm, etc.)
   voiceInstructions?: string; // Voice control instructions (OpenAI structured, Lahajati persona, ByteDance style direction)
   speed?: number; // Per-track speed multiplier (OpenAI: 0.25-4.0, ElevenLabs: 0.7-1.2)
-  postProcessingSpeedup?: number; // Post-processing time-stretch speedup (1.0-1.6x, ElevenLabs only)
-  postProcessingPitch?: number; // Post-processing pitch adjustment (0.7-1.2x, default 1.0, ElevenLabs only)
+  postProcessingSpeedup?: number; // Post-processing time-stretch speedup (1.0-1.6x). Provider-agnostic (WSOLA); ElevenLabs uses it alongside native speed, Qwen/Lovo/ByteDance use it as their only speed lever.
+  postProcessingPitch?: number; // Post-processing pitch adjustment (0.7-1.2x, default 1.0). Provider-agnostic.
   targetDuration?: number; // Target duration in seconds (auto-calculates speedup, capped at 1.6x)
   generatedUrl?: string | null; // Generated audio URL (embedded, replaces parallel array). null = explicitly cleared (regeneration needed)
   generatedDuration?: number; // Actual duration in seconds (measured from audio, not estimated)
@@ -80,7 +80,31 @@ export type VoiceTrack = {
   emotion?: string; // ByteDance emotion tag (happy, sad, angry, excited, warm, neutral, etc.)
 };
 
-export type CampaignFormat = "ad_read" | "dialog";
+export type CampaignFormat =
+  | "ad_read"
+  | "dialog"
+  | "testimonial"
+  | "vox_pop"
+  | "dramatized_scene"
+  | "radio_skit";
+
+/**
+ * Brand-register tone vocabulary. Multi-select. Distinct from per-voice
+ * acting tone — this is how the BRAND should feel, not how a single line
+ * should be performed.
+ */
+export type ToneOfVoiceTag =
+  | "warm"
+  | "urgent"
+  | "playful"
+  | "authoritative"
+  | "conversational"
+  | "earnest"
+  | "sardonic"
+  | "tender"
+  | "confident"
+  | "intimate"
+  | "irreverent";
 
 export type MusicProvider = "loudly" | "mubert" | "elevenlabs" | "custom";
 
@@ -163,6 +187,75 @@ export type ProjectBrief = {
   musicProvider?: MusicProvider; // Optional for backwards compatibility
   selectedCTA?: string | null; // Optional for backwards compatibility
   selectedPacing?: Pacing | null; // Optional for backwards compatibility
+
+  // Stage-3 brief expansion. Every field optional so legacy briefs continue
+  // to load. Renders into the LLM user message via buildUserMessage in the
+  // generate routes; routed into per-provider knowledge modules via
+  // KnowledgeContext.
+  toneOfVoice?: ToneOfVoiceTag[];
+  brandVoice?: string;
+  referenceUrls?: string[];
+  forbiddenWords?: string;
+  providedScript?: string;
+  /** @deprecated v4 — superseded by alaric BrandDossier projection (rich
+   *  brand context lands via the SF picker, not via a hosted web_search
+   *  call mid-iteration). Kept on the type so legacy briefs decode; never
+   *  read by the generate routes or BriefPanelV3 anymore. */
+  enrichWithWebSearch?: boolean;
+
+  // Alaric/SFDC integration (Stage C). All optional so existing briefs
+  // continue to load.
+  /** Salesforce Account Id — populated by the brief picker via alaric's
+   *  /api/aca/sf-search.
+   *
+   *  @deprecated v2 — prefer `brand.salesforceAccountId`. Kept at the top
+   *  level for backwards compatibility with v1-era briefs. New writes
+   *  should set both `brand.salesforceAccountId` AND mirror to this field
+   *  so legacy consumers (generate routes that read it directly) keep
+   *  working. Read order everywhere is `brand.salesforceAccountId ??
+   *  salesforceAccountId`. */
+  salesforceAccountId?: string | null;
+  /** Campaign-specific angle: "what is THIS ad asking the listener to feel
+   *  or do that no other ad for this brand would?" Brand voice is the
+   *  constant; the angle is the variance per spot. */
+  creativeAngle?: string | null;
+  /** Forward-compat schema-only field. v1 always behaves as "anchored"
+   *  (the schema-level brand-voice extracts auto-inject). v2 (Stage F)
+   *  uses "exploratory" to gate transcript-level retrieval and looser
+   *  injection for deliberate divergent takes. No UI surface in v1. */
+  varianceMode?: "anchored" | "exploratory";
+
+  // v2 Stage H — unified Brand identity. Brand is the canonical key for
+  // recents + per-brand inheritance. SF-backed in ~80% of cases (sales
+  // pipeline clients) and standalone in ~20% (APAC pitch tools, prospect
+  // briefs the sales team brings to the pitch). Legacy briefs without
+  // `brand` keep working — backfill is lazy on next save.
+  brand?: BrandRef;
+};
+
+/**
+ * Unified brand identity attached to a brief.
+ *
+ * `name` is always set (the user-facing identity). When the brand exists
+ * in Salesforce the `salesforceAccountId` + cached `salesforceAccountSnapshot`
+ * are populated. Standalone brands (no SF) carry only `name`.
+ *
+ * The snapshot exists so `BriefPanelV3` can render the picker badge
+ * synchronously on load — no "(loading…)" round-trip to alaric — and so
+ * the recents endpoint can render labels without per-row alaric calls.
+ */
+export type BrandRef = {
+  /** Canonical brand identity. Used as the recents-dedup key. */
+  name: string;
+  /** Salesforce Account Id when this brand has a SF counterpart. */
+  salesforceAccountId?: string | null;
+  /** Cached SF account label captured at pick time. Frozen — refresh
+   *  comes from re-picking, not from background sync. */
+  salesforceAccountSnapshot?: {
+    id: string;
+    name: string;
+    industry: string | null;
+  } | null;
 };
 
 export type ProjectMetadata = {

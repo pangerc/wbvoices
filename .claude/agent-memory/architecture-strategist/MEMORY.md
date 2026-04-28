@@ -1,1 +1,3 @@
 - [Stage-6 mixer bootstrap semantics](project_stage6_mixer_bootstrap.md) — force-freeze regression, mixer:v1 pinning mutable drafts is acceptable because freezeExistingDraft closes the window lazily
+- [Volume semantics decision](project_volume_semantics.md) — dB trim around unity + server-side stem pre-normalization to per-type LUFS targets, motivated by stage-9 variant fork port-forwarding
+- [Two-pass tag-weaver](project_two_pass_tag_weaver.md) — Stage M/N split: agent writes clean script, server-side weaver inserts tags inside createVoiceDraft; coordination smells with prompt + tool definition disagreement

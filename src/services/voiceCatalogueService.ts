@@ -157,11 +157,41 @@ export class VoiceCatalogueService {
   /**
    * Get voice by ID without knowing the provider.
    * Searches all providers until found.
+   *
+   * Fallback behavior: OpenAI voices (and any future provider that stores
+   * language-scoped id variants) register under synthesized ids like
+   * `openai:alloy-ja` while their externalId is the bare provider-native
+   * name (`alloy`). LLMs that fall back to memorized provider-native names
+   * — very common for OpenAI — pass `"alloy"` as voiceId, which misses the
+   * id-keyed lookup. When the primary lookup misses we scan the data
+   * tower for the first voice whose externalId matches, optionally
+   * scoped by provider and language for disambiguation across variants.
    */
-  async getVoiceById(voiceId: string): Promise<UnifiedVoice | null> {
-    for (const provider of ["elevenlabs", "lovo", "openai", "qwen", "bytedance", "lahajati"] as const) {
+  async getVoiceById(
+    voiceId: string,
+    hint?: { provider?: Provider; language?: string }
+  ): Promise<UnifiedVoice | null> {
+    const providers = (
+      hint?.provider && hint.provider !== "any"
+        ? [hint.provider]
+        : (["elevenlabs", "lovo", "openai", "qwen", "bytedance", "lahajati"] as const)
+    ) as readonly Provider[];
+
+    for (const provider of providers) {
       const voice = await this.getVoice(provider, voiceId);
       if (voice) return voice;
+    }
+
+    // Primary lookup missed — try externalId fallback scoped by hint.
+    const dataTower =
+      (await redis.get<VoiceDataTower>(this.TOWER_KEYS.DATA)) || {};
+    const wantLang = hint?.language;
+    for (const key of Object.keys(dataTower)) {
+      const voice = dataTower[key];
+      if (voice.externalId !== voiceId) continue;
+      if (hint?.provider && voice.provider !== hint.provider) continue;
+      if (wantLang && voice.language !== wantLang) continue;
+      return voice;
     }
     return null;
   }
@@ -637,6 +667,18 @@ export class VoiceCatalogueService {
         voices = await this.filterByBlacklist(voices, language, accent);
       }
     }
+
+    // Overlay Neon-stored personality descriptions onto each voice. The
+    // tower in Redis only carries provider-API metadata (gender / accent
+    // / age / capabilities); the human-curated descriptions ("Middle-aged
+    // french man, serious intonation. Great for Commercials.") live in
+    // the voice_descriptions table and are loaded here. This is what
+    // gives the casting agent the signal to discriminate between
+    // candidates with the same accent metadata — without it the agent
+    // would have no idea that "Sara – The Premium Humanlike Arabic
+    // Voice" carries an Arabic acoustic identity even though the
+    // catalogue tagged it parisian-fr.
+    voices = await this.enrichWithDescriptions(voices);
 
     return voices;
   }

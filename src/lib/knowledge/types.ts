@@ -18,7 +18,21 @@ export interface KnowledgeContext {
   region?: string;
   language?: string;
   voiceProvider?: string;
-  campaignFormat?: "dialog" | "ad_read";
+  campaignFormat?:
+    | "dialog"
+    | "ad_read"
+    | "testimonial"
+    | "vox_pop"
+    | "dramatized_scene"
+    | "radio_skit";
+
+  // Stage-3 brief expansion fields. All optional. Threaded from
+  // ProjectBrief through buildUserMessage into per-provider modules so
+  // they can adapt guidance (e.g. ElevenLabs leans harder on emotional
+  // tags when toneOfVoice includes "playful").
+  toneOfVoice?: string[];
+  brandVoice?: string;
+  hasProvidedScript?: boolean;
 }
 
 export type IntentType =

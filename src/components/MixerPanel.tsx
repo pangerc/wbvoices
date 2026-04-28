@@ -5,10 +5,8 @@ import { useMixerData } from "@/hooks/useMixerData";
 import {
   TimelineTrack,
   TimelineTrackData,
-  getDefaultVolumeForType,
 } from "@/components/TimelineTrack";
 import { ResetButton } from "@/components/ui/ResetButton";
-import { VolumeToggleButton } from "@/components/ui/VolumeToggleButton";
 import { PlayButton } from "@/components/ui/PlayButton";
 import { LoudnessMeter } from "@/components/LoudnessMeter";
 import { useParams } from "next/navigation";
@@ -273,7 +271,22 @@ export function MixerPanel({
   const handleTimelinePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
-      if ((e.target as Element).closest("[data-track-ribbon]")) return;
+      const target = e.target as Element;
+      // Track ribbons handle their own pointer events.
+      if (target.closest("[data-track-ribbon]")) return;
+      // Bail on any interactive control that lives in the timeline
+      // chrome (kebab trigger button, dropdown menu, format-horizon
+      // overlay, etc.). Capturing the pointer for scrubbing here would
+      // steal their click events. Tags covered: buttons, inputs,
+      // anchors, selects, and anything explicitly opted out via
+      // data-no-timeline-scrub.
+      if (
+        target.closest(
+          "button, input, select, textarea, a, [role='button'], [role='menuitem'], [data-no-timeline-scrub]"
+        )
+      ) {
+        return;
+      }
       scrubSessionRef.current = { pointerId: e.pointerId };
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       seekToPointerX(e.clientX, e.currentTarget.getBoundingClientRect());
@@ -548,7 +561,7 @@ export function MixerPanel({
           label: track.label,
           type: track.type,
           duration: track.actualDuration,
-          volume: trackVolumes[track.id] || getDefaultVolumeForType(track.type),
+          volume: trackVolumes[track.id] ?? 0,
           startTime: track.actualStartTime,
         })),
         volumes: trackVolumes,
@@ -620,12 +633,11 @@ export function MixerPanel({
         soundFxCount: soundFxUrls.length,
       });
 
-      // Prepare timing information for the mixer. Mute/solo is applied by
-      // zeroing the gain — simpler than filtering tracks out of the mix
-      // because the resolver already computed correct timings.
+      // Prepare timing information for the mixer. Volume is now a dB trim
+      // around unity (post-stem-normalization); silenced tracks send a
+      // sentinel below the floor that createMix interprets as hard mute.
       const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
-        const baseGain =
-          trackVolumes[track.id] || getDefaultVolumeForType(track.type);
+        const userTrimDb = trackVolumes[track.id] ?? 0;
         const silenced =
           mutedTrackIds.has(track.id) ||
           (anyTrackSoloed && !soloedTrackIds.has(track.id));
@@ -635,7 +647,8 @@ export function MixerPanel({
           type: track.type,
           startTime: track.actualStartTime,
           duration: track.actualDuration,
-          gain: silenced ? 0 : baseGain,
+          gainDb: silenced ? -1000 : userTrimDb,
+          integratedLufs: track.integratedLufs,
           trim: track.trim,
         };
         return timing;
@@ -782,10 +795,9 @@ export function MixerPanel({
       console.log("Total duration:", totalDuration);
       console.log("Track sources:", { voiceUrls, musicUrl, soundFxUrls });
 
-      // Prepare timing information for the mixer. Mute/solo zeros gain.
+      // Same dB-trim semantics as the preview path. See comment there.
       const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
-        const baseGain =
-          trackVolumes[track.id] || getDefaultVolumeForType(track.type);
+        const userTrimDb = trackVolumes[track.id] ?? 0;
         const silenced =
           mutedTrackIds.has(track.id) ||
           (anyTrackSoloed && !soloedTrackIds.has(track.id));
@@ -795,18 +807,10 @@ export function MixerPanel({
           type: track.type,
           startTime: track.actualStartTime,
           duration: track.actualDuration,
-          gain: silenced ? 0 : baseGain,
+          gainDb: silenced ? -1000 : userTrimDb,
+          integratedLufs: track.integratedLufs,
           trim: track.trim,
         };
-
-        // Debug timing info
-        console.log(`Track timing for ${track.label} (${track.type}):`, {
-          startTime: timing.startTime,
-          duration: timing.duration,
-          gain: timing.gain,
-          trim: timing.trim,
-        });
-
         return timing;
       });
 
@@ -1173,7 +1177,7 @@ export function MixerPanel({
   }>({});
 
   // Create state to track volume drawer visibility
-  const [isVolumeDrawerOpen, setIsVolumeDrawerOpen] = React.useState(false);
+  // Volume drawer was retired; per-track volume now lives in the kebab menu.
 
   // Set up play/pause event listeners for audio elements
   useEffect(() => {
@@ -1475,11 +1479,7 @@ export function MixerPanel({
             )}
 
             {/* Time markers */}
-            <div
-              className={`h-7 border-b border-white/20 mb-4 relative px-2 ${
-                isVolumeDrawerOpen ? "opacity-0" : ""
-              }`}
-            >
+            <div className="h-7 border-b border-white/20 mb-4 relative px-2">
               {/* Create markers that properly span the entire duration */}
               {Array.from({ length: getTotalMarkers() }).map((_, i) => {
                 const seconds = i;
@@ -1500,13 +1500,7 @@ export function MixerPanel({
             </div>
 
             {/* timeline with audio tracks */}
-            <div
-              className={`px-4 pb-4 ${
-                isVolumeDrawerOpen
-                  ? "bg-gradient-to-r from-transparent to-gray-900/80"
-                  : ""
-              }`}
-            >
+            <div className="px-4 pb-4">
               {/* Voice tracks */}
               {calculatedTracks
                 .filter((track) => track.type === "voice")
@@ -1515,10 +1509,7 @@ export function MixerPanel({
                     key={track.id}
                     track={track as TimelineTrackData}
                     totalDuration={displayDuration}
-                    isVolumeDrawerOpen={isVolumeDrawerOpen}
-                    trackVolume={
-                      trackVolumes[track.id] || getDefaultVolumeForType("voice")
-                    }
+                    trackVolumeDb={trackVolumes[track.id] ?? 0}
                     audioError={audioErrors[track.id] || false}
                     playingState={playingTracks[track.id] || false}
                     playbackProgress={playbackProgress[track.id] || 0}
@@ -1552,10 +1543,7 @@ export function MixerPanel({
                     key={track.id}
                     track={track as TimelineTrackData}
                     totalDuration={displayDuration}
-                    isVolumeDrawerOpen={isVolumeDrawerOpen}
-                    trackVolume={
-                      trackVolumes[track.id] || getDefaultVolumeForType("music")
-                    }
+                    trackVolumeDb={trackVolumes[track.id] ?? 0}
                     audioError={audioErrors[track.id] || false}
                     playingState={playingTracks[track.id] || false}
                     playbackProgress={playbackProgress[track.id] || 0}
@@ -1590,11 +1578,7 @@ export function MixerPanel({
                     key={track.id}
                     track={track as TimelineTrackData}
                     totalDuration={displayDuration}
-                    isVolumeDrawerOpen={isVolumeDrawerOpen}
-                    trackVolume={
-                      trackVolumes[track.id] ||
-                      getDefaultVolumeForType("soundfx")
-                    }
+                    trackVolumeDb={trackVolumes[track.id] ?? 0}
                     audioError={audioErrors[track.id] || false}
                     playingState={playingTracks[track.id] || false}
                     playbackProgress={playbackProgress[track.id] || 0}
@@ -1620,14 +1604,6 @@ export function MixerPanel({
                     {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
                   />
                 ))}
-            </div>
-
-            {/* Volume Controls Toggle */}
-            <div className="absolute top-0 right-0">
-              <VolumeToggleButton
-                isOpen={isVolumeDrawerOpen}
-                onClick={() => setIsVolumeDrawerOpen(!isVolumeDrawerOpen)}
-              />
             </div>
 
             <div className="px-4 text-xs text-gray-400 mt-2 mb-2 italic">

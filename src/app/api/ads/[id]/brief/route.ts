@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdMetadata, setAdMetadata } from "@/lib/redis/versions";
+import { ensureAdExists } from "@/lib/redis/ensureAd";
 import { requireAuth, AuthError } from "@/lib/auth-helpers";
 import type { ProjectBrief } from "@/types";
 
@@ -60,13 +61,13 @@ export async function GET(
 /**
  * PATCH /api/ads/[id]/brief
  *
- * Update brief for an existing advertisement.
+ * Update brief for an advertisement. Lazy-creates the ad row if it
+ * doesn't exist yet (the client auto-saves as the user types, and ads
+ * are otherwise persisted on Generate — without this lazy-create the
+ * pre-Generate edits 404 in a loop and abandoned drafts vanish).
  *
  * Body: { brief: ProjectBrief }
  * Response: { success: true, brief: ProjectBrief }
- *
- * Returns 404 (not 403) for unpersisted ads — the client auto-saves as the
- * user types, and the ad is created lazily on Generate. See BriefPanelV3.
  */
 export async function PATCH(
   request: NextRequest,
@@ -86,10 +87,11 @@ export async function PATCH(
       );
     }
 
-    const meta = await getAdMetadata(adId);
-    if (!meta) {
-      return NextResponse.json({ error: "Ad not found" }, { status: 404 });
-    }
+    // Idempotent: if the ad row doesn't exist, create it on this PATCH.
+    // The user's autosave keystrokes are the implicit "I want to keep
+    // working on this ad" signal — losing them in a 404 spam loop just
+    // because Generate hasn't fired yet is bad UX.
+    const meta = await ensureAdExists(adId, email);
 
     if (role !== "admin" && meta.owner !== email) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -102,8 +104,6 @@ export async function PATCH(
     };
 
     await setAdMetadata(adId, updatedMeta);
-
-    console.log(`✅ Updated brief for ad ${adId}`);
 
     return NextResponse.json({ success: true, brief });
   } catch (error) {

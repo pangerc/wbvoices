@@ -13,6 +13,7 @@ import {
   SoundFxPrompt,
   ProjectBrief
 } from "./index";
+import type { KnowledgeContext } from "@/lib/knowledge/types";
 
 // Re-export types needed by tests
 export type { VoiceTrack, SoundFxPrompt };
@@ -84,6 +85,40 @@ export interface VoiceVersion {
 
   /** Optional: User request that created this iteration */
   requestText?: string;
+
+  /**
+   * Snapshot of the KnowledgeContext that produced this version. Pins
+   * pacing / accent / provider / format so future iterations inherit the
+   * same creative direction (and the ElevenLabs tag-guidance module keeps
+   * emitting the rich FAST/ACCENT blocks instead of the thin defaults).
+   * Legacy versions created before this field existed have it undefined.
+   */
+  knowledgeContext?: KnowledgeContext;
+
+  /**
+   * Stage L mechanical-lint warnings carried with the version when the
+   * Stage N tag-weaver retry still left a violation in place. The draft
+   * is persisted regardless (we never block generation on lint), so the
+   * UI / debugging can surface the unmet rules. Empty / absent when the
+   * draft cleared lint.
+   */
+  tagLintWarnings?: Array<{
+    trackIndex: number;
+    rule: string;
+    message: string;
+    castVoiceAccent?: string;
+    requiredTag?: string;
+    hint?: string;
+  }>;
+
+  /**
+   * Per-track integrated loudness (BS.1770) in LUFS, parallel to
+   * voiceTracks. Drives stem normalization in the mix render so user
+   * volume sliders are meaningful trim controls. Measured client-side
+   * once and persisted via PATCH; tracks without a value (legacy or
+   * just-generated) render at unity (assume-at-target).
+   */
+  integratedLufs?: Array<number | null>;
 }
 
 /**
@@ -160,6 +195,12 @@ export interface MusicVersion {
 
   /** Optional: User request that created this iteration */
   requestText?: string;
+
+  /**
+   * Integrated loudness (BS.1770) in LUFS for the music stem. See
+   * VoiceVersion.integratedLufs for the lazy-measurement contract.
+   */
+  integratedLufs?: number;
 }
 
 // ============ Sound Effects Version Stream ============
@@ -189,6 +230,12 @@ export interface SfxVersion {
 
   /** Optional: User request that created this iteration */
   requestText?: string;
+
+  /**
+   * Per-prompt integrated loudness (BS.1770) in LUFS, parallel to
+   * soundFxPrompts. See VoiceVersion.integratedLufs for the contract.
+   */
+  integratedLufs?: Array<number | null>;
 }
 
 // ============ Ad Metadata ============
@@ -356,11 +403,19 @@ export interface MixerTrack {
    * values on edge-drag.
    */
   trim?: { start: number; end: number };
+  /**
+   * Integrated loudness (BS.1770) of the underlying stem in LUFS. When
+   * present, mix render normalizes this stem to its per-type target
+   * before applying the user's dB trim. Absent for legacy stems and
+   * just-generated content; render falls back to assume-at-target.
+   */
+  integratedLufs?: number;
   url: string;
   label: string;
   type: "voice" | "music" | "soundfx";
   startTime?: number;
   duration?: number;
+  /** dB trim around unity (post-stem-normalization). Default 0. */
   volume?: number;
   playAfter?: string | "start";
   overlap?: number;
@@ -497,10 +552,14 @@ export interface MixerPins {
  * - `gainDb`: per-clip static gain offset. Stage 8 will add a time-varying
  *   `gainAutomationPoints` shape for ducking and swells.
  * - `fadeIn` / `fadeOut`: in seconds, over and above the mandatory micro-fade.
- * - `volume`: linear playback multiplier (0..1) matching the mixer-UI slider.
- *   Distinct from `gainDb` (log-domain mastering offset): `volume` is what
- *   the user drags; `gainDb` would be a static master-side tweak. Unified if
- *   a future refactor collapses both concepts.
+ * - `volume`: dB trim around unity (0 = no change). Range typically -12..+6.
+ *   Applied AFTER per-stem normalization to a per-type LUFS target — so unity
+ *   means "broadcast-balanced", not "raw stem at full level". Earlier
+ *   revisions stored a 0..1 linear multiplier here; the field name stayed
+ *   the same to keep persisted data readable, but the semantic changed
+ *   when stem normalization was introduced. Legacy 0..1 values render as
+ *   small positive trims (e.g. legacy 0.7 reads as +0.7 dB) until the
+ *   user touches the slider — bounded-wrong rather than catastrophically wrong.
  */
 export interface ClipOverrides {
   trim?: { start: number; end: number };

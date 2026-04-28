@@ -57,7 +57,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     function: {
       name: "search_voices",
       description:
-        "Search voice database by provider, language, gender, and accent. Returns voices with personality descriptions - pick the ones that best fit the creative direction.",
+        "Search voice database by provider, language, gender, accent, and semantic casting filters. Returns a shuffled sample with structured metadata (age_bracket, energy, warmth, pace_tendency, use_case) and a one-line casting_note per voice. Use the semantic filters to narrow the pool by casting intent (e.g. 'warm mid_adult male for advertising') — voices with missing metadata on a filtered axis are NOT excluded, so filters work the same way across providers even when native metadata is thin.",
       parameters: {
         type: "object",
         properties: {
@@ -83,6 +83,42 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             type: "number",
             description: "Number of voices to return (default: 10)",
             default: 10,
+          },
+          age_bracket: {
+            type: "string",
+            enum: ["young_adult", "adult", "mid_adult", "mature"],
+            description:
+              "Target age band (optional). young_adult ≈ late-teens/20s, adult ≈ late-20s/early-30s, mid_adult ≈ mid-30s/40s, mature ≈ 50+. Pick what fits the brand voice.",
+          },
+          energy: {
+            type: "string",
+            enum: ["calm", "neutral", "punchy"],
+            description:
+              "Delivery energy (optional). punchy = QSR / promo / high-arousal. calm = luxury / wellness / quiet brands. Skip for middle-of-the-road reads.",
+          },
+          warmth: {
+            type: "string",
+            enum: ["clinical", "neutral", "warm"],
+            description:
+              "Warmth / approachability (optional). warm = friendly / relatable. clinical = authoritative announcer / news-style.",
+          },
+          pace_tendency: {
+            type: "string",
+            enum: ["slow", "neutral", "fast"],
+            description:
+              "The voice's *native* speaking pace (optional). Distinct from ElevenLabs [rapid-fire] delivery-time tagging — this is about the performer's natural rhythm, not the read.",
+          },
+          use_case: {
+            type: "string",
+            enum: ["advertising", "narration", "conversational", "trailer"],
+            description:
+              "Intended use case (optional). For 15/30s Spotify spots 'advertising' or 'conversational' usually beats 'narration' (audiobook voices sound off in short reads).",
+          },
+          dialect_register: {
+            type: "string",
+            enum: ["msa", "khaleeji", "egyptian", "levantine", "maghrebi"],
+            description:
+              "Arabic-only. Dialect register for MENA casting. Lahajati voices are dialect-agnostic (dialect picked at TTS via dialectId) so this mainly narrows ElevenLabs Arabic voices that bake dialect into the voice itself.",
           },
         } as Record<string, unknown>,
         required: ["provider", "language"],
@@ -115,7 +151,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 text: {
                   type: "string",
                   description:
-                    "Script text. For ElevenLabs: include [emotional tags] inline. For OpenAI: plain text.",
+                    "Script text — clean prose in the target language. Do not write inline bracket tags; punctuation is your performance lever (ellipses for weight, CAPS for emphasis). For OpenAI: plain text.",
                 },
                 anchor: ANCHOR_SCHEMA,
                 playAfter: {

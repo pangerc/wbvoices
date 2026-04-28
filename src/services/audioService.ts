@@ -82,9 +82,11 @@ export class AudioService {
           console.log(`Using temporary blob URL for ${trackProvider}:`, url);
         }
 
-        // Apply post-processing speedup if specified (ElevenLabs only)
-        if (trackProvider === 'elevenlabs' && (track.postProcessingSpeedup || track.targetDuration)) {
-          console.log(`🎬 Post-processing required for ElevenLabs track`);
+        // Apply post-processing time-stretch if specified. Provider-agnostic
+        // — WSOLA pitch-preserving stretch works on any generated blob, so
+        // Qwen / Lovo / ByteDance benefit too (they have no native speed).
+        if (track.postProcessingSpeedup || track.targetDuration) {
+          console.log(`🎬 Post-processing required for ${trackProvider} track`);
           onStatusUpdate(`Applying ${track.postProcessingSpeedup ? `${track.postProcessingSpeedup}x speedup` : `target duration ${track.targetDuration}s`}...`);
           url = await this.applyPostProcessingSpeedup(url, track, onStatusUpdate);
         }

@@ -397,6 +397,11 @@ export async function uploadMixedAudioToBlob(
     });
 
     if (!tokenResponse.ok) {
+      if (tokenResponse.status === 401 && typeof window !== 'undefined') {
+        const callbackUrl = encodeURIComponent(window.location.href);
+        window.location.href = `/auth/signin?callbackUrl=${callbackUrl}`;
+        throw new Error('Session expired — redirecting to sign in');
+      }
       throw new Error('Failed to get upload token');
     }
 

@@ -1,4 +1,5 @@
 import type { ToolCall, ToolResult } from "./types";
+import type { KnowledgeContext } from "@/lib/knowledge/types";
 import {
   searchVoices,
   createVoiceDraft,
@@ -9,9 +10,30 @@ import {
 } from "./implementations";
 
 /**
+ * Server-side context threaded through the agent executor into specific tool
+ * implementations. Not visible to the LLM. Currently only `knowledgeContext`
+ * is carried — it gets snapshotted onto new voice versions by
+ * `create_voice_draft` so iteration/fork inherit the creative direction
+ * pins (pacing/accent/provider/format) that produced the parent.
+ */
+export interface AgentToolContext {
+  knowledgeContext?: KnowledgeContext;
+  /**
+   * Ad id of the current agent session. Injected into tools that need a
+   * stable per-ad seed (e.g. search_voices shuffles its candidate pool on
+   * hash(adId + provider + language) so the LLM sees a different first-N
+   * per ad while keeping re-runs of the same ad reproducible).
+   */
+  adId?: string;
+}
+
+/**
  * Execute a single tool call and return the result
  */
-export async function executeToolCall(call: ToolCall): Promise<ToolResult> {
+export async function executeToolCall(
+  call: ToolCall,
+  agentContext?: AgentToolContext
+): Promise<ToolResult> {
   const { id, function: func } = call;
   const { name, arguments: argsStr } = func;
 
@@ -24,11 +46,23 @@ export async function executeToolCall(call: ToolCall): Promise<ToolResult> {
 
     switch (name) {
       case "search_voices":
-        result = await searchVoices(args);
+        // Inject server-side adId so searchVoices can seed its shuffle.
+        // LLM never sees adId in the tool schema; it comes from the agent session.
+        result = await searchVoices({
+          ...args,
+          ...(agentContext?.adId ? { adId: agentContext.adId } : {}),
+        });
         break;
 
       case "create_voice_draft":
-        result = await createVoiceDraft(args);
+        // Inject server-side knowledgeContext so the new version snapshots it.
+        // LLM never sees this field — it's not in the tool definition schema.
+        result = await createVoiceDraft({
+          ...args,
+          ...(agentContext?.knowledgeContext
+            ? { knowledgeContext: agentContext.knowledgeContext }
+            : {}),
+        });
         break;
 
       case "create_music_draft":
@@ -51,24 +85,12 @@ export async function executeToolCall(call: ToolCall): Promise<ToolResult> {
         throw new Error(`Unknown tool: ${name}`);
     }
 
-    // Special handling for search_voices with 0 results
-    if (
-      name === "search_voices" &&
-      Array.isArray((result as { voices?: unknown[] }).voices) &&
-      (result as { voices: unknown[] }).voices.length === 0
-    ) {
-      return {
-        tool_call_id: id,
-        content: JSON.stringify({
-          error: "No voices found matching the criteria",
-          suggestion:
-            "Try broadening your search (remove accent/style filters, try different gender)",
-          voices: [],
-          count: 0,
-        }),
-      };
-    }
-
+    // search_voices auto-broadens server-side when narrow filters return
+    // zero (see implementations.ts:searchVoices). The old empty-result
+    // suggestion ("try broadening your search") was an invitation for
+    // the agent to burn another iteration on the same search; the
+    // broadened pool is now returned inline with a `broadened_from`
+    // note so the agent has hits to commit on.
     return {
       tool_call_id: id,
       content: JSON.stringify(result),
@@ -89,6 +111,9 @@ export async function executeToolCall(call: ToolCall): Promise<ToolResult> {
  * Execute multiple tool calls in parallel
  * Tool calls are independent (different Redis keys, different API calls)
  */
-export async function executeToolCalls(calls: ToolCall[]): Promise<ToolResult[]> {
-  return Promise.all(calls.map((call) => executeToolCall(call)));
+export async function executeToolCalls(
+  calls: ToolCall[],
+  agentContext?: AgentToolContext
+): Promise<ToolResult[]> {
+  return Promise.all(calls.map((call) => executeToolCall(call, agentContext)));
 }

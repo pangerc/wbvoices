@@ -11,6 +11,7 @@ import { elevenlabsVoiceModule } from "./modules/elevenlabs-voice";
 import { openaiVoiceModule } from "./modules/openai-voice";
 import { simpleVoiceModule } from "./modules/simple-voice";
 import { bytedanceVoiceModule } from "./modules/bytedance-voice";
+import { lahajatiVoiceModule } from "./modules/lahajati-voice";
 import { musicGenerationModule } from "./modules/music-generation";
 import { sfxGenerationModule } from "./modules/sfx-generation";
 import { creativeAlignmentModule } from "./modules/creative-alignment";
@@ -23,31 +24,52 @@ const MODULE_REGISTRY = {
   "openai-voice": openaiVoiceModule,
   "simple-voice": simpleVoiceModule,
   "bytedance-voice": bytedanceVoiceModule,
+  "lahajati-voice": lahajatiVoiceModule,
   "music-generation": musicGenerationModule,
   "sfx-generation": sfxGenerationModule,
   "creative-alignment": creativeAlignmentModule,
 };
 
 /**
- * Get voice module(s) based on selected voice provider
- * Only includes the relevant voice module to avoid confusing the LLM
+ * Get voice module(s) based on selected voice provider.
+ *
+ * Only includes the relevant voice module to avoid confusing the LLM with
+ * incompatible tag/syntax guidance from other providers (e.g. ElevenLabs V3
+ * bracket tags vs Lahajati Arabic persona prompts). An explicit `"any"`
+ * signals "no provider pinned yet" — safe to load ElevenLabs as the default
+ * editor surface. An `undefined` provider means the caller failed to
+ * provide context; we log it loudly and still return ElevenLabs so the
+ * prompt is well-formed, but the log lets us spot regressions (e.g.
+ * iteration flows that forgot to load the parent version's snapshot).
  */
 function getVoiceModulesForProvider(
   provider?: string
 ): (keyof typeof MODULE_REGISTRY)[] {
   switch (provider) {
     case "elevenlabs":
-    case "any": // Default to ElevenLabs format when no specific provider
+    case "any":
       return ["elevenlabs-voice"];
     case "openai":
       return ["openai-voice"];
     case "bytedance":
       return ["bytedance-voice"];
+    case "lahajati":
+      return ["lahajati-voice"];
     case "qwen":
     case "lovo":
       return ["simple-voice"];
     default:
-      // Unknown provider - fallback to ElevenLabs
+      if (provider === undefined) {
+        console.warn(
+          "[getVoiceModulesForProvider] Called without provider context — " +
+          "falling back to ElevenLabs guidance. This is a regression surface: " +
+          "iteration flows should thread KnowledgeContext from the parent version."
+        );
+      } else {
+        console.warn(
+          `[getVoiceModulesForProvider] Unknown provider "${provider}" — falling back to ElevenLabs guidance.`
+        );
+      }
       return ["elevenlabs-voice"];
   }
 }
@@ -76,115 +98,96 @@ const MODULE_MAPPING: Record<IntentType, (keyof typeof MODULE_REGISTRY)[]> = {
 };
 
 /**
- * Get format-specific guidance based on campaign format
+ * Get format-specific guidance based on campaign format.
+ *
+ * Six formats supported. Each comes with a casting hint so the LLM picks
+ * the right number/character of voices and structures the script for the
+ * format's natural shape.
  */
 function getFormatGuidance(campaignFormat?: string): string {
-  if (campaignFormat === "dialog") {
-    return `## FORMAT: DIALOGUE
-Create a dialogue between TWO DIFFERENT voices having a natural conversation about the product/service.
-CRITICAL: You MUST select two different voice IDs - never use the same voice twice!
-The voices should have contrasting but complementary personalities (e.g., one enthusiastic and one calm, or different genders).
-Ensure each voice gets roughly equal speaking time.
-Use search_voices to find suitable male and female voices.`;
+  switch (campaignFormat) {
+    case "dialog":
+      return `## FORMAT: DIALOGUE
+Two different voices in natural conversation. Pick contrasting but complementary voice IDs (different gender or different energy). Roughly equal speaking time. Search twice — once per voice — when you need to find them. The "ad" should feel like a snippet of an actual conversation that happens to mention the product, not two narrators trading lines.`;
+
+    case "testimonial":
+      return `## FORMAT: TESTIMONIAL
+Single voice speaking as a real customer (not a narrator). First-person experience: "I tried it because…", "What surprised me was…". Specific, falsifiable details — when, where, what they noticed. Pick a voice that sounds like an actual customer for this brand, not a polished announcer. Don't open with the brand name; let the listener earn the brand reveal.`;
+
+    case "vox_pop":
+      return `## FORMAT: VOX POP
+2–4 short voices, each delivering one sentence — like street interviews. Different ages / accents / energies for variety. Each voice answers the same implicit question ("what do you think of X?") with their own angle. Search separately for each voice so you get distinct casting. Total speaking time still fits the duration; tight cuts.`;
+
+    case "dramatized_scene":
+      return `## FORMAT: DRAMATIZED SCENE
+Single or two voices in a small scene — characters in a situation, not narrators selling. The product is the punchline, the resolution, or the unspoken context that makes the scene work. Cast for character (a tired commuter, a friend at a kitchen table) not for "ad voice". SFX is essential — the scene needs an aural location.`;
+
+    case "radio_skit":
+      return `## FORMAT: RADIO SKIT
+2–3 voices in a comedic / over-the-top sketch. Heightened delivery, fast pacing, clear comic structure (setup → twist → button). Picks character voices, not generic announcers. Music + SFX punctuate the comic beats. The product can lean into the joke; the brand reveal is the payoff.`;
+
+    case "ad_read":
+    default:
+      return `## FORMAT: SINGLE VOICE (AD READ)
+Single voice, direct address to the listener. Consistent tone throughout. Search once for a voice that matches the brand. The classic short-form ad — earned attention through a strong first line, one specific detail, and a CTA that lands as a natural conclusion.`;
   }
-  return `## FORMAT: SINGLE VOICE
-Create a single-voice narration that directly addresses the listener.
-The voice should maintain consistent tone throughout.
-Use search_voices to find ONE voice that best matches the brand personality.`;
 }
 
 /**
- * Base system prompt - unified for all flows
+ * Base system prompt — unified for all flows.
  *
- * ONE pattern: read_ad_state → search_voices if needed → create drafts
+ * Rewrite philosophy: outcome-first, not process-first. The previous prompt
+ * had a numbered "FOLLOW EXACTLY" process plus prohibitions ("don't call
+ * the same tool twice in a row") plus a verbose preamble instruction. With
+ * GPT-5.5 those create overthinking — the model burns reasoning tokens on
+ * process compliance instead of creative variance. Replaced with a mild
+ * creative-director persona, three success criteria, and a minimal
+ * description of the tools and the expected emit pattern.
  */
 function getBaseSystemPrompt(context?: KnowledgeContext): string {
   const formatGuidance = getFormatGuidance(context?.campaignFormat);
 
-  return `You are an expert audio ad creative director specializing in creating compelling radio and podcast advertisements.
+  return `You are a senior creative director for short-form audio ads on Spotify, played between songs to free-tier listeners.
 
-Your job is to create or modify audio ad elements using the tools available to you. The ad will be used on the Spotfiy platform, played between songs to users on the free tier.
+You write for the ear, not the page. You assume the listener can skip in three seconds and you earn attention with specifics, not adjectives.
 
-## Available Tools
+## What "good" looks like
+- The first sentence makes the listener pause — they don't reach for the skip button.
+- One specific detail (a price, a place, a time of day, a named object) makes the ad memorable after it ends.
+- The CTA is the natural conclusion of a small story, not a standalone command bolted on the end.
 
-1. **read_ad_state** - Read the complete current state of the ad from Redis (voices, music, SFX versions)
-2. **search_voices** - Search the voice database by provider, language, gender, accent
-3. **create_voice_draft** - Create voice tracks with script text for each voice
-4. **create_music_draft** - Create background music with a descriptive prompt
-5. **create_sfx_draft** - Create sound effects with placement and description
-6. **set_ad_title** - Set a catchy creative title for the ad
+## Tools
+- **read_ad_state** — current ad state from Redis (voices / music / SFX versions). Call first to see what exists.
+- **search_voices** — voice database by provider, language, gender, accent, and semantic filters (age_bracket, energy, warmth, pace_tendency, use_case, dialect_register). Use the semantic filters to narrow by casting intent. **Read each candidate's \`name\` AND \`description\` before casting** — descriptions like "Middle-aged french man, serious intonation" vs "Premium Humanlike Arabic Voice" are the load-bearing signal that disambiguates voices the structural filters can't. Voices whose name or description signal a different primary-language identity than the brief's language are wrong casts even if they pass language/accent filters.
+- **create_voice_draft** — voice tracks with script text + provider-specific delivery direction (per the per-provider module guidance below).
+- **create_music_draft** — background music with a descriptive prompt.
+- **create_sfx_draft** — 1–2 sound effects with placement + description.
+- **set_ad_title** — REQUIRED for new ads. 3–5 words, brand + essence. Examples: "QuickBite Convenient German Delivery", "CocaCola Conquista Chicas", "Explore Kuala Lumpur Effortlessly". Avoid structured forms like "IKEA - Spanish - Summer Sale".
 
 ${formatGuidance}
 
-## Your Process - FOLLOW EXACTLY
+## Working pattern
+For a new ad:
+1. Call \`read_ad_state\` once.
+2. Call \`search_voices\` **at most twice per voice slot you need to fill** (once is normally enough; the catalogue auto-broadens if your filters are too narrow). If a search returns voices, commit — do not re-search to "improve" the cast.
+3. Emit \`create_voice_draft\` + \`create_music_draft\` + \`create_sfx_draft\` together in a SINGLE tool-call batch followed by \`set_ad_title\`. Don't serialise the three draft creates across iterations — they're independent and the user is waiting.
 
-1. Call read_ad_state FIRST to see what already exists
-2. If you need voices, use search_voices (provider and language required)
-   - For dialogue: search twice - once for male, once for female
-   - For single voice: search once for the best match
-3. Create drafts for the streams you need to change:
-   - create_voice_draft for voice tracks
-   - create_music_draft for background music
-   - create_sfx_draft for sound effects (1-2 per ad)
-4. For NEW ads: ALWAYS call set_ad_title - this is REQUIRED, not optional
-5. STOP - do not make any more tool calls
+For iteration: read state, change only the streams the user asked about, preserve the rest.
 
-## Ad Title Guidelines
+## Casting + script
+- Match voice gender + character to what the brief describes.
+- Write scripts in the target language (not English unless specified).
+- Use local idioms and expressions; avoid translated-from-English phrasing.
+- Total speaking time fits inside the duration limit; err shorter.
+- For dialogue: distinct voices with contrasting personalities; roughly equal speaking time.
 
-When creating a new ad, call set_ad_title with a catchy 3-5 word title that combines:
-- The brand/client name
-- The essence of the creative campaign
+## Production
+- Every new ad gets voices + music + 1–2 SFX. Even simple SFX ("fizz", "door opening", "crowd") adds production value.
+- Iterations only touch what the user asked about. Other streams stay untouched unless the change requires cross-stream coherence (changing voice tone may need music adjustment — call that out).
 
-Good examples:
-- "QuickBite Convenient German Delivery"
-- "CocaCola Conquista Chicas"
-- "What Watt Energy Dialogues"
-- "Explore Kuala Lumpur Effortlessly"
-
-Bad examples (too structured, avoid these):
-- "IKEA - Spanish - Summer Sale"
-- "QuickBite Ad (German)"
-
-## CRITICAL RULES
-
-- ALWAYS call read_ad_state first to understand what exists
-- ONLY search for voices from the provider specified in the user brief
-- Do NOT keep searching for "better" voices endlessly - make a decision and proceed
-- Do NOT call the same tool twice in a row
-- ONLY create drafts for streams the user wants to change (preserve existing work)
-- For NEW ads: ALWAYS call set_ad_title - the ad MUST have a creative title
-
-## Voice Casting Guidelines
-
-- READ THE CREATIVE BRIEF to understand the story being told
-- Match voice genders to the scenario described in the brief
-- Follow the FORMAT guidance above for voice selection
-
-## Script Guidelines
-
-- Write scripts in the target language (NOT English unless specified)
-- Keep total speaking time within the duration limit
-- Create natural-sounding dialogue, not robotic ad copy
-- Use local idioms and expressions for authenticity
-
-## Production Guidelines
-
-- Always create voices, music, AND sound effects for new ads
-- Include 1-2 sound effects per ad - even simple ones like "fizz", "crowd", or "door opening" add production value
-- For iterations: only modify what the user asks for
-
-## IMPORTANT
-
-- Do NOT return JSON - use the tools to create drafts
-- Be conversational in your responses
-- Follow the provider-specific guidance below for voice formatting
-
-## TOOL CALLING PREAMBLE
-
-Before calling any tool, briefly explain your reasoning (1 sentence). Example:
-"I'll check the current ad state first to see what exists." → [calls read_ad_state]
-"I'll create the voice draft with these two speakers matching the dialogue format." → [calls create_voice_draft]
-This helps with debugging and ensures you're making deliberate choices.`;
+## Output rules
+- Use the tools to create drafts. Don't return JSON in your reply.
+- Per-provider script + acting-instruction syntax follows the provider-specific module below — that's load-bearing, not optional.`;
 }
 
 /**
@@ -258,6 +261,13 @@ You are continuing an existing conversation about an ad. The user wants to make 
 - Use search_voices if you need to find new voices
 - Only create drafts for the streams the user wants to change
 - Preserve existing work unless explicitly asked to change it
+
+**MUST CREATE A DRAFT when the user's message is a change request.**
+If the focused message is prefixed with [VOICE ONLY] / [MUSIC ONLY] / [SOUND EFFECTS ONLY], the user has already committed to iterating that stream — you MUST call the matching create_*_draft tool before ending the turn. Do not reply conversationally asking for clarification; make your best interpretation of the request and ship a draft. If the request is genuinely ambiguous, pick the most obvious interpretation and note your assumption in your reply AFTER writing the draft.
+
+Parent-state edge cases (do not block on these — create the draft anyway):
+- Parent version has no generated audio: a previous generation failed. That's not your concern; write the new draft from the parent's script/tracks.
+- Parent version still looks unfinished: the user explicitly asked for a change, so iterate on it as-is.
 
 **Voice iteration - IMPORTANT:**
 When changing voices, check the voiceHistory array in read_ad_state response.

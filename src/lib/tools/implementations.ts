@@ -21,6 +21,10 @@ import {
 } from "./anchorTranslation";
 import { voiceCatalogue } from "@/services/voiceCatalogueService";
 import {
+  synthesizeMetadata,
+  voiceMatchesFilters,
+} from "@/services/voiceMetadataSynthesis";
+import {
   createVersion,
   listVersions,
   getVersion,
@@ -29,9 +33,16 @@ import {
   getAdMetadata,
   updateVersion,
   getActiveVersion,
+  writeTagLintTelemetry,
 } from "@/lib/redis/versions";
+import { weaveTagsForElevenlabsTrack } from "./validation/tag-weaver";
+import {
+  lintVoiceTracks,
+  buildWeaverRetryFeedback,
+  type LintViolation,
+} from "./validation/voice-tag-lint";
 import { withAdLock } from "@/lib/redis/adLock";
-import type { Language, Provider, Voice, MusicProvider, SoundFxPlacementIntent } from "@/types";
+import type { Language, Provider, Voice, VoiceTrack, MusicProvider, SoundFxPlacementIntent } from "@/types";
 import type {
   Anchor,
   VoiceVersion,
@@ -40,6 +51,32 @@ import type {
   VersionId,
   StreamType,
 } from "@/types/versions";
+import type { KnowledgeContext } from "@/lib/knowledge/types";
+
+/**
+ * Reconcile the inherited knowledge context with what the LLM actually cast.
+ *
+ * The parent version's snapshot might say `{language: "en", voiceProvider:
+ * "elevenlabs"}` but the iteration re-cast in Japanese OpenAI — keeping the
+ * stale inheritance would make the next iteration load the wrong provider
+ * module + wrong language from day one. Brief-level axes (pacing, format,
+ * region) stay inherited — those aren't encoded in the tracks.
+ */
+function reconcileContextFromTracks(
+  inherited: KnowledgeContext,
+  tracks: VoiceTrack[]
+): KnowledgeContext {
+  const first = tracks[0]?.voice;
+  if (!first) return inherited;
+
+  const next: KnowledgeContext = { ...inherited };
+  if (first.language) next.language = first.language;
+  if (first.provider) next.voiceProvider = first.provider;
+  if (first.accent && first.accent !== "neutral" && first.accent !== "standard") {
+    next.accent = first.accent;
+  }
+  return next;
+}
 
 /**
  * Freeze any existing draft in a stream before creating a new one.
@@ -185,12 +222,106 @@ function safeTranslateAnchor(
 }
 
 /**
- * Search voices from the voice catalogue
+ * Stable 32-bit FNV-1a hash of a string. Used as the shuffle seed so the
+ * same (adId, provider, language) tuple always produces the same voice
+ * ordering — re-runs of the same ad stay reproducible, different ads get
+ * different pools.
+ */
+function fnv1a32(input: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * mulberry32 PRNG — small, fast, seedable. Good enough for shuffling a
+ * voice list; we don't need cryptographic quality here.
+ */
+function mulberry32(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Fisher-Yates shuffle with a seeded PRNG. Returns a new array.
+ */
+function seededShuffle<T>(items: readonly T[], seed: number): T[] {
+  const out = items.slice();
+  const rng = mulberry32(seed);
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
+ * Stable two-tier sort that pushes ElevenLabs multilingual voices
+ * after language-native voices in the candidate pool. Preserves the
+ * seeded-shuffle ordering within each tier, so casting is still
+ * deterministic per ad but the agent's top-N candidates shift toward
+ * voices actually trained on the requested language.
+ *
+ * Counts as multilingual when the catalogue marks
+ * `capabilities.isMultilingual === true` (set during ingest from
+ * ElevenLabs' `verified_languages.length > 1`). For non-ElevenLabs
+ * providers and ElevenLabs single-language voices, the flag is false
+ * and they sort first as natives.
+ */
+function stableSortByMultilingual<T extends { voice: { capabilities?: { isMultilingual?: boolean } } }>(
+  items: readonly T[]
+): T[] {
+  const natives: T[] = [];
+  const multilinguals: T[] = [];
+  for (const item of items) {
+    if (item.voice.capabilities?.isMultilingual) {
+      multilinguals.push(item);
+    } else {
+      natives.push(item);
+    }
+  }
+  return natives.concat(multilinguals);
+}
+
+/**
+ * Search voices from the voice catalogue.
+ *
+ * Shuffling: when an `adId` is present (server-injected by the executor),
+ * the filtered pool is shuffled with `hash(adId + provider + language +
+ * gender + accent)` before slicing. This breaks the previous "first-N from
+ * provider cache" ordering that caused the LLM to gravitate to the same
+ * voices across ads. Shuffles are stable per seed, so a retry on the same
+ * ad surfaces the same pool (mixer reproducibility).
+ *
+ * Without `adId` (direct calls, tests, or legacy callers) we fall back to
+ * the old deterministic slice.
  */
 export async function searchVoices(
   params: SearchVoicesParams
 ): Promise<SearchVoicesResult> {
-  const { provider, language, gender, accent, count = 10 } = params;
+  const {
+    provider,
+    language,
+    gender,
+    accent,
+    count = 10,
+    adId,
+    age_bracket,
+    energy,
+    warmth,
+    pace_tendency,
+    use_case,
+    dialect_register,
+  } = params;
 
   // Get voices from catalogue for the specified provider
   const allVoices = await voiceCatalogue.getVoicesForProvider(
@@ -201,23 +332,154 @@ export async function searchVoices(
   );
 
   // Filter by gender if specified
-  const filtered = gender
+  const filteredByGender = gender
     ? allVoices.filter((v) => v.gender.toLowerCase() === gender.toLowerCase())
     : allVoices;
 
-  // Take first N voices (no style filtering - LLM picks based on personality descriptions)
-  const selected = filtered.slice(0, count);
+  // Structured-metadata filter. Voices with missing data on a requested axis
+  // pass through — see voiceMetadataSynthesis.ts rationale.
+  const semanticFilters = {
+    age_bracket,
+    energy,
+    warmth,
+    pace_tendency,
+    use_case,
+    dialect_register,
+  };
+  const anyFilter = Object.values(semanticFilters).some(Boolean);
 
-  // Enrich with metadata
-  const enriched = selected.map((v) => ({
+  const withMetadata = filteredByGender.map((v) => ({
+    voice: v,
+    metadata: synthesizeMetadata(v),
+  }));
+
+  const filtered = anyFilter
+    ? withMetadata.filter((x) => voiceMatchesFilters(x.metadata, semanticFilters))
+    : withMetadata;
+
+  // Seed the shuffle on the full filter tuple so changing any filter dimension
+  // changes the ordering — otherwise an LLM that progressively narrows filters
+  // would keep seeing the same top voices from its first (broad) search.
+  const shuffled = adId
+    ? seededShuffle(
+        filtered,
+        fnv1a32(
+          [
+            adId,
+            provider,
+            language,
+            gender ?? "",
+            accent ?? "",
+            age_bracket ?? "",
+            energy ?? "",
+            warmth ?? "",
+            pace_tendency ?? "",
+            use_case ?? "",
+            dialect_register ?? "",
+          ].join("|")
+        )
+      )
+    : filtered;
+
+  // Rank language-native voices ahead of multilinguals. ElevenLabs
+  // multilingual voices (Belma, Sara, etc.) get registered for every
+  // language in their `verified_languages` array — same externalId, 19+
+  // language slots. They genuinely speak all of them, but they speak
+  // them with the creator's underlying acoustic identity, which means
+  // they gravitate to the top of every language's shuffled pool and
+  // become the agent's "go-to" pick. Surface natives first; the
+  // multilingual voices are still in the result set, just lower.
+  // Stable two-tier sort preserves the seeded shuffle order within
+  // each tier so the same brief still gets the same casting.
+  const ordered = stableSortByMultilingual(shuffled);
+
+  const selected = ordered.slice(0, count);
+
+  const enriched = selected.map(({ voice: v, metadata: m }) => ({
     id: v.id,
     name: v.name,
     language: v.language,
     gender: v.gender,
     accent: v.accent,
-    style: v.styles?.join(", ") || v.personality,
+    style: v.styles?.join(", "),
+    description: v.personality,
     provider: v.provider,
+    age_bracket: m.age_bracket,
+    energy: m.energy,
+    warmth: m.warmth,
+    pace_tendency: m.pace_tendency,
+    use_case: m.use_case,
+    dialect_register: m.dialect_register,
+    casting_note: m.casting_note,
   }));
+
+  // Auto-broaden when narrow filters returned an empty pool. Returning
+  // an empty result + a "try broader filters" suggestion was an open
+  // invitation for the agent to burn another iteration on the same
+  // search. Recover server-side: drop the semantic filters first, then
+  // accent if still empty, return whatever the broader pool surfaces
+  // with a `broadened_from` note so the agent can see what we relaxed.
+  if (enriched.length === 0 && (anyFilter || accent || gender)) {
+    const broadened: string[] = [];
+    let pool = withMetadata;
+
+    if (anyFilter) {
+      broadened.push("semantic filters");
+      // pool is already the un-semantic-filtered set when we reset to withMetadata
+    }
+    if (pool.length === 0 && accent) {
+      broadened.push("accent");
+      const reAll = await voiceCatalogue.getVoicesForProvider(
+        provider as Provider,
+        language as Language,
+        undefined,
+        true
+      );
+      const reGender = gender
+        ? reAll.filter((v) => v.gender.toLowerCase() === gender.toLowerCase())
+        : reAll;
+      pool = reGender.map((v) => ({ voice: v, metadata: synthesizeMetadata(v) }));
+    }
+    if (pool.length === 0 && gender) {
+      broadened.push("gender");
+      const reAll = await voiceCatalogue.getVoicesForProvider(
+        provider as Provider,
+        language as Language,
+        undefined,
+        true
+      );
+      pool = reAll.map((v) => ({ voice: v, metadata: synthesizeMetadata(v) }));
+    }
+
+    const shuffledBroad = adId
+      ? seededShuffle(pool, fnv1a32([adId, provider, language, "broadened"].join("|")))
+      : pool;
+    const orderedBroad = stableSortByMultilingual(shuffledBroad);
+    const broadSelected = orderedBroad.slice(0, count);
+    const broadEnriched = broadSelected.map(({ voice: v, metadata: m }) => ({
+      id: v.id,
+      name: v.name,
+      language: v.language,
+      gender: v.gender,
+      accent: v.accent,
+      style: v.styles?.join(", "),
+      description: v.personality,
+      provider: v.provider,
+      age_bracket: m.age_bracket,
+      energy: m.energy,
+      warmth: m.warmth,
+      pace_tendency: m.pace_tendency,
+      use_case: m.use_case,
+      dialect_register: m.dialect_register,
+      casting_note: m.casting_note,
+    }));
+
+    return {
+      voices: broadEnriched,
+      count: broadEnriched.length,
+      broadened_from: broadened,
+    };
+  }
 
   return {
     voices: enriched,
@@ -241,7 +503,7 @@ export async function createVoiceDraft(
 async function createVoiceDraftLocked(
   params: CreateVoiceDraftParams
 ): Promise<DraftCreationResult> {
-  const { adId, tracks, parentVersionId: explicitParent } = params;
+  const { adId, tracks, parentVersionId: explicitParent, knowledgeContext: explicitContext } = params;
 
   // Freeze any existing draft before creating new one
   await freezeExistingDraft(adId, "voices");
@@ -249,6 +511,16 @@ async function createVoiceDraftLocked(
   // Resolve parent lineage + inherit slot ids by ordinal match
   const parentVersionId = await resolveParentVersionId(adId, "voices", explicitParent);
   const parentSlotIds = await loadParentSlotIds(adId, "voices", parentVersionId);
+
+  // Resolve context snapshot: explicit context wins (agent-executor injection on the
+  // first version from the brief, or iteration with explicit overrides). Otherwise
+  // inherit from the parent version's snapshot. Leaves undefined on fresh ads with
+  // no parent and no injected context (legacy path).
+  let snapshotContext = explicitContext;
+  if (!snapshotContext && parentVersionId) {
+    const parent = (await getVersion(adId, "voices", parentVersionId)) as VoiceVersion | null;
+    snapshotContext = parent?.knowledgeContext;
+  }
   const { assigned: slotIds, report } = reconcileSlots(
     parentSlotIds,
     tracks.length,
@@ -260,11 +532,17 @@ async function createVoiceDraftLocked(
   // ids (so "voice-N" ordinal refs resolve to the draft we're building).
   const ordinalRefs = await loadOrdinalRefs(adId, { voices: slotIds });
 
-  // Resolve voice IDs to full Voice objects from catalogue
+  // Resolve voice IDs to full Voice objects from catalogue. We pass the
+  // provider + language hint so the resolver can fall back to externalId
+  // matching when the LLM passes a bare provider-native name (common for
+  // OpenAI voices like "alloy"/"nova" which are stored under synthesized
+  // ids like "alloy-ja" but accept the bare name at TTS time).
   const resolvedTracks = await Promise.all(
     tracks.map(async (track, index) => {
-      // Try to find voice in catalogue by ID
-      const catalogueVoice = await voiceCatalogue.getVoiceById(track.voiceId);
+      const catalogueVoice = await voiceCatalogue.getVoiceById(track.voiceId, {
+        provider: track.provider as Provider | undefined,
+        language: track.language,
+      });
 
       // Log when lookup fails for debugging
       if (!catalogueVoice) {
@@ -321,19 +599,160 @@ async function createVoiceDraftLocked(
     })
   );
 
+  // Track-derived reconciliation: the LLM may have cast voices in a new
+  // language, provider, or accent (e.g. "redo this in Japanese with OpenAI
+  // voices"). The inherited snapshot from the parent version is stale for
+  // those axes — update them from the actual resolved tracks so downstream
+  // iteration reads the right provider module and the right language.
+  // Brief-level axes (pacing, campaignFormat, region) stay inherited.
+  const finalContext = snapshotContext
+    ? reconcileContextFromTracks(snapshotContext, resolvedTracks)
+    : undefined;
+
+  // Stage N (pass-2 tag-weaver) + Stage L (mechanical lint) for ElevenLabs
+  // voice tracks. Pass 1 wrote the script clean; this layer weaves V3
+  // emotional + non-verbal tags into each line using the cast voice's
+  // metadata, then validates the mechanical bare-minimums (accent tag
+  // present when enforced, opening stack ≤ 8, syntax well-formed). Other
+  // providers (OpenAI, Lahajati, ByteDance, Qwen, Lovo) skip both passes
+  // — they have their own delivery-control mechanisms and don't speak V3
+  // tags.
+  const wovenTracks = await runTagWeaverPass(resolvedTracks, finalContext);
+  const lintResult = await runTagLintWithRetry(
+    wovenTracks,
+    resolvedTracks,
+    finalContext
+  );
+
   const voiceVersion: VoiceVersion = {
-    voiceTracks: resolvedTracks,
+    voiceTracks: lintResult.tracks,
     generatedUrls: [], // No audio generated yet for draft
     createdAt: Date.now(),
     createdBy: "llm",
     status: "draft",
     ...(parentVersionId ? { parentVersionId } : {}),
+    ...(finalContext ? { knowledgeContext: finalContext } : {}),
+    ...(lintResult.warnings.length
+      ? { tagLintWarnings: lintResult.warnings }
+      : {}),
   };
 
   // Create draft version in Redis
   const versionId = await createVersion(adId, "voices", voiceVersion);
 
+  // Telemetry — fire-and-forget so a Redis hash write hiccup never blocks
+  // the draft. We log on failure but otherwise don't propagate.
+  void writeTagLintTelemetry(adId, versionId, lintResult.telemetry).catch(
+    (err) => {
+      console.warn(
+        `[tag-lint] telemetry write failed for ${adId}/${versionId}:`,
+        err instanceof Error ? err.message : err
+      );
+    }
+  );
+
   return slotReportedResult(adId, versionId, report);
+}
+
+/**
+ * Run the Stage N pass-2 tag-weaver across resolved tracks. Only
+ * ElevenLabs tracks go through the weaver — all other providers pass
+ * through unchanged. Weaver calls fan out in parallel via Promise.all
+ * since each line is independent; total wall-clock is the slowest call,
+ * not the sum.
+ */
+async function runTagWeaverPass(
+  tracks: VoiceTrack[],
+  context: KnowledgeContext | undefined
+): Promise<VoiceTrack[]> {
+  return Promise.all(
+    tracks.map(async (track) => {
+      if (track.voice?.provider !== "elevenlabs") return track;
+      const result = await weaveTagsForElevenlabsTrack(
+        track.text,
+        track.voice,
+        context
+      );
+      console.log(
+        `[tag-weaver] track=${track.slotId ?? "?"} provider=elevenlabs ok=${result.ok} latency=${result.latencyMs}ms${result.fallbackReason ? ` fallback=${result.fallbackReason}` : ""}`
+      );
+      return result.ok ? { ...track, text: result.text } : track;
+    })
+  );
+}
+
+interface LintRetryOutcome {
+  tracks: VoiceTrack[];
+  telemetry: ReturnType<typeof lintVoiceTracks>["telemetry"];
+  warnings: LintViolation[];
+}
+
+/**
+ * Run Stage L mechanical lint, retry the weaver once per failing track
+ * with the lint complaint folded in, and accept the second attempt with
+ * warnings if it still fails. Never blocks generation.
+ */
+async function runTagLintWithRetry(
+  wovenTracks: VoiceTrack[],
+  originalResolvedTracks: VoiceTrack[],
+  context: KnowledgeContext | undefined
+): Promise<LintRetryOutcome> {
+  const firstPass = lintVoiceTracks(
+    wovenTracks.map((t) => ({ text: t.text, voice: t.voice }))
+  );
+  if (firstPass.ok) {
+    logLintSummary(firstPass.telemetry, /*retried*/ false);
+    return { tracks: wovenTracks, telemetry: firstPass.telemetry, warnings: [] };
+  }
+
+  // Group violations by track for targeted retry.
+  const violationsByTrack = new Map<number, LintViolation[]>();
+  for (const v of firstPass.violations) {
+    const list = violationsByTrack.get(v.trackIndex) ?? [];
+    list.push(v);
+    violationsByTrack.set(v.trackIndex, list);
+  }
+
+  const retried = await Promise.all(
+    wovenTracks.map(async (track, idx) => {
+      const myViolations = violationsByTrack.get(idx);
+      if (!myViolations || track.voice?.provider !== "elevenlabs") return track;
+      const feedback = buildWeaverRetryFeedback(myViolations);
+      const sourceText = originalResolvedTracks[idx]?.text ?? track.text;
+      const result = await weaveTagsForElevenlabsTrack(
+        sourceText,
+        track.voice,
+        context,
+        { lintFeedback: feedback }
+      );
+      console.log(
+        `[tag-weaver] retry track=${track.slotId ?? idx} ok=${result.ok} latency=${result.latencyMs}ms`
+      );
+      return result.ok ? { ...track, text: result.text } : track;
+    })
+  );
+
+  const secondPass = lintVoiceTracks(
+    retried.map((t) => ({ text: t.text, voice: t.voice }))
+  );
+  logLintSummary(secondPass.telemetry, /*retried*/ true);
+
+  return {
+    tracks: retried,
+    telemetry: secondPass.telemetry,
+    warnings: secondPass.violations,
+  };
+}
+
+function logLintSummary(
+  telemetry: ReturnType<typeof lintVoiceTracks>["telemetry"],
+  retried: boolean
+): void {
+  for (const e of telemetry) {
+    console.log(
+      `[tag-lint] track=${e.trackIndex} pass=${e.lintPassed}${retried ? " retried=true" : ""} opening=${e.openingStackSize} body=${e.bodyTags} accent=${e.accentPresent}${e.violations.length ? ` violations=${e.violations.join(",")}` : ""}`
+    );
+  }
 }
 
 /**
@@ -360,13 +779,22 @@ async function createMusicDraftLocked(
     anchor: anchorInput,
   } = params;
 
-  // Derive duration from brief if LLM didn't provide it
-  let effectiveDuration = duration;
-  if (!effectiveDuration) {
-    const meta = await getAdMetadata(adId);
-    const briefDuration = meta?.brief?.adDuration || 30;
-    // Music should be longer than ad to allow for LLM overruns and fade-out
-    effectiveDuration = Math.max(30, briefDuration + 15);
+  // Always enforce a buffer between brief duration and music duration —
+  // the LLM routinely produces over-budget scripts (asks for 20s, writes
+  // 23s), and music shorter than the voice tracks drops out mid-line.
+  // Floor is `briefDuration + 10s` regardless of what the LLM passed,
+  // and at least 30s in absolute terms so very short briefs still get a
+  // mixable bed. The LLM-supplied duration becomes a CEILING — when it
+  // asked for longer, we honor it; when it asked for shorter, we ignore.
+  const meta = await getAdMetadata(adId);
+  const briefDuration = meta?.brief?.adDuration || 30;
+  const minimumMusicDuration = Math.max(30, briefDuration + 10);
+  const effectiveDuration = Math.max(duration ?? 0, minimumMusicDuration);
+  if (duration && duration < minimumMusicDuration) {
+    console.log(
+      `[create_music_draft] LLM asked for ${duration}s but bumping to ${effectiveDuration}s (brief=${briefDuration}s, +10s buffer for script overrun)`
+    );
+  } else if (!duration) {
     console.log(`[create_music_draft] Derived duration ${effectiveDuration}s from brief (ad: ${briefDuration}s)`);
   }
 
