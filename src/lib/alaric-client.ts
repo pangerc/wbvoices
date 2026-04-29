@@ -198,13 +198,17 @@ export interface SfAccountSearchResult {
  */
 export async function searchSfAccounts(
   query: string,
-  opts: { limit?: number; clientPlatforms?: string[] } = {}
+  opts: { limit?: number; clientPlatforms?: string[]; market?: string } = {}
 ): Promise<SfAccountSearchResult[]> {
   const params = new URLSearchParams({ q: query });
   if (opts.limit) params.set("limit", String(opts.limit));
   if (opts.clientPlatforms && opts.clientPlatforms.length > 0) {
     params.set("clientPlatforms", opts.clientPlatforms.join(","));
   }
+  // alaric filters SF accounts by market (alpha-2). When the brief panel
+  // has a market picked, we forward it so reps don't see results from
+  // other countries. Param name mirrors alaric's /api/aca/markets shape.
+  if (opts.market) params.set("market", opts.market);
   return signedFetch<SfAccountSearchResult[]>({
     method: "GET",
     path: `/api/aca/sf-search?${params.toString()}`,

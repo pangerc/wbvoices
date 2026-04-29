@@ -115,7 +115,7 @@ async function handleSfAccount(
 
 async function handleSearch(
   query: string,
-  opts: { clientPlatforms?: string[]; limit?: number }
+  opts: { clientPlatforms?: string[]; limit?: number; marketAlpha2?: string }
 ): Promise<BrandContextResponse> {
   // Default to spotify-only filtering, matching the v3.5 picker UX. Pass
   // an empty array to skip the filter (the brief panel's "Show all" toggle).
@@ -125,6 +125,7 @@ async function handleSearch(
   const candidates = await alaric.searchSfAccounts(query, {
     ...(opts.limit ? { limit: opts.limit } : {}),
     ...(clientPlatforms.length > 0 ? { clientPlatforms } : {}),
+    ...(opts.marketAlpha2 ? { market: opts.marketAlpha2 } : {}),
   });
 
   return { brand: null, candidates, dossier: null };
@@ -271,6 +272,7 @@ export async function POST(req: NextRequest) {
             ? { clientPlatforms: body.clientPlatforms }
             : {}),
           ...(limit !== undefined ? { limit } : {}),
+          ...(body.marketAlpha2 ? { marketAlpha2: body.marketAlpha2 } : {}),
         });
         return NextResponse.json(result);
       }

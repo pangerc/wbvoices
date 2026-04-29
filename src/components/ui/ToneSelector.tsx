@@ -41,15 +41,8 @@ export function ToneSelector({
   return (
     <Listbox value={listValue} onChange={handleChange} disabled={disabled}>
       <div className="relative">
-        <Listbox.Button className="relative w-full cursor-pointer bg-white/5 hover:bg-white/10 backdrop-blur-sm py-3 pr-10 pl-4 text-left rounded-xl focus:outline-none focus:ring-1 focus:ring-wb-blue/50 border border-white/10 transition-colors">
-          <div className="text-sm font-semibold text-white">
-            {display.title}
-          </div>
-          {display.description && (
-            <div className="mt-1 text-xs text-gray-400 leading-snug">
-              {display.description}
-            </div>
-          )}
+        <Listbox.Button className="relative w-full cursor-pointer bg-white/10 hover:bg-white/15 backdrop-blur-sm py-3 pr-10 pl-4 text-left text-white text-sm rounded-xl focus:outline-none focus:ring-1 focus:ring-wb-blue/50 border border-white/10 transition-colors">
+          {display.title}
           <ChevronUpDownIcon
             aria-hidden="true"
             className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-400/60"
