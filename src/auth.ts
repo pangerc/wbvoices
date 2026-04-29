@@ -27,20 +27,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Resend({
       from: process.env.AUTH_RESEND_FROM || "onboarding@resend.dev",
       async sendVerificationRequest({ identifier: email, url, provider }) {
-        // TEMP debug — confirm what Auth.js is actually computing as the
-        // base URL for the magic link. Remove once mixer.* preview is stable.
-        console.log(
-          "[auth/resend] base resolution:",
-          JSON.stringify({
-            AUTH_URL: process.env.AUTH_URL,
-            AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST,
-            VERCEL_URL: process.env.VERCEL_URL,
-            VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
-            VERCEL_ENV: process.env.VERCEL_ENV,
-            generatedUrl: url,
-          })
-        );
-
         const { Resend: ResendClient } = await import("resend");
         const resend = new ResendClient(process.env.AUTH_RESEND_KEY);
         await resend.emails.send({
