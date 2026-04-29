@@ -113,6 +113,13 @@ async function handleSfAccount(
   return { brand, dossier, enrichmentSummary };
 }
 
+// alaric's /api/aca/sf-search validates `market` against /^[A-Za-z]{2}$/
+// and 400s on anything else. Legacy ads can carry non-alpha-2 values in
+// `selectedRegion` (pre-v4 voice-region taxonomy like "us-east"); silently
+// drop those rather than break the picker. User re-picking the market
+// promotes to a real alpha-2.
+const ALPHA2_RE = /^[A-Za-z]{2}$/;
+
 async function handleSearch(
   query: string,
   opts: { clientPlatforms?: string[]; limit?: number; marketAlpha2?: string }
@@ -122,10 +129,15 @@ async function handleSearch(
   const clientPlatforms =
     opts.clientPlatforms === undefined ? ["spotify"] : opts.clientPlatforms;
 
+  const market =
+    opts.marketAlpha2 && ALPHA2_RE.test(opts.marketAlpha2)
+      ? opts.marketAlpha2
+      : undefined;
+
   const candidates = await alaric.searchSfAccounts(query, {
     ...(opts.limit ? { limit: opts.limit } : {}),
     ...(clientPlatforms.length > 0 ? { clientPlatforms } : {}),
-    ...(opts.marketAlpha2 ? { market: opts.marketAlpha2 } : {}),
+    ...(market ? { market } : {}),
   });
 
   return { brand: null, candidates, dossier: null };
