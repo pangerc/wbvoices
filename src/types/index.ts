@@ -172,16 +172,20 @@ export type ProjectBrief = {
 
   // Stage-3 brief expansion. Every field optional so legacy briefs continue
   // to load. Renders into the LLM user message via buildUserMessage in the
-  // generate routes; routed into per-provider knowledge modules via
-  // KnowledgeContext.
-  brandVoice?: string;
+  // generate routes.
   referenceUrls?: string[];
   forbiddenWords?: string;
   providedScript?: string;
-  /** @deprecated v4 — superseded by alaric BrandDossier projection (rich
-   *  brand context lands via the SF picker, not via a hosted web_search
-   *  call mid-iteration). Kept on the type so legacy briefs decode; never
-   *  read by the generate routes or BriefPanelV3 anymore. */
+  /** @deprecated v4 — replaced by alaric's BrandDossier projection,
+   *  which now provides the canonical brand-voice context via the SF
+   *  picker. Legacy briefs may carry a value; v4 surfaces it read-only
+   *  in BriefPanelV4's Brand topic but never sends it to generation.
+   *  Scheduled for full removal in a follow-up cleanup PR. */
+  brandVoice?: string;
+  /** @deprecated v4 — hosted web_search dropped during the v3.5
+   *  industrialization (alaric BrandDossier replaces it for SF-backed
+   *  brands). Field stays on the type so legacy briefs decode; no
+   *  readers anywhere. Removal-pending. */
   enrichWithWebSearch?: boolean;
 
   // Alaric/SFDC integration (Stage C). All optional so existing briefs

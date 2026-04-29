@@ -95,7 +95,6 @@ function buildUserMessage(params: {
   voiceInstructions?: string;
   adId: string;
   voiceProvider: string;
-  brandVoice?: string;
   referenceUrls?: string[];
   forbiddenWords?: string;
   providedScript?: string;
@@ -118,7 +117,6 @@ function buildUserMessage(params: {
     voiceInstructions,
     adId,
     voiceProvider,
-    brandVoice,
     referenceUrls,
     forbiddenWords,
     providedScript,
@@ -138,9 +136,6 @@ function buildUserMessage(params: {
   const ctaNote = cta ? `\n- Call to Action: ${cta}` : "";
   const voiceInstructionsNote = voiceInstructions && voiceInstructions.trim()
     ? `\n- Voice delivery instructions: ${voiceInstructions.trim()}`
-    : "";
-  const brandVoiceSection = brandVoice && brandVoice.trim()
-    ? `\n\n## Brand Voice\n${brandVoice.trim()}`
     : "";
   const referenceSection =
     referenceUrls && referenceUrls.length
@@ -167,7 +162,7 @@ function buildUserMessage(params: {
 - Language: ${languageName}
 - Voice Provider: ${voiceProvider} (REQUIRED - only search for voices from this provider)
 - Client: ${clientDescription}
-- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}${voiceInstructionsNote}${brandVoiceSection}${referenceSection}${forbiddenSection}${providedScriptSection}${creativeAngleSection}${enrichmentSections || ""}
+- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}${voiceInstructionsNote}${referenceSection}${forbiddenSection}${providedScriptSection}${creativeAngleSection}${enrichmentSections || ""}
 
 ## DURATION CONSTRAINT (CRITICAL)
 - STRICT LIMIT: Script MUST fit within ${duration} seconds when read at natural pace
@@ -210,7 +205,6 @@ export async function POST(req: NextRequest) {
     selectedProvider: rawSelectedProvider,
     autoGenerateAudio = true,
     // Stage-3 brief expansion fields (all optional)
-    brandVoice,
     referenceUrls,
     forbiddenWords,
     providedScript,
@@ -284,7 +278,6 @@ export async function POST(req: NextRequest) {
         language: language,
         voiceProvider: voiceProvider,
         campaignFormat: campaignFormat as KnowledgeContext["campaignFormat"],
-        brandVoice: brandVoice && typeof brandVoice === "string" && brandVoice.trim() ? brandVoice : undefined,
         hasProvidedScript: !!(providedScript && typeof providedScript === "string" && providedScript.trim()),
       };
 
@@ -311,7 +304,6 @@ export async function POST(req: NextRequest) {
         voiceInstructions: voiceInstructionsText || undefined,
         adId,
         voiceProvider,
-        brandVoice,
         referenceUrls,
         forbiddenWords,
         providedScript,
@@ -370,7 +362,6 @@ export async function POST(req: NextRequest) {
         selectedTone: tonePreset,
         voiceInstructions: voiceInstructionsText,
         selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
-        ...(brandVoice && typeof brandVoice === "string" && brandVoice.trim() ? { brandVoice: brandVoice.trim() } : {}),
         ...(Array.isArray(referenceUrls) && referenceUrls.length ? { referenceUrls } : {}),
         ...(forbiddenWords && typeof forbiddenWords === "string" && forbiddenWords.trim() ? { forbiddenWords: forbiddenWords.trim() } : {}),
         ...(providedScript && typeof providedScript === "string" && providedScript.trim() ? { providedScript: providedScript.trim() } : {}),

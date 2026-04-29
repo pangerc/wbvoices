@@ -29,7 +29,6 @@ export interface KnowledgeContext {
   // Stage-3 brief expansion fields. All optional. Threaded from
   // ProjectBrief through buildUserMessage into per-provider modules so
   // they can adapt guidance.
-  brandVoice?: string;
   hasProvidedScript?: boolean;
 }
 

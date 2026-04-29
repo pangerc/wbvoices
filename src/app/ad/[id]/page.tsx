@@ -17,9 +17,9 @@ import { VoiceDraftEditor } from "@/components/draft-editors/VoiceDraftEditor";
 import { MusicDraftEditor } from "@/components/draft-editors/MusicDraftEditor";
 import { SfxDraftEditor } from "@/components/draft-editors/SfxDraftEditor";
 import {
-  BriefPanelV3,
+  BriefPanelV4,
   type StreamUpdateEvent,
-} from "@/components/BriefPanelV3";
+} from "@/components/BriefPanelV4";
 import { MixerPanel } from "@/components/MixerPanel";
 import { PreviewPanel } from "@/components/PreviewPanel";
 import { useMixerStore } from "@/store/mixerStore";
@@ -194,7 +194,7 @@ export default function AdWorkspace() {
 
   const switchToMixTab = () => setSelectedTab(4);
 
-  // Handle drafts created callback from BriefPanelV3
+  // Handle drafts created callback from BriefPanelV4
   const handleDraftsCreated = async (draftIds: {
     voices?: string;
     music?: string;
@@ -365,7 +365,7 @@ export default function AdWorkspace() {
 
           {/* Brief - Tab 0 */}
           {selectedTab === 0 && (
-            <BriefPanelV3
+            <BriefPanelV4
               autoGenerate={autoGenerate}
               adId={adId}
               initialBrief={briefData}

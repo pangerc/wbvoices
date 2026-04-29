@@ -311,7 +311,7 @@ export function BrandPickerSubeditor({
               >
                 <div className="text-sm text-gray-300">
                   Use as standalone brand:{" "}
-                  <span className="text-white">"{query.trim()}"</span>
+                  <span className="text-white">&ldquo;{query.trim()}&rdquo;</span>
                 </div>
                 <div className="text-xs text-gray-500">
                   No Salesforce link; brand voice will rely on the brief alone

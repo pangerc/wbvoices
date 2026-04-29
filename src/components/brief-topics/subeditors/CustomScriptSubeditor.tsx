@@ -90,7 +90,7 @@ export function CustomScriptSubeditor({
       ) : (
         <p className="text-xs text-gray-500">
           Agent will write the script from your Creative Brief. Switch to
-          "I have the script" if you want to provide verbatim copy.
+          &ldquo;I have the script&rdquo; if you want to provide verbatim copy.
         </p>
       )}
     </div>
