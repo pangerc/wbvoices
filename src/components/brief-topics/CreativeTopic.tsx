@@ -330,14 +330,16 @@ export function CreativeTopic({
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Call to action (CTA)
+                Tone of voice{" "}
+                <span className="text-gray-500 font-normal text-xs">
+                  (how the line is read)
+                </span>
               </label>
-              <GlassyListbox
-                value={selectedCTA || "none"}
-                onChange={(value) =>
-                  onSelectedCTAChanged(value === "none" ? null : value)
-                }
-                options={CTA_OPTIONS}
+              <ToneSelector
+                value={selectedTone}
+                onChange={handleToneChange}
+                options={computedToneOptions}
+                emptyOption={TONE_EMPTY_OPTION}
                 disabled={disabled}
               />
               {shouldSuggestProvider && (
@@ -453,22 +455,21 @@ export function CreativeTopic({
             </CollapsibleSection>
 
             <CollapsibleSection
-              title="Tone of voice"
+              title="Call to action"
               badge={
-                selectedTone && selectedTone !== "custom"
-                  ? computedToneOptions.find((o) => o.value === selectedTone)
-                      ?.title || selectedTone
-                  : selectedTone === "custom"
-                    ? "Custom"
-                    : undefined
+                selectedCTA
+                  ? CTA_OPTIONS.find((o) => o.value === selectedCTA)?.label ||
+                    selectedCTA
+                  : undefined
               }
-              defaultOpen={selectedTone !== null}
+              defaultOpen={!!selectedCTA}
             >
-              <ToneSelector
-                value={selectedTone}
-                onChange={handleToneChange}
-                options={computedToneOptions}
-                emptyOption={TONE_EMPTY_OPTION}
+              <GlassyListbox
+                value={selectedCTA || "none"}
+                onChange={(value) =>
+                  onSelectedCTAChanged(value === "none" ? null : value)
+                }
+                options={CTA_OPTIONS}
                 disabled={disabled}
               />
             </CollapsibleSection>
