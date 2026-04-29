@@ -249,7 +249,9 @@ export function CreativeTopic({
 
   // Auto-expand collapsibles only on first load when their fields carry
   // content. Avoid reacting to live edits.
-  const instructionsDefaultOpen = voiceInstructions.trim().length > 0;
+  // Instructions stays closed always — picking a tone preset auto-seeds
+  // voiceInstructions, and we don't want the section to pop open every
+  // time the user picks a tone.
   const referencesDefaultOpen = referenceUrlsText.trim().length > 0;
   const forbiddenDefaultOpen = forbiddenWords.trim().length > 0;
 
@@ -380,7 +382,7 @@ export function CreativeTopic({
             <CollapsibleSection
               title="Instructions"
               description="voice delivery"
-              defaultOpen={instructionsDefaultOpen}
+              defaultOpen={false}
             >
               <VoiceInstructionsSubeditor
                 value={voiceInstructions}
