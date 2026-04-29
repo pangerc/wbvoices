@@ -442,6 +442,71 @@ export interface EnrichTriggerResult {
  * background; even an error here is non-fatal (alaric problems surface
  * in alaric's own activity panel, not in the brief flow).
  */
+// ============================================
+// Markets — alaric's canonical 86-market mapping
+// ============================================
+
+/**
+ * Per-platform availability indicator. `available` = Aleph has volume here;
+ * `empty` = supported but no volume yet (don't filter out — campaigns may
+ * still run); `unsupported` = the platform doesn't operate in this market.
+ */
+export type PlatformCoverage = "available" | "unsupported" | "empty";
+
+/**
+ * Per-market language record. `commerceVocabulary` is currency words +
+ * "buy/shop/price" cognates in the market's primary language (plug into VO
+ * scripts); `legalDescriptors` is regulatory phrasing (e.g. legal-entity
+ * suffixes) used in compliant ad copy.
+ */
+export interface MarketLanguage {
+  code: string;
+  name: string;
+  script: string;
+  commerceVocabulary: string[];
+  legalDescriptors: string[];
+}
+
+/**
+ * Canonical market record from alaric. `code` is alpha-2 (ISO 3166-1).
+ * `region` is a descriptive grouping ("Southern Europe", "DACH") used for
+ * voiceover-session batching, not a geopolitical taxonomy.
+ */
+export interface MarketRow {
+  code: string;
+  name: string;
+  region: string;
+  aliases: string[];
+  tld: string;
+  platformCoverage: Record<string, PlatformCoverage>;
+  language: MarketLanguage;
+}
+
+export interface MarketsResponse {
+  markets: MarketRow[];
+  totalCount: number;
+  generatedAt: string;
+}
+
+/**
+ * Fetch the canonical 86-market mapping from alaric.
+ *
+ * @param opts.platform — when set, alaric filters out `unsupported` markets
+ *   for that platform; `empty` markets stay (campaigns can still run there).
+ *   Pass "spotify" for ACA's default warm path.
+ */
+export async function getMarkets(
+  opts: { platform?: string } = {}
+): Promise<MarketsResponse> {
+  const params = new URLSearchParams();
+  if (opts.platform) params.set("platform", opts.platform);
+  const query = params.toString();
+  return signedFetch<MarketsResponse>({
+    method: "GET",
+    path: `/api/aca/markets${query ? `?${query}` : ""}`,
+  });
+}
+
 export async function triggerEnrichCompany(
   accountId: string
 ): Promise<EnrichTriggerResult> {
@@ -457,4 +522,5 @@ export const alaric = {
   searchSfAccounts,
   getSfClient,
   triggerEnrichCompany,
+  getMarkets,
 };
