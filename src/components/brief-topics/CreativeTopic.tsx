@@ -1,15 +1,19 @@
 /**
- * CreativeTopic — what the spot is and how it sounds.
+ * CreativeTopic — what the spot is, how it sounds, and the campaign-
+ * execution mechanics around it (format, pacing, CTA, duration).
  *
- * Tabbar (mirroring MusicPanel's mode-toggle pattern) at the top:
- *   - "Brief the agent" → the LLM writes the script from creativeBrief
- *   - "I have the script" → providedScript is used verbatim, agent only
- *     writes acting / music / SFX around it
+ * Layout (per the user's spec):
+ *   Heading row: "Creative" h2 + subtitle on the left; tabbar
+ *     ("Brief the agent" / "I have the script") inline on the right.
+ *   Row 1: creativeBrief | creativeAngle | tone (each 1/3)
+ *   Row 2: format | pacing | cta (each 1/3)
+ *   Row 3: duration (full-width slider)
+ *   Collapsibles row: instructions | references | forbidden — three
+ *     collapsibles side-by-side, each in 1/3.
  *
- * In "brief" mode, the body exposes only `creativeBrief` + `creativeAngle`.
- * Acting instructions, references, and forbidden-words live behind
- * collapsibles — auto-expand only when their fields are populated on
- * `initialBrief` load (mirrors v3.5 V3 behaviour).
+ * In "I have the script" mode the entire body above swaps to a single
+ * verbatim-script textarea — the brief save still carries both fields
+ * so toggling preserves edits.
  *
  * Why creativeAngle is exposed (and never collapses): brand-anchoring
  * ladder rests on `brandVoice = constant, creativeAngle = per-spot
@@ -17,18 +21,81 @@
  * every ad — measured regression in v3.5 production.
  */
 
-import { useState } from "react";
-import {
-  DocumentTextIcon,
-  SparklesIcon,
-} from "@heroicons/react/24/outline";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { MicrophoneIcon } from "@heroicons/react/24/outline";
 import type { ToneOption } from "../ui/ToneSelector";
-import { GlassTab, GlassTabBar, GlassyTextarea, Tooltip } from "../ui";
+import {
+  DialogueIcon,
+  GlassTab,
+  GlassTabBar,
+  GlassyListbox,
+  GlassySlider,
+  GlassyTextarea,
+  ProviderSelectionModal,
+  RabbitIcon,
+  SingleVoiceIcon,
+  ToneSelector,
+  TurtleIcon,
+} from "../ui";
+import type { CampaignFormat, Pacing, Provider } from "@/types";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { ActingInstructionsSubeditor } from "./subeditors/ActingInstructionsSubeditor";
+import { VoiceInstructionsSubeditor } from "./subeditors/VoiceInstructionsSubeditor";
 import { ReferenceUrlsSubeditor } from "./subeditors/ReferenceUrlsSubeditor";
 import { ForbiddenWordsSubeditor } from "./subeditors/ForbiddenWordsSubeditor";
 import { CustomScriptSubeditor } from "./subeditors/CustomScriptSubeditor";
+import { twMerge } from "tailwind-merge";
+
+const CTA_OPTIONS = [
+  { value: "none", label: "No specific CTA" },
+  { value: "apply-now", label: "Apply now" },
+  { value: "book-now", label: "Book now" },
+  { value: "buy-now", label: "Buy now" },
+  { value: "buy-tickets", label: "Buy tickets" },
+  { value: "click-now", label: "Click now" },
+  { value: "download", label: "Download" },
+  { value: "find-stores", label: "Find stores" },
+  { value: "get-coupon", label: "Get coupon" },
+  { value: "get-info", label: "Get info" },
+  { value: "learn-more", label: "Learn more" },
+  { value: "listen-now", label: "Listen now" },
+  { value: "more-info", label: "More info" },
+  { value: "order-now", label: "Order now" },
+  { value: "pre-save", label: "Pre-save" },
+  { value: "save-now", label: "Save now" },
+  { value: "share", label: "Share" },
+  { value: "shop-now", label: "Shop now" },
+  { value: "sign-up", label: "Sign up" },
+  { value: "visit-profile", label: "Visit profile" },
+  { value: "visit-site", label: "Visit site" },
+  { value: "watch-now", label: "Watch now" },
+];
+
+const DURATION_TICK_MARKS = [
+  { value: 10, label: "10s" },
+  { value: 15, label: "15s" },
+  { value: 20, label: "20s" },
+  { value: 25, label: "25s" },
+  { value: 30, label: "30s" },
+  { value: 35, label: "35s" },
+  { value: 40, label: "40s" },
+  { value: 45, label: "45s" },
+  { value: 50, label: "50s" },
+  { value: 55, label: "55s" },
+  { value: 60, label: "60s" },
+];
+
+const TONE_EMPTY_OPTION: ToneOption = {
+  value: "none",
+  title: "No specific tone",
+  description: "Let the system decide based on the brief and target audience.",
+};
+
+const CUSTOM_TONE_OPTION: ToneOption = {
+  value: "custom",
+  title: "Custom…",
+  description:
+    "Describe the tone yourself in the Voice Instructions field below.",
+};
 
 export interface CreativeTopicProps {
   creativeBrief: string;
@@ -45,6 +112,26 @@ export interface CreativeTopicProps {
 
   toneOptions: ToneOption[];
   toneInstructions: Record<string, string>;
+
+  // Campaign-execution axes — the user spec moved these into Creative.
+  campaignFormat: CampaignFormat;
+  onCampaignFormatChanged: (value: CampaignFormat) => void;
+
+  selectedPacing: Pacing | null;
+  onSelectedPacingChanged: (value: Pacing | null) => void;
+
+  selectedCTA: string | null;
+  onSelectedCTAChanged: (value: string | null) => void;
+
+  adDuration: number;
+  onAdDurationChanged: (value: number) => void;
+
+  // Provider modal launcher (lifted in from LanguageTopic so the dialog
+  // warning copy stays close to format / voiceCounts).
+  selectedProvider: Provider;
+  onSelectedProviderChanged: (value: Provider) => void;
+  voiceCounts: Record<Provider, number>;
+  dialogReady: boolean;
 
   referenceUrlsText: string;
   onReferenceUrlsChanged: (value: string) => void;
@@ -72,6 +159,18 @@ export function CreativeTopic({
   onVoiceInstructionsChanged,
   toneOptions,
   toneInstructions,
+  campaignFormat,
+  onCampaignFormatChanged,
+  selectedPacing,
+  onSelectedPacingChanged,
+  selectedCTA,
+  onSelectedCTAChanged,
+  adDuration,
+  onAdDurationChanged,
+  selectedProvider,
+  onSelectedProviderChanged,
+  voiceCounts,
+  dialogReady,
   referenceUrlsText,
   onReferenceUrlsChanged,
   forbiddenWords,
@@ -81,47 +180,96 @@ export function CreativeTopic({
   showAngleNudge,
   disabled,
 }: CreativeTopicProps) {
-  // Default to script mode iff a verbatim script is already loaded; the
-  // tab is one click to switch back. Initial-render only — user toggles
-  // via the tabs after that.
   const [creativeMode, setCreativeMode] = useState<CreativeMode>(() =>
     providedScript.trim().length > 0 ? "script" : "brief",
   );
 
+  const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
+
+  // Tone preset → voiceInstructions seeding. Tone lives in Row 1
+  // (exposed); voiceInstructions lives in the collapsible. The seeding
+  // logic stays here so picking a preset auto-fills the instructions
+  // textarea (when the user hasn't edited it). Same lastAppliedTemplateRef
+  // pattern from v3.5 BriefPanelBase.
+  const lastAppliedTemplateRef = useRef<string>("");
+
+  const computedToneOptions = useMemo<ToneOption[]>(
+    () => [...toneOptions, CUSTOM_TONE_OPTION],
+    [toneOptions],
+  );
+
+  const handleToneChange = useCallback(
+    (value: string | null) => {
+      onSelectedToneChanged(value);
+      if (value && value !== "custom" && toneInstructions[value]) {
+        const template = toneInstructions[value];
+        const untouched =
+          voiceInstructions === "" ||
+          voiceInstructions === lastAppliedTemplateRef.current;
+        if (untouched) {
+          onVoiceInstructionsChanged(template);
+          lastAppliedTemplateRef.current = template;
+        }
+      } else {
+        lastAppliedTemplateRef.current = "";
+      }
+    },
+    [
+      voiceInstructions,
+      toneInstructions,
+      onSelectedToneChanged,
+      onVoiceInstructionsChanged,
+    ],
+  );
+
+  const handleResetVoiceInstructions = useCallback(() => {
+    if (
+      selectedTone &&
+      selectedTone !== "custom" &&
+      toneInstructions[selectedTone]
+    ) {
+      const template = toneInstructions[selectedTone];
+      onVoiceInstructionsChanged(template);
+      lastAppliedTemplateRef.current = template;
+    } else {
+      onVoiceInstructionsChanged("");
+      lastAppliedTemplateRef.current = "";
+    }
+  }, [selectedTone, toneInstructions, onVoiceInstructionsChanged]);
+
   // Auto-expand collapsibles only on first load when their fields carry
-  // content (mirrors v3.5 V3 behaviour — don't react to live edits).
-  const actingDefaultOpen =
-    selectedTone !== null || voiceInstructions.trim().length > 0;
+  // content. Avoid reacting to live edits.
+  const instructionsDefaultOpen = voiceInstructions.trim().length > 0;
   const referencesDefaultOpen = referenceUrlsText.trim().length > 0;
   const forbiddenDefaultOpen = forbiddenWords.trim().length > 0;
 
+  const shouldWarnAboutDialog = !dialogReady && campaignFormat === "dialog";
+  const shouldSuggestProvider =
+    voiceCounts && (voiceCounts[selectedProvider] || 0) === 0;
+
   return (
     <section className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-1">Creative</h2>
-        <p className="text-xs text-gray-500">
-          What the spot says, how the voice delivers it.
-        </p>
-      </div>
-
-      <div className="flex justify-center mb-2">
+      <div className="flex items-start justify-between gap-6">
+        <div>
+          <h2 className="text-lg font-semibold text-white mb-1">Creative</h2>
+          <p className="text-xs text-gray-500">
+            What the spot says, how the voice delivers it, the campaign
+            mechanics around it.
+          </p>
+        </div>
         <GlassTabBar>
-          <Tooltip content="Brief the agent — LLM writes the script" side="bottom">
-            <GlassTab
-              isActive={creativeMode === "brief"}
-              onClick={() => setCreativeMode("brief")}
-            >
-              <SparklesIcon className="h-5 w-5" />
-            </GlassTab>
-          </Tooltip>
-          <Tooltip content="I have the script — use my copy verbatim" side="bottom">
-            <GlassTab
-              isActive={creativeMode === "script"}
-              onClick={() => setCreativeMode("script")}
-            >
-              <DocumentTextIcon className="h-5 w-5" />
-            </GlassTab>
-          </Tooltip>
+          <GlassTab
+            isActive={creativeMode === "brief"}
+            onClick={() => setCreativeMode("brief")}
+          >
+            <span className="px-2 text-xs">Brief the agent</span>
+          </GlassTab>
+          <GlassTab
+            isActive={creativeMode === "script"}
+            onClick={() => setCreativeMode("script")}
+          >
+            <span className="px-2 text-xs">I have the script</span>
+          </GlassTab>
         </GlassTabBar>
       </div>
 
@@ -133,66 +281,213 @@ export function CreativeTopic({
         />
       ) : (
         <>
+          {/* Row 1: Brief | Angle | Tone */}
           <div className="grid grid-cols-3 gap-6 items-start">
-            <div className="col-span-2">
+            <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Creative brief{" "}
-                <span className="text-gray-500 font-normal">
+                <span className="text-gray-500 font-normal text-xs">
                   (description of the ad — required)
                 </span>
               </label>
               <GlassyTextarea
                 value={creativeBrief}
                 onChange={(e) => onCreativeBriefChanged(e.target.value)}
-                placeholder="Describe the creative direction, key messages, and target audience…"
-                rows={5}
+                placeholder="What this spot is about, who it's for, key messages…"
+                rows={6}
                 disabled={disabled}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Creative angle
-                <span className="ml-2 text-xs text-gray-500">
-                  (variance — what makes THIS spot different)
+                Creative angle{" "}
+                <span className="text-gray-500 font-normal text-xs">
+                  (per-spot variance)
                 </span>
               </label>
               <GlassyTextarea
                 value={creativeAngle}
                 onChange={(e) => onCreativeAngleChanged(e.target.value)}
-                placeholder="What is THIS ad asking the listener to feel or do that no other ad for this brand would? E.g. 'urgent 24h Black Friday push, hook drops at 0:03'."
-                rows={5}
+                placeholder="What makes THIS ad different from every other ad for this brand? E.g. 'urgent 24h Black Friday push, hook drops at 0:03'."
+                rows={6}
                 disabled={disabled}
               />
               {showAngleNudge && (
                 <p className="mt-2 text-xs text-amber-400">
-                  Without an angle, the script will brand-anchor cleanly but
-                  lose the per-spot edge.
+                  Without an angle, the script will brand-anchor cleanly
+                  but lose the per-spot edge.
                 </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Tone of voice{" "}
+                <span className="text-gray-500 font-normal text-xs">
+                  (how the line is read)
+                </span>
+              </label>
+              <ToneSelector
+                value={selectedTone}
+                onChange={handleToneChange}
+                options={computedToneOptions}
+                emptyOption={TONE_EMPTY_OPTION}
+                disabled={disabled}
+              />
+            </div>
+          </div>
+
+          {/* Row 2: Format | Pacing | CTA */}
+          <div className="grid grid-cols-3 gap-6 items-start">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Ad format
+              </label>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
+                <div
+                  className={twMerge(
+                    "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
+                    campaignFormat === "ad_read"
+                      ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                      : "bg-transparent hover:bg-white/10 text-gray-300",
+                    disabled ? "pointer-events-none" : "",
+                  )}
+                  onClick={() => onCampaignFormatChanged("ad_read")}
+                  title="Single Voice Ad Read"
+                >
+                  <SingleVoiceIcon />
+                  <span className="text-xs">Single</span>
+                </div>
+                <div
+                  className={twMerge(
+                    "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
+                    campaignFormat === "dialog"
+                      ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                      : "bg-transparent hover:bg-white/10 text-gray-300",
+                    disabled ? "pointer-events-none" : "",
+                  )}
+                  onClick={() => onCampaignFormatChanged("dialog")}
+                  title="Dialogue"
+                >
+                  <DialogueIcon />
+                  <span className="text-xs">Dialogue</span>
+                </div>
+              </div>
+              {shouldWarnAboutDialog && (
+                <p className="text-xs text-yellow-400 mt-2">
+                  Not enough voices for dialogue — need at least 2
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Pacing
+              </label>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
+                <div
+                  className={twMerge(
+                    "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
+                    selectedPacing === null
+                      ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                      : "bg-transparent hover:bg-white/10 text-gray-300",
+                    disabled ? "pointer-events-none" : "",
+                  )}
+                  onClick={() => onSelectedPacingChanged(null)}
+                  title="Normal — Standard delivery pace"
+                >
+                  <TurtleIcon />
+                  <span className="text-xs">Normal</span>
+                </div>
+                <div
+                  className={twMerge(
+                    "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
+                    selectedPacing === "fast"
+                      ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                      : "bg-transparent hover:bg-white/10 text-gray-300",
+                    disabled ? "pointer-events-none" : "",
+                  )}
+                  onClick={() => onSelectedPacingChanged("fast")}
+                  title="Fast — Energetic, urgent delivery"
+                >
+                  <RabbitIcon />
+                  <span className="text-xs">Fast</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Call to action (CTA)
+              </label>
+              <GlassyListbox
+                value={selectedCTA || "none"}
+                onChange={(value) =>
+                  onSelectedCTAChanged(value === "none" ? null : value)
+                }
+                options={CTA_OPTIONS}
+                disabled={disabled}
+              />
+              {shouldSuggestProvider && (
+                <button
+                  type="button"
+                  onClick={() => setIsProviderModalOpen(true)}
+                  className="text-xs text-orange-400 hover:text-orange-300 mt-2 flex items-center gap-1 transition-colors"
+                >
+                  <MicrophoneIcon className="h-3 w-3" />
+                  Try another provider — {voiceCounts[selectedProvider] || 0} voices
+                </button>
               )}
             </div>
           </div>
 
-          <div className="space-y-3 pt-2">
+          {/* Row 3: Duration */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Ad duration{" "}
+              <span className="text-sm text-gray-400">
+                {adDuration} seconds
+              </span>
+            </label>
+            <GlassySlider
+              disabled={disabled}
+              label={null}
+              value={adDuration}
+              onChange={onAdDurationChanged}
+              min={10}
+              max={60}
+              step={5}
+              tickMarks={DURATION_TICK_MARKS}
+            />
+            <div className="mt-3 text-xs text-gray-500">
+              Spotify: standard ads max 30s; long-form (60s) in select markets only.
+              {adDuration > 30 && (
+                <span className="text-red-900 ml-1">
+                  Duration exceeds 30s standard.
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Collapsibles row: Instructions | References | Forbidden */}
+          <div className="grid grid-cols-3 gap-6 items-start pt-2">
             <CollapsibleSection
-              title="Acting instructions"
-              description="tone preset + voice delivery — fine-tunes how the line is read"
-              defaultOpen={actingDefaultOpen}
+              title="Instructions"
+              description="voice delivery"
+              defaultOpen={instructionsDefaultOpen}
             >
-              <ActingInstructionsSubeditor
-                selectedTone={selectedTone}
-                onSelectedToneChanged={onSelectedToneChanged}
-                voiceInstructions={voiceInstructions}
-                onVoiceInstructionsChanged={onVoiceInstructionsChanged}
-                toneOptions={toneOptions}
-                toneInstructions={toneInstructions}
+              <VoiceInstructionsSubeditor
+                value={voiceInstructions}
+                onChange={onVoiceInstructionsChanged}
+                onReset={handleResetVoiceInstructions}
                 disabled={disabled}
               />
             </CollapsibleSection>
 
             <CollapsibleSection
               title="References"
-              description="brand sources, prior ads to inherit voice from"
+              description="brand sources / prior ads"
               defaultOpen={referencesDefaultOpen}
             >
               <ReferenceUrlsSubeditor
@@ -203,8 +498,8 @@ export function CreativeTopic({
             </CollapsibleSection>
 
             <CollapsibleSection
-              title="Forbidden words"
-              description="phrases the LLM should avoid"
+              title="Forbidden"
+              description="words / phrases to avoid"
               defaultOpen={forbiddenDefaultOpen}
             >
               <ForbiddenWordsSubeditor
@@ -216,6 +511,14 @@ export function CreativeTopic({
           </div>
         </>
       )}
+
+      <ProviderSelectionModal
+        isOpen={isProviderModalOpen}
+        onClose={() => setIsProviderModalOpen(false)}
+        selectedProvider={selectedProvider}
+        onSelectProvider={onSelectedProviderChanged}
+        voiceCounts={voiceCounts}
+      />
     </section>
   );
 }

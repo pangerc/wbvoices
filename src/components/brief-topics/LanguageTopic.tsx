@@ -1,7 +1,12 @@
 /**
- * LanguageTopic — voice / market technicalities. Same content as v3.5
- * BriefPanelBase's language + format + duration rows; just regrouped
- * under a single topic shell so the brand-and-creative sections breathe.
+ * LanguageTopic — single row of three pickers that respond to the
+ * market choice in BrandTopic: language (defaults from market.language),
+ * voice region (filtered by language), accent (filtered by region +
+ * language).
+ *
+ * Voice provider sits in the heading row's right side as a small button
+ * that opens the provider-selection modal. Format / pacing / CTA /
+ * duration moved out to CreativeTopic per the v4 layout spec.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -10,65 +15,22 @@ import {
   MicrophoneIcon,
 } from "@heroicons/react/24/outline";
 import {
-  DialogueIcon,
   GlassyCombobox,
   GlassyListbox,
-  GlassySlider,
   ProviderSelectionModal,
-  RabbitIcon,
-  SingleVoiceIcon,
-  TurtleIcon,
 } from "../ui";
-import type { CampaignFormat, Pacing, Provider } from "@/types";
+import type { CampaignFormat, Provider } from "@/types";
 import { getFlagCode, type Language } from "@/utils/language";
 import { useBriefOptions, useLanguageOptions } from "@/hooks/useBriefOptions";
-import { twMerge } from "tailwind-merge";
-
-const CTA_OPTIONS = [
-  { value: "none", label: "No specific CTA" },
-  { value: "apply-now", label: "Apply now" },
-  { value: "book-now", label: "Book now" },
-  { value: "buy-now", label: "Buy now" },
-  { value: "buy-tickets", label: "Buy tickets" },
-  { value: "click-now", label: "Click now" },
-  { value: "download", label: "Download" },
-  { value: "find-stores", label: "Find stores" },
-  { value: "get-coupon", label: "Get coupon" },
-  { value: "get-info", label: "Get info" },
-  { value: "learn-more", label: "Learn more" },
-  { value: "listen-now", label: "Listen now" },
-  { value: "more-info", label: "More info" },
-  { value: "order-now", label: "Order now" },
-  { value: "pre-save", label: "Pre-save" },
-  { value: "save-now", label: "Save now" },
-  { value: "share", label: "Share" },
-  { value: "shop-now", label: "Shop now" },
-  { value: "sign-up", label: "Sign up" },
-  { value: "visit-profile", label: "Visit profile" },
-  { value: "visit-site", label: "Visit site" },
-  { value: "watch-now", label: "Watch now" },
-];
-
-const DURATION_TICK_MARKS = [
-  { value: 10, label: "10s" },
-  { value: 15, label: "15s" },
-  { value: 20, label: "20s" },
-  { value: 25, label: "25s" },
-  { value: 30, label: "30s" },
-  { value: 35, label: "35s" },
-  { value: 40, label: "40s" },
-  { value: 45, label: "45s" },
-  { value: 50, label: "50s" },
-  { value: 55, label: "55s" },
-  { value: 60, label: "60s" },
-];
 
 export interface LanguageTopicProps {
   selectedLanguage: Language;
   onSelectedLanguageChanged: (value: Language) => void;
 
+  // Used downstream by useLanguageOptions to filter voiceCounts /
+  // dialogReady — the value lives in CreativeTopic but the hook needs
+  // it here too. Read-only from this topic's perspective.
   campaignFormat: CampaignFormat;
-  onCampaignFormatChanged: (value: CampaignFormat) => void;
 
   selectedRegion: string | null;
   onSelectedRegionChanged: (value: string | null) => void;
@@ -79,14 +41,16 @@ export interface LanguageTopicProps {
   selectedProvider: Provider;
   onSelectedProviderChanged: (value: Provider) => void;
 
-  selectedPacing: Pacing | null;
-  onSelectedPacingChanged: (value: Pacing | null) => void;
-
-  selectedCTA: string | null;
-  onSelectedCTAChanged: (value: string | null) => void;
-
-  adDuration: number;
-  onAdDurationChanged: (value: number) => void;
+  // Lift voiceCounts + dialogReady up — CreativeTopic also needs them
+  // (provider-suggestion warning, dialog-format warning). The parent
+  // computes them via useLanguageOptions and passes the same memo to
+  // both topics. Wait — actually the hook is called here; we expose
+  // the resolved values through a callback so the parent (BriefPanelV4)
+  // can lift them to CreativeTopic too.
+  onLanguageOptionsResolved?: (resolved: {
+    voiceCounts: Record<Provider, number>;
+    dialogReady: boolean;
+  }) => void;
 
   disabled?: boolean;
 }
@@ -95,19 +59,13 @@ export function LanguageTopic({
   selectedLanguage,
   onSelectedLanguageChanged,
   campaignFormat,
-  onCampaignFormatChanged,
   selectedRegion,
   onSelectedRegionChanged,
   selectedAccent,
   onSelectedAccentChanged,
   selectedProvider,
   onSelectedProviderChanged,
-  selectedPacing,
-  onSelectedPacingChanged,
-  selectedCTA,
-  onSelectedCTAChanged,
-  adDuration,
-  onAdDurationChanged,
+  onLanguageOptionsResolved,
   disabled,
 }: LanguageTopicProps) {
   const { languages: availableLanguages, isLoading: isLoadingLanguages } =
@@ -124,20 +82,31 @@ export function LanguageTopic({
 
   const availableRegions = languageOptions?.regions || [];
   const availableAccents = languageOptions?.accents || [];
-  const voiceCounts = languageOptions?.voiceCounts || {
-    elevenlabs: 0,
-    lovo: 0,
-    openai: 0,
-    qwen: 0,
-    bytedance: 0,
-    lahajati: 0,
-    any: 0,
-  };
+  const voiceCounts = useMemo(
+    () =>
+      languageOptions?.voiceCounts || {
+        elevenlabs: 0,
+        lovo: 0,
+        openai: 0,
+        qwen: 0,
+        bytedance: 0,
+        lahajati: 0,
+        any: 0,
+      },
+    [languageOptions],
+  );
   const hasRegions = languageOptions?.hasRegions ?? false;
   const hasAccents = languageOptions?.hasAccents ?? false;
   const dialogReady = languageOptions?.dialogReady ?? true;
   const isLoading = isLoadingLanguages || isLoadingOptions;
   const computedDisabled = disabled || isLoading;
+
+  // Push voiceCounts + dialogReady up so CreativeTopic can render the
+  // dialog-format warning + provider-suggestion warning. Stable
+  // useMemo for voiceCounts means this fires only on actual change.
+  useEffect(() => {
+    onLanguageOptionsResolved?.({ voiceCounts, dialogReady });
+  }, [voiceCounts, dialogReady, onLanguageOptionsResolved]);
 
   const [languageQuery, setLanguageQuery] = useState("");
   const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
@@ -173,7 +142,13 @@ export function LanguageTopic({
       onSelectedRegionChanged(null);
       onSelectedAccentChanged("neutral");
     }
-  }, [selectedLanguage, languageOptions, onSelectedProviderChanged, onSelectedRegionChanged, onSelectedAccentChanged]);
+  }, [
+    selectedLanguage,
+    languageOptions,
+    onSelectedProviderChanged,
+    onSelectedRegionChanged,
+    onSelectedAccentChanged,
+  ]);
 
   // Reset accent when region change makes the previous accent invalid.
   useEffect(() => {
@@ -187,21 +162,46 @@ export function LanguageTopic({
     }
   }, [availableAccents, selectedAccent, onSelectedAccentChanged]);
 
-  const shouldWarnAboutDialog = !dialogReady && campaignFormat === "dialog";
-  const shouldSuggestProvider =
-    voiceCounts && (voiceCounts[selectedProvider] || 0) === 0;
-
   return (
     <section className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-1">Language &amp; Voice</h2>
-        <p className="text-xs text-gray-500">
-          Voice provider, language, accent, format, pacing, duration.
-        </p>
+      <div className="flex items-start justify-between gap-6">
+        <div>
+          <h2 className="text-lg font-semibold text-white mb-1">
+            Language &amp; Voice
+          </h2>
+          <p className="text-xs text-gray-500">
+            Language, region, and accent — defaulted from the market.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 flex-shrink-0 pt-2">
+          <button
+            onClick={() => setIsProviderModalOpen(true)}
+            className="flex items-center gap-2 text-sm text-wb-blue hover:text-wb-blue/80 transition-colors"
+          >
+            <MicrophoneIcon className="h-3.5 w-3.5" />
+            <span>
+              {selectedProvider === "any"
+                ? "Any"
+                : selectedProvider.charAt(0).toUpperCase() +
+                  selectedProvider.slice(1)}
+              {" ("}
+              {isLoading ? "…" : voiceCounts[selectedProvider] || 0}
+              {")"}
+            </span>
+          </button>
+          <a
+            href="/admin/voice-manager"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-300 transition-colors"
+          >
+            <span>Voice Manager</span>
+            <ArrowTopRightOnSquareIcon className="h-3 w-3" />
+          </a>
+        </div>
       </div>
 
-      {/* Row 1: Language, Region, Accent */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 gap-6 items-start">
         <div>
           <label className="flex justify-between text-sm font-medium text-gray-300 mb-2">
             Language
@@ -278,166 +278,6 @@ export function LanguageTopic({
               No accent variations
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Row 2: Format, Pacing, Provider */}
-      <div className="grid grid-cols-3 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Ad format
-          </label>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
-            <div
-              className={twMerge(
-                "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
-                campaignFormat === "ad_read"
-                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                  : "bg-transparent hover:bg-white/10 text-gray-300",
-                disabled ? "pointer-events-none" : "",
-              )}
-              onClick={() => onCampaignFormatChanged("ad_read")}
-              title="Single Voice Ad Read"
-            >
-              <SingleVoiceIcon />
-              <span className="text-xs">Single</span>
-            </div>
-            <div
-              className={twMerge(
-                "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
-                campaignFormat === "dialog"
-                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                  : "bg-transparent hover:bg-white/10 text-gray-300",
-                disabled ? "pointer-events-none" : "",
-              )}
-              onClick={() => onCampaignFormatChanged("dialog")}
-              title="Dialogue"
-            >
-              <DialogueIcon />
-              <span className="text-xs">Dialogue</span>
-            </div>
-          </div>
-          {shouldWarnAboutDialog && (
-            <p className="text-xs text-yellow-400 mt-2">
-              Not enough voices for dialogue — need at least 2
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Call to action (CTA)
-          </label>
-          <GlassyListbox
-            value={selectedCTA || "none"}
-            onChange={(value) =>
-              onSelectedCTAChanged(value === "none" ? null : value)
-            }
-            options={CTA_OPTIONS}
-            disabled={computedDisabled}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Voice provider
-          </label>
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setIsProviderModalOpen(true)}
-              className="flex items-center gap-2 text-sm text-wb-blue hover:text-wb-blue/80 transition-colors"
-            >
-              <MicrophoneIcon className="h-3 w-3" />
-              <span>
-                {selectedProvider === "any"
-                  ? "Any"
-                  : selectedProvider.charAt(0).toUpperCase() +
-                    selectedProvider.slice(1)}
-                {" ("}
-                {isLoading ? "..." : voiceCounts[selectedProvider] || 0}
-                {")"}
-              </span>
-            </button>
-            <a
-              href="/admin/voice-manager"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-300 transition-colors"
-            >
-              <span>Voice Manager</span>
-              <ArrowTopRightOnSquareIcon className="h-3 w-3" />
-            </a>
-          </div>
-          {shouldSuggestProvider && (
-            <p className="text-xs text-orange-400 mt-2">
-              Try another provider — {voiceCounts[selectedProvider] || 0} voices
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Row 3: Pacing + Duration */}
-      <div className="grid grid-cols-3 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Pacing
-          </label>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
-            <div
-              className={twMerge(
-                "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
-                selectedPacing === null
-                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                  : "bg-transparent hover:bg-white/10 text-gray-300",
-                disabled ? "pointer-events-none" : "",
-              )}
-              onClick={() => onSelectedPacingChanged(null)}
-              title="Normal — Standard delivery pace"
-            >
-              <TurtleIcon />
-              <span className="text-xs">Normal</span>
-            </div>
-            <div
-              className={twMerge(
-                "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
-                selectedPacing === "fast"
-                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                  : "bg-transparent hover:bg-white/10 text-gray-300",
-                disabled ? "pointer-events-none" : "",
-              )}
-              onClick={() => onSelectedPacingChanged("fast")}
-              title="Fast — Energetic, urgent delivery"
-            >
-              <RabbitIcon />
-              <span className="text-xs">Fast</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-300 mb-1">
-            Ad duration{" "}
-            <span className="text-sm text-gray-400">{adDuration} seconds</span>
-          </label>
-          <GlassySlider
-            disabled={computedDisabled}
-            label={null}
-            value={adDuration}
-            onChange={onAdDurationChanged}
-            min={10}
-            max={60}
-            step={5}
-            tickMarks={DURATION_TICK_MARKS}
-          />
-          <div className="mt-3 text-xs text-gray-500">
-            Spotify: Standard ads max 30s. Long-form (60s) in select markets
-            only.
-            {adDuration > 30 && (
-              <span className="text-red-900 ml-1">
-                Duration exceeds 30s standard.
-              </span>
-            )}
-          </div>
         </div>
       </div>
 

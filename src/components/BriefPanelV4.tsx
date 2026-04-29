@@ -376,6 +376,29 @@ export function BriefPanelV4({
     [selectedLanguage],
   );
 
+  // useLanguageOptions lives inside LanguageTopic (it owns the language
+  // pickers) but CreativeTopic also needs voiceCounts + dialogReady for
+  // its provider-suggestion / dialog-format warnings. LanguageTopic
+  // pushes the resolved values up via a callback; we cache them here
+  // and forward to CreativeTopic.
+  const [voiceCounts, setVoiceCounts] = useState<Record<Provider, number>>({
+    elevenlabs: 0,
+    lovo: 0,
+    openai: 0,
+    qwen: 0,
+    bytedance: 0,
+    lahajati: 0,
+    any: 0,
+  });
+  const [dialogReady, setDialogReady] = useState(true);
+  const handleLanguageOptionsResolved = useCallback(
+    (resolved: { voiceCounts: Record<Provider, number>; dialogReady: boolean }) => {
+      setVoiceCounts(resolved.voiceCounts);
+      setDialogReady(resolved.dialogReady);
+    },
+    [],
+  );
+
   // ============================================================
   // Debounced Redis save
   // ============================================================
@@ -758,6 +781,18 @@ export function BriefPanelV4({
           onVoiceInstructionsChanged={setVoiceInstructions}
           toneOptions={toneOptions}
           toneInstructions={toneInstructions}
+          campaignFormat={campaignFormat}
+          onCampaignFormatChanged={setCampaignFormat}
+          selectedPacing={selectedPacing}
+          onSelectedPacingChanged={setSelectedPacing}
+          selectedCTA={selectedCTA}
+          onSelectedCTAChanged={setSelectedCTA}
+          adDuration={adDuration}
+          onAdDurationChanged={setAdDuration}
+          selectedProvider={selectedProvider}
+          onSelectedProviderChanged={setSelectedProvider}
+          voiceCounts={voiceCounts}
+          dialogReady={dialogReady}
           referenceUrlsText={referenceUrlsText}
           onReferenceUrlsChanged={setReferenceUrlsText}
           forbiddenWords={forbiddenWords}
@@ -772,19 +807,13 @@ export function BriefPanelV4({
           selectedLanguage={selectedLanguage}
           onSelectedLanguageChanged={setSelectedLanguage}
           campaignFormat={campaignFormat}
-          onCampaignFormatChanged={setCampaignFormat}
           selectedRegion={selectedRegion}
           onSelectedRegionChanged={setSelectedRegion}
           selectedAccent={selectedAccent}
           onSelectedAccentChanged={setSelectedAccent}
           selectedProvider={selectedProvider}
           onSelectedProviderChanged={setSelectedProvider}
-          selectedPacing={selectedPacing}
-          onSelectedPacingChanged={setSelectedPacing}
-          selectedCTA={selectedCTA}
-          onSelectedCTAChanged={setSelectedCTA}
-          adDuration={adDuration}
-          onAdDurationChanged={setAdDuration}
+          onLanguageOptionsResolved={handleLanguageOptionsResolved}
           disabled={isGenerating}
         />
 

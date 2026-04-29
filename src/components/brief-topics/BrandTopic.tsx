@@ -66,6 +66,14 @@ export function BrandTopic({
       )}
 
       <div className="grid grid-cols-3 gap-6 items-start">
+        <div>
+          <MarketPicker
+            value={marketAlpha2}
+            onChange={onMarketChanged}
+            disabled={disabled}
+          />
+        </div>
+
         <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-300 mb-2">
             Brand{" "}
@@ -86,14 +94,6 @@ export function BrandTopic({
               enrichmentSummary={enrichmentSummary}
             />
           </div>
-        </div>
-
-        <div>
-          <MarketPicker
-            value={marketAlpha2}
-            onChange={onMarketChanged}
-            disabled={disabled}
-          />
         </div>
       </div>
     </section>

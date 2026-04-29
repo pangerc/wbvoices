@@ -219,7 +219,7 @@ export function BrandPickerSubeditor({
   // Render
   if (brand) {
     return (
-      <div className="flex items-center justify-between gap-3 p-3 bg-white/5 border border-white/10 rounded-xl">
+      <div className="flex items-center justify-between gap-3 py-3 px-4 bg-white/10 backdrop-blur-sm border border-white/15 rounded-xl">
         <div className="min-w-0 flex-1">
           <div className="text-sm text-white truncate">{brand.name}</div>
           {brand.salesforceAccountSnapshot ? (
@@ -246,8 +246,8 @@ export function BrandPickerSubeditor({
   return (
     <div>
       <div className="relative">
-        <div className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-xl focus-within:border-white/30 transition-colors">
-          <MagnifyingGlassIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+        <div className="flex items-center gap-2 py-3 px-4 bg-white/10 backdrop-blur-sm border border-white/15 rounded-xl focus-within:border-wb-blue/50 focus-within:ring-1 focus-within:ring-wb-blue/50 transition-all duration-200">
+          <MagnifyingGlassIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <input
             type="text"
             value={query}
