@@ -3,8 +3,8 @@
  *
  * Loads the canonical 86-market list once on mount via /api/markets
  * (defaults to platform=spotify; passes ?showAll=true when the user
- * clicks the escape hatch). Maintains its own loading state — the
- * orchestrator just owns the `selectedRegion` field.
+ * clicks the escape hatch). Searchable combobox surface — same UX
+ * as the language picker in LanguageTopic.
  *
  * Legacy behaviour: `selectedRegion` may carry pre-v4 voice-region
  * taxonomy values (e.g. "us-east"). Those don't match alaric alpha-2
@@ -14,7 +14,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { MarketRow } from "@/lib/alaric-client";
-import { GlassyListbox } from "../../ui";
+import { GlassyCombobox } from "../../ui";
 
 export interface MarketPickerProps {
   value: string | null;
@@ -22,11 +22,18 @@ export interface MarketPickerProps {
   disabled?: boolean;
 }
 
+type MarketComboItem = {
+  value: string;
+  label: string;
+  flag?: string;
+};
+
 export function MarketPicker({ value, onChange, disabled }: MarketPickerProps) {
   const [markets, setMarkets] = useState<MarketRow[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -52,29 +59,52 @@ export function MarketPicker({ value, onChange, disabled }: MarketPickerProps) {
     return () => controller.abort();
   }, [showAll]);
 
-  // Compose options: alaric markets first, then any legacy value not in
-  // the alaric set rendered as "(legacy)" so re-picking promotes it.
-  const options = useMemo(() => {
+  // Build the option list from alaric markets. If there's a legacy
+  // selectedRegion value not in the alaric set, append it tagged so
+  // the user can see and replace it.
+  const allOptions = useMemo<MarketComboItem[]>(() => {
     const alaricOptions = markets.map((m) => ({
       value: m.code,
-      label: `${m.name} (${m.code})`,
+      label: m.name,
+      flag: m.code,
     }));
     if (
       value &&
-      !markets.some((m) => m.code === value) &&
-      value.length > 0
+      value.trim().length > 0 &&
+      !markets.some((m) => m.code === value)
     ) {
-      return [
-        ...alaricOptions,
-        { value, label: `${value} (legacy)` },
-      ];
+      return [...alaricOptions, { value, label: `${value} (legacy)`, flag: value }];
     }
     return alaricOptions;
   }, [markets, value]);
 
-  function handleChange(next: string) {
-    const market = markets.find((m) => m.code === next) || null;
-    onChange(next || null, market);
+  // Client-side filter on the typed query (name OR alpha-2 OR aliases).
+  // Alaric's MarketRow.aliases field carries demonyms / native-language
+  // names, so typing "slovenian" or "slovenija" both match Slovenia.
+  const filteredOptions = useMemo<MarketComboItem[]>(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return allOptions;
+    return allOptions.filter((opt) => {
+      if (opt.label.toLowerCase().includes(q)) return true;
+      if (opt.value.toLowerCase().includes(q)) return true;
+      const market = markets.find((m) => m.code === opt.value);
+      if (market?.aliases?.some((a) => a.toLowerCase().includes(q))) return true;
+      return false;
+    });
+  }, [allOptions, markets, query]);
+
+  const selectedItem = useMemo<MarketComboItem | null>(() => {
+    if (!value) return null;
+    return allOptions.find((o) => o.value === value) ?? null;
+  }, [allOptions, value]);
+
+  function handleChange(item: MarketComboItem | null) {
+    if (!item) {
+      onChange(null, null);
+      return;
+    }
+    const market = markets.find((m) => m.code === item.value) || null;
+    onChange(item.value, market);
   }
 
   return (
@@ -92,10 +122,11 @@ export function MarketPicker({ value, onChange, disabled }: MarketPickerProps) {
           {showAll ? "Spotify only" : "Show all"}
         </button>
       </div>
-      <GlassyListbox
-        value={value || ""}
+      <GlassyCombobox<string>
+        value={selectedItem}
         onChange={handleChange}
-        options={options}
+        options={filteredOptions}
+        onQueryChange={setQuery}
         disabled={disabled || isLoading}
         loading={isLoading}
       />

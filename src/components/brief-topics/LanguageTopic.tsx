@@ -139,14 +139,15 @@ export function LanguageTopic({
     ) {
       lastAutoSelectedLanguageRef.current = selectedLanguage;
       onSelectedProviderChanged(languageOptions.suggestedProvider);
-      onSelectedRegionChanged(null);
+      // selectedRegion is now an alaric alpha-2 market code (set by the
+      // BrandTopic MarketPicker). Don't clear it on language change —
+      // the legacy "voice region depends on language" coupling is gone.
       onSelectedAccentChanged("neutral");
     }
   }, [
     selectedLanguage,
     languageOptions,
     onSelectedProviderChanged,
-    onSelectedRegionChanged,
     onSelectedAccentChanged,
   ]);
 
