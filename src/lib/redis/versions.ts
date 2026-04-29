@@ -136,7 +136,7 @@ export async function createVersion(
  */
 async function getNextVersionId(
   adId: string,
-  streamType: StreamType
+  streamType: StreamType,
 ): Promise<VersionId> {
   const redis = getRedisV3();
   const counterKey = AD_KEYS.counter(adId, streamType);
@@ -144,7 +144,11 @@ async function getNextVersionId(
   // Migration: initialize counter for existing ads that don't have one yet
   const exists = await redis.exists(counterKey);
   if (!exists) {
-    const versions = await redis.lrange(AD_KEYS.versions(adId, streamType), 0, -1);
+    const versions = await redis.lrange(
+      AD_KEYS.versions(adId, streamType),
+      0,
+      -1,
+    );
     if (versions.length > 0) {
       // Set counter to current max to avoid ID collision with existing versions
       await redis.set(counterKey, versions.length);
@@ -189,7 +193,7 @@ export async function getVersion(
 
   if (!data) {
     console.warn(
-      `⚠️ Version not found: ${streamType} ${versionId} in ad ${adId}`
+      `⚠️ Version not found: ${streamType} ${versionId} in ad ${adId}`,
     );
     return null;
   }
@@ -207,7 +211,7 @@ export async function getVersion(
  */
 export async function listVersions(
   adId: string,
-  streamType: StreamType
+  streamType: StreamType,
 ): Promise<VersionId[]> {
   const redis = getRedisV3();
   const versionsKey = AD_KEYS.versions(adId, streamType);
@@ -263,7 +267,7 @@ export async function getAllVersionsWithData(
  */
 export async function getActiveVersion(
   adId: string,
-  streamType: StreamType
+  streamType: StreamType,
 ): Promise<VersionId | null> {
   const redis = getRedisV3();
   const activeKey = AD_KEYS.active(adId, streamType);
@@ -271,6 +275,40 @@ export async function getActiveVersion(
   const activeId = await redis.get(activeKey);
 
   return activeId as VersionId | null;
+}
+
+/**
+ * Get the currently active version ID for a stream
+ *
+ * @param adId - Advertisement ID
+ * @param streamType - Which stream
+ * @returns Active version ID or null if none set
+ */
+export async function getActiveVersionData<TStreamType extends StreamType>(
+  adId: string,
+  streamType: TStreamType,
+): Promise<VersionFor<TStreamType> | null> {
+  const redis = getRedisV3();
+  const activeKey = AD_KEYS.active(adId, streamType);
+
+  const activeId = await redis.get<VersionId>(activeKey);
+
+  if (activeId) {
+    const versionId = AD_KEYS.version(adId, streamType, activeId);
+    const data = await redis.get(versionId);
+
+    if (!data) {
+      console.warn(
+        `⚠️ Version not found: ${streamType} ${versionId} in ad ${adId}`,
+      );
+      return null;
+    }
+
+    // Parse JSON string
+    return typeof data === "string" ? JSON.parse(data) : data;
+  }
+
+  return null;
 }
 
 /**
@@ -284,7 +322,7 @@ export async function getActiveVersion(
 export async function setActiveVersion(
   adId: string,
   streamType: StreamType,
-  versionId: VersionId
+  versionId: VersionId,
 ): Promise<void> {
   const redis = getRedisV3();
 
@@ -292,7 +330,7 @@ export async function setActiveVersion(
   const version = await getVersion(adId, streamType, versionId);
   if (!version) {
     throw new Error(
-      `Cannot activate non-existent version: ${streamType} ${versionId}`
+      `Cannot activate non-existent version: ${streamType} ${versionId}`,
     );
   }
 
@@ -314,14 +352,14 @@ export async function setActiveVersion(
 export async function freezeVersion(
   adId: string,
   streamType: StreamType,
-  versionId: VersionId
+  versionId: VersionId,
 ): Promise<void> {
   const redis = getRedisV3();
 
   const version = await getVersion(adId, streamType, versionId);
   if (!version) {
     throw new Error(
-      `Cannot freeze non-existent version: ${streamType} ${versionId}`
+      `Cannot freeze non-existent version: ${streamType} ${versionId}`,
     );
   }
 
@@ -345,7 +383,7 @@ export async function freezeVersion(
  */
 export async function clearActiveVersion(
   adId: string,
-  streamType: StreamType
+  streamType: StreamType,
 ): Promise<void> {
   const redis = getRedisV3();
   const activeKey = AD_KEYS.active(adId, streamType);
@@ -367,7 +405,7 @@ export async function clearActiveVersion(
 export async function cloneVersion(
   adId: string,
   streamType: StreamType,
-  sourceVersionId: VersionId
+  sourceVersionId: VersionId,
 ): Promise<VersionId> {
   const redis = getRedisV3();
 
@@ -375,7 +413,7 @@ export async function cloneVersion(
   const sourceVersion = await getVersion(adId, streamType, sourceVersionId);
   if (!sourceVersion) {
     throw new Error(
-      `Cannot clone non-existent version: ${streamType} ${sourceVersionId}`
+      `Cannot clone non-existent version: ${streamType} ${sourceVersionId}`,
     );
   }
 
@@ -400,7 +438,7 @@ export async function cloneVersion(
   await redis.rpush(listKey, newVersionId);
 
   console.log(
-    `✅ Cloned ${streamType} ${sourceVersionId} → ${newVersionId} for ad ${adId}`
+    `✅ Cloned ${streamType} ${sourceVersionId} → ${newVersionId} for ad ${adId}`,
   );
 
   return newVersionId;
@@ -454,11 +492,11 @@ export async function updateVersionMetadata(
   adId: string,
   streamType: StreamType,
   versionId: VersionId,
-  metadata: { parentVersionId?: string; requestText?: string }
+  metadata: { parentVersionId?: string; requestText?: string },
 ): Promise<void> {
   await updateVersion(adId, streamType, versionId, metadata);
   console.log(
-    `✅ Updated metadata for ${streamType} ${versionId}: parent=${metadata.parentVersionId}, request="${metadata.requestText?.slice(0, 50)}..."`
+    `✅ Updated metadata for ${streamType} ${versionId}: parent=${metadata.parentVersionId}, request="${metadata.requestText?.slice(0, 50)}..."`,
   );
 }
 
@@ -472,7 +510,7 @@ export async function updateVersionMetadata(
  */
 export async function setAdMetadata(
   adId: string,
-  metadata: AdMetadata
+  metadata: AdMetadata,
 ): Promise<void> {
   const redis = getRedisV3();
   const metaKey = AD_KEYS.meta(adId);
@@ -506,7 +544,7 @@ export async function getAdMetadata(adId: string): Promise<AdMetadata | null> {
  * Uses mget for single Redis round-trip
  */
 export async function getAdMetadataBatch(
-  adIds: string[]
+  adIds: string[],
 ): Promise<Map<string, AdMetadata>> {
   if (adIds.length === 0) return new Map();
 
@@ -541,7 +579,7 @@ export async function getAdMetadataBatch(
 export async function deleteVersion(
   adId: string,
   streamType: StreamType,
-  versionId: VersionId
+  versionId: VersionId,
 ): Promise<{ wasActive: boolean }> {
   const redis = getRedisV3();
 
@@ -588,7 +626,9 @@ export interface PreviewData {
  * @param adId - Advertisement ID
  * @returns Preview data or null if not found
  */
-export async function getPreviewData(adId: string): Promise<PreviewData | null> {
+export async function getPreviewData(
+  adId: string,
+): Promise<PreviewData | null> {
   const redis = getRedisV3();
   const previewKey = AD_KEYS.preview(adId);
 
@@ -610,7 +650,7 @@ export async function getPreviewData(adId: string): Promise<PreviewData | null> 
  */
 export async function setPreviewData(
   adId: string,
-  data: Partial<PreviewData>
+  data: Partial<PreviewData>,
 ): Promise<PreviewData> {
   const redis = getRedisV3();
   const previewKey = AD_KEYS.preview(adId);
@@ -681,7 +721,7 @@ export async function deleteAd(adId: string, sessionId: string): Promise<void> {
   await redis.lrem(`session:${sessionId}:ads`, 0, adId);
 
   console.log(
-    `✅ Deleted ad ${adId} (${keysToDelete.length} keys + session index)`
+    `✅ Deleted ad ${adId} (${keysToDelete.length} keys + session index)`,
   );
 }
 

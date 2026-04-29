@@ -1,10 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
 import { MatrixBackground } from "@/components";
-import { VersionAccordion, DraftAccordion, EmptyStreamState } from "@/components/ui";
+import {
+  VersionAccordion,
+  DraftAccordion,
+  EmptyStreamState,
+} from "@/components/ui";
 import type { DraftState } from "@/components/ui/DraftAccordion";
 import { VoiceVersionContent } from "@/components/version-content/VoiceVersionContent";
 import { MusicVersionContent } from "@/components/version-content/MusicVersionContent";
@@ -12,7 +16,10 @@ import { SfxVersionContent } from "@/components/version-content/SfxVersionConten
 import { VoiceDraftEditor } from "@/components/draft-editors/VoiceDraftEditor";
 import { MusicDraftEditor } from "@/components/draft-editors/MusicDraftEditor";
 import { SfxDraftEditor } from "@/components/draft-editors/SfxDraftEditor";
-import { BriefPanelV3, type StreamUpdateEvent } from "@/components/BriefPanelV3";
+import {
+  BriefPanelV3,
+  type StreamUpdateEvent,
+} from "@/components/BriefPanelV3";
 import { MixerPanel } from "@/components/MixerPanel";
 import { PreviewPanel } from "@/components/PreviewPanel";
 import { useMixerStore } from "@/store/mixerStore";
@@ -43,11 +50,11 @@ export default function AdWorkspace() {
 
   // Helper to get mixer URL for a track type
   const getMixerUrl = (type: "music" | "soundfx") =>
-    mixerData?.tracks?.find(t => t.type === type)?.url;
+    mixerData?.tracks?.find((t) => t.type === type)?.url;
 
   // URL fingerprint helper for multi-track comparison (voice, sfx)
   const getUrlFingerprint = (urls: (string | undefined | null)[]) =>
-    urls.map(u => u || '').join('|');
+    urls.map((u) => u || "").join("|");
 
   // Accordion state from store
   const { openAccordion, setOpenAccordion } = useUIStore();
@@ -61,7 +68,9 @@ export default function AdWorkspace() {
 
   // Ad metadata state (not part of streams)
   const [adName, setAdName] = useState<string>("");
-  const [briefData, setBriefData] = useState<ProjectBrief | null | undefined>(undefined);
+  const [briefData, setBriefData] = useState<ProjectBrief | null | undefined>(
+    undefined,
+  );
 
   // Header tab state (0=Brief, 1=Voice, 2=Music, 3=SFX, 4=Mix, 5=Preview)
   const [selectedTab, setSelectedTab] = useState(0);
@@ -84,8 +93,11 @@ export default function AdWorkspace() {
   const sfxSendToMixerRef = useRef<(() => void) | null>(null);
   const sfxRequestChangeRef = useRef<(() => void) | null>(null);
 
+  const [isLoadingBrief, setIsLoadingBrief] = useState(false);
+
   // Derived loading state
-  const isLoading = voice.isLoading && music.isLoading && sfx.isLoading;
+  const isLoading =
+    isLoadingBrief || voice.isLoading || music.isLoading || sfx.isLoading;
 
   // Load ad metadata and brief
   useEffect(() => {
@@ -95,6 +107,7 @@ export default function AdWorkspace() {
 
     const loadAdMetadata = async () => {
       try {
+        setIsLoadingBrief(true);
         const res = await fetch(`/api/ads/${adId}/brief`);
         if (res.ok) {
           const data = await res.json();
@@ -109,6 +122,8 @@ export default function AdWorkspace() {
         console.error("Failed to load ad metadata:", error);
         setBriefData(null);
         setAdName(adId);
+      } finally {
+        setIsLoadingBrief(false);
       }
     };
 
@@ -119,7 +134,10 @@ export default function AdWorkspace() {
 
   // Handle preview - plays all tracks from a frozen version
   // streamType is required to disambiguate version IDs (v1, v2, etc. exist in each stream)
-  const handlePreview = (versionId: VersionId, streamType: 'voices' | 'music' | 'sfx') => {
+  const handlePreview = (
+    versionId: VersionId,
+    streamType: "voices" | "music" | "sfx",
+  ) => {
     const { isPlaying, stop, playSequence } = useAudioPlaybackStore.getState();
 
     // If already playing, stop
@@ -128,8 +146,10 @@ export default function AdWorkspace() {
       return;
     }
 
-    if (streamType === 'voices') {
-      const voiceVersion = voice.data?.versionsData[versionId] as VoiceVersion | undefined;
+    if (streamType === "voices") {
+      const voiceVersion = voice.data?.versionsData[versionId] as
+        | VoiceVersion
+        | undefined;
       if (voiceVersion) {
         const urls = voiceVersion.voiceTracks
           .map((t, i) => t.generatedUrl || voiceVersion.generatedUrls?.[i])
@@ -138,15 +158,24 @@ export default function AdWorkspace() {
           playSequence(urls, { type: "voice-all", versionId });
         }
       }
-    } else if (streamType === 'music') {
-      const musicVersion = music.data?.versionsData[versionId] as MusicVersion | undefined;
+    } else if (streamType === "music") {
+      const musicVersion = music.data?.versionsData[versionId] as
+        | MusicVersion
+        | undefined;
       if (musicVersion?.generatedUrl) {
-        playSequence([musicVersion.generatedUrl], { type: "music-generated", versionId });
+        playSequence([musicVersion.generatedUrl], {
+          type: "music-generated",
+          versionId,
+        });
       }
-    } else if (streamType === 'sfx') {
-      const sfxVersion = sfx.data?.versionsData[versionId] as SfxVersion | undefined;
+    } else if (streamType === "sfx") {
+      const sfxVersion = sfx.data?.versionsData[versionId] as
+        | SfxVersion
+        | undefined;
       if (sfxVersion?.generatedUrls?.length) {
-        const urls = sfxVersion.generatedUrls.filter((url): url is string => !!url);
+        const urls = sfxVersion.generatedUrls.filter(
+          (url): url is string => !!url,
+        );
         if (urls.length > 0) {
           playSequence(urls, { type: "sfx-preview", versionId });
         }
@@ -160,7 +189,7 @@ export default function AdWorkspace() {
   };
 
   const handleNewAd = () => {
-    router.push('/');
+    router.push("/");
   };
 
   const switchToMixTab = () => setSelectedTab(4);
@@ -215,7 +244,10 @@ export default function AdWorkspace() {
       case "voices":
         // Voice track update - refresh voice stream
         if (event.status === "failed" && event.error) {
-          setGenerationErrors(prev => [...prev, `Voice generation failed: ${event.error}`]);
+          setGenerationErrors((prev) => [
+            ...prev,
+            `Voice generation failed: ${event.error}`,
+          ]);
         }
         await voice.mutate();
         break;
@@ -223,7 +255,10 @@ export default function AdWorkspace() {
       case "music":
         // Music update - refresh music stream
         if (event.status === "failed" && event.error) {
-          setGenerationErrors(prev => [...prev, `Music generation failed: ${event.error}`]);
+          setGenerationErrors((prev) => [
+            ...prev,
+            `Music generation failed: ${event.error}`,
+          ]);
         }
         await music.mutate();
         break;
@@ -231,7 +266,10 @@ export default function AdWorkspace() {
       case "sfx":
         // SFX update - refresh sfx stream
         if (event.status === "failed" && event.error) {
-          setGenerationErrors(prev => [...prev, `SFX generation failed: ${event.error}`]);
+          setGenerationErrors((prev) => [
+            ...prev,
+            `SFX generation failed: ${event.error}`,
+          ]);
         }
         await sfx.mutate();
         break;
@@ -252,14 +290,35 @@ export default function AdWorkspace() {
   };
 
   // Type-safe draft getters
-  const voiceDraft = voice.getDraft() as { id: VersionId; version: VoiceVersion } | null;
-  const musicDraft = music.getDraft() as { id: VersionId; version: MusicVersion } | null;
-  const sfxDraft = sfx.getDraft() as { id: VersionId; version: SfxVersion } | null;
+  const voiceDraft = voice.getDraft() as {
+    id: VersionId;
+    version: VoiceVersion;
+  } | null;
+  const musicDraft = music.getDraft() as {
+    id: VersionId;
+    version: MusicVersion;
+  } | null;
+  const sfxDraft = sfx.getDraft() as {
+    id: VersionId;
+    version: SfxVersion;
+  } | null;
 
   // Draft states driven by editor callbacks (computed from LOCAL state, not stale SWR props)
-  const [voiceDraftState, setVoiceDraftState] = useState<DraftState>('editing');
-  const [musicDraftState, setMusicDraftState] = useState<DraftState>('editing');
-  const [sfxDraftState, setSfxDraftState] = useState<DraftState>('editing');
+  const [voiceDraftState, setVoiceDraftState] = useState<DraftState>("editing");
+  const [musicDraftState, setMusicDraftState] = useState<DraftState>("editing");
+  const [sfxDraftState, setSfxDraftState] = useState<DraftState>("editing");
+
+  const searchParams = useSearchParams();
+
+  const autoGenerate = searchParams.get("auto_generate") === "1";
+
+  useEffect(() => {
+    const autoGenerate = searchParams.get("auto_generate");
+
+    if (autoGenerate) {
+      router.replace(`/ad/${adId}`, {});
+    }
+  }, [searchParams]);
 
   if (isLoading) {
     return (
@@ -287,12 +346,13 @@ export default function AdWorkspace() {
           isAnimating={isBriefGenerating || generatingMusic || generatingSfx}
         />
         <div className="container mx-auto px-4 py-8 relative z-10">
-
           {/* Generation errors banner */}
           {generationErrors.length > 0 && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
               {generationErrors.map((err, i) => (
-                <p key={i} className="text-red-400 text-sm">{err}</p>
+                <p key={i} className="text-red-400 text-sm">
+                  {err}
+                </p>
               ))}
               <button
                 onClick={() => setGenerationErrors([])}
@@ -306,6 +366,7 @@ export default function AdWorkspace() {
           {/* Brief - Tab 0 */}
           {selectedTab === 0 && (
             <BriefPanelV3
+              autoGenerate={autoGenerate}
               adId={adId}
               initialBrief={briefData}
               onDraftsCreated={handleDraftsCreated}
@@ -325,17 +386,27 @@ export default function AdWorkspace() {
                   type="voice"
                   versionId={voiceDraft.id}
                   activeVersionId={voice.data.active}
-                  currentUrl={getUrlFingerprint(voiceDraft.version.voiceTracks.map(t => t.generatedUrl))}
-                  mixerUrl={getUrlFingerprint(mixerData?.tracks?.filter(t => t.type === 'voice').map(t => t.url) || [])}
+                  currentUrl={getUrlFingerprint(
+                    voiceDraft.version.voiceTracks.map((t) => t.generatedUrl),
+                  )}
+                  mixerUrl={getUrlFingerprint(
+                    mixerData?.tracks
+                      ?.filter((t) => t.type === "voice")
+                      .map((t) => t.url) || [],
+                  )}
                   isOpen={openAccordion.voices === "draft"}
-                  onOpenChange={(open) => setOpenAccordion("voices", open ? "draft" : null)}
+                  onOpenChange={(open) =>
+                    setOpenAccordion("voices", open ? "draft" : null)
+                  }
                   onPlayAll={() => voicePlayAllRef.current?.()}
                   onSendToMixer={() => {
                     voiceSendToMixerRef.current?.();
                     setSelectedTab(4);
                   }}
                   onRequestChange={() => voiceRequestChangeRef.current?.()}
-                  hasTracksWithAudio={voiceDraft.version.voiceTracks.some(t => !!t.generatedUrl)}
+                  hasTracksWithAudio={voiceDraft.version.voiceTracks.some(
+                    (t) => !!t.generatedUrl,
+                  )}
                   draftState={voiceDraftState}
                   onNewBlankVersion={voice.createDraft}
                   onDelete={async () => {
@@ -368,16 +439,24 @@ export default function AdWorkspace() {
               ) : (
                 <VersionAccordion
                   versions={voice.data.versions
-                    .filter((vId) => voice.data!.versionsData[vId].status !== "draft")
+                    .filter(
+                      (vId) => voice.data!.versionsData[vId].status !== "draft",
+                    )
                     .map((vId) => ({
                       id: vId,
                       ...(voice.data!.versionsData[vId] as VoiceVersion),
                     }))}
                   activeVersionId={voice.data.active}
                   streamType="voices"
-                  openVersionId={openAccordion.voices !== "draft" ? openAccordion.voices : null}
-                  onOpenChange={(versionId) => setOpenAccordion("voices", versionId)}
-                  onPreview={(id) => handlePreview(id, 'voices')}
+                  openVersionId={
+                    openAccordion.voices !== "draft"
+                      ? openAccordion.voices
+                      : null
+                  }
+                  onOpenChange={(versionId) =>
+                    setOpenAccordion("voices", versionId)
+                  }
+                  onPreview={(id) => handlePreview(id, "voices")}
                   onClone={voice.clone}
                   onDelete={async (vId) => {
                     const deleted = await voice.remove(vId);
@@ -386,14 +465,19 @@ export default function AdWorkspace() {
                       setOpenAccordion("voices", null);
                     }
                   }}
-                  onSendToMixer={(vId) => voice.sendToMixer(vId, switchToMixTab)}
+                  onSendToMixer={(vId) =>
+                    voice.sendToMixer(vId, switchToMixTab)
+                  }
                   hasAudio={(v) => {
                     const voice = v as VoiceVersion;
                     // Match backend validation: ALL tracks must have audio
-                    return voice.voiceTracks.length > 0 &&
-                      voice.voiceTracks.every((t, i) =>
-                        !!t.generatedUrl || !!voice.generatedUrls?.[i]
-                      );
+                    return (
+                      voice.voiceTracks.length > 0 &&
+                      voice.voiceTracks.every(
+                        (t, i) =>
+                          !!t.generatedUrl || !!voice.generatedUrls?.[i],
+                      )
+                    );
                   }}
                   renderContent={(version, isActive) => (
                     <VoiceVersionContent
@@ -423,7 +507,9 @@ export default function AdWorkspace() {
                   currentUrl={musicDraft.version.generatedUrl}
                   mixerUrl={getMixerUrl("music")}
                   isOpen={openAccordion.music === "draft"}
-                  onOpenChange={(open) => setOpenAccordion("music", open ? "draft" : null)}
+                  onOpenChange={(open) =>
+                    setOpenAccordion("music", open ? "draft" : null)
+                  }
                   onPlayAll={() => musicPlayAllRef.current?.()}
                   onSendToMixer={() => {
                     musicSendToMixerRef.current?.();
@@ -463,16 +549,22 @@ export default function AdWorkspace() {
               ) : (
                 <VersionAccordion
                   versions={music.data.versions
-                    .filter((vId) => music.data!.versionsData[vId].status !== "draft")
+                    .filter(
+                      (vId) => music.data!.versionsData[vId].status !== "draft",
+                    )
                     .map((vId) => ({
                       id: vId,
                       ...(music.data!.versionsData[vId] as MusicVersion),
                     }))}
                   activeVersionId={music.data.active}
                   streamType="music"
-                  openVersionId={openAccordion.music !== "draft" ? openAccordion.music : null}
-                  onOpenChange={(versionId) => setOpenAccordion("music", versionId)}
-                  onPreview={(id) => handlePreview(id, 'music')}
+                  openVersionId={
+                    openAccordion.music !== "draft" ? openAccordion.music : null
+                  }
+                  onOpenChange={(versionId) =>
+                    setOpenAccordion("music", versionId)
+                  }
+                  onPreview={(id) => handlePreview(id, "music")}
                   onClone={music.clone}
                   onDelete={async (vId) => {
                     const deleted = await music.remove(vId);
@@ -480,7 +572,9 @@ export default function AdWorkspace() {
                       setOpenAccordion("music", null);
                     }
                   }}
-                  onSendToMixer={(vId) => music.sendToMixer(vId, switchToMixTab)}
+                  onSendToMixer={(vId) =>
+                    music.sendToMixer(vId, switchToMixTab)
+                  }
                   hasAudio={(v) =>
                     !!(v as MusicVersion).generatedUrl &&
                     (v as MusicVersion).generatedUrl.length > 0
@@ -510,17 +604,27 @@ export default function AdWorkspace() {
                   type="sfx"
                   versionId={sfxDraft.id}
                   activeVersionId={sfx.data.active}
-                  currentUrl={getUrlFingerprint(sfxDraft.version.generatedUrls || [])}
-                  mixerUrl={getUrlFingerprint(mixerData?.tracks?.filter(t => t.type === 'soundfx').map(t => t.url) || [])}
+                  currentUrl={getUrlFingerprint(
+                    sfxDraft.version.generatedUrls || [],
+                  )}
+                  mixerUrl={getUrlFingerprint(
+                    mixerData?.tracks
+                      ?.filter((t) => t.type === "soundfx")
+                      .map((t) => t.url) || [],
+                  )}
                   isOpen={openAccordion.sfx === "draft"}
-                  onOpenChange={(open) => setOpenAccordion("sfx", open ? "draft" : null)}
+                  onOpenChange={(open) =>
+                    setOpenAccordion("sfx", open ? "draft" : null)
+                  }
                   onPlayAll={() => sfxPlayAllRef.current?.()}
                   onSendToMixer={() => {
                     sfxSendToMixerRef.current?.();
                     setSelectedTab(4);
                   }}
                   onRequestChange={() => sfxRequestChangeRef.current?.()}
-                  hasTracksWithAudio={(sfxDraft.version.generatedUrls?.length || 0) > 0}
+                  hasTracksWithAudio={
+                    (sfxDraft.version.generatedUrls?.length || 0) > 0
+                  }
                   draftState={sfxDraftState}
                   onNewBlankVersion={sfx.createDraft}
                   onDelete={async () => {
@@ -537,7 +641,9 @@ export default function AdWorkspace() {
                     draftVersion={sfxDraft.version}
                     onUpdate={async () => {
                       const data = await sfx.mutate();
-                      return data?.versionsData?.[sfxDraft.id] as SfxVersion | undefined;
+                      return data?.versionsData?.[sfxDraft.id] as
+                        | SfxVersion
+                        | undefined;
                     }}
                     onPlayAllRef={sfxPlayAllRef}
                     onSendToMixerRef={sfxSendToMixerRef}
@@ -558,16 +664,22 @@ export default function AdWorkspace() {
               ) : (
                 <VersionAccordion
                   versions={sfx.data.versions
-                    .filter((vId) => sfx.data!.versionsData[vId].status !== "draft")
+                    .filter(
+                      (vId) => sfx.data!.versionsData[vId].status !== "draft",
+                    )
                     .map((vId) => ({
                       id: vId,
                       ...(sfx.data!.versionsData[vId] as SfxVersion),
                     }))}
                   activeVersionId={sfx.data.active}
                   streamType="sfx"
-                  openVersionId={openAccordion.sfx !== "draft" ? openAccordion.sfx : null}
-                  onOpenChange={(versionId) => setOpenAccordion("sfx", versionId)}
-                  onPreview={(id) => handlePreview(id, 'sfx')}
+                  openVersionId={
+                    openAccordion.sfx !== "draft" ? openAccordion.sfx : null
+                  }
+                  onOpenChange={(versionId) =>
+                    setOpenAccordion("sfx", versionId)
+                  }
+                  onPreview={(id) => handlePreview(id, "sfx")}
                   onClone={sfx.clone}
                   onDelete={async (vId) => {
                     const deleted = await sfx.remove(vId);
@@ -605,17 +717,18 @@ export default function AdWorkspace() {
               onChangeMusic={() => setSelectedTab(2)}
               onChangeSoundFx={() => setSelectedTab(3)}
               onRemoveTrack={(trackId: string) => {
-                const streamType = trackId.startsWith("sfx-") ? "sfx" :
-                                   trackId.startsWith("music-") ? "music" : null;
+                const streamType = trackId.startsWith("sfx-")
+                  ? "sfx"
+                  : trackId.startsWith("music-")
+                    ? "music"
+                    : null;
                 if (streamType) removeStream(streamType);
               }}
             />
           )}
 
           {/* Preview - Tab 5 */}
-          {selectedTab === 5 && (
-            <PreviewPanel projectId={adId} />
-          )}
+          {selectedTab === 5 && <PreviewPanel projectId={adId} />}
         </div>
       </div>
     </div>

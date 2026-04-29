@@ -82,7 +82,10 @@ function reconcileContextFromTracks(
  * Freeze any existing draft in a stream before creating a new one.
  * This ensures only one draft exists at a time.
  */
-async function freezeExistingDraft(adId: string, streamType: StreamType): Promise<void> {
+async function freezeExistingDraft(
+  adId: string,
+  streamType: StreamType,
+): Promise<void> {
   const versions = await listVersions(adId, streamType);
   for (const vId of versions) {
     const version = await getVersion(adId, streamType, vId);
@@ -306,7 +309,7 @@ function stableSortByMultilingual<T extends { voice: { capabilities?: { isMultil
  * the old deterministic slice.
  */
 export async function searchVoices(
-  params: SearchVoicesParams
+  params: SearchVoicesParams,
 ): Promise<SearchVoicesResult> {
   const {
     provider,
@@ -328,7 +331,7 @@ export async function searchVoices(
     provider as Provider,
     language as Language,
     accent,
-    true // requireApproval
+    true, // requireApproval
   );
 
   // Filter by gender if specified
@@ -495,7 +498,7 @@ export async function searchVoices(
  * `createVersion` sequence isn't atomic on its own.
  */
 export async function createVoiceDraft(
-  params: CreateVoiceDraftParams
+  params: CreateVoiceDraftParams,
 ): Promise<DraftCreationResult> {
   return withAdLock(params.adId, () => createVoiceDraftLocked(params));
 }
@@ -547,15 +550,16 @@ async function createVoiceDraftLocked(
       // Log when lookup fails for debugging
       if (!catalogueVoice) {
         console.warn(
-          `⚠️ Voice catalogue lookup failed for ID: ${track.voiceId}. Fallback: language=${track.language}, provider=${track.provider}`
+          `⚠️ Voice catalogue lookup failed for ID: ${track.voiceId}. Fallback: language=${track.language}, provider=${track.provider}`,
         );
       }
 
       // Use catalogue voice if found, otherwise fallback to minimal object
       // Map UnifiedVoice fields to Voice type
       // Note: UnifiedVoice.gender includes "neutral" but Voice.gender doesn't
-      const mapGender = (g: "male" | "female" | "neutral"): "male" | "female" | null =>
-        g === "neutral" ? null : g;
+      const mapGender = (
+        g: "male" | "female" | "neutral",
+      ): "male" | "female" | null => (g === "neutral" ? null : g);
 
       const voice: Voice = catalogueVoice
         ? {
@@ -566,7 +570,8 @@ async function createVoiceDraftLocked(
             language: catalogueVoice.language,
             accent: catalogueVoice.accent,
             provider: catalogueVoice.provider,
-            style: catalogueVoice.styles?.join(", ") || catalogueVoice.personality,
+            style:
+              catalogueVoice.styles?.join(", ") || catalogueVoice.personality,
             description: catalogueVoice.personality,
           }
         : {
@@ -586,7 +591,8 @@ async function createVoiceDraftLocked(
         ...(anchor ? { anchor } : {}),
         voice,
         text: track.text,
-        playAfter: track.playAfter || (index === 0 ? "start" : `track-${index - 1}`),
+        playAfter:
+          track.playAfter || (index === 0 ? "start" : `track-${index - 1}`),
         overlap: track.overlap ?? 0,
         speed: 1.0,
         // Provider-specific fields
@@ -596,7 +602,7 @@ async function createVoiceDraftLocked(
         performanceId: track.performanceId, // Lahajati performance style ID
         emotion: track.emotion, // ByteDance TTS 2.0 emotion tag
       };
-    })
+    }),
   );
 
   // Track-derived reconciliation: the LLM may have cast voices in a new
@@ -759,7 +765,7 @@ function logLintSummary(
  * Create music draft in Redis. See createVoiceDraft for the lock rationale.
  */
 export async function createMusicDraft(
-  params: CreateMusicDraftParams
+  params: CreateMusicDraftParams,
 ): Promise<DraftCreationResult> {
   return withAdLock(params.adId, () => createMusicDraftLocked(params));
 }
@@ -847,7 +853,7 @@ async function createMusicDraftLocked(
  * Create SFX draft in Redis. See createVoiceDraft for the lock rationale.
  */
 export async function createSfxDraft(
-  params: CreateSfxDraftParams
+  params: CreateSfxDraftParams,
 ): Promise<DraftCreationResult> {
   return withAdLock(params.adId, () => createSfxDraftLocked(params));
 }
@@ -887,7 +893,10 @@ async function createSfxDraftLocked(
           placement = { type: "beforeVoices" };
         } else if (p.placement.type === "end") {
           placement = { type: "end" };
-        } else if (p.placement.type === "afterVoice" && p.placement.index !== undefined) {
+        } else if (
+          p.placement.type === "afterVoice" &&
+          p.placement.index !== undefined
+        ) {
           placement = { type: "afterVoice", index: p.placement.index };
         }
       }
@@ -951,7 +960,7 @@ function slotReportedResult(
  * and make informed decisions about what to preserve/modify
  */
 export async function readAdState(
-  params: ReadAdStateParams
+  params: ReadAdStateParams,
 ): Promise<ReadAdStateResult> {
   const { adId } = params;
 
@@ -959,8 +968,11 @@ export async function readAdState(
 
   // Helper to get latest version from a stream
   async function getLatestVersion(
-    streamType: "voices" | "music" | "sfx"
-  ): Promise<{ id: VersionId; data: VoiceVersion | MusicVersion | SfxVersion } | null> {
+    streamType: "voices" | "music" | "sfx",
+  ): Promise<{
+    id: VersionId;
+    data: VoiceVersion | MusicVersion | SfxVersion;
+  } | null> {
     const versions = await listVersions(adId, streamType);
     if (versions.length === 0) return null;
 
@@ -1028,13 +1040,18 @@ export async function readAdState(
  * Set a catchy creative title for the ad
  */
 export async function setAdTitle(
-  params: SetAdTitleParams
+  params: SetAdTitleParams,
 ): Promise<SetAdTitleResult> {
   const { adId, title } = params;
 
   const existing = await getAdMetadata(adId);
   if (!existing) {
     return { success: false, title: "" };
+  }
+
+  // Do not change the name of the ad if the ad already has a name
+  if (existing.name && existing.name !== "") {
+    return { success: true, title: existing.name };
   }
 
   await setAdMetadata(adId, {
