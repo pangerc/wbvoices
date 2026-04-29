@@ -263,6 +263,7 @@ export function BrandPickerSubeditor({
           <button
             type="button"
             onClick={() => setSpotifyOnly((s) => !s)}
+            tabIndex={-1}
             className="text-xs text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0"
             title={
               spotifyOnly

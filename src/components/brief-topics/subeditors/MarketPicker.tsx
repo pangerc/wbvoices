@@ -117,6 +117,7 @@ export function MarketPicker({ value, onChange, disabled }: MarketPickerProps) {
         <button
           type="button"
           onClick={() => setShowAll((s) => !s)}
+          tabIndex={-1}
           className="text-xs text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0"
         >
           {showAll ? "Spotify only" : "Show all"}
