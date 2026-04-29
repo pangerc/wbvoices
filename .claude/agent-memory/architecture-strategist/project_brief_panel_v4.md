@@ -45,3 +45,18 @@ V4 brief panel design layered on Alexandru's `BriefPanelBase` (controlled core),
 **Open questions resolved:** country granularity → alpha-2 from alaric. BriefPanelV3 fate → deleted. BrandContextPanel empty state → topic-shell handles it. Manual enrich button → never lands.
 
 **BLOCKER (2026-04-29):** alaric's `/api/aca/markets` endpoint does not yet exist. User is requesting alaric-side team to build it; will share the alaric spec before v4 implementation kicks off. Don't start v4 work until that spec arrives — endpoint shape may shift our `getMarkets()` signature, our cache invalidation story, and possibly `/api/brand-context`'s `marketAlpha2` parameter.
+
+**Layout corrections (2026-04-29) — landed after the v4 PR shipped.**
+
+The first v4 implementation pass collapsed `BriefPanelBase`'s 3-col grids into single-column stacks and over-exposed advanced fields. Corrections:
+
+- Each topic uses `grid grid-cols-3 gap-6` internally; topics spaced via outer `space-y-12`.
+- Creative exposure is exactly `creativeBrief` + `creativeAngle`. Acting instructions (tone + voiceInstructions), references, forbidden — collapsed by default; auto-expand only when populated on `initialBrief` load.
+- Custom script swapped from a collapsible to a tabbar pair (`GlassTabBar` from MusicPanel) — "Brief the agent" / "I have the script" — at the top of CreativeTopic. When in script mode, the rest of the body hides; brief save still includes both fields so users can swap modes without losing edits.
+- CTA migrated from CreativeTopic → LanguageTopic Row 2 col 2 (campaign-execution axis, not creative-direction). Pacing moved to LanguageTopic Row 3 col 1; duration spans col-2-3 of the same row.
+- Acting instructions extracted into `ActingInstructionsSubeditor` (`src/components/brief-topics/subeditors/ActingInstructionsSubeditor.tsx`) so the tone+voiceInstructions+reset trio lives behind a single collapsible together. Internal grid mirrors BriefPanelBase Row 3.5/3.6: tone (col 1) | voiceInstructions (col-span-2 with reset chip).
+- CustomScriptSubeditor's internal mode-toggle buttons removed — the topic-level tabbar supersedes them.
+
+Default mode for the tabbar on initialBrief load: `providedScript.trim().length > 0 ? "script" : "brief"`. Simpler than the proposal in this file's earlier draft (no conjunction with creativeBrief) — if both are populated, the user is in script mode and the tab is one click to swap.
+
+The 3-topic mental model and the alaric-grounded brand-context flow are unchanged.

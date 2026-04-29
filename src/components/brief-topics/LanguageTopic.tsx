@@ -24,6 +24,31 @@ import { getFlagCode, type Language } from "@/utils/language";
 import { useBriefOptions, useLanguageOptions } from "@/hooks/useBriefOptions";
 import { twMerge } from "tailwind-merge";
 
+const CTA_OPTIONS = [
+  { value: "none", label: "No specific CTA" },
+  { value: "apply-now", label: "Apply now" },
+  { value: "book-now", label: "Book now" },
+  { value: "buy-now", label: "Buy now" },
+  { value: "buy-tickets", label: "Buy tickets" },
+  { value: "click-now", label: "Click now" },
+  { value: "download", label: "Download" },
+  { value: "find-stores", label: "Find stores" },
+  { value: "get-coupon", label: "Get coupon" },
+  { value: "get-info", label: "Get info" },
+  { value: "learn-more", label: "Learn more" },
+  { value: "listen-now", label: "Listen now" },
+  { value: "more-info", label: "More info" },
+  { value: "order-now", label: "Order now" },
+  { value: "pre-save", label: "Pre-save" },
+  { value: "save-now", label: "Save now" },
+  { value: "share", label: "Share" },
+  { value: "shop-now", label: "Shop now" },
+  { value: "sign-up", label: "Sign up" },
+  { value: "visit-profile", label: "Visit profile" },
+  { value: "visit-site", label: "Visit site" },
+  { value: "watch-now", label: "Watch now" },
+];
+
 const DURATION_TICK_MARKS = [
   { value: 10, label: "10s" },
   { value: 15, label: "15s" },
@@ -57,6 +82,9 @@ export interface LanguageTopicProps {
   selectedPacing: Pacing | null;
   onSelectedPacingChanged: (value: Pacing | null) => void;
 
+  selectedCTA: string | null;
+  onSelectedCTAChanged: (value: string | null) => void;
+
   adDuration: number;
   onAdDurationChanged: (value: number) => void;
 
@@ -76,6 +104,8 @@ export function LanguageTopic({
   onSelectedProviderChanged,
   selectedPacing,
   onSelectedPacingChanged,
+  selectedCTA,
+  onSelectedCTAChanged,
   adDuration,
   onAdDurationChanged,
   disabled,
@@ -296,38 +326,16 @@ export function LanguageTopic({
 
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Pacing
+            Call to action (CTA)
           </label>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
-            <div
-              className={twMerge(
-                "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
-                selectedPacing === null
-                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                  : "bg-transparent hover:bg-white/10 text-gray-300",
-                disabled ? "pointer-events-none" : "",
-              )}
-              onClick={() => onSelectedPacingChanged(null)}
-              title="Normal — Standard delivery pace"
-            >
-              <TurtleIcon />
-              <span className="text-xs">Normal</span>
-            </div>
-            <div
-              className={twMerge(
-                "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
-                selectedPacing === "fast"
-                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                  : "bg-transparent hover:bg-white/10 text-gray-300",
-                disabled ? "pointer-events-none" : "",
-              )}
-              onClick={() => onSelectedPacingChanged("fast")}
-              title="Fast — Energetic, urgent delivery"
-            >
-              <RabbitIcon />
-              <span className="text-xs">Fast</span>
-            </div>
-          </div>
+          <GlassyListbox
+            value={selectedCTA || "none"}
+            onChange={(value) =>
+              onSelectedCTAChanged(value === "none" ? null : value)
+            }
+            options={CTA_OPTIONS}
+            disabled={computedDisabled}
+          />
         </div>
 
         <div>
@@ -368,29 +376,68 @@ export function LanguageTopic({
         </div>
       </div>
 
-      {/* Row 3: Duration */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1">
-          Ad duration{" "}
-          <span className="text-sm text-gray-400">{adDuration} seconds</span>
-        </label>
-        <GlassySlider
-          disabled={computedDisabled}
-          label={null}
-          value={adDuration}
-          onChange={onAdDurationChanged}
-          min={10}
-          max={60}
-          step={5}
-          tickMarks={DURATION_TICK_MARKS}
-        />
-        <div className="mt-3 text-xs text-gray-500">
-          Spotify: Standard ads max 30s. Long-form (60s) in select markets only.
-          {adDuration > 30 && (
-            <span className="text-red-900 ml-1">
-              Duration exceeds 30s standard.
-            </span>
-          )}
+      {/* Row 3: Pacing + Duration */}
+      <div className="grid grid-cols-3 gap-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Pacing
+          </label>
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
+            <div
+              className={twMerge(
+                "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
+                selectedPacing === null
+                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                  : "bg-transparent hover:bg-white/10 text-gray-300",
+                disabled ? "pointer-events-none" : "",
+              )}
+              onClick={() => onSelectedPacingChanged(null)}
+              title="Normal — Standard delivery pace"
+            >
+              <TurtleIcon />
+              <span className="text-xs">Normal</span>
+            </div>
+            <div
+              className={twMerge(
+                "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
+                selectedPacing === "fast"
+                  ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                  : "bg-transparent hover:bg-white/10 text-gray-300",
+                disabled ? "pointer-events-none" : "",
+              )}
+              onClick={() => onSelectedPacingChanged("fast")}
+              title="Fast — Energetic, urgent delivery"
+            >
+              <RabbitIcon />
+              <span className="text-xs">Fast</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Ad duration{" "}
+            <span className="text-sm text-gray-400">{adDuration} seconds</span>
+          </label>
+          <GlassySlider
+            disabled={computedDisabled}
+            label={null}
+            value={adDuration}
+            onChange={onAdDurationChanged}
+            min={10}
+            max={60}
+            step={5}
+            tickMarks={DURATION_TICK_MARKS}
+          />
+          <div className="mt-3 text-xs text-gray-500">
+            Spotify: Standard ads max 30s. Long-form (60s) in select markets
+            only.
+            {adDuration > 30 && (
+              <span className="text-red-900 ml-1">
+                Duration exceeds 30s standard.
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

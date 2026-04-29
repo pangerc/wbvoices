@@ -1,8 +1,15 @@
 /**
- * CreativeTopic — what the spot is and how it sounds. Exposes the load-
- * bearing creative fields (brief, angle, tone, voice instructions, CTA)
- * inline; advanced options (reference URLs, forbidden words, custom
- * script) sit behind collapsibles.
+ * CreativeTopic — what the spot is and how it sounds.
+ *
+ * Tabbar (mirroring MusicPanel's mode-toggle pattern) at the top:
+ *   - "Brief the agent" → the LLM writes the script from creativeBrief
+ *   - "I have the script" → providedScript is used verbatim, agent only
+ *     writes acting / music / SFX around it
+ *
+ * In "brief" mode, the body exposes only `creativeBrief` + `creativeAngle`.
+ * Acting instructions, references, and forbidden-words live behind
+ * collapsibles — auto-expand only when their fields are populated on
+ * `initialBrief` load (mirrors v3.5 V3 behaviour).
  *
  * Why creativeAngle is exposed (and never collapses): brand-anchoring
  * ladder rests on `brandVoice = constant, creativeAngle = per-spot
@@ -10,52 +17,18 @@
  * every ad — measured regression in v3.5 production.
  */
 
-import { useCallback, useMemo, useRef } from "react";
+import { useState } from "react";
+import {
+  DocumentTextIcon,
+  SparklesIcon,
+} from "@heroicons/react/24/outline";
 import type { ToneOption } from "../ui/ToneSelector";
-import { ArrowPathIcon } from "@heroicons/react/24/solid";
-import { GlassyTextarea, GlassyListbox, ToneSelector } from "../ui";
+import { GlassTab, GlassTabBar, GlassyTextarea, Tooltip } from "../ui";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { ActingInstructionsSubeditor } from "./subeditors/ActingInstructionsSubeditor";
 import { ReferenceUrlsSubeditor } from "./subeditors/ReferenceUrlsSubeditor";
 import { ForbiddenWordsSubeditor } from "./subeditors/ForbiddenWordsSubeditor";
 import { CustomScriptSubeditor } from "./subeditors/CustomScriptSubeditor";
-
-const CTA_OPTIONS = [
-  { value: "none", label: "No specific CTA" },
-  { value: "apply-now", label: "Apply now" },
-  { value: "book-now", label: "Book now" },
-  { value: "buy-now", label: "Buy now" },
-  { value: "buy-tickets", label: "Buy tickets" },
-  { value: "click-now", label: "Click now" },
-  { value: "download", label: "Download" },
-  { value: "find-stores", label: "Find stores" },
-  { value: "get-coupon", label: "Get coupon" },
-  { value: "get-info", label: "Get info" },
-  { value: "learn-more", label: "Learn more" },
-  { value: "listen-now", label: "Listen now" },
-  { value: "more-info", label: "More info" },
-  { value: "order-now", label: "Order now" },
-  { value: "pre-save", label: "Pre-save" },
-  { value: "save-now", label: "Save now" },
-  { value: "share", label: "Share" },
-  { value: "shop-now", label: "Shop now" },
-  { value: "sign-up", label: "Sign up" },
-  { value: "visit-profile", label: "Visit profile" },
-  { value: "visit-site", label: "Visit site" },
-  { value: "watch-now", label: "Watch now" },
-];
-
-const TONE_EMPTY_OPTION: ToneOption = {
-  value: "none",
-  title: "No specific tone",
-  description: "Let the system decide based on the brief and target audience.",
-};
-
-const CUSTOM_TONE_OPTION: ToneOption = {
-  value: "custom",
-  title: "Custom…",
-  description:
-    "Describe the tone yourself in the Voice Instructions field below.",
-};
 
 export interface CreativeTopicProps {
   creativeBrief: string;
@@ -73,9 +46,6 @@ export interface CreativeTopicProps {
   toneOptions: ToneOption[];
   toneInstructions: Record<string, string>;
 
-  selectedCTA: string | null;
-  onSelectedCTAChanged: (value: string | null) => void;
-
   referenceUrlsText: string;
   onReferenceUrlsChanged: (value: string) => void;
 
@@ -89,6 +59,8 @@ export interface CreativeTopicProps {
   disabled?: boolean;
 }
 
+type CreativeMode = "brief" | "script";
+
 export function CreativeTopic({
   creativeBrief,
   onCreativeBriefChanged,
@@ -100,8 +72,6 @@ export function CreativeTopic({
   onVoiceInstructionsChanged,
   toneOptions,
   toneInstructions,
-  selectedCTA,
-  onSelectedCTAChanged,
   referenceUrlsText,
   onReferenceUrlsChanged,
   forbiddenWords,
@@ -111,48 +81,19 @@ export function CreativeTopic({
   showAngleNudge,
   disabled,
 }: CreativeTopicProps) {
-  // Tracks the last template string we auto-applied, so we can detect
-  // whether the user has edited it. Mirrors BriefPanelBase's pattern.
-  const lastAppliedTemplateRef = useRef<string>("");
-
-  const computedToneOptions = useMemo<ToneOption[]>(
-    () => [...toneOptions, CUSTOM_TONE_OPTION],
-    [toneOptions]
+  // Default to script mode iff a verbatim script is already loaded; the
+  // tab is one click to switch back. Initial-render only — user toggles
+  // via the tabs after that.
+  const [creativeMode, setCreativeMode] = useState<CreativeMode>(() =>
+    providedScript.trim().length > 0 ? "script" : "brief",
   );
 
-  const handleToneChange = useCallback(
-    (value: string | null) => {
-      onSelectedToneChanged(value);
-      if (value && value !== "custom" && toneInstructions[value]) {
-        const template = toneInstructions[value];
-        const untouched =
-          voiceInstructions === "" ||
-          voiceInstructions === lastAppliedTemplateRef.current;
-        if (untouched) {
-          onVoiceInstructionsChanged(template);
-          lastAppliedTemplateRef.current = template;
-        }
-      } else {
-        lastAppliedTemplateRef.current = "";
-      }
-    },
-    [voiceInstructions, toneInstructions, onSelectedToneChanged, onVoiceInstructionsChanged]
-  );
-
-  const handleResetVoiceInstructions = useCallback(() => {
-    if (
-      selectedTone &&
-      selectedTone !== "custom" &&
-      toneInstructions[selectedTone]
-    ) {
-      const template = toneInstructions[selectedTone];
-      onVoiceInstructionsChanged(template);
-      lastAppliedTemplateRef.current = template;
-    } else {
-      onVoiceInstructionsChanged("");
-      lastAppliedTemplateRef.current = "";
-    }
-  }, [selectedTone, toneInstructions, onVoiceInstructionsChanged]);
+  // Auto-expand collapsibles only on first load when their fields carry
+  // content (mirrors v3.5 V3 behaviour — don't react to live edits).
+  const actingDefaultOpen =
+    selectedTone !== null || voiceInstructions.trim().length > 0;
+  const referencesDefaultOpen = referenceUrlsText.trim().length > 0;
+  const forbiddenDefaultOpen = forbiddenWords.trim().length > 0;
 
   return (
     <section className="space-y-4">
@@ -163,139 +104,118 @@ export function CreativeTopic({
         </p>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Creative brief{" "}
-          <span className="text-gray-500 font-normal">
-            (description of the ad — required)
-          </span>
-        </label>
-        <GlassyTextarea
-          value={creativeBrief}
-          onChange={(e) => onCreativeBriefChanged(e.target.value)}
-          placeholder="Describe the creative direction, key messages, and target audience…"
-          rows={5}
+      <div className="flex justify-center mb-2">
+        <GlassTabBar>
+          <Tooltip content="Brief the agent — LLM writes the script" side="bottom">
+            <GlassTab
+              isActive={creativeMode === "brief"}
+              onClick={() => setCreativeMode("brief")}
+            >
+              <SparklesIcon className="h-5 w-5" />
+            </GlassTab>
+          </Tooltip>
+          <Tooltip content="I have the script — use my copy verbatim" side="bottom">
+            <GlassTab
+              isActive={creativeMode === "script"}
+              onClick={() => setCreativeMode("script")}
+            >
+              <DocumentTextIcon className="h-5 w-5" />
+            </GlassTab>
+          </Tooltip>
+        </GlassTabBar>
+      </div>
+
+      {creativeMode === "script" ? (
+        <CustomScriptSubeditor
+          value={providedScript}
+          onChange={onProvidedScriptChanged}
           disabled={disabled}
         />
-      </div>
+      ) : (
+        <>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Creative brief{" "}
+              <span className="text-gray-500 font-normal">
+                (description of the ad — required)
+              </span>
+            </label>
+            <GlassyTextarea
+              value={creativeBrief}
+              onChange={(e) => onCreativeBriefChanged(e.target.value)}
+              placeholder="Describe the creative direction, key messages, and target audience…"
+              rows={5}
+              disabled={disabled}
+            />
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Creative angle
-          <span className="ml-2 text-xs text-gray-500">
-            (the variance — what makes THIS ad different from every other
-            ad for this brand)
-          </span>
-        </label>
-        <GlassyTextarea
-          value={creativeAngle}
-          onChange={(e) => onCreativeAngleChanged(e.target.value)}
-          placeholder="What is THIS ad asking the listener to feel or do that no other ad for this brand would? E.g. 'urgent 24h Black Friday push, hook drops at 0:03' — one or two sentences specific to this spot."
-          rows={3}
-          disabled={disabled}
-        />
-        {showAngleNudge && (
-          <p className="mt-2 text-xs text-amber-400">
-            Without an angle, the script will brand-anchor cleanly but lose
-            the per-spot edge — type one sentence specific to THIS spot.
-          </p>
-        )}
-      </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Creative angle
+              <span className="ml-2 text-xs text-gray-500">
+                (the variance — what makes THIS ad different from every other
+                ad for this brand)
+              </span>
+            </label>
+            <GlassyTextarea
+              value={creativeAngle}
+              onChange={(e) => onCreativeAngleChanged(e.target.value)}
+              placeholder="What is THIS ad asking the listener to feel or do that no other ad for this brand would? E.g. 'urgent 24h Black Friday push, hook drops at 0:03' — one or two sentences specific to this spot."
+              rows={3}
+              disabled={disabled}
+            />
+            {showAngleNudge && (
+              <p className="mt-2 text-xs text-amber-400">
+                Without an angle, the script will brand-anchor cleanly but
+                lose the per-spot edge — type one sentence specific to THIS
+                spot.
+              </p>
+            )}
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Tone of voice{" "}
-          <span className="text-gray-500 font-normal">
-            (choose how your ad should sound)
-          </span>
-        </label>
-        <ToneSelector
-          value={selectedTone}
-          onChange={handleToneChange}
-          options={computedToneOptions}
-          emptyOption={TONE_EMPTY_OPTION}
-          disabled={disabled}
-        />
-      </div>
+          <div className="space-y-3 pt-2">
+            <CollapsibleSection
+              title="Acting instructions"
+              description="tone preset + voice delivery — fine-tunes how the line is read"
+              defaultOpen={actingDefaultOpen}
+            >
+              <ActingInstructionsSubeditor
+                selectedTone={selectedTone}
+                onSelectedToneChanged={onSelectedToneChanged}
+                voiceInstructions={voiceInstructions}
+                onVoiceInstructionsChanged={onVoiceInstructionsChanged}
+                toneOptions={toneOptions}
+                toneInstructions={toneInstructions}
+                disabled={disabled}
+              />
+            </CollapsibleSection>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Voice instructions{" "}
-          <span className="text-gray-500 font-normal">
-            — fine-tune how this voice is delivered. Edit or rewrite freely.
-          </span>
-        </label>
-        <GlassyTextarea
-          value={voiceInstructions}
-          onChange={(e) => onVoiceInstructionsChanged(e.target.value)}
-          placeholder="e.g. Deliver with a polished, measured cadence. Crisp consonants and confident pacing…"
-          rows={4}
-          disabled={disabled}
-        />
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={handleResetVoiceInstructions}
-            disabled={disabled}
-            className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs px-4 py-2 transition-colors"
-          >
-            <ArrowPathIcon className="h-3.5 w-3.5" />
-            <span>Reset to default</span>
-          </button>
-        </div>
-      </div>
+            <CollapsibleSection
+              title="References"
+              description="brand sources, prior ads to inherit voice from"
+              defaultOpen={referencesDefaultOpen}
+            >
+              <ReferenceUrlsSubeditor
+                value={referenceUrlsText}
+                onChange={onReferenceUrlsChanged}
+                disabled={disabled}
+              />
+            </CollapsibleSection>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Call to action (CTA)
-        </label>
-        <GlassyListbox
-          value={selectedCTA || "none"}
-          onChange={(value) =>
-            onSelectedCTAChanged(value === "none" ? null : value)
-          }
-          options={CTA_OPTIONS}
-          disabled={disabled}
-        />
-      </div>
-
-      <div className="space-y-3 pt-2">
-        <CollapsibleSection
-          title="Reference URLs"
-          description="brand sources, prior ads to inherit voice from"
-          defaultOpen={referenceUrlsText.trim().length > 0}
-        >
-          <ReferenceUrlsSubeditor
-            value={referenceUrlsText}
-            onChange={onReferenceUrlsChanged}
-            disabled={disabled}
-          />
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Forbidden words"
-          description="phrases the LLM should avoid"
-          defaultOpen={forbiddenWords.trim().length > 0}
-        >
-          <ForbiddenWordsSubeditor
-            value={forbiddenWords}
-            onChange={onForbiddenWordsChanged}
-            disabled={disabled}
-          />
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Custom script"
-          description="provide verbatim copy instead of letting the agent write"
-          defaultOpen={providedScript.trim().length > 0}
-        >
-          <CustomScriptSubeditor
-            value={providedScript}
-            onChange={onProvidedScriptChanged}
-            disabled={disabled}
-          />
-        </CollapsibleSection>
-      </div>
+            <CollapsibleSection
+              title="Forbidden words"
+              description="phrases the LLM should avoid"
+              defaultOpen={forbiddenDefaultOpen}
+            >
+              <ForbiddenWordsSubeditor
+                value={forbiddenWords}
+                onChange={onForbiddenWordsChanged}
+                disabled={disabled}
+              />
+            </CollapsibleSection>
+          </div>
+        </>
+      )}
     </section>
   );
 }

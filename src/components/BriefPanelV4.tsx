@@ -758,8 +758,6 @@ export function BriefPanelV4({
           onVoiceInstructionsChanged={setVoiceInstructions}
           toneOptions={toneOptions}
           toneInstructions={toneInstructions}
-          selectedCTA={selectedCTA}
-          onSelectedCTAChanged={setSelectedCTA}
           referenceUrlsText={referenceUrlsText}
           onReferenceUrlsChanged={setReferenceUrlsText}
           forbiddenWords={forbiddenWords}
@@ -783,6 +781,8 @@ export function BriefPanelV4({
           onSelectedProviderChanged={setSelectedProvider}
           selectedPacing={selectedPacing}
           onSelectedPacingChanged={setSelectedPacing}
+          selectedCTA={selectedCTA}
+          onSelectedCTAChanged={setSelectedCTA}
           adDuration={adDuration}
           onAdDurationChanged={setAdDuration}
           disabled={isGenerating}
