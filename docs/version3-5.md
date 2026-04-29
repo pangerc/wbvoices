@@ -1,8 +1,41 @@
 # Version 3.5: Creative Pipeline Rewrite
 
-**Status:** Active
-**Last Updated:** April 27, 2026
+**Status:** Active (post-merge revision)
+**Last Updated:** April 29, 2026
 **Continues from:** [version3-1.md](./version3-1.md) (agentic tool-calling baseline)
+
+---
+
+## Highlights for stakeholders
+
+End-user / sales-rep / manager-facing changes since the V3 baseline. Implementation detail lives in the rest of the doc; this section is for non-engineers.
+
+**For sales reps using ACA**
+
+- **Salesforce-grounded briefs.** Picking an SF account from the brand picker auto-pulls the brand's commercial relationship, creative posture, audience signals, and policy constraints into the LLM prompt — no manual copy-paste from intelligence reports. Falls back to a greenfield "type the brand name" path when no SF match exists.
+- **Market-driven defaults (86 markets from alaric).** Pick the market up front; the panel defaults the language to the market's primary language, filters the brand picker to SF accounts in that market, and gives the agent locale context (currency words, regulatory phrasing) for native-sounding scripts.
+- **Cleaner brief panel (V4 three-topic restructure).** Brand & Market / Creative / Language & Voice. The three primary fields (creative brief, ad format, tone of voice) are exposed up front; everything else (creative angle, voice instructions, references, forbidden words, pacing, CTA) lives behind collapsibles.
+- **Ad duplication.** One-click clone of an existing ad — voices, music, SFX, mixer arrangement, and rendered audio assets all copy across. Ready to tweak as a variant.
+- **Tone-of-voice presets.** Admin-managed library (Professional, Energetic, Warm, Authoritative, Sarcastic, plus team-added ones). Picking a preset auto-fills voice-delivery instructions for the LLM; the user can edit freely. AI-generated suggestion in the admin form.
+- **Brief autosaves continuously.** No "save" button. Picking up an ad later resumes exactly where you left off.
+
+**For creative quality**
+
+- **Six campaign formats** in the UI (single, dialogue, testimonial, vox-pop, dramatized scene, radio skit) — was 2. Each gets format-specific casting + script-structure guidance.
+- **Two-pass ElevenLabs tag weaving.** Pass 1 writes clean prose; pass 2 inserts V3 audio tags using cast voice metadata. Mechanical lint catches accent-tag misses and opening-stack runaway. The chronic tag-clustering failure mode is fixed.
+- **Voice casting variety.** Semantic search filters (energy / warmth / pacing / use-case / dialect-register) + ad-id-seeded shuffle. The "same five voices in every ad" complaint went from chronic to addressed.
+- **Per-track provider conversion.** Swap a single voice line from ElevenLabs to OpenAI to ByteDance to Lahajati without regenerating the whole script.
+
+**For mixer / production**
+
+- **Versioned mixer takes.** "Start a new take" forks the current arrangement; switch between frozen takes; old mixes preserved as immutable snapshots.
+- **Draggable timeline.** Reposition voice / music / SFX clips by dragging; edge-trim clips; waveforms crop to the trim window in real time.
+- **Live LUFS meter during preview** (BS.1770 integrated loudness).
+- **Trim honored in playback + export.** No more "I trimmed it but the export still has the long version."
+
+**For admins**
+
+- **Tone-of-voice admin panel** at `/admin/tone-of-voice` for managing the preset library. AI-generated "voice instructions" suggestion to seed prosody descriptions when adding a new tone.
 
 ---
 
@@ -10,29 +43,43 @@
 
 V3.5 is a substantial rewrite of the creative pipeline on top of V3's agentic baseline. The fundamental loop (LLM uses tools → drafts in Redis → mixer assembles) didn't change. Everything inside it did.
 
-Seven workstreams shipped in this window, layered roughly in this order:
+Seven workstreams shipped in the initial v3.5 window, layered roughly in this order:
 
 1. **Voice casting fixes** — per-version `KnowledgeContext` snapshots, semantic search filters (age / energy / warmth / pace / use-case / dialect-register), `adId`-seeded shuffle, voice-description surfacing, multilingual deprioritization. The "same voices keep appearing in every ad" complaint went from chronic to addressed.
 2. **GPT-5.5 migration** — model bump from gpt-5 to gpt-5.5 across the codebase. Reasoning effort kept at `medium` for the agent (per user pushback against `low`); verbosity at `low` for tool-call-heavy responses.
-3. **Creative prompting system rewrite** — system prompt rebuilt around a "senior creative director" persona with three success criteria; six campaign formats (`ad_read` / `dialog` / `testimonial` / `vox_pop` / `dramatized_scene` / `radio_skit`) with format-specific casting + structure guidance; brief expansion fields (tone-of-voice chips, brand voice free-text, reference URLs, forbidden words, provided-script verbatim mode, creative angle); knowledge modules per voice provider with conditional sections (fast-pacing override, accent guidance).
+3. **Creative prompting system rewrite** — system prompt rebuilt around a "senior creative director" persona with three success criteria; six campaign formats (`ad_read` / `dialog` / `testimonial` / `vox_pop` / `dramatized_scene` / `radio_skit`) with format-specific casting + structure guidance; brief expansion fields (tone-of-voice, brand voice, reference URLs, forbidden words, provided-script verbatim mode, creative angle); knowledge modules per voice provider with conditional sections (fast-pacing override, accent guidance).
 4. **Two-pass ElevenLabs tag-weaving** — pass 1 (the agent) writes clean script; pass 2 (a focused tag-weaver) inserts V3 audio tags using cast voice metadata; mechanical lint catches accent-tag misses + opening-stack runaway. Replaces the monolithic "agent juggles dialogue craft + brand voice + voice casting + tag placement" model that was producing tag-clustering failures.
 5. **Per-track provider conversion** — single voice line can swap providers without re-generating the whole script. New `/api/ai/convert-voice-track` endpoint translates voice-control fields between provider grammars (OpenAI structured `Voice Affect / Tone / Pacing / …` ↔ Lahajati Arabic persona ↔ ByteDance free-text style ↔ ElevenLabs `description` baseline). Cogwheel iteration entry-point now available for ByteDance + Qwen tracks.
 6. **Loose alaric integration** — secure HMAC-signed endpoint surface so ACA pulls live Salesforce identity + alaric's enriched brand intelligence into the brief without rebuilding either system. Shipped in stages: A–E (HMAC + 3 endpoints + URL-type-aware extraction), H–J (unified Brand picker + Recents + per-brand inheritance + async enrichment trigger), K–N (the tag-weaving fix above — same window, parallel workstream), P–S (Spotify-only filter + form reorganization + richer profile projection), U–Y (BrandDossier rewrite + Stage R chrome amputation + web search disentangled + flat form).
 
 Cross-cutting fixes shipped along the way: brief PATCH idempotent (lazy ad creation, no more 404 spam), Spotify-filter auto-fallback, music duration floor at brief+10s, NextAuth split for Edge-safe middleware, Smart Speed for Qwen.
 
-The mixer-side work that shipped in this window is its own substantial redesign — see [Mixer redesign — version stream architecture](#mixer-redesign--version-stream-architecture) below.
+After v3.5 was committed but before it shipped to prod, two parallel workstreams from teammates landed on `main`:
+
+7. **Sergiu's tone-of-voice admin pipeline** — DB-backed `suggested_tones` table (Drizzle migration `0002`), admin CRUD UI at `/admin/tone-of-voice`, `ToneSelector` component for the brief panel, public read-only `/api/tone-of-voice` endpoint, AI-generated voice-instructions assistant. Replaces v3.5's naive 11-tag `ToneOfVoiceTag` enum with a richer admin-managed preset library — adopted as canonical.
+8. **Alexandru's ad-duplication feature (AAC-18)** — `/api/ads/[id]/duplicate` route + `DuplicateAdPopup` component. The original implementation predated v3.5's mixer-stream redesign and called the legacy `getMixerState` / `updateMixerState` helpers; rewritten on the v3.5 side to clone the four versioned streams (voices / music / sfx / mixer) via `cloneVersion` + per-stream `getActiveVersionData`, with `@vercel/blob` `copy()` for `mixedAudioUrl` + preview blobs so the duplicate is independent of the source ad.
+
+The reconciliation of the above with v3.5 — plus a deliberate brief-panel restructure — produced the **V4 brief panel** (three topics: Brand & Market / Creative / Language & Voice) that ships in this revision. Detailed in the [Post-v3.5 reconciliation — BriefPanelV4 + team merges](#post-v35-reconciliation--briefpanelv4--team-merges) section.
+
+The mixer-side work that shipped in the v3.5 window is its own substantial redesign — see [Mixer redesign — version stream architecture](#mixer-redesign--version-stream-architecture) below.
 
 ---
 
 ## Architectural deltas
 
-### Brief generation flow with v3.5 enrichment
+### Brief generation flow with v3.5 enrichment (post-merge / V4)
 
 ```
-User Brief (with optional SF brand)
+User Brief (BriefPanelV4 — 3 topics)
+    │   Brand & Market   : BrandPicker, MarketPicker, dossier badge
+    │   Creative         : brief, format, tone (exposed) + 6 collapsibles
+    │   Language & Voice : language, region, accent (single row)
     ↓
-BriefPanelV3 (3 collapsibles, brand picker w/ Spotify filter + Recents)
+GET /api/markets   ── alaric proxy, 86-market list (cached at HTTP layer)
+POST /api/brand-context { kind: "search" | "sf-account" | "greenfield" | "spotify-ad-manager" }
+                 ── single discriminated endpoint folding sf-search +
+                    brand recents + dossier resolve. Implicit-on-save:
+                    picking an SF brand fetches the dossier & shows it.
     ↓
 PATCH /api/ads/{id}/brief  ← lazy-creates ad on first keystroke
     ↓
@@ -60,6 +107,8 @@ Voice/music/SFX versions persisted; mixer rebuilds (sister thread)
 
 The v3 hosted `web_search` path is gone — alaric's BrandDossier is strictly richer than what hosted search was producing for SF-backed brands. Standalone-brand fallback (web search as poor-man's alaric) is held for v4 Stage W.
 
+The brand picker no longer uses two separate endpoints (`/api/sf-accounts/search` + `/api/brands/recent`). Both fold into `/api/brand-context` with a discriminated `kind`. The legacy endpoints are deleted.
+
 ---
 
 ## Data model changes
@@ -76,24 +125,32 @@ The brief is persisted in `AdMetadata.brief` under `ad:{adId}:meta` as a JSON bl
 |-------|-------|-------------|---------------|
 | `brand` | `BrandRef` (see below) | Stored when set | New readers prefer `brand.*`; legacy readers fall back to top-level `salesforceAccountId`. |
 | `salesforceAccountId` | `string \| null` | Mirrored at top level when `brand.salesforceAccountId` is set | Kept top-level for v1 reader back-compat. New code reads `brand.salesforceAccountId ?? salesforceAccountId`. |
-| `creativeAngle` | `string` | Stored when non-empty | Soft warning when SF/URLs populated but angle empty; never blocks generation. |
+| `creativeAngle` | `string` | Stored when non-empty | Soft warning when SF/URLs populated but angle empty; never blocks generation. Demoted into a Creative-topic collapsible in V4 (was exposed mid-revision; user override). |
 | `varianceMode` | `"anchored" \| "exploratory"` | Reserved field, not yet written by UI | Forward-compat. Stage F (transcript-level retrieval) will gate on this. |
-| `toneOfVoice` | `ToneOfVoiceTag[]` | Stored as array when length > 0 | 11-value closed enum: `warm \| urgent \| playful \| authoritative \| conversational \| earnest \| sardonic \| tender \| confident \| intimate \| irreverent`. |
-| `brandVoice` | `string` | Stored when non-empty | Free-text. |
-| `referenceUrls` | `string[]` | Stored when length > 0 | Per-URL alaric fetch + URL-type detection at prefetch time; type union is `homepage \| product \| press_release \| reference_ad \| unknown`. |
-| `forbiddenWords` | `string` | Stored when non-empty | Free-text comma/newline list; renders into `## Avoid` prompt block. |
-| `providedScript` | `string` | Stored when non-empty | Use-verbatim mode — agent only writes acting/music/SFX around it. Knowledge module reads `KnowledgeContext.hasProvidedScript`. |
-| `selectedCTA` | `string` | Stored | One of 22 canonical tokens + `none`. |
-| `campaignFormat` | `CampaignFormat` | Extended enum | Was `ad_read \| dialog \| testimonial`; now includes `vox_pop \| dramatized_scene \| radio_skit`. Old values still valid. |
+| `selectedTone` | `string \| null` | Stored when set | UUID-or-title pointer into the admin-managed `suggested_tones` table (Sergiu's pipeline). Resolves to a `voiceInstructions` template; the LLM only sees `voiceInstructions`, never the preset id. Replaces v3.5's pre-merge `ToneOfVoiceTag[]` enum (which never shipped to prod). |
+| `voiceInstructions` | `string \| null` | Stored when non-empty | TTS-delivery prose. Auto-seeded from the picked tone preset's template; user-editable. Threaded into per-track `VoiceTrack.voiceInstructions` via the generate routes. |
+| `referenceUrls` | `string[]` | Stored when length > 0 | Per-URL alaric fetch + URL-type detection at prefetch time; type union is `homepage \| product \| press_release \| reference_ad \| unknown`. Behind a Creative-topic collapsible in V4. |
+| `forbiddenWords` | `string` | Stored when non-empty | Free-text comma/newline list; renders into `## Avoid` prompt block. Behind a collapsible in V4. |
+| `providedScript` | `string` | Stored when non-empty | Use-verbatim mode — agent only writes acting/music/SFX around it. Surfaced via the "I have the script" tab on Creative topic; brief save carries both fields so toggling preserves edits. |
+| `selectedCTA` | `string` | Stored | One of 22 canonical tokens + `none`. Behind a collapsible in V4. |
+| `campaignFormat` | `CampaignFormat` | Extended enum | Was `ad_read \| dialog \| testimonial`; now includes `vox_pop \| dramatized_scene \| radio_skit`. Surfaced as a 6-option `GlassyListbox` in V4 (was a 2-button toggle in BriefPanelBase — UI lagged the prompt). |
+
+**Repurposed** (same type, semantic shift):
+
+| Field | Old meaning | New meaning |
+|-------|-------------|-------------|
+| `selectedRegion` | Voice-region taxonomy code (e.g. `"us-east"`) — filtered the voice catalogue. | Alaric alpha-2 market code (e.g. `"SI"`, `"DE"`). Drives SF search filter, language defaults, dossier territory grounding. Legacy non-alpha-2 values render with a `(legacy)` suffix in the picker; re-picking promotes to a real alpha-2. The legacy "voice region depends on language" coupling is gone — picking a market no longer wipes itself when language changes. |
 
 **Deprecated** (still on the type, still decoded, ignored by writers):
 
 | Field | Why deprecated | Compat policy |
 |-------|----------------|---------------|
-| `enrichWithWebSearch` | Hosted-tool web search dropped in v4 Stage X; alaric BrandDossier replaces for SF-backed brands. | Field stays on the type as `@deprecated`. Legacy briefs with the field still load — readers ignore the value. |
+| `enrichWithWebSearch` | Hosted-tool web search dropped in v4 Stage X; alaric BrandDossier replaces for SF-backed brands. | Zero live readers. Generate routes don't read it; brief-enrichment doesn't branch on it. Field stays on the type as `@deprecated removal-pending` for legacy decode only. |
 | `salesforceAccountId` (top-level) | Superseded by `brand.salesforceAccountId`. | Stays at top level; new writes mirror both. Generate routes read `brand.salesforceAccountId ?? salesforceAccountId`. |
+| `brandVoice` | Replaced by alaric's `BrandDossier` projection (commercial / creative / audience / policy slots) which feeds the LLM richer brand context than free-text. | Field stays on the type as `@deprecated`. BriefPanelV4 surfaces legacy values in a read-only `<details>` block at the top of the Brand topic so users can SEE what was there but not edit. Generate routes don't read the field — no `## Brand Voice` prompt section anymore. Scheduled for full removal in a follow-up cleanup PR. |
+| `toneOfVoice` (`ToneOfVoiceTag[]`) | Pre-merge v3.5 internal addition (11-value closed enum chip multi-select). Replaced by Sergiu's `selectedTone` + `voiceInstructions` pipeline before either shape reached prod. | Type and field removed from `ProjectBrief`. Knowledge-context plumbing removed. Any prod brief that somehow carried the field decodes via JSON parse without crashing — readers silently ignore. No migration. |
 
-**Removed:** none. No fields were dropped from the type or from the persisted shape.
+**Removed:** `ToneOfVoiceTag` union type and `ProjectBrief.toneOfVoice` field. The naive multi-select tag enum from the v3.5 prompting rewrite was replaced wholesale by Sergiu's admin-managed preset pipeline during the post-v3.5 merge.
 
 ### New shape: `BrandRef`
 
@@ -403,9 +460,10 @@ Public contract for the ACA → alaric service-to-service surface. All HMAC-veri
 | Route | Method | Body / Query | Returns |
 |-------|--------|--------------|---------|
 | `/api/aca/fetch-content` | POST | `{ url: string, policy?: PolicyName }` | `FetchResult` (alaric tiered fetch result minus `attempts` audit trail) |
-| `/api/aca/sf-search` | GET | `?q=<query>&limit=<n>&clientPlatforms=<csv>` | `SfAccountSearchHit[]` (id, name, website, industry) |
+| `/api/aca/sf-search` | GET | `?q=<query>&limit=<n>&clientPlatforms=<csv>&market=<alpha-2>` | `SfAccountSearchHit[]` (id, name, website, industry). `market` filter (alpha-2) added post-v3.5 — composes with `clientPlatforms` (intersect, both ANDed in SOQL). Validation: `^[A-Za-z]{2}$`; non-alpha-2 values 400. |
 | `/api/aca/sf-client` | GET | `?accountId=<sfId>` | `SfClientBundle` (see above) |
 | `/api/aca/enrich-company-async` | POST | `{ accountId: string }` | `202 { status: "enqueued" \| "in_progress" \| "noop_fresh" \| "noop_no_company" \| "noop_no_domain" \| "dispatch_failed", jobId? }` |
+| `/api/aca/markets` | GET | `?platform=<spotify\|...>` (optional) | `{ markets: MarketRow[]; totalCount: number; generatedAt: string }`. 86 alpha-2 markets with `{ code, name, region, aliases[], tld, platformCoverage{}, language: { code, name, script, commerceVocabulary[], legalDescriptors[] } }`. Cache-Control headers (`max-age=60, s-maxage=300, swr=300`) on alaric side. When `platform` is set, drops markets where the platform is `unsupported`; `empty` markets stay (campaigns can still run there). |
 
 **Compat policy:** new fields on response shapes are additive (mirror types in ACA may lag; legacy response shapes still validate). Removing fields requires lockstep deploy.
 
@@ -422,9 +480,14 @@ For an industrialization team checking which deploys must be coordinated:
 | `ad:{adId}:enrichment-cache` Redis key removed | None for prod — never went to real customers | Stale dev keys auto-evict on 24h TTL. |
 | `enableWebSearch` adapter request flag, `webSearchCallCount` adapter response field, `web_search_start` SSE event removed | Internal types only — no external consumers | None. |
 | `salesforceAccountId` (top-level) marked `@deprecated` | Still emitted, still read | New writers mirror both `brand.salesforceAccountId` AND top-level. Eventual cleanup is a future stage. |
+| `ProjectBrief.toneOfVoice` (`ToneOfVoiceTag[]`) removed in post-v3.5 merge | None for prod — never shipped. Local-only v3.5 internal field replaced by Sergiu's `selectedTone` + `voiceInstructions`. | If any prod brief somehow carried the field, JSON.parse silently ignores. Knowledge-context plumbing also removed; tag-weaver no longer reads it. |
+| `ProjectBrief.brandVoice` no longer in form, no longer read by generate routes | Free-text "brand archetype" field retired in favour of alaric `BrandDossier` projection | Field stays on type as `@deprecated` for legacy decode. BriefPanelV4 surfaces legacy values in a read-only `<details>` block. Removal-pending. |
+| `selectedRegion` semantic shift (voice-region taxonomy → alaric alpha-2) | Brief panel writes alpha-2 codes; generate routes still pass it through unchanged | Legacy non-alpha-2 values render with `(legacy)` suffix in MarketPicker; re-pick promotes. SF-search now accepts `?market=<alpha-2>` filter. |
+| `/api/sf-accounts/search` + `/api/brands/recent` deleted | Folded into `/api/brand-context` discriminated-union route | Both endpoints had zero clientside callers in the merged tree (BriefPanelV3 was deleted in the same commit). No external consumers. |
+| Mixer `getMixerState` / `updateMixerState` Redis helpers deleted | Mixer is a versioned stream now (`ad:{adId}:mixer:v:{versionId}`) | The legacy single-blob `ad:{adId}:mixer` key is no longer written; readers consume the active mixer version via `getActiveVersionData(adId, "mixer")`. Alexandru's pre-merge ad-duplication route was rewritten to clone the four versioned streams uniformly. |
 
 **Not breaking** (additive, safe to deploy independently):
-- All new ProjectBrief fields (`brand`, `creativeAngle`, `varianceMode`, `toneOfVoice`, `brandVoice`, `referenceUrls`, `forbiddenWords`, `providedScript`, `selectedCTA`, `campaignFormat` enum extension) — every reader handles undefined.
+- New ProjectBrief fields (`brand`, `creativeAngle`, `varianceMode`, `referenceUrls`, `forbiddenWords`, `providedScript`, `selectedCTA`, `selectedTone`, `voiceInstructions`, `campaignFormat` enum extension) — every reader handles undefined.
 - `VoiceVersion.knowledgeContext` and `tagLintWarnings` — both optional.
 - `VoiceTrack` provider-specific fields (`dialectId`, `performanceId`, `emotion`, `description`, `voiceInstructions`, post-processing fields) — all optional.
 - `BrandDossier` shape — every slot + every field optional.
@@ -560,6 +623,173 @@ Audio-ads-creative-expert agent diagnosed it: two surfaces doing one job, badly.
 - **Stage U — Stage R chrome deleted.** Two routes (`/api/ai/enrich-brief`, `/api/ads/[id]/enrichment-cache`) deleted entirely. `BriefEnrichmentCacheRecord`, `getEnrichmentCache`, `setEnrichmentCache` stripped from `redis/versions.ts`. `BriefEnrichmentPanel`, `SourceCard`, `formatCacheAge`, `renderSfSummary`, `formatRevenueCompact`, `truncate`, `EnrichmentCachePayload`, `EnrichmentInputsSnapshot`, four `enrichment*` state hooks, `handleEnrichBrief`, `redactEnrichmentCache`, hydration `useEffect`, `enrichmentStale`, `canEnrich`, `computeEnrichmentInputsHash`, `runOneShotWebSearch`, `renderEnrichmentSectionsFromCache`, `renderWebSearchSection`, `extractResponseText`, the OpenAI client + import, `WEB_SEARCH_DEADLINE_MS`, the cache-first reads in both generate routes, all three emoji `icon` props on `BriefSectionHeader` — all gone. ~2 files deleted + ~370 lines stripped from `BriefPanelV3.tsx`.
 - **Stage V — BrandDossier projection** (the load-bearing replacement). See Data Model section above. Server-side `getCompanyFromSalesforce` extended to fetch all current `intelligence_reports` rows + project them via `projectBrandDossier()` into the 5-slot shape. ACA `renderBrandDossier()` produces a single multi-section prompt block. NO cost-bounding — every report row is folded in.
 - **Stage X — web search disentangled.** Legacy `enrichWithWebSearch` toggle deleted. Hosted-tool `web_search` path stripped from `OpenAIAdapter`. `enableWebSearch`, `webSearchBudget`, `webSearchCallCount`, `web_search_start` SSE event, `webSearchCallCount` adapter response field — all removed. ~80 lines stripped across 7 files. The replacement for SF-backed brands is the BrandDossier (strictly richer than what hosted search produced); standalone-brand fallback is held for Stage W.
+
+---
+
+## Post-v3.5 reconciliation — BriefPanelV4 + team merges
+
+After v3.5 was committed locally on `mixer-version-stream` but before it shipped, two parallel workstreams from teammates landed on `bitbucket/main`. Reconciling those plus a deliberate brief-panel restructure produced what currently runs at `mixer.alephcreative.cloud`.
+
+### Sergiu's tone-of-voice admin pipeline (adopted as canonical)
+
+Pre-merge, v3.5 had its own tone-of-voice surface: an 11-value closed enum (`ToneOfVoiceTag`) rendered as a chip multi-select, framed as "brand register / tone of voice." Comma-joined into a `## Brand register` bullet in the prompt.
+
+Sergiu independently shipped a different mental model on `main`:
+- DB-backed `suggested_tones` table (Drizzle migration `0002_add_suggested_tones`): `{ id uuid, title, description, voice_instructions, is_active, timestamps }`. Five seeded presets (Professional / Energetic / Warm / Authoritative / Sarcastic).
+- Admin CRUD at `/admin/tone-of-voice` (list / new / edit / delete) gated by the `admin` role middleware, with an "Generate instructions with AI" button calling `gpt-5.4` to draft prosody-focused voice instructions for a given title + description.
+- Public read-only `GET /api/tone-of-voice` (active-only, sorted newest first) consumed by the brief panel.
+- Service: `src/services/suggestedTonesService.ts` with full CRUD via Drizzle.
+- `ToneSelector` UI primitive: Headless UI `Listbox` single-select dropdown.
+- Brief shape: `selectedTone?: string | null` (preset id) + `voiceInstructions?: string | null` (resolved prose).
+
+The two pipelines were orthogonal mental models — multi-select tags ("how the BRAND should feel") vs. single preset → resolved prosody string ("how the line is read"). The user picked **Sergiu's pipeline as canonical**, dropping our naive enum entirely.
+
+What landed in this revision:
+- `ToneOfVoiceTag` union type + `ProjectBrief.toneOfVoice` field deleted (zero prod readers — never shipped).
+- `KnowledgeContext.toneOfVoice` plumbing removed; `tag-weaver` brief-line composer no longer references it.
+- All of Sergiu's files adopted verbatim: admin pages, admin API routes, public API route, service, `ToneSelector`, `Switch`, `ConfirmDialog` UI primitives, the `useToneOfVoice` hook (`src/hooks/useToneOfVoice.ts`).
+- `selectedTone` and `voiceInstructions` plumbed through V4 → generate routes → per-track `VoiceTrack.voiceInstructions`. The LLM only ever sees the resolved `voiceInstructions` string; the preset id is UI state only.
+- Template-seeding behaviour preserved: picking a preset auto-fills `voiceInstructions` from the template, but only if the user hasn't edited the textarea (ref-based "last-applied" tracking).
+
+### Alexandru's ad-duplication feature (AAC-18, rewritten for v3.5 mixer streams)
+
+Alexandru shipped `/api/ads/[id]/duplicate` + a `DuplicateAdPopup` component on `main`. The original implementation predated v3.5's mixer redesign:
+- Read mixer state via `getMixerState(adId)` (single Redis blob `ad:{adId}:mixer`)
+- Wrote it to the duplicate via `updateMixerState(newAdId, mixerState)`
+- Cloned voice/music/sfx via `getActiveVersionData` + `createVersion` (per-stream, three streams)
+- Rewrote `mixedAudioUrl` blob via `@vercel/blob` `copy()` so the duplicate is independent
+
+In v3.5, `getMixerState` / `updateMixerState` are **deleted** — the mixer is a versioned stream (`ad:{adId}:mixer:v:{versionId}` + active pointer), and `MixerVersion` carries the entire arrangement (anchors, pins, overrides, cachedResolverOutput, mixedAudioUrl). Alexandru's route would not compile against v3.5 as-shipped.
+
+The route was rewritten in this revision to clone all four streams uniformly:
+- `getActiveVersionData(adId, stream)` for each of `["voices", "music", "sfx", "mixer"]`
+- `mixer.mixedAudioUrl` rewritten via `@vercel/blob` `copy()` to a new blob path under `newAdId/...` (preview logo + visual the same way)
+- `createVersion(newAdId, stream, data)` for each of the four streams
+- `setActiveVersion(newAdId, stream, versionId)` to mark them as the active take
+- `setAdMetadata` + `saveConversation` + `setPreviewData` for the surrounding context
+- `ads:by_user:{email}` and `ads:all` Redis lists updated so the duplicate appears in the user's history
+
+Slot ids carry forward unchanged from the source's content versions, so the cloned mixer's anchor graph stays valid against the cloned content streams (anchor → slotId references resolve correctly without remapping).
+
+### BriefPanelV4 — three-topic restructure
+
+Alexandru also shipped a refactor of the brief panel: extracted `BriefPanelBase` (the basic-fields renderer) from the v3.5 monolithic `BriefPanelV3`, plus a thin `BriefPanelV3` wrapper that delegated to it. Worth reusing.
+
+Rather than mechanically port v3.5's enrichments back into the V3-style monolith, this revision restructured the panel into **three explicit topics**:
+
+```
+BriefPanelV4 (orchestrator: useState + Redis save + alaric implicit-on-save)
+├── BrandTopic
+│   Row: market (1/3) | brand picker (2/3 col-span)
+│         + DossierSummary inline under brand (implicit-on-save fetch)
+│         + read-only legacy <details> for ads with brandVoice populated
+├── CreativeTopic
+│   Heading row: h2 + subtitle (left) | tabbar (right)
+│       Tabbar: "Brief the agent" / "I have the script"
+│   Exposed row: brief | format (6-option listbox) | tone of voice
+│   Collapsibles row 1: angle | instructions | references
+│   Collapsibles row 2: forbidden | pacing | CTA
+│   Bottom: duration slider full-width
+└── LanguageTopic
+    Heading row: h2 + subtitle (left) | provider button + Voice Manager link (right)
+    Single row: language | voice region | accent (1/3 each)
+```
+
+Decisions worth carrying forward:
+- **Three primary fields exposed** (creative brief, ad format, tone of voice). Everything else collapsed.
+- **Custom script via tabbar, not collapsible.** Mirrors the music panel's mode-toggle idiom (`GlassTabBar` / `GlassTab` from `@/components/ui`). When in script mode, brief/angle/collapsibles all hide; brief save still includes both fields so toggling preserves edits.
+- **Pacing / CTA / Tone collapsibles carry a badge** showing the current value (`Normal` / `Fast`, the matched CTA label, the matched tone preset title). User sees state without expanding.
+- **Default pacing is `"fast"` for new briefs** (most Spotify spots run hot). `??` semantics preserve explicit `null` from existing briefs where the user picked Normal.
+- **Tab order**: small affordance toggles ("Show all" markets, "Spotify only" brands) carry `tabIndex={-1}` so Tab cycles primary inputs only.
+- **`BriefPanelBase` retained for `DuplicateAdPopup`.** Full atomization deferred — V4 uses glass primitives directly inside topic shells; Base remains a monolithic form that DuplicateAdPopup consumes verbatim.
+- **`BriefPanelV3.tsx` deleted.** Single brief-panel surface in the codebase post-merge.
+
+Field placement reflects the user's exposure decisions during multiple iterations of feedback. Earlier drafts had creativeAngle exposed (audio-expert pushback for brand-anchoring ladder); the user later overrode that and demoted angle into the collapsibles row. Documented as a known decision-point in case the regression surfaces and we need to re-promote.
+
+### Alaric markets endpoint integration
+
+Alaric shipped `GET /api/aca/markets` (canonical 86-market mapping) during this window — a long-requested capability. ACA consumes it through:
+
+- **`getMarkets({ platform? })`** in `src/lib/alaric-client.ts` — typed wrapper over `signedFetch`. Returns `MarketsResponse` with `markets: MarketRow[]`. Each market carries `{ code (alpha-2), name, region, aliases[], tld, platformCoverage{}, language: { code, name, script, commerceVocabulary[], legalDescriptors[] } }`.
+- **`GET /api/markets`** (`src/app/api/markets/route.ts`) — thin proxy that signs the alaric call. Defaults `?platform=spotify`; `?showAll=true` escape hatch. Mirrors alaric's `Cache-Control` headers (`max-age=60, s-maxage=300, swr=300`) — no in-memory cache layer needed.
+- **`MarketPicker`** subeditor — searchable `GlassyCombobox` (typeable filter against name + alpha-2 + alaric's `aliases[]` so `slovenian` / `slovenija` / `SI` all match Slovenia).
+- **Market grounds the brand picker** — `marketAlpha2` flows into `/api/brand-context { kind: "search", marketAlpha2 }` → forwarded to alaric's `/api/aca/sf-search?market=SI`. SF search returns only accounts in that market. Composes (intersect) with `clientPlatforms` filter.
+- **Market grounds language defaults** — picking a market sets `selectedLanguage` to `market.language.code` IFF the user hasn't already picked a language (don't clobber).
+- **Legacy non-alpha-2 values gracefully degrade.** Pre-v4 `selectedRegion` values that don't match `^[A-Za-z]{2}$` skip the alaric filter (would 400) and render with a `(legacy)` suffix in the picker. Re-picking promotes to a real alpha-2.
+
+`commerceVocabulary` and `legalDescriptors` ride along on every market record but are not yet plumbed into the LLM prompt — held as a "stretch" follow-up for a future revision (idiomatic native-language commerce verbs in scripts without the rep deciding "comprar" vs "compra" vs "comprá").
+
+### `/api/brand-context` — single endpoint for brand picker lookups
+
+Replaced two separate endpoints (`/api/sf-accounts/search` and `/api/brands/recent`) with one discriminated-union route. Both legacy endpoints **deleted**.
+
+```ts
+// POST /api/brand-context
+type BrandContextRequest =
+  | { kind: "sf-account"; accountId: string; marketAlpha2?: string }
+  | { kind: "search"; query: string; marketAlpha2?: string; clientPlatforms?: string[]; limit?: number }
+  | { kind: "greenfield"; marketAlpha2?: string; limit?: number }
+  | { kind: "spotify-ad-manager"; campaignId: string; marketAlpha2?: string };  // 501 today
+
+type BrandContextResponse = {
+  brand: BrandRef | null;
+  candidates?: SfAccountSearchResult[];   // for kind: "search"
+  recents?: BrandRef[];                   // for kind: "greenfield"
+  dossier: BrandDossier | null;           // for kind: "sf-account"
+  market: MarketRow | null;
+  enrichmentSummary?: { slotCount: number; lastEnrichedAt?: number };
+};
+```
+
+- **`sf-account`** — picker resolves a picked SF account; returns `BrandRef` + `BrandDossier` (same shape `prefetchBriefEnrichments` embeds into the LLM message; **single source of truth** — UI badge and prompt embed read identical projection) + `enrichmentSummary` for the dossier badge.
+- **`search`** — SOQL-LIKE search; default `clientPlatforms: ["spotify"]` (pass `[]` to bypass for greenfield workflows). `marketAlpha2` filter (validated `^[A-Za-z]{2}$`; non-alpha-2 silently dropped to avoid alaric 400s on legacy `selectedRegion` values).
+- **`greenfield`** — derives the user's recent brands by aggregating `AdMetadata.brief.brand` across `ads:by_user:{email}` (deduped by case-insensitive `brand.name`).
+- **`spotify-ad-manager`** — sealed-enum reservation. Returns `501` today; schema reserved so SAM ingestion can land without repainting the contract. `BrandRef.spotifyAdManagerSnapshot` slot reserved as a JSDoc-commented future field.
+
+Implicit-on-save: `BriefPanelV4` posts `{ kind: "sf-account", accountId }` on brand pick and renders `DossierSummary` ("Dossier loaded — N slots, last enriched X ago") inline under the brand badge. **No manual "Enrich" button** — v3 Stage R lesson (manual enrich = empty success theater).
+
+### Auth: Edge-safe NextAuth split
+
+`src/auth.config.ts` split out from `src/auth.ts` so middleware can `NextAuth(authConfig)` without dragging the Drizzle adapter + Resend provider into Edge runtime. Edge bundle is JWT-decode-only.
+
+- `auth.config.ts` — Edge-safe: Google provider gating, signIn callback (domain allowlist), session strategy. No DB adapter.
+- `auth.ts` — Node runtime: extends `authConfig` with `DrizzleAdapter` + `Resend` (magic link) provider + DB-touching `jwt` / `session` callbacks. Imported by route handlers + server helpers.
+- `middleware.ts` — uses the Edge-safe config; returns `401 JSON` for unauthenticated `/api/*` calls (was `302` to sign-in HTML, which broke fetch-based clients on JSON.parse).
+
+Magic-link is the only auth path today. Google OAuth is gated by `process.env.GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET` and currently unconfigured.
+
+For preview-domain deploys (e.g. `mixer.alephcreative.cloud` aliased to the `mixer-version-stream` branch): `AUTH_URL` must be branch-scoped on Vercel Preview env, NOT environment-blanket-scoped, otherwise the apex-valued Production entry can shadow. `AUTH_TRUST_HOST=true` set on both Production and Preview.
+
+### Files added / deleted in this revision
+
+**Added:**
+- `src/components/BriefPanelV4.tsx`
+- `src/components/brief-topics/{BrandTopic,CreativeTopic,LanguageTopic,CollapsibleSection}.tsx`
+- `src/components/brief-topics/subeditors/{BrandPickerSubeditor,MarketPicker,DossierSummary,VoiceInstructionsSubeditor,ReferenceUrlsSubeditor,ForbiddenWordsSubeditor,CustomScriptSubeditor}.tsx`
+- `src/app/api/brand-context/route.ts` + `__tests__/route.test.ts`
+- `src/app/api/markets/route.ts` + `__tests__/route.test.ts`
+- `src/app/api/ads/[id]/duplicate/route.ts` (Alexandru's, rewritten for v3.5 mixer streams)
+- `src/components/DuplicateAdPopup.tsx` (Alexandru's, adopted verbatim)
+- `src/hooks/useToneOfVoice.ts` (Sergiu's)
+- `src/services/suggestedTonesService.ts` (Sergiu's)
+- `src/app/admin/tone-of-voice/{page,new/page,[id]/edit/page}.tsx` (Sergiu's)
+- `src/app/api/admin/tone-of-voice/{route,[id]/route,generate-instructions/route}.ts` (Sergiu's)
+- `src/app/api/tone-of-voice/route.ts` (Sergiu's, public read endpoint)
+- `src/components/admin/{ToneOfVoiceForm,ToneOfVoiceList}.tsx` (Sergiu's)
+- `src/components/ui/{ToneSelector,Switch,ConfirmDialog}.tsx` (Sergiu's)
+- `drizzle/migrations/0002_add_suggested_tones.sql` (Sergiu's)
+
+**Deleted:**
+- `src/components/BriefPanelV3.tsx`
+- `src/app/api/sf-accounts/search/route.ts`
+- `src/app/api/brands/recent/route.ts`
+- v3.5 internal: `ToneOfVoiceTag` union, `ProjectBrief.toneOfVoice` field, `KnowledgeContext.toneOfVoice`, `tag-weaver` brief-line `tone=` segment
+
+**Modified (notable):**
+- `src/lib/alaric-client.ts` — added `getMarkets`, `MarketRow`, `MarketsResponse`, `PlatformCoverage`, `MarketLanguage` types; `searchSfAccounts` accepts `market?: string` opt
+- `src/lib/redis/versions.ts` — `getActiveVersionData` uses `VersionFor<T>` so `mixer` stream type-checks; legacy `getMixerState` / `updateMixerState` deleted
+- `src/types/index.ts` — `selectedTone` + `voiceInstructions` added; `brandVoice` + `enrichWithWebSearch` marked `@deprecated`; `ToneOfVoiceTag` removed
+- `src/app/api/ai/generate{,/-stream}/route.ts` — drop `brandVoice` injection + `enrichWithWebSearch` reads + `toneOfVoice` plumbing; preserve `voiceInstructions` threading to per-track output
 
 ---
 
@@ -955,14 +1185,17 @@ Retired:
 
 | Area | New / Changed |
 |------|---------------|
-| **Brand identity** | `src/types/index.ts` (BrandRef, ProjectBrief extensions) |
-| **Brief panel** | `src/components/BriefPanelV3.tsx` — three collapsibles, brand picker, Recents, Stage I inheritance |
-| **alaric client** | `src/lib/alaric-client.ts` — HMAC signer, type mirrors (BrandDossier, SfClientBundle, AlaricFetchResult) |
+| **Brand identity** | `src/types/index.ts` — `BrandRef`, `ProjectBrief` extensions, `selectedTone` + `voiceInstructions` post-merge, `ToneOfVoiceTag` REMOVED, `brandVoice` + `enrichWithWebSearch` `@deprecated` |
+| **Brief panel V4** | `src/components/BriefPanelV4.tsx` — orchestrator (replaces deleted `BriefPanelV3.tsx`); 3-topic shells in `src/components/brief-topics/{BrandTopic,CreativeTopic,LanguageTopic}.tsx`; subeditors in `src/components/brief-topics/subeditors/*.tsx` |
+| **Brief panel base** | `src/components/BriefPanelBase.tsx` — Alexandru's monolithic form, retained for `DuplicateAdPopup` |
+| **alaric client** | `src/lib/alaric-client.ts` — HMAC signer, type mirrors (BrandDossier, SfClientBundle, AlaricFetchResult, MarketRow, MarketLanguage); `searchSfAccounts` market filter; `getMarkets` |
 | **Brief enrichment** | `src/lib/brief-enrichment.ts` — prefetchBriefEnrichments, renderEnrichmentSections, renderBrandDossier, URL type detection |
-| **Brand recents** | `src/app/api/brands/recent/route.ts` — derives from ads:by_user index |
-| **SF picker proxy** | `src/app/api/sf-accounts/search/route.ts` — browser-callable wrapper that signs HMAC |
+| **Brand context** | `src/app/api/brand-context/route.ts` (NEW) — discriminated `kind`: `sf-account` / `search` / `greenfield` / `spotify-ad-manager`. Replaces deleted `/api/sf-accounts/search` + `/api/brands/recent`. |
+| **Markets proxy** | `src/app/api/markets/route.ts` (NEW) — `getMarkets` proxy with `?showAll=true` escape hatch |
+| **Tone-of-voice (Sergiu)** | `src/services/suggestedTonesService.ts`, `src/app/api/tone-of-voice/route.ts`, `src/app/api/admin/tone-of-voice/**`, `src/app/admin/tone-of-voice/**`, `src/components/admin/{ToneOfVoiceForm,ToneOfVoiceList}.tsx`, `src/components/ui/{ToneSelector,Switch,ConfirmDialog}.tsx`, `src/hooks/useToneOfVoice.ts`, `drizzle/migrations/0002_add_suggested_tones.sql` |
+| **Ad duplication** | `src/app/api/ads/[id]/duplicate/route.ts` (Alexandru, rewritten for v3.5 mixer streams), `src/components/DuplicateAdPopup.tsx` |
 | **Brief PATCH** | `src/app/api/ads/[id]/brief/route.ts` — idempotent lazy-create via ensureAdExists |
-| **Generate routes** | `src/app/api/ai/generate/route.ts` + `generate-stream/route.ts` — prefetch + dossier injection, web_search path removed |
+| **Generate routes** | `src/app/api/ai/generate/route.ts` + `generate-stream/route.ts` — prefetch + dossier injection, web_search path removed, `brandVoice` + `toneOfVoice` plumbing dropped, `voiceInstructions` threading kept |
 | **Tag weaver** | `src/lib/tools/validation/tag-weaver.ts` (NEW) — per-track ElevenLabs tag insertion |
 | **Tag lint** | `src/lib/tools/validation/voice-tag-lint.ts` (NEW) — three mechanical rules + telemetry |
 | **Accent policy** | `src/lib/tools/validation/accent-policy.ts` (NEW) — resolveAccentForLint + canonical [strong X accent] form |
@@ -974,7 +1207,8 @@ Retired:
 | **OpenAI adapter** | `src/lib/tool-calling/adapters/OpenAIAdapter.ts` — hosted web_search path removed |
 | **Agent executor** | `src/lib/tool-calling/AgentExecutor.ts` — webSearchBudget removed, max-iterations diagnostic added |
 | **Tool definitions** | `src/lib/tools/definitions.ts` — text param: "clean prose, no inline bracket tags" |
-| **Versions** | `src/lib/redis/versions.ts` — writeTagLintTelemetry; enrichment-cache helpers REMOVED |
+| **Versions** | `src/lib/redis/versions.ts` — writeTagLintTelemetry; enrichment-cache helpers REMOVED; legacy `getMixerState`/`updateMixerState` REMOVED; `getActiveVersionData` uses `VersionFor<T>` for mixer stream support |
+| **Auth** | `src/auth.config.ts` (NEW) — Edge-safe split; `src/auth.ts` extends with Drizzle + Resend; `src/middleware.ts` uses Edge-safe config, returns 401 JSON for `/api/*` |
 
 **alaric-side (sister project) — modified:**
 
