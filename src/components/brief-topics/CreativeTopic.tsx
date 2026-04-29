@@ -133,44 +133,44 @@ export function CreativeTopic({
         />
       ) : (
         <>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Creative brief{" "}
-              <span className="text-gray-500 font-normal">
-                (description of the ad — required)
-              </span>
-            </label>
-            <GlassyTextarea
-              value={creativeBrief}
-              onChange={(e) => onCreativeBriefChanged(e.target.value)}
-              placeholder="Describe the creative direction, key messages, and target audience…"
-              rows={5}
-              disabled={disabled}
-            />
-          </div>
+          <div className="grid grid-cols-3 gap-6 items-start">
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Creative brief{" "}
+                <span className="text-gray-500 font-normal">
+                  (description of the ad — required)
+                </span>
+              </label>
+              <GlassyTextarea
+                value={creativeBrief}
+                onChange={(e) => onCreativeBriefChanged(e.target.value)}
+                placeholder="Describe the creative direction, key messages, and target audience…"
+                rows={5}
+                disabled={disabled}
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Creative angle
-              <span className="ml-2 text-xs text-gray-500">
-                (the variance — what makes THIS ad different from every other
-                ad for this brand)
-              </span>
-            </label>
-            <GlassyTextarea
-              value={creativeAngle}
-              onChange={(e) => onCreativeAngleChanged(e.target.value)}
-              placeholder="What is THIS ad asking the listener to feel or do that no other ad for this brand would? E.g. 'urgent 24h Black Friday push, hook drops at 0:03' — one or two sentences specific to this spot."
-              rows={3}
-              disabled={disabled}
-            />
-            {showAngleNudge && (
-              <p className="mt-2 text-xs text-amber-400">
-                Without an angle, the script will brand-anchor cleanly but
-                lose the per-spot edge — type one sentence specific to THIS
-                spot.
-              </p>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Creative angle
+                <span className="ml-2 text-xs text-gray-500">
+                  (variance — what makes THIS spot different)
+                </span>
+              </label>
+              <GlassyTextarea
+                value={creativeAngle}
+                onChange={(e) => onCreativeAngleChanged(e.target.value)}
+                placeholder="What is THIS ad asking the listener to feel or do that no other ad for this brand would? E.g. 'urgent 24h Black Friday push, hook drops at 0:03'."
+                rows={5}
+                disabled={disabled}
+              />
+              {showAngleNudge && (
+                <p className="mt-2 text-xs text-amber-400">
+                  Without an angle, the script will brand-anchor cleanly but
+                  lose the per-spot edge.
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-3 pt-2">

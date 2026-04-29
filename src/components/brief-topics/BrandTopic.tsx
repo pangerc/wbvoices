@@ -65,8 +65,8 @@ export function BrandTopic({
         </details>
       )}
 
-      <div className="space-y-3">
-        <div>
+      <div className="grid grid-cols-3 gap-6 items-start">
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-300 mb-2">
             Brand{" "}
             <span className="text-gray-500 font-normal">
@@ -88,11 +88,13 @@ export function BrandTopic({
           </div>
         </div>
 
-        <MarketPicker
-          value={marketAlpha2}
-          onChange={onMarketChanged}
-          disabled={disabled}
-        />
+        <div>
+          <MarketPicker
+            value={marketAlpha2}
+            onChange={onMarketChanged}
+            disabled={disabled}
+          />
+        </div>
       </div>
     </section>
   );
