@@ -170,8 +170,11 @@ export function BriefPanelV4({
   const [selectedCTA, setSelectedCTA] = useState<string | null>(
     initialBrief?.selectedCTA || null,
   );
+  // Default to "fast" for new briefs (most Spotify spots run hot).
+  // `??` preserves explicit `null` from existing briefs where the user
+  // picked Normal — only undefined (field missing) falls through to fast.
   const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(
-    initialBrief?.selectedPacing || null,
+    initialBrief?.selectedPacing ?? "fast",
   );
   const [selectedTone, setSelectedTone] = useState<string | null>(
     initialBrief?.selectedTone || null,
