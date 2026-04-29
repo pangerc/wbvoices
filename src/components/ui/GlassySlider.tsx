@@ -6,6 +6,7 @@ export interface TickMark {
 }
 
 export interface GlassySliderProps {
+  disabled?: boolean;
   label?: ReactNode;
   value: number;
   onChange: (value: number) => void;
@@ -17,6 +18,7 @@ export interface GlassySliderProps {
 }
 
 export function GlassySlider({
+  disabled,
   label,
   value,
   onChange,
@@ -66,6 +68,7 @@ export function GlassySlider({
           value={value}
           onChange={(e) => onChange(parseFloat(e.target.value))}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          disabled={disabled}
         />
       </div>
 
@@ -81,14 +84,14 @@ export function GlassySlider({
                   tick.value === min
                     ? "0%"
                     : tick.value === max
-                    ? "100%"
-                    : `${((tick.value - min) / (max - min)) * 100}%`,
+                      ? "100%"
+                      : `${((tick.value - min) / (max - min)) * 100}%`,
                 transform:
                   tick.value === min
                     ? "none"
                     : tick.value === max
-                    ? "translateX(-100%)"
-                    : "translateX(-50%)",
+                      ? "translateX(-100%)"
+                      : "translateX(-50%)",
               }}
             >
               {tick.label}

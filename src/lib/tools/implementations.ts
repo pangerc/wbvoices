@@ -12,8 +12,22 @@ import {
   VoiceHistorySummary,
 } from "./types";
 import { voiceCatalogue } from "@/services/voiceCatalogueService";
-import { createVersion, listVersions, getVersion, getAllVersionsWithData, setAdMetadata, getAdMetadata, updateVersion } from "@/lib/redis/versions";
-import type { Language, Provider, Voice, MusicProvider, SoundFxPlacementIntent } from "@/types";
+import {
+  createVersion,
+  listVersions,
+  getVersion,
+  getAllVersionsWithData,
+  setAdMetadata,
+  getAdMetadata,
+  updateVersion,
+} from "@/lib/redis/versions";
+import type {
+  Language,
+  Provider,
+  Voice,
+  MusicProvider,
+  SoundFxPlacementIntent,
+} from "@/types";
 import type {
   VoiceVersion,
   MusicVersion,
@@ -26,7 +40,10 @@ import type {
  * Freeze any existing draft in a stream before creating a new one.
  * This ensures only one draft exists at a time.
  */
-async function freezeExistingDraft(adId: string, streamType: StreamType): Promise<void> {
+async function freezeExistingDraft(
+  adId: string,
+  streamType: StreamType,
+): Promise<void> {
   const versions = await listVersions(adId, streamType);
   for (const vId of versions) {
     const version = await getVersion(adId, streamType, vId);
@@ -42,7 +59,7 @@ async function freezeExistingDraft(adId: string, streamType: StreamType): Promis
  * Search voices from the voice catalogue
  */
 export async function searchVoices(
-  params: SearchVoicesParams
+  params: SearchVoicesParams,
 ): Promise<SearchVoicesResult> {
   const { provider, language, gender, accent, count = 10 } = params;
 
@@ -51,7 +68,7 @@ export async function searchVoices(
     provider as Provider,
     language as Language,
     accent,
-    true // requireApproval
+    true, // requireApproval
   );
 
   // Filter by gender if specified
@@ -83,7 +100,7 @@ export async function searchVoices(
  * Create voice draft in Redis
  */
 export async function createVoiceDraft(
-  params: CreateVoiceDraftParams
+  params: CreateVoiceDraftParams,
 ): Promise<DraftCreationResult> {
   const { adId, tracks } = params;
 
@@ -99,15 +116,16 @@ export async function createVoiceDraft(
       // Log when lookup fails for debugging
       if (!catalogueVoice) {
         console.warn(
-          `⚠️ Voice catalogue lookup failed for ID: ${track.voiceId}. Fallback: language=${track.language}, provider=${track.provider}`
+          `⚠️ Voice catalogue lookup failed for ID: ${track.voiceId}. Fallback: language=${track.language}, provider=${track.provider}`,
         );
       }
 
       // Use catalogue voice if found, otherwise fallback to minimal object
       // Map UnifiedVoice fields to Voice type
       // Note: UnifiedVoice.gender includes "neutral" but Voice.gender doesn't
-      const mapGender = (g: "male" | "female" | "neutral"): "male" | "female" | null =>
-        g === "neutral" ? null : g;
+      const mapGender = (
+        g: "male" | "female" | "neutral",
+      ): "male" | "female" | null => (g === "neutral" ? null : g);
 
       const voice: Voice = catalogueVoice
         ? {
@@ -118,7 +136,8 @@ export async function createVoiceDraft(
             language: catalogueVoice.language,
             accent: catalogueVoice.accent,
             provider: catalogueVoice.provider,
-            style: catalogueVoice.styles?.join(", ") || catalogueVoice.personality,
+            style:
+              catalogueVoice.styles?.join(", ") || catalogueVoice.personality,
             description: catalogueVoice.personality,
           }
         : {
@@ -134,7 +153,8 @@ export async function createVoiceDraft(
       return {
         voice,
         text: track.text,
-        playAfter: track.playAfter || (index === 0 ? "start" : `track-${index - 1}`),
+        playAfter:
+          track.playAfter || (index === 0 ? "start" : `track-${index - 1}`),
         overlap: track.overlap ?? 0,
         speed: 1.0,
         // Provider-specific fields
@@ -144,7 +164,7 @@ export async function createVoiceDraft(
         performanceId: track.performanceId, // Lahajati performance style ID
         emotion: track.emotion, // ByteDance TTS 2.0 emotion tag
       };
-    })
+    }),
   );
 
   const voiceVersion: VoiceVersion = {
@@ -168,7 +188,7 @@ export async function createVoiceDraft(
  * Create music draft in Redis
  */
 export async function createMusicDraft(
-  params: CreateMusicDraftParams
+  params: CreateMusicDraftParams,
 ): Promise<DraftCreationResult> {
   const {
     adId,
@@ -187,7 +207,9 @@ export async function createMusicDraft(
     const briefDuration = meta?.brief?.adDuration || 30;
     // Music should be longer than ad to allow for LLM overruns and fade-out
     effectiveDuration = Math.max(30, briefDuration + 15);
-    console.log(`[create_music_draft] Derived duration ${effectiveDuration}s from brief (ad: ${briefDuration}s)`);
+    console.log(
+      `[create_music_draft] Derived duration ${effectiveDuration}s from brief (ad: ${briefDuration}s)`,
+    );
   }
 
   // Freeze any existing draft before creating new one
@@ -221,7 +243,7 @@ export async function createMusicDraft(
  * Create SFX draft in Redis
  */
 export async function createSfxDraft(
-  params: CreateSfxDraftParams
+  params: CreateSfxDraftParams,
 ): Promise<DraftCreationResult> {
   const { adId, prompts } = params;
 
@@ -242,7 +264,10 @@ export async function createSfxDraft(
           placement = { type: "beforeVoices" };
         } else if (p.placement.type === "end") {
           placement = { type: "end" };
-        } else if (p.placement.type === "afterVoice" && p.placement.index !== undefined) {
+        } else if (
+          p.placement.type === "afterVoice" &&
+          p.placement.index !== undefined
+        ) {
           placement = { type: "afterVoice", index: p.placement.index };
         }
       }
@@ -275,7 +300,7 @@ export async function createSfxDraft(
  * and make informed decisions about what to preserve/modify
  */
 export async function readAdState(
-  params: ReadAdStateParams
+  params: ReadAdStateParams,
 ): Promise<ReadAdStateResult> {
   const { adId } = params;
 
@@ -283,8 +308,11 @@ export async function readAdState(
 
   // Helper to get latest version from a stream
   async function getLatestVersion(
-    streamType: "voices" | "music" | "sfx"
-  ): Promise<{ id: VersionId; data: VoiceVersion | MusicVersion | SfxVersion } | null> {
+    streamType: "voices" | "music" | "sfx",
+  ): Promise<{
+    id: VersionId;
+    data: VoiceVersion | MusicVersion | SfxVersion;
+  } | null> {
     const versions = await listVersions(adId, streamType);
     if (versions.length === 0) return null;
 
@@ -352,13 +380,18 @@ export async function readAdState(
  * Set a catchy creative title for the ad
  */
 export async function setAdTitle(
-  params: SetAdTitleParams
+  params: SetAdTitleParams,
 ): Promise<SetAdTitleResult> {
   const { adId, title } = params;
 
   const existing = await getAdMetadata(adId);
   if (!existing) {
     return { success: false, title: "" };
+  }
+
+  // Do not change the name of the ad if the ad already has a name
+  if (existing.name && existing.name !== "") {
+    return { success: true, title: existing.name };
   }
 
   await setAdMetadata(adId, {
