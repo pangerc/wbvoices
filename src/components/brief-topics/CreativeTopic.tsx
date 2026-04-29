@@ -291,7 +291,7 @@ export function CreativeTopic({
         />
       ) : (
         <>
-          {/* Row 1: Brief | Format | Tone */}
+          {/* Exposed row: Brief | Format | CTA */}
           <div className="grid grid-cols-3 gap-6 items-start">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -330,61 +330,6 @@ export function CreativeTopic({
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Tone of voice{" "}
-                <span className="text-gray-500 font-normal text-xs">
-                  (how the line is read)
-                </span>
-              </label>
-              <ToneSelector
-                value={selectedTone}
-                onChange={handleToneChange}
-                options={computedToneOptions}
-                emptyOption={TONE_EMPTY_OPTION}
-                disabled={disabled}
-              />
-            </div>
-          </div>
-
-          {/* Row 2: Pacing | CTA | (empty) */}
-          <div className="grid grid-cols-3 gap-6 items-start">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Pacing
-              </label>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
-                <div
-                  className={twMerge(
-                    "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
-                    selectedPacing === null
-                      ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                      : "bg-transparent hover:bg-white/10 text-gray-300",
-                    disabled ? "pointer-events-none" : "",
-                  )}
-                  onClick={() => onSelectedPacingChanged(null)}
-                  title="Normal — Standard delivery pace"
-                >
-                  <TurtleIcon />
-                  <span className="text-xs">Normal</span>
-                </div>
-                <div
-                  className={twMerge(
-                    "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
-                    selectedPacing === "fast"
-                      ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                      : "bg-transparent hover:bg-white/10 text-gray-300",
-                    disabled ? "pointer-events-none" : "",
-                  )}
-                  onClick={() => onSelectedPacingChanged("fast")}
-                  title="Fast — Energetic, urgent delivery"
-                >
-                  <RabbitIcon />
-                  <span className="text-xs">Fast</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Call to action (CTA)
               </label>
               <GlassyListbox
@@ -406,12 +351,9 @@ export function CreativeTopic({
                 </button>
               )}
             </div>
-
-            <div />
           </div>
 
-          {/* Collapsibles row: Angle | Instructions | References | Forbidden
-              (4 items in a 3-col grid → forbidden wraps to row 2 col-1) */}
+          {/* Collapsibles row 1: Angle | Instructions | References */}
           <div className="grid grid-cols-3 gap-6 items-start pt-2">
             <CollapsibleSection
               title="Creative angle"
@@ -457,7 +399,10 @@ export function CreativeTopic({
                 disabled={disabled}
               />
             </CollapsibleSection>
+          </div>
 
+          {/* Collapsibles row 2: Forbidden | Pacing | Tone */}
+          <div className="grid grid-cols-3 gap-6 items-start">
             <CollapsibleSection
               title="Forbidden"
               description="words / phrases to avoid"
@@ -466,6 +411,64 @@ export function CreativeTopic({
               <ForbiddenWordsSubeditor
                 value={forbiddenWords}
                 onChange={onForbiddenWordsChanged}
+                disabled={disabled}
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Pacing"
+              badge={selectedPacing === "fast" ? "Fast" : "Normal"}
+              defaultOpen={false}
+            >
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
+                <div
+                  className={twMerge(
+                    "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
+                    selectedPacing === null
+                      ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                      : "bg-transparent hover:bg-white/10 text-gray-300",
+                    disabled ? "pointer-events-none" : "",
+                  )}
+                  onClick={() => onSelectedPacingChanged(null)}
+                  title="Normal — Standard delivery pace"
+                >
+                  <TurtleIcon />
+                  <span className="text-xs">Normal</span>
+                </div>
+                <div
+                  className={twMerge(
+                    "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
+                    selectedPacing === "fast"
+                      ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
+                      : "bg-transparent hover:bg-white/10 text-gray-300",
+                    disabled ? "pointer-events-none" : "",
+                  )}
+                  onClick={() => onSelectedPacingChanged("fast")}
+                  title="Fast — Energetic, urgent delivery"
+                >
+                  <RabbitIcon />
+                  <span className="text-xs">Fast</span>
+                </div>
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Tone of voice"
+              badge={
+                selectedTone && selectedTone !== "custom"
+                  ? computedToneOptions.find((o) => o.value === selectedTone)
+                      ?.title || selectedTone
+                  : selectedTone === "custom"
+                    ? "Custom"
+                    : undefined
+              }
+              defaultOpen={selectedTone !== null}
+            >
+              <ToneSelector
+                value={selectedTone}
+                onChange={handleToneChange}
+                options={computedToneOptions}
+                emptyOption={TONE_EMPTY_OPTION}
                 disabled={disabled}
               />
             </CollapsibleSection>
