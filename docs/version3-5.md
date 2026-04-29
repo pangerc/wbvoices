@@ -10,32 +10,39 @@
 
 End-user / sales-rep / manager-facing changes since the V3 baseline. Implementation detail lives in the rest of the doc; this section is for non-engineers.
 
-**For sales reps using ACA**
+The headline shift in this window is the **mixer**. V3 ACA was a "generate the script, listen, regenerate if you don't like it" tool — the rep had no granular control over the final mix. V3.5 turns it into an arrangement workspace: takes, draggable timeline, edge trimming, per-clip volume and fades, live loudness metering, and a preview-and-export path that respects every edit. Most of what's below is mixer-side capability.
 
-- **Salesforce-grounded briefs.** Picking an SF account from the brand picker auto-pulls the brand's commercial relationship, creative posture, audience signals, and policy constraints into the LLM prompt — no manual copy-paste from intelligence reports. Falls back to a greenfield "type the brand name" path when no SF match exists.
-- **Market-driven defaults (86 markets from alaric).** Pick the market up front; the panel defaults the language to the market's primary language, filters the brand picker to SF accounts in that market, and gives the agent locale context (currency words, regulatory phrasing) for native-sounding scripts.
-- **Cleaner brief panel (V4 three-topic restructure).** Brand & Market / Creative / Language & Voice. The three primary fields (creative brief, ad format, tone of voice) are exposed up front; everything else (creative angle, voice instructions, references, forbidden words, pacing, CTA) lives behind collapsibles.
+**Mixer / production (the bulk of the v3.5 capability uplift)**
+
+- **Versioned mixer takes.** Each ad now carries a stream of mixer arrangements alongside the voice/music/SFX streams. "Start a new take" forks the current arrangement into a draft you can edit; freezing a take preserves it as an immutable snapshot you can return to. The takes dropdown shows every frozen take with its label and creation time. Lets reps experiment without losing the version they liked.
+- **Draggable timeline (anchor-graph backed).** Voice and SFX clips can be repositioned by drag-and-drop. The arrangement is stored as a graph of relationships ("voice 2 starts after voice 1 ends + 200ms"; "SFX 1 plays simultaneously with voice 1") rather than absolute timestamps — so when the rep regenerates a voice line that turns out longer, the rest of the mix automatically shifts to accommodate. Drag-to-reposition translates the user's intent into a new graph anchor; mid-arrangement insertion / reordering / removal all preserve the rest of the mix.
+- **Edge trimming.** Drag a clip's right edge inward to trim the tail; the waveform redraws cropped to the playback window in real time. Trim is honored everywhere downstream — preview playback uses the trimmed window, the rendered export uses the trimmed window. No more "I trimmed it visually but the export still has the long version" surprise.
+- **Per-clip volume + fades.** Each clip has independent gain (dB trim around unity, -12 to +6), fade-in, and fade-out controls on top of the mandatory zero-cross micro-fade. Mute and solo are live during preview playback.
+- **Stem loudness normalization.** Voice / music / SFX stems all normalize to a consistent integrated loudness target (BS.1770). User-set per-clip volume operates in dB around that unity reference, so a +3 dB on the voice track means "3 dB louder than the music bed" no matter which provider generated either stem. Solves the chronic "ElevenLabs voices come out way hotter than Lahajati" mismatch.
+- **Live LUFS meter during preview.** Real-time integrated loudness reading during preview playback (BS.1770), so the rep can confirm the mix sits at platform-spec target before exporting.
+- **Click-to-seek + playhead scrubbing.** The timeline is clickable and the playhead is draggable — standard DAW-like navigation, no more restart-from-zero on every preview.
+- **Format-duration horizon.** The timeline visually clamps to the brief's `adDuration` (30s / 60s) with a soft warning when content runs over. Drops + insertions past the horizon get blocked at drag time. Catches over-budget mixes before export.
+- **Pure server-side resolver.** Timeline math (where each clip starts, how long the mix is, how clips align across regenerations) is computed by a deterministic resolver on the server, not by ad-hoc client-side code. Same input always produces the same output — and the resolver runs identically for the preview UI and the rendered export, so what the rep hears in preview is what comes out of the export.
+- **Reset-to-seed.** "Reset arrangement" reverts to the LLM's originally-suggested anchor graph (the seed produced when the script was first generated). Lets the rep rip out manual edits without losing the AI-cast starting point.
+- **Take management UX.** "Save take" / "Switch to take 2" / per-take label editing — explicit affordances rather than a hidden version history.
+
+**For sales reps using ACA (brief panel + brand grounding)**
+
+- **Salesforce-grounded briefs.** Picking an SF account from the brand picker auto-pulls the brand's commercial relationship, creative posture, audience signals, and policy constraints (taboo words, mandatory legal) into the LLM prompt — no manual copy-paste from intelligence reports. Greenfield "type the brand name" path stays available when no SF match exists.
+- **Market-driven defaults (86 markets from alaric).** Pick the market up front; the panel defaults the language to the market's primary language, filters the brand picker to SF accounts in that market, and gives the agent locale context for native-sounding scripts.
+- **Cleaner brief panel (V4 three-topic restructure).** Brand & Market / Creative / Language & Voice. Three primary fields exposed (creative brief, ad format, tone of voice); everything else collapsed by default.
 - **Ad duplication.** One-click clone of an existing ad — voices, music, SFX, mixer arrangement, and rendered audio assets all copy across. Ready to tweak as a variant.
-- **Tone-of-voice presets.** Admin-managed library (Professional, Energetic, Warm, Authoritative, Sarcastic, plus team-added ones). Picking a preset auto-fills voice-delivery instructions for the LLM; the user can edit freely. AI-generated suggestion in the admin form.
-- **Brief autosaves continuously.** No "save" button. Picking up an ad later resumes exactly where you left off.
 
 **For creative quality**
 
 - **Six campaign formats** in the UI (single, dialogue, testimonial, vox-pop, dramatized scene, radio skit) — was 2. Each gets format-specific casting + script-structure guidance.
-- **Two-pass ElevenLabs tag weaving.** Pass 1 writes clean prose; pass 2 inserts V3 audio tags using cast voice metadata. Mechanical lint catches accent-tag misses and opening-stack runaway. The chronic tag-clustering failure mode is fixed.
-- **Voice casting variety.** Semantic search filters (energy / warmth / pacing / use-case / dialect-register) + ad-id-seeded shuffle. The "same five voices in every ad" complaint went from chronic to addressed.
-- **Per-track provider conversion.** Swap a single voice line from ElevenLabs to OpenAI to ByteDance to Lahajati without regenerating the whole script.
-
-**For mixer / production**
-
-- **Versioned mixer takes.** "Start a new take" forks the current arrangement; switch between frozen takes; old mixes preserved as immutable snapshots.
-- **Draggable timeline.** Reposition voice / music / SFX clips by dragging; edge-trim clips; waveforms crop to the trim window in real time.
-- **Live LUFS meter during preview** (BS.1770 integrated loudness).
-- **Trim honored in playback + export.** No more "I trimmed it but the export still has the long version."
+- **Two-pass ElevenLabs tag weaving.** Pass 1 writes clean prose; pass 2 inserts V3 audio tags using cast voice metadata. Mechanical lint catches accent-tag misses and opening-stack runaway. Tag-clustering failures fixed.
+- **Voice casting variety.** Semantic search filters (energy / warmth / pacing / use-case / dialect-register) + ad-id-seeded shuffle. "Same five voices in every ad" complaint addressed.
+- **Per-track provider conversion.** Swap a single voice line between providers without regenerating the whole script.
 
 **For admins**
 
-- **Tone-of-voice admin panel** at `/admin/tone-of-voice` for managing the preset library. AI-generated "voice instructions" suggestion to seed prosody descriptions when adding a new tone.
+- **Tone-of-voice admin panel** at `/admin/tone-of-voice` for managing the preset library used by the brief panel. AI-generated "voice instructions" suggestion to seed prosody descriptions when adding a new tone.
 
 ---
 
