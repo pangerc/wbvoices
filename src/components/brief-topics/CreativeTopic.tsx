@@ -25,7 +25,6 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { MicrophoneIcon } from "@heroicons/react/24/outline";
 import type { ToneOption } from "../ui/ToneSelector";
 import {
-  DialogueIcon,
   GlassTab,
   GlassTabBar,
   GlassyListbox,
@@ -33,7 +32,6 @@ import {
   GlassyTextarea,
   ProviderSelectionModal,
   RabbitIcon,
-  SingleVoiceIcon,
   ToneSelector,
   TurtleIcon,
 } from "../ui";
@@ -44,6 +42,18 @@ import { ReferenceUrlsSubeditor } from "./subeditors/ReferenceUrlsSubeditor";
 import { ForbiddenWordsSubeditor } from "./subeditors/ForbiddenWordsSubeditor";
 import { CustomScriptSubeditor } from "./subeditors/CustomScriptSubeditor";
 import { twMerge } from "tailwind-merge";
+
+// Six campaign formats per the v3.5 prompting rewrite. Listbox surface
+// (was a 2-button toggle in v3.5 BriefPanelBase, but the type union was
+// always 6 — UI was lagging the prompt). Order: most-common first.
+const FORMAT_OPTIONS: Array<{ value: CampaignFormat; label: string }> = [
+  { value: "ad_read", label: "Ad read (single voice)" },
+  { value: "dialog", label: "Dialogue (two voices)" },
+  { value: "testimonial", label: "Testimonial (first-person)" },
+  { value: "vox_pop", label: "Vox pop (street interviews)" },
+  { value: "dramatized_scene", label: "Dramatized scene (characters)" },
+  { value: "radio_skit", label: "Radio skit (comedic sketch)" },
+];
 
 const CTA_OPTIONS = [
   { value: "none", label: "No specific CTA" },
@@ -281,7 +291,7 @@ export function CreativeTopic({
         />
       ) : (
         <>
-          {/* Row 1: Brief | Angle | Tone */}
+          {/* Row 1: Brief | Format | Tone */}
           <div className="grid grid-cols-3 gap-6 items-start">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -301,22 +311,19 @@ export function CreativeTopic({
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Creative angle{" "}
-                <span className="text-gray-500 font-normal text-xs">
-                  (per-spot variance)
-                </span>
+                Ad format
               </label>
-              <GlassyTextarea
-                value={creativeAngle}
-                onChange={(e) => onCreativeAngleChanged(e.target.value)}
-                placeholder="What makes THIS ad different from every other ad for this brand? E.g. 'urgent 24h Black Friday push, hook drops at 0:03'."
-                rows={6}
+              <GlassyListbox
+                value={campaignFormat}
+                onChange={(value) =>
+                  onCampaignFormatChanged(value as CampaignFormat)
+                }
+                options={FORMAT_OPTIONS}
                 disabled={disabled}
               />
-              {showAngleNudge && (
-                <p className="mt-2 text-xs text-amber-400">
-                  Without an angle, the script will brand-anchor cleanly
-                  but lose the per-spot edge.
+              {shouldWarnAboutDialog && (
+                <p className="text-xs text-yellow-400 mt-2">
+                  Not enough voices for dialogue — need at least 2
                 </p>
               )}
             </div>
@@ -338,49 +345,8 @@ export function CreativeTopic({
             </div>
           </div>
 
-          {/* Row 2: Format | Pacing | CTA */}
+          {/* Row 2: Pacing | CTA | (empty) */}
           <div className="grid grid-cols-3 gap-6 items-start">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Ad format
-              </label>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 flex gap-2">
-                <div
-                  className={twMerge(
-                    "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
-                    campaignFormat === "ad_read"
-                      ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                      : "bg-transparent hover:bg-white/10 text-gray-300",
-                    disabled ? "pointer-events-none" : "",
-                  )}
-                  onClick={() => onCampaignFormatChanged("ad_read")}
-                  title="Single Voice Ad Read"
-                >
-                  <SingleVoiceIcon />
-                  <span className="text-xs">Single</span>
-                </div>
-                <div
-                  className={twMerge(
-                    "flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200",
-                    campaignFormat === "dialog"
-                      ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
-                      : "bg-transparent hover:bg-white/10 text-gray-300",
-                    disabled ? "pointer-events-none" : "",
-                  )}
-                  onClick={() => onCampaignFormatChanged("dialog")}
-                  title="Dialogue"
-                >
-                  <DialogueIcon />
-                  <span className="text-xs">Dialogue</span>
-                </div>
-              </div>
-              {shouldWarnAboutDialog && (
-                <p className="text-xs text-yellow-400 mt-2">
-                  Not enough voices for dialogue — need at least 2
-                </p>
-              )}
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Pacing
@@ -440,38 +406,33 @@ export function CreativeTopic({
                 </button>
               )}
             </div>
+
+            <div />
           </div>
 
-          {/* Row 3: Duration */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Ad duration{" "}
-              <span className="text-sm text-gray-400">
-                {adDuration} seconds
-              </span>
-            </label>
-            <GlassySlider
-              disabled={disabled}
-              label={null}
-              value={adDuration}
-              onChange={onAdDurationChanged}
-              min={10}
-              max={60}
-              step={5}
-              tickMarks={DURATION_TICK_MARKS}
-            />
-            <div className="mt-3 text-xs text-gray-500">
-              Spotify: standard ads max 30s; long-form (60s) in select markets only.
-              {adDuration > 30 && (
-                <span className="text-red-900 ml-1">
-                  Duration exceeds 30s standard.
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Collapsibles row: Instructions | References | Forbidden */}
+          {/* Collapsibles row: Angle | Instructions | References | Forbidden
+              (4 items in a 3-col grid → forbidden wraps to row 2 col-1) */}
           <div className="grid grid-cols-3 gap-6 items-start pt-2">
+            <CollapsibleSection
+              title="Creative angle"
+              description="per-spot variance"
+              defaultOpen={creativeAngle.trim().length > 0}
+            >
+              <GlassyTextarea
+                value={creativeAngle}
+                onChange={(e) => onCreativeAngleChanged(e.target.value)}
+                placeholder="What makes THIS ad different from every other ad for this brand? E.g. 'urgent 24h Black Friday push, hook drops at 0:03'."
+                rows={4}
+                disabled={disabled}
+              />
+              {showAngleNudge && (
+                <p className="mt-2 text-xs text-amber-400">
+                  Without an angle, the script will brand-anchor cleanly
+                  but lose the per-spot edge.
+                </p>
+              )}
+            </CollapsibleSection>
+
             <CollapsibleSection
               title="Instructions"
               description="voice delivery"
@@ -508,6 +469,34 @@ export function CreativeTopic({
                 disabled={disabled}
               />
             </CollapsibleSection>
+          </div>
+
+          {/* Duration — last in the Creative block per the v4 spec */}
+          <div className="pt-2">
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Ad duration{" "}
+              <span className="text-sm text-gray-400">
+                {adDuration} seconds
+              </span>
+            </label>
+            <GlassySlider
+              disabled={disabled}
+              label={null}
+              value={adDuration}
+              onChange={onAdDurationChanged}
+              min={10}
+              max={60}
+              step={5}
+              tickMarks={DURATION_TICK_MARKS}
+            />
+            <div className="mt-3 text-xs text-gray-500">
+              Spotify: standard ads max 30s; long-form (60s) in select markets only.
+              {adDuration > 30 && (
+                <span className="text-red-900 ml-1">
+                  Duration exceeds 30s standard.
+                </span>
+              )}
+            </div>
           </div>
         </>
       )}

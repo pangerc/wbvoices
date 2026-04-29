@@ -79,19 +79,17 @@ export function MarketPicker({ value, onChange, disabled }: MarketPickerProps) {
 
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-2">
-        <label className="block text-sm font-medium text-gray-300">
+      <div className="flex items-baseline justify-between gap-2 mb-2">
+        <label className="block text-sm font-medium text-gray-300 truncate">
           Market{" "}
-          <span className="text-gray-500 font-normal">
-            (where the spot runs — grounds language defaults and SF search)
-          </span>
+          <span className="text-gray-500 font-normal">(where it runs)</span>
         </label>
         <button
           type="button"
           onClick={() => setShowAll((s) => !s)}
-          className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
+          className="text-xs text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0"
         >
-          {showAll ? "Spotify-supported only" : "Show all markets"}
+          {showAll ? "Spotify only" : "Show all"}
         </button>
       </div>
       <GlassyListbox
