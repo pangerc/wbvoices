@@ -107,12 +107,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       return token;
     },
-
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.role = token.role as string;
-      }
-      return session;
-    },
+    // Note: the session callback that projects token.role -> session.user.role
+    // lives in `authConfig` so Edge middleware sees it too. We inherit it via
+    // the `...authConfig.callbacks` spread above.
   },
 });

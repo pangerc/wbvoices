@@ -43,5 +43,15 @@ export const authConfig = {
         GUEST_EMAILS.includes(email)
       );
     },
+    // Projects token.role onto session.user.role. Defined here (Edge-safe)
+    // so middleware sees the role claim — without this, NextAuth's default
+    // session shape drops custom JWT fields and admin gates redirect even
+    // for users whose JWT carries role: "admin".
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.role = token.role as string | undefined;
+      }
+      return session;
+    },
   },
 } satisfies NextAuthConfig;
