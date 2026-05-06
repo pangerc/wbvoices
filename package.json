@@ -33,10 +33,12 @@
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
     "liquid-glass-react": "^1.1.1",
+    "mammoth": "^1.12.0",
     "music-metadata": "^11.10.3",
     "next": "16.2.4",
     "next-auth": "5.0.0-beta.30",
     "openai": "^6.8.0",
+    "pdf-parse": "^2.4.5",
     "playht": "^0.14.0",
     "postgres": "^3.4.7",
     "react": "^19.0.0",
@@ -48,6 +50,7 @@
     "swr": "^2.3.7",
     "tailwind-merge": "^3.5.0",
     "uuid": "^11.1.0",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.4"
   },
   "devDependencies": {
@@ -59,6 +62,7 @@
     "@types/cheerio": "^1.0.0",
     "@types/ioredis-mock": "^8.2.6",
     "@types/node": "^20.19.27",
+    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5.1.1",

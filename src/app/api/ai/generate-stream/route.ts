@@ -22,6 +22,7 @@ import {
   prefetchBriefEnrichments,
   renderEnrichmentSections,
 } from "@/lib/brief-enrichment";
+import { instructionTemplatesService } from "@/services/instructionTemplatesService";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
 import type { ProjectBrief } from "@/types";
 import type { VoiceVersion, MusicVersion, SfxVersion } from "@/types/versions";
@@ -202,6 +203,7 @@ export async function POST(req: NextRequest) {
     pacing,
     tone: rawTone,
     voiceInstructions: rawVoiceInstructions,
+    selectedTemplateId: rawSelectedTemplateId,
     selectedProvider: rawSelectedProvider,
     autoGenerateAudio = true,
     // Stage-3 brief expansion fields (all optional)
@@ -231,6 +233,10 @@ export async function POST(req: NextRequest) {
   const voiceInstructionsText: string | null =
     typeof rawVoiceInstructions === "string" && rawVoiceInstructions.trim()
       ? rawVoiceInstructions.trim()
+      : null;
+  const selectedTemplateId: string | null =
+    typeof rawSelectedTemplateId === "string" && rawSelectedTemplateId.trim()
+      ? rawSelectedTemplateId.trim()
       : null;
 
   // Validate required fields
@@ -271,6 +277,32 @@ export async function POST(req: NextRequest) {
       await sendEvent({ type: "status", message: "Creating creative..." });
 
       const languageName = getLanguageName(language);
+
+      // Resolve creative template (AAC-27) server-side from the persisted id.
+      // Done here so admins can iterate on the wording without forcing a brief
+      // rewrite. Inactive templates are honoured at generate time even if
+      // hidden from the picker — the user already committed to them.
+      let creativeTemplateTitle: string | undefined;
+      let creativeTemplateInstructions: string | undefined;
+      if (selectedTemplateId) {
+        try {
+          const template = await instructionTemplatesService.getById(selectedTemplateId);
+          if (template) {
+            creativeTemplateTitle = template.title;
+            creativeTemplateInstructions = template.systemInstructions;
+          } else {
+            console.warn(
+              `[generate-stream] selectedTemplateId ${selectedTemplateId} not found — proceeding without template`
+            );
+          }
+        } catch (err) {
+          console.warn(
+            `[generate-stream] template fetch failed for ${selectedTemplateId} — proceeding without template:`,
+            err
+          );
+        }
+      }
+
       const knowledgeContext: KnowledgeContext = {
         pacing: pacing === "fast" ? "fast" : "normal",
         accent: accent || undefined,
@@ -279,6 +311,8 @@ export async function POST(req: NextRequest) {
         voiceProvider: voiceProvider,
         campaignFormat: campaignFormat as KnowledgeContext["campaignFormat"],
         hasProvidedScript: !!(providedScript && typeof providedScript === "string" && providedScript.trim()),
+        creativeTemplateTitle,
+        creativeTemplateInstructions,
       };
 
       // Pre-fetch enrichments before building the user message — same
@@ -361,6 +395,7 @@ export async function POST(req: NextRequest) {
         selectedCTA: cta || null,
         selectedTone: tonePreset,
         voiceInstructions: voiceInstructionsText,
+        selectedTemplateId,
         selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
         ...(Array.isArray(referenceUrls) && referenceUrls.length ? { referenceUrls } : {}),
         ...(forbiddenWords && typeof forbiddenWords === "string" && forbiddenWords.trim() ? { forbiddenWords: forbiddenWords.trim() } : {}),

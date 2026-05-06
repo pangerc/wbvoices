@@ -42,8 +42,10 @@ import type {
 import type { Language } from "@/utils/language";
 import type { BrandDossier, MarketRow } from "@/lib/alaric-client";
 import { useToneOfVoice } from "@/hooks/useToneOfVoice";
+import { useCreativeTemplates } from "@/hooks/useCreativeTemplates";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import type { ToneOption } from "./ui/ToneSelector";
+import { CreativeTemplateGallery } from "./ui/CreativeTemplateGallery";
 import { BrandTopic } from "./brief-topics/BrandTopic";
 import { CreativeTopic } from "./brief-topics/CreativeTopic";
 import { LanguageTopic } from "./brief-topics/LanguageTopic";
@@ -182,6 +184,9 @@ export function BriefPanelV4({
   const [voiceInstructions, setVoiceInstructions] = useState<string>(
     initialBrief?.voiceInstructions || "",
   );
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    initialBrief?.selectedTemplateId || null,
+  );
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(
     initialBrief?.selectedLanguage || "en",
   );
@@ -302,6 +307,8 @@ export function BriefPanelV4({
     if (initialBrief.voiceInstructions !== undefined) {
       setVoiceInstructions(initialBrief.voiceInstructions || "");
     }
+    if (initialBrief.selectedTemplateId !== undefined)
+      setSelectedTemplateId(initialBrief.selectedTemplateId);
     if (initialBrief.selectedLanguage)
       setSelectedLanguage(initialBrief.selectedLanguage);
     if (initialBrief.selectedRegion)
@@ -356,6 +363,12 @@ export function BriefPanelV4({
     Object.keys(dbToneInstructions).length > 0
       ? dbToneInstructions
       : FALLBACK_TONE_INSTRUCTIONS;
+
+  // Creative templates (AAC-27) from /api/instruction-templates. The gallery
+  // hides itself when the list is empty so brief flows without seeded
+  // templates keep working unchanged.
+  const { templates: creativeTemplates, isLoading: creativeTemplatesLoading } =
+    useCreativeTemplates();
 
   // ============================================================
   // Brand picker callback — sets brand AND triggers market default
@@ -422,6 +435,7 @@ export function BriefPanelV4({
         selectedPacing: selectedPacing || null,
         selectedTone: selectedTone || null,
         voiceInstructions: voiceInstructions.trim() || null,
+        selectedTemplateId: selectedTemplateId || null,
         selectedLanguage,
         selectedRegion: selectedRegion || null,
         selectedAccent,
@@ -463,6 +477,7 @@ export function BriefPanelV4({
     selectedPacing,
     selectedTone,
     voiceInstructions,
+    selectedTemplateId,
     selectedLanguage,
     selectedRegion,
     selectedAccent,
@@ -496,6 +511,7 @@ export function BriefPanelV4({
     selectedPacing,
     selectedTone,
     voiceInstructions,
+    selectedTemplateId,
     selectedLanguage,
     selectedRegion,
     selectedAccent,
@@ -673,6 +689,7 @@ export function BriefPanelV4({
         pacing: selectedPacing,
         tone: selectedTone,
         voiceInstructions: voiceInstructions.trim() || null,
+        selectedTemplateId: selectedTemplateId || null,
         selectedProvider,
         autoGenerateAudio,
         ...(parsedReferenceUrls.length
@@ -770,6 +787,14 @@ export function BriefPanelV4({
           isLoadingDossier={isLoadingDossier}
           enrichmentSummary={enrichmentSummary}
           legacyBrandVoice={legacyBrandVoice}
+          disabled={isGenerating}
+        />
+
+        <CreativeTemplateGallery
+          value={selectedTemplateId}
+          onChange={setSelectedTemplateId}
+          templates={creativeTemplates}
+          loading={creativeTemplatesLoading}
           disabled={isGenerating}
         />
 

@@ -100,6 +100,33 @@ export const suggestedTones = pgTable(
   })
 );
 
+/**
+ * Instruction templates (AAC-27) — admin-managed creative-strategy presets
+ * surfaced in the brief panel. Distinct from `suggested_tones`: tones drive
+ * TTS delivery (`voice_instructions`), templates drive the *kind* of ad
+ * (`system_instructions` injected into the LLM system prompt — script
+ * structure, pacing, music mood, SFX density, word count, narrative arc).
+ */
+export const instructionTemplates = pgTable(
+  "instruction_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    category: text("category").notNull().default("general"),
+    systemInstructions: text("system_instructions").notNull(),
+    exampleOutput: text("example_output"),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    isActiveIdx: index("instruction_templates_is_active_idx").on(table.isActive),
+    categoryIdx: index("instruction_templates_category_idx").on(table.category),
+  })
+);
+
 // ============ Auth.js (NextAuth v5) adapter tables ============
 
 /**
@@ -159,3 +186,5 @@ export type InsertVoiceBlacklist = typeof voiceBlacklist.$inferInsert;
 export type InsertVoiceDescription = typeof voiceDescriptions.$inferInsert;
 export type SuggestedTone = typeof suggestedTones.$inferSelect;
 export type InsertSuggestedTone = typeof suggestedTones.$inferInsert;
+export type InstructionTemplate = typeof instructionTemplates.$inferSelect;
+export type InsertInstructionTemplate = typeof instructionTemplates.$inferInsert;

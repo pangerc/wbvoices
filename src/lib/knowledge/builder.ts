@@ -134,6 +134,30 @@ Single voice, direct address to the listener. Consistent tone throughout. Search
 }
 
 /**
+ * Creative template addendum (AAC-27).
+ *
+ * When the brief picked an admin-managed creative template, append its
+ * resolved `system_instructions` to the base system prompt as a standing
+ * per-brief constraint — script structure, pacing, music mood, SFX
+ * density, word count. Empty string when no template is selected.
+ *
+ * Distinct from the per-format guidance above: format is a structural
+ * shape ("dialogue", "vox pop"); template is a curated creative strategy
+ * ("Optimized for 15s", "Gen Z Oriented") that can stack on top.
+ */
+function getCreativeTemplateGuidance(context?: KnowledgeContext): string {
+  const instructions = context?.creativeTemplateInstructions?.trim();
+  if (!instructions) return "";
+
+  const title = context?.creativeTemplateTitle?.trim();
+  const heading = title
+    ? `## CREATIVE TEMPLATE: ${title}`
+    : "## CREATIVE TEMPLATE";
+
+  return `\n\n${heading}\n${instructions}\nThis template is a per-brief creative constraint. Honour it alongside the format guidance above. If a template directive conflicts with the format directive, the format wins (format = structural shape, template = creative strategy).`;
+}
+
+/**
  * Base system prompt — unified for all flows.
  *
  * Rewrite philosophy: outcome-first, not process-first. The previous prompt
@@ -146,6 +170,7 @@ Single voice, direct address to the listener. Consistent tone throughout. Search
  */
 function getBaseSystemPrompt(context?: KnowledgeContext): string {
   const formatGuidance = getFormatGuidance(context?.campaignFormat);
+  const templateGuidance = getCreativeTemplateGuidance(context);
 
   return `You are a senior creative director for short-form audio ads on Spotify, played between songs to free-tier listeners.
 
@@ -164,7 +189,7 @@ You write for the ear, not the page. You assume the listener can skip in three s
 - **create_sfx_draft** — 1–2 sound effects with placement + description.
 - **set_ad_title** — REQUIRED for new ads. 3–5 words, brand + essence. Examples: "QuickBite Convenient German Delivery", "CocaCola Conquista Chicas", "Explore Kuala Lumpur Effortlessly". Avoid structured forms like "IKEA - Spanish - Summer Sale".
 
-${formatGuidance}
+${formatGuidance}${templateGuidance}
 
 ## Working pattern
 For a new ad:

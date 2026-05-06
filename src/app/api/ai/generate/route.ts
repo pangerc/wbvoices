@@ -27,6 +27,7 @@ import {
   prefetchBriefEnrichments,
   renderEnrichmentSections,
 } from "@/lib/brief-enrichment";
+import { instructionTemplatesService } from "@/services/instructionTemplatesService";
 import type { ProjectBrief } from "@/types";
 
 /**
@@ -169,6 +170,7 @@ export async function POST(req: NextRequest) {
       pacing,
       tone: rawTone,
       voiceInstructions: rawVoiceInstructions,
+      selectedTemplateId: rawSelectedTemplateId,
       selectedProvider: rawSelectedProvider,
       // Stage-3 brief expansion fields (all optional)
       referenceUrls,
@@ -198,6 +200,10 @@ export async function POST(req: NextRequest) {
     const voiceInstructionsText: string | null =
       typeof rawVoiceInstructions === "string" && rawVoiceInstructions.trim()
         ? rawVoiceInstructions.trim()
+        : null;
+    const selectedTemplateId: string | null =
+      typeof rawSelectedTemplateId === "string" && rawSelectedTemplateId.trim()
+        ? rawSelectedTemplateId.trim()
         : null;
 
     // Voice provider - default to elevenlabs if not specified
@@ -231,6 +237,30 @@ export async function POST(req: NextRequest) {
 
     // Build prompts with knowledge context
     const languageName = getLanguageName(language);
+
+    // Resolve creative template (AAC-27) server-side from the persisted id.
+    // Same shape as /api/ai/generate-stream — kept in lockstep.
+    let creativeTemplateTitle: string | undefined;
+    let creativeTemplateInstructions: string | undefined;
+    if (selectedTemplateId) {
+      try {
+        const template = await instructionTemplatesService.getById(selectedTemplateId);
+        if (template) {
+          creativeTemplateTitle = template.title;
+          creativeTemplateInstructions = template.systemInstructions;
+        } else {
+          console.warn(
+            `[/api/ai/generate] selectedTemplateId ${selectedTemplateId} not found — proceeding without template`
+          );
+        }
+      } catch (err) {
+        console.warn(
+          `[/api/ai/generate] template fetch failed for ${selectedTemplateId} — proceeding without template:`,
+          err
+        );
+      }
+    }
+
     const knowledgeContext: KnowledgeContext = {
       pacing: pacing === "fast" ? "fast" : "normal",
       accent: accent || undefined,
@@ -239,6 +269,8 @@ export async function POST(req: NextRequest) {
       voiceProvider: voiceProvider,
       campaignFormat: campaignFormat as KnowledgeContext["campaignFormat"],
       hasProvidedScript: !!(providedScript && typeof providedScript === "string" && providedScript.trim()),
+      creativeTemplateTitle,
+      creativeTemplateInstructions,
     };
 
     // Pre-fetch enrichments (alaric SF lookup + URL scrape) BEFORE building
@@ -305,6 +337,7 @@ export async function POST(req: NextRequest) {
       selectedCTA: cta || null,
       selectedTone: tonePreset,
       voiceInstructions: voiceInstructionsText,
+      selectedTemplateId,
       selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
       ...(Array.isArray(referenceUrls) && referenceUrls.length ? { referenceUrls } : {}),
       ...(forbiddenWords && typeof forbiddenWords === "string" && forbiddenWords.trim() ? { forbiddenWords: forbiddenWords.trim() } : {}),
