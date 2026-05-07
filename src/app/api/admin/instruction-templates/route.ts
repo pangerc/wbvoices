@@ -17,8 +17,11 @@ export async function GET() {
   } catch (error) {
     console.error("Error listing instruction templates:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to list templates" },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to list templates",
+      },
+      { status: 500 },
     );
   }
 }
@@ -44,7 +47,7 @@ export async function POST(req: NextRequest) {
     if (!title?.trim() || !description?.trim() || !systemInstructions?.trim()) {
       return NextResponse.json(
         { error: "title, description and systemInstructions are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -54,8 +57,10 @@ export async function POST(req: NextRequest) {
         : "general";
     if (!ALLOWED_CATEGORIES.has(normalisedCategory)) {
       return NextResponse.json(
-        { error: `category must be one of: ${[...ALLOWED_CATEGORIES].join(", ")}` },
-        { status: 400 }
+        {
+          error: `category must be one of: ${[...ALLOWED_CATEGORIES].join(", ")}`,
+        },
+        { status: 400 },
       );
     }
 
@@ -64,13 +69,17 @@ export async function POST(req: NextRequest) {
       description: description.trim(),
       category: normalisedCategory,
       systemInstructions: systemInstructions.trim(),
-      exampleOutput: normaliseOptionalText(exampleOutput, "exampleOutput", 4000) ?? null,
+      exampleOutput:
+        normaliseOptionalText(exampleOutput, "exampleOutput", 4000) ?? null,
       defaultPacing: normaliseDefaultPacing(defaultPacing) ?? null,
       defaultCta: normaliseOptionalText(defaultCta, "defaultCta", 200) ?? null,
-      defaultDurationSeconds: normaliseDefaultDuration(defaultDurationSeconds) ?? null,
+      defaultDurationSeconds:
+        normaliseDefaultDuration(defaultDurationSeconds) ?? null,
       defaultMusicStyle:
-        normaliseOptionalText(defaultMusicStyle, "defaultMusicStyle", 600) ?? null,
-      bestPractice: normaliseOptionalText(bestPractice, "bestPractice", 1000) ?? null,
+        normaliseOptionalText(defaultMusicStyle, "defaultMusicStyle", 600) ??
+        null,
+      bestPractice:
+        normaliseOptionalText(bestPractice, "bestPractice", 1000) ?? null,
       isActive: isActive ?? true,
       sortOrder: typeof sortOrder === "number" ? sortOrder : 0,
     });
@@ -79,8 +88,11 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Error creating instruction template:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create template" },
-      { status: isValidationError(error) ? 400 : 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to create template",
+      },
+      { status: isValidationError(error) ? 400 : 500 },
     );
   }
 }

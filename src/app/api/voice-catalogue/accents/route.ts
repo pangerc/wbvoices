@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
           error: "Language parameter required",
           accents: [],
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
         error: "Failed to get accents",
         accents: [],
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
  */
 function formatAccentDisplayName(
   accentCode: string,
-  language: Language
+  language: Language,
 ): string {
   if (!accentCode || accentCode === "neutral") return "Any Accent";
 

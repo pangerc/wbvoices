@@ -25,16 +25,16 @@ Next.js 16.2 shipped the stable Adapter API, co-built with OpenNext, AWS, Cloudf
 
 SST is an open-source deployment framework (same category as Terraform/CDK). It runs at build time only — production is 100% AWS services: Lambda, CloudFront, S3, Route 53.
 
-| | |
-|---|---|
-| App code changes | None — add `sst.config.ts` and deploy |
-| SSE streaming | Lambda Response Streaming, works natively |
-| Timeout | Configurable up to 15 minutes |
-| VPC | Supported for SSR Lambda |
-| Next.js 16 | Supported via OpenNext + Adapter API |
-| Edge routes | Supported (we have 11 edge routes) |
-| Timeline | 4-5 weeks |
-| Cost | ~$40/month at 200 users |
+|                  |                                           |
+| ---------------- | ----------------------------------------- |
+| App code changes | None — add `sst.config.ts` and deploy     |
+| SSE streaming    | Lambda Response Streaming, works natively |
+| Timeout          | Configurable up to 15 minutes             |
+| VPC              | Supported for SSR Lambda                  |
+| Next.js 16       | Supported via OpenNext + Adapter API      |
+| Edge routes      | Supported (we have 11 edge routes)        |
+| Timeline         | 4-5 weeks                                 |
+| Cost             | ~$40/month at 200 users                   |
 
 ---
 
@@ -42,14 +42,14 @@ SST is an open-source deployment framework (same category as Terraform/CDK). It 
 
 Run `next start` in a Docker container behind ALB + CloudFront. 100% AWS-native including build tools (CodeBuild, CodePipeline).
 
-| | |
-|---|---|
-| App code changes | None |
-| SSE streaming | Works natively (just HTTP) |
-| Timeout | No limit (long-running process) |
-| VPC | Full control |
-| Timeline | 8-12 weeks |
-| Cost | $50-100/month minimal, $900/month full enterprise (multi-AZ, auto-scaling, managed databases) |
+|                  |                                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------------- |
+| App code changes | None                                                                                          |
+| SSE streaming    | Works natively (just HTTP)                                                                    |
+| Timeout          | No limit (long-running process)                                                               |
+| VPC              | Full control                                                                                  |
+| Timeline         | 8-12 weeks                                                                                    |
+| Cost             | $50-100/month minimal, $900/month full enterprise (multi-AZ, auto-scaling, managed databases) |
 
 Only makes sense if the organization requires AWS-native tooling at build time as well, not just in production. At minimal scale the cost and timeline don't justify the overhead vs Option A.
 
@@ -59,11 +59,11 @@ Only makes sense if the organization requires AWS-native tooling at build time a
 
 Requires Next.js 15 downgrade, rewriting SSE to polling, adding background Lambdas for timeout workaround. More work than Option A, costs more, and has a dead end on data sovereignty (can't move database/cache into AWS VPC).
 
-| | |
-|---|---|
+|                  |                                                             |
+| ---------------- | ----------------------------------------------------------- |
 | App code changes | 38+ files async params, auth rewrite, streaming rearchitect |
-| SSE streaming | Replaced with polling (UX regression) |
-| Timeout | 30s (workaround: separate background Lambda) |
-| VPC | Not supported for Next.js routes |
-| Timeline | 6-7 weeks |
-| Cost | ~$90/month at 200 users |
+| SSE streaming    | Replaced with polling (UX regression)                       |
+| Timeout          | 30s (workaround: separate background Lambda)                |
+| VPC              | Not supported for Next.js routes                            |
+| Timeline         | 6-7 weeks                                                   |
+| Cost             | ~$90/month at 200 users                                     |

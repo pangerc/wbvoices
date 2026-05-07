@@ -51,7 +51,10 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
   }, [isUploadingMix, previewUrl, previewData.mixedAudioUrl]);
 
   // Custom upload handlers that auto-save via API
-  const handleLogoUpload = async (result: { url: string; filename: string }) => {
+  const handleLogoUpload = async (result: {
+    url: string;
+    filename: string;
+  }) => {
     handleUploadComplete("logo")(result);
 
     // Auto-save logo URL via API
@@ -73,7 +76,10 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
     }
   };
 
-  const handleVisualUpload = async (result: { url: string; filename: string }) => {
+  const handleVisualUpload = async (result: {
+    url: string;
+    filename: string;
+  }) => {
     handleUploadComplete("visual")(result);
 
     // Auto-save visual URL via API
@@ -141,7 +147,7 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
         console.error("Failed to update preview:", error);
       }
     },
-    [projectId]
+    [projectId],
   );
 
   const handleInputChange = (field: keyof PreviewData, value: string) => {
@@ -275,8 +281,8 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
                     {isUploading.logo
                       ? "Uploading..."
                       : logoUrl
-                      ? "Change Logo"
-                      : "Upload Logo"}
+                        ? "Change Logo"
+                        : "Upload Logo"}
                   </div>
                 </FileUpload>
                 {errors.logo && (
@@ -313,8 +319,8 @@ export function PreviewPanel({ projectId }: PreviewPanelProps) {
                     {isUploading.visual
                       ? "Uploading..."
                       : visualUrl
-                      ? "Change Visual"
-                      : "Upload Visual"}
+                        ? "Change Visual"
+                        : "Upload Visual"}
                   </div>
                 </FileUpload>
                 {errors.visual && (

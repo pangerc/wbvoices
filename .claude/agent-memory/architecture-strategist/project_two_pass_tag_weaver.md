@@ -9,6 +9,7 @@ Stage M (prompt module rewrite) + Stage N (server-side `tag-weaver.ts` invoked f
 **Why:** original symptom was tag clustering — every emotional tag piling up at the start of every line, no body weave, accent tag missing despite cast voice carrying e.g. parisian metadata. Diagnosis was that the agent dropped tag-placement craft when juggling dialogue + brand voice + casting + tags simultaneously. A focused single-line transform with cast voice metadata in scope restores it.
 
 **How to apply:**
+
 - The agent prompt must NOT advertise pass 2 as a coordinating actor — that introduced a regression where the model burned 5 iterations doing 9 `search_voices` calls because it was uncertain "what does done look like for pass 1" and over-prepared casting.
 - The `create_voice_draft.text` parameter description in `src/lib/tools/definitions.ts` must agree with the pass-1 module on whether inline tags belong in `text` — they currently disagree (definition says "include inline tags", module says "do not"). Either side fixed in isolation will leave the agent reading contradictory instructions.
 - `executor.ts`'s zero-result branch for `search_voices` returns `suggestion: "Try broadening your search…"` — this is a feedback loop into MORE searches. If used with prescriptive search budgets, this suggestion should pivot toward "you have enough; pick from prior results or commit with what you have."

@@ -1,14 +1,21 @@
 import { Language } from "@/utils/language";
 
-export type Provider = "any" | "lovo" | "elevenlabs" | "openai" | "qwen" | "bytedance" | "lahajati";
+export type Provider =
+  | "any"
+  | "lovo"
+  | "elevenlabs"
+  | "openai"
+  | "qwen"
+  | "bytedance"
+  | "lahajati";
 
 export type Pacing = "normal" | "fast";
 
 export type { Language };
 
 // Pronunciation Dictionary Types
-export type PronunciationRuleType = 'alias' | 'phoneme';
-export type PhoneticAlphabet = 'ipa' | 'cmu' | 'x-sampa';
+export type PronunciationRuleType = "alias" | "phoneme";
+export type PhoneticAlphabet = "ipa" | "cmu" | "x-sampa";
 
 export type PronunciationRule = {
   stringToReplace: string;
@@ -119,12 +126,12 @@ export type SoundFxTrack = {
 
 // Sound effect placement intent - stores semantic placement that gets resolved at timeline calculation
 export type SoundFxPlacementIntent =
-  | { type: "beforeVoices" }  // Sequential: SFX finishes, then voices start
-  | { type: "withFirstVoice" }  // Concurrent: SFX plays with first voice
-  | { type: "afterVoice"; index: number }  // After voice track N (0-indexed)
-  | { type: "end" }  // After all voice tracks
-  | { type: "start" }  // DEPRECATED: Maps to beforeVoices for backward compatibility
-  | { type: "legacy"; playAfter: string };  // Backwards compatibility with old format
+  | { type: "beforeVoices" } // Sequential: SFX finishes, then voices start
+  | { type: "withFirstVoice" } // Concurrent: SFX plays with first voice
+  | { type: "afterVoice"; index: number } // After voice track N (0-indexed)
+  | { type: "end" } // After all voice tracks
+  | { type: "start" } // DEPRECATED: Maps to beforeVoices for backward compatibility
+  | { type: "legacy"; playAfter: string }; // Backwards compatibility with old format
 
 export type SoundFxPrompt = {
   /**
@@ -139,10 +146,10 @@ export type SoundFxPrompt = {
    */
   anchor?: import("./versions").Anchor;
   description: string;
-  playAfter?: string;  // Legacy field for backwards compatibility
+  playAfter?: string; // Legacy field for backwards compatibility
   overlap?: number;
   duration?: number;
-  placement?: SoundFxPlacementIntent;  // New intent-based placement
+  placement?: SoundFxPlacementIntent; // New intent-based placement
 };
 
 export type LibraryMusicTrack = {

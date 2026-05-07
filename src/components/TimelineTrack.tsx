@@ -115,14 +115,17 @@ type TimelineTrackProps = {
     trackId: string,
     dropSeconds: number,
     forceAbsolute: boolean,
-    allowPastFormat: boolean
+    allowPastFormat: boolean,
   ) => void;
   /**
    * Called when a tail-trim (right-edge) drag completes. `newTrim` is the
    * post-drag trim window clamped to [0, sourceDuration]. Null signals
    * "clear trim" — used by the reset-to-seed menu action too.
    */
-  onTrim?: (trackId: string, newTrim: { start: number; end: number } | null) => void;
+  onTrim?: (
+    trackId: string,
+    newTrim: { start: number; end: number } | null,
+  ) => void;
   /**
    * Reset this track's anchor back to its stream-level seed (the original
    * LLM-authored placement). The menu only surfaces this when the current
@@ -196,15 +199,15 @@ export function TimelineTrack({
   } | null>(null);
   const setDragPreview = useMixerStore((s) => s.setDragPreview);
   const dragPreview = useMixerStore((s) =>
-    s.dragPreview?.trackId === track.id ? s.dragPreview : null
+    s.dragPreview?.trackId === track.id ? s.dragPreview : null,
   );
   const setTrimPreview = useMixerStore((s) => s.setTrimPreview);
   const trimPreview = useMixerStore((s) =>
-    s.trimPreview?.trackId === track.id ? s.trimPreview : null
+    s.trimPreview?.trackId === track.id ? s.trimPreview : null,
   );
   const setHoveredTrackId = useMixerStore((s) => s.setHoveredTrackId);
   const anyDragInProgress = useMixerStore(
-    (s) => s.dragPreview !== null || s.trimPreview !== null
+    (s) => s.dragPreview !== null || s.trimPreview !== null,
   );
   const DRAG_THRESHOLD_PX = 4;
 
@@ -227,29 +230,23 @@ export function TimelineTrack({
     const pendingEnd = trimPreview
       ? Math.max(
           trimStart + 0.1,
-          Math.min(source, committedEnd + trimPreview.deltaSeconds)
+          Math.min(source, committedEnd + trimPreview.deltaSeconds),
         )
       : committedEnd;
     if (source <= 0 || (trimStart === 0 && pendingEnd >= source)) return peaks;
     const startIdx = Math.max(
       0,
-      Math.floor((trimStart / source) * peaks.length)
+      Math.floor((trimStart / source) * peaks.length),
     );
     const endIdx = Math.min(
       peaks.length,
-      Math.ceil((pendingEnd / source) * peaks.length)
+      Math.ceil((pendingEnd / source) * peaks.length),
     );
     return endIdx > startIdx ? peaks.slice(startIdx, endIdx) : peaks;
-  }, [
-    peaks,
-    track.duration,
-    track.trim?.start,
-    track.trim?.end,
-    trimPreview,
-  ]);
+  }, [peaks, track.duration, track.trim?.start, track.trim?.end, trimPreview]);
   const waveformPath = useMemo(
     () => buildWaveformPath(visiblePeaks),
-    [visiblePeaks]
+    [visiblePeaks],
   );
 
   // Close menu when clicking outside
@@ -268,7 +265,8 @@ export function TimelineTrack({
 
     if (isMenuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [isMenuOpen]);
 
@@ -303,7 +301,7 @@ export function TimelineTrack({
 
   const { left, width } = getWidthPercent(
     track.actualStartTime,
-    track.actualDuration
+    track.actualDuration,
   );
 
   // Enhanced debug information for all track types
@@ -356,7 +354,7 @@ export function TimelineTrack({
   // audio past the visual clip end. No-op if no trim override is set.
   const handlePlayPause = () => {
     const audio = document.querySelector(
-      `audio[data-track-id="${track.id}"]`
+      `audio[data-track-id="${track.id}"]`,
     ) as HTMLAudioElement | null;
     if (!audio) return;
     if (audio.paused) {
@@ -396,7 +394,7 @@ export function TimelineTrack({
     if (menuRef.current?.contains(e.target as Node)) return;
 
     const timelineContainer = ribbonRef.current?.closest(
-      ".timeline"
+      ".timeline",
     ) as HTMLElement | null;
     if (!timelineContainer) return;
     const rect = timelineContainer.getBoundingClientRect();
@@ -437,12 +435,13 @@ export function TimelineTrack({
       const minEffectivePx = 0.1 * session.pxPerSecond;
       const maxEffectiveSeconds = Math.max(
         sourceDuration - (track.trim?.start ?? 0),
-        0.1
+        0.1,
       );
       const maxDeltaPx =
         (maxEffectiveSeconds - session.originEffectiveDuration) *
         session.pxPerSecond;
-      const minDeltaPx = minEffectivePx - session.originEffectiveDuration * session.pxPerSecond;
+      const minDeltaPx =
+        minEffectivePx - session.originEffectiveDuration * session.pxPerSecond;
       const clampedDelta = Math.max(minDeltaPx, Math.min(maxDeltaPx, deltaPx));
       setTrimPreview({
         trackId: track.id,
@@ -494,8 +493,8 @@ export function TimelineTrack({
         0.1,
         Math.min(
           sourceDuration - trimStart,
-          session.originEffectiveDuration + deltaPx / session.pxPerSecond
-        )
+          session.originEffectiveDuration + deltaPx / session.pxPerSecond,
+        ),
       );
       const newTrim = {
         start: trimStart,
@@ -607,8 +606,8 @@ export function TimelineTrack({
             track.type === "voice"
               ? "bg-white/15 border border-white/20"
               : track.type === "music"
-              ? "bg-wb-blue/20 border border-wb-blue/25"
-              : "bg-red-500/20 border border-red-500/25"
+                ? "bg-wb-blue/20 border border-wb-blue/25"
+                : "bg-red-500/20 border border-red-500/25"
           } ${isMenuOpen ? "z-50" : "z-0"} ${
             dragPreview ? "cursor-grabbing opacity-80" : "cursor-grab"
           } ${
@@ -623,9 +622,7 @@ export function TimelineTrack({
             // reads as "this one is isolated." Muted (or implicitly muted
             // because something else is soloed) ribbons dim to ~35% — still
             // visible so you can unmute, but clearly stepped-back.
-            isSoloed
-              ? "ring-2 ring-yellow-400/70"
-              : ""
+            isSoloed ? "ring-2 ring-yellow-400/70" : ""
           } ${isMuted || isImplicitlyMuted ? "opacity-35" : ""}`}
           style={{
             left: `${left}%`,
@@ -644,7 +641,7 @@ export function TimelineTrack({
           {playingState && (
             <div
               className={`absolute top-0 left-0 h-full ${getProgressColor(
-                track.type
+                track.type,
               )} rounded-full transition-all`}
               style={{
                 width: `${playbackProgress || 0}%`,
@@ -743,7 +740,6 @@ export function TimelineTrack({
               />
             </div>
           )}
-
         </div>
 
         {/* Dropdown menu — lives OUTSIDE the ribbon so the ribbon's
@@ -814,7 +810,10 @@ export function TimelineTrack({
                 min={VOLUME_MIN_DB}
                 max={VOLUME_MAX_DB}
                 step={VOLUME_STEP_DB}
-                value={Math.max(VOLUME_MIN_DB, Math.min(VOLUME_MAX_DB, trackVolumeDb))}
+                value={Math.max(
+                  VOLUME_MIN_DB,
+                  Math.min(VOLUME_MAX_DB, trackVolumeDb),
+                )}
                 onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
                 className="w-full h-1 cursor-pointer"
               />
@@ -859,18 +858,20 @@ export function TimelineTrack({
                 (a user-edit anchor or a trim override). Both are non-
                 destructive on the stream side: they just drop the mixer-
                 version override and fall back to the LLM-authored seed. */}
-            {onResetPosition && track.slotId && track.anchorOrigin === "user-edit" && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsMenuOpen(false);
-                  onResetPosition(track.id);
-                }}
-                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors border-t border-white/10"
-              >
-                Reset position
-              </button>
-            )}
+            {onResetPosition &&
+              track.slotId &&
+              track.anchorOrigin === "user-edit" && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMenuOpen(false);
+                    onResetPosition(track.id);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors border-t border-white/10"
+                >
+                  Reset position
+                </button>
+              )}
             {onTrim && track.slotId && track.trim && (
               <button
                 onClick={(e) => {
@@ -883,18 +884,19 @@ export function TimelineTrack({
                 Reset trim
               </button>
             )}
-            {onRemove && (track.type === "music" || track.type === "soundfx") && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsMenuOpen(false);
-                  onRemove(track.id);
-                }}
-                className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/10"
-              >
-                Remove
-              </button>
-            )}
+            {onRemove &&
+              (track.type === "music" || track.type === "soundfx") && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMenuOpen(false);
+                    onRemove(track.id);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/10"
+                >
+                  Remove
+                </button>
+              )}
             <button
               onClick={(e) => {
                 e.stopPropagation();

@@ -9,6 +9,7 @@ Stage-6 branch `mixer-version-stream` (commit 4b46556) regressed: bootstrap forc
 **Why:** Force-freeze was designed for legacy mid-iteration drafts at cutover; applied indiscriminately it fires on fresh ads too (their `mixer:versions` list is empty before first GET /mixer).
 
 **How to apply:**
+
 - `src/lib/mixer/bootstrap.ts` lines 147–175 (stream force-freeze) and 240 (`bootstrappedAt` on mixer:v1) are the removal targets.
 - The mixer:v1-pins-a-draft window is self-closing: `freezeExistingDraft` (`src/lib/tools/implementations.ts:48`) runs at the start of every `createVoiceDraft`/`createMusicDraft`/`createSfxDraft` — hardening the pin the moment the user starts an iteration.
 - `src/lib/mixer/rebuilder.ts:181–197` (`ensureMixerDraftWithCurrentPins`) already forks frozen mixer:v1 → mixer:v2(draft) lazily on the next mixer edit. So "mixer:v1 frozen" is not load-bearing for editability.

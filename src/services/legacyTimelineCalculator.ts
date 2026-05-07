@@ -27,7 +27,7 @@ export class LegacyTimelineCalculator {
    */
   private static resolvePlacementIntent(
     intent: SoundFxPlacementIntent | undefined,
-    voiceTracks: LegacyCalculatedTrack[]
+    voiceTracks: LegacyCalculatedTrack[],
   ): string | undefined {
     if (!intent) {
       // No intent specified - default to end placement
@@ -49,20 +49,24 @@ export class LegacyTimelineCalculator {
 
       case "afterVoice": {
         // Find the voice track by index
-        const voiceOnlyTracks = voiceTracks.filter(t => t.type === "voice");
-        console.log(`[resolvePlacementIntent] afterVoice[${intent.index}] - available voice tracks:`,
-          voiceOnlyTracks.map((t, i) => `${i}: ${t.id} "${t.label}"`));
+        const voiceOnlyTracks = voiceTracks.filter((t) => t.type === "voice");
+        console.log(
+          `[resolvePlacementIntent] afterVoice[${intent.index}] - available voice tracks:`,
+          voiceOnlyTracks.map((t, i) => `${i}: ${t.id} "${t.label}"`),
+        );
 
         const targetVoice = voiceOnlyTracks[intent.index];
 
         if (targetVoice) {
           console.log(
-            `[resolvePlacementIntent] ✅ Resolved afterVoice[${intent.index}] to track "${targetVoice.label}" (${targetVoice.id})`
+            `[resolvePlacementIntent] ✅ Resolved afterVoice[${intent.index}] to track "${targetVoice.label}" (${targetVoice.id})`,
           );
           return targetVoice.id;
         }
 
-        console.warn(`[resolvePlacementIntent] ❌ afterVoice[${intent.index}] - no voice track at that index!`);
+        console.warn(
+          `[resolvePlacementIntent] ❌ afterVoice[${intent.index}] - no voice track at that index!`,
+        );
 
         // Fallback: if voice track doesn't exist, try adjacent tracks
         const fallbackVoice =
@@ -71,14 +75,14 @@ export class LegacyTimelineCalculator {
 
         if (fallbackVoice) {
           console.warn(
-            `Voice track at index ${intent.index} not found, falling back to "${fallbackVoice.label}"`
+            `Voice track at index ${intent.index} not found, falling back to "${fallbackVoice.label}"`,
           );
           return fallbackVoice.id;
         }
 
         // No voice tracks available - place at end
         console.warn(
-          `Voice track at index ${intent.index} not found and no fallback available, placing at end`
+          `Voice track at index ${intent.index} not found and no fallback available, placing at end`,
         );
         return undefined;
       }
@@ -100,12 +104,12 @@ export class LegacyTimelineCalculator {
 
   static calculateTimings(
     tracks: MixerTrack[],
-    audioDurations: { [key: string]: number }
+    audioDurations: { [key: string]: number },
   ): LegacyCalculationResult {
     console.log("🔧 Using Legacy Timeline Calculator (heuristic-based)");
     console.log(
       "Recalculating track timings. Available durations:",
-      audioDurations
+      audioDurations,
     );
 
     if (tracks.length === 0) {
@@ -139,7 +143,7 @@ export class LegacyTimelineCalculator {
       if (audioDurations[track.id] && !isNaN(audioDurations[track.id])) {
         const measuredDuration = audioDurations[track.id];
         console.log(
-          `Using measured duration for ${track.label}: ${measuredDuration}s`
+          `Using measured duration for ${track.label}: ${measuredDuration}s`,
         );
         return measuredDuration;
       }
@@ -147,7 +151,7 @@ export class LegacyTimelineCalculator {
       // Second priority: use track's explicit duration if set
       if (track.duration && !isNaN(track.duration)) {
         console.log(
-          `Using explicit duration for ${track.label}: ${track.duration}s`
+          `Using explicit duration for ${track.label}: ${track.duration}s`,
         );
         return track.duration;
       }
@@ -173,7 +177,7 @@ export class LegacyTimelineCalculator {
     const voiceTracks = validTracks.filter((track) => track.type === "voice");
     const musicTracks = validTracks.filter((track) => track.type === "music");
     const soundFxTracks = validTracks.filter(
-      (track) => track.type === "soundfx"
+      (track) => track.type === "soundfx",
     );
 
     // V3 ARCHITECTURE: Resolve placementIntent to playAfter BEFORE filtering
@@ -182,7 +186,9 @@ export class LegacyTimelineCalculator {
     soundFxTracks.forEach((track) => {
       if (track.metadata?.placementIntent) {
         const intent = track.metadata.placementIntent as SoundFxPlacementIntent;
-        console.log(`[Timeline] Resolving placementIntent for SFX "${track.label}": ${JSON.stringify(intent)}`);
+        console.log(
+          `[Timeline] Resolving placementIntent for SFX "${track.label}": ${JSON.stringify(intent)}`,
+        );
 
         switch (intent.type) {
           case "start":
@@ -206,18 +212,20 @@ export class LegacyTimelineCalculator {
             break;
         }
 
-        console.log(`[Timeline] → resolved to playAfter="${track.playAfter || 'undefined'}"`);
+        console.log(
+          `[Timeline] → resolved to playAfter="${track.playAfter || "undefined"}"`,
+        );
       }
     });
 
     // First, handle sound effects with "playAfter: start" (sequential intro)
     const introSoundFxTracks = soundFxTracks.filter(
-      (track) => track.playAfter === "start"
+      (track) => track.playAfter === "start",
     );
 
     // Handle concurrent intro SFX (plays WITH first voice, not before)
     const concurrentSfxTracks = soundFxTracks.filter(
-      (track) => track.playAfter === "concurrent-start"
+      (track) => track.playAfter === "concurrent-start",
     );
 
     let startingOffset = 0;
@@ -225,7 +233,7 @@ export class LegacyTimelineCalculator {
     // Process intro sound effects first and calculate their total duration
     if (introSoundFxTracks.length > 0) {
       console.log(
-        `Found ${introSoundFxTracks.length} intro sound effects that play at start`
+        `Found ${introSoundFxTracks.length} intro sound effects that play at start`,
       );
 
       // Sort intro sound effects by their overlap (if any)
@@ -253,21 +261,21 @@ export class LegacyTimelineCalculator {
         trackStartTimes.set(track.id, startTime);
         currentEndTime = startTime + actualDuration;
         console.log(
-          `Positioned intro sound effect "${track.label}" at ${startTime}s (duration: ${actualDuration}s)`
+          `Positioned intro sound effect "${track.label}" at ${startTime}s (duration: ${actualDuration}s)`,
         );
       });
 
       // Update starting offset for voice tracks to begin after intro effects
       startingOffset = currentEndTime;
       console.log(
-        `Setting voice tracks to start at offset ${startingOffset}s due to intro sound effects`
+        `Setting voice tracks to start at offset ${startingOffset}s due to intro sound effects`,
       );
     }
 
     // Process concurrent SFX (plays at time 0, same as first voice)
     if (concurrentSfxTracks.length > 0) {
       console.log(
-        `Found ${concurrentSfxTracks.length} concurrent sound effects that play with first voice`
+        `Found ${concurrentSfxTracks.length} concurrent sound effects that play with first voice`,
       );
 
       concurrentSfxTracks.forEach((track) => {
@@ -286,7 +294,7 @@ export class LegacyTimelineCalculator {
 
         trackStartTimes.set(track.id, startTime);
         console.log(
-          `Positioned concurrent sound effect "${track.label}" at ${startTime}s (plays with first voice)`
+          `Positioned concurrent sound effect "${track.label}" at ${startTime}s (plays with first voice)`,
         );
       });
     }
@@ -312,7 +320,7 @@ export class LegacyTimelineCalculator {
           // Use explicit timing from metadata if available
           const explicitStartTime = track.metadata.startTime as number;
           console.log(
-            `Using explicit start time for "${track.label}": ${explicitStartTime}s`
+            `Using explicit start time for "${track.label}": ${explicitStartTime}s`,
           );
 
           result.push({
@@ -350,7 +358,7 @@ export class LegacyTimelineCalculator {
         trackStartTimes.set(firstVoice.id, explicitStartTime);
         lastVoiceEndTime = explicitStartTime + actualDuration;
         console.log(
-          `Positioned first voice track "${firstVoice.label}" at ${explicitStartTime}s with duration ${actualDuration}s (ends at ${lastVoiceEndTime}s)`
+          `Positioned first voice track "${firstVoice.label}" at ${explicitStartTime}s with duration ${actualDuration}s (ends at ${lastVoiceEndTime}s)`,
         );
       }
 
@@ -361,7 +369,7 @@ export class LegacyTimelineCalculator {
         // Skip if already positioned in step 1
         if (trackStartTimes.has(voiceTrack.id)) {
           console.log(
-            `Skipping "${voiceTrack.label}" as it's already positioned`
+            `Skipping "${voiceTrack.label}" as it's already positioned`,
           );
           continue;
         }
@@ -372,7 +380,7 @@ export class LegacyTimelineCalculator {
         // If playAfter is specified, find that track and position after it
         if (voiceTrack.playAfter) {
           const referenceTrack = result.find(
-            (t) => t.id === voiceTrack.playAfter
+            (t) => t.id === voiceTrack.playAfter,
           );
           if (referenceTrack) {
             const refEndTime =
@@ -380,7 +388,7 @@ export class LegacyTimelineCalculator {
             const startTime = Math.round(refEndTime * 100) / 100; // Round to 2 decimal places
 
             console.log(
-              `Positioning "${voiceTrack.label}" at ${startTime}s after "${referenceTrack.label}" (which ends at ${refEndTime}s)`
+              `Positioning "${voiceTrack.label}" at ${startTime}s after "${referenceTrack.label}" (which ends at ${refEndTime}s)`,
             );
 
             result.push({
@@ -391,7 +399,7 @@ export class LegacyTimelineCalculator {
             trackStartTimes.set(voiceTrack.id, startTime);
             lastVoiceEndTime = Math.max(
               lastVoiceEndTime,
-              startTime + actualDuration
+              startTime + actualDuration,
             );
             continue;
           }
@@ -410,31 +418,32 @@ export class LegacyTimelineCalculator {
             // Explicit overlap specified - use it
             startTime = Math.max(
               prevTrack.actualStartTime,
-              prevEndTime - voiceTrack.overlap
+              prevEndTime - voiceTrack.overlap,
             );
             startTime = Math.round(startTime * 100) / 100; // Round again after calculation
             console.log(
-              `Applying explicit overlap of ${voiceTrack.overlap}s between tracks`
+              `Applying explicit overlap of ${voiceTrack.overlap}s between tracks`,
             );
           } else if (voiceTrack.overlap === undefined) {
             // No explicit overlap - apply natural overlap for more organic pacing
-            startTime = Math.round((prevEndTime - NATURAL_VOICE_OVERLAP) * 100) / 100;
+            startTime =
+              Math.round((prevEndTime - NATURAL_VOICE_OVERLAP) * 100) / 100;
             // Safety check: ensure minimum gap between tracks (at least 0.5s of actual content)
             const minStartTime = prevTrack.actualStartTime + 0.5;
             if (startTime < minStartTime) {
               startTime = minStartTime;
               console.log(
-                `Natural overlap would be too aggressive, using minimum gap instead`
+                `Natural overlap would be too aggressive, using minimum gap instead`,
               );
             } else {
               console.log(
-                `Applying natural overlap of ${NATURAL_VOICE_OVERLAP}s for organic pacing`
+                `Applying natural overlap of ${NATURAL_VOICE_OVERLAP}s for organic pacing`,
               );
             }
           }
 
           console.log(
-            `Positioning "${voiceTrack.label}" at ${startTime}s after "${prevTrack.label}" (which ends at ${prevEndTime}s)`
+            `Positioning "${voiceTrack.label}" at ${startTime}s after "${prevTrack.label}" (which ends at ${prevEndTime}s)`,
           );
 
           result.push({
@@ -445,7 +454,7 @@ export class LegacyTimelineCalculator {
           trackStartTimes.set(voiceTrack.id, startTime);
           lastVoiceEndTime = Math.max(
             lastVoiceEndTime,
-            startTime + actualDuration
+            startTime + actualDuration,
           );
         }
       }
@@ -471,7 +480,11 @@ export class LegacyTimelineCalculator {
       if (trackStartTimes.has(track.id)) return;
 
       // Estimate based on playAfter relationships
-      if (track.playAfter === "start" || track.playAfter === "concurrent-start" || track.playAfter === "previous") {
+      if (
+        track.playAfter === "start" ||
+        track.playAfter === "concurrent-start" ||
+        track.playAfter === "previous"
+      ) {
         // These are positioned relative to start or previous SFX
         // They'll likely be near the beginning, not affecting music fade
         const duration = getTrackDuration(track);
@@ -493,7 +506,10 @@ export class LegacyTimelineCalculator {
       } else {
         // Default placement at end of voices
         const sfxDuration = getTrackDuration(track);
-        maxSoundFxEndTime = Math.max(maxSoundFxEndTime, lastVoiceEndTime + sfxDuration);
+        maxSoundFxEndTime = Math.max(
+          maxSoundFxEndTime,
+          lastVoiceEndTime + sfxDuration,
+        );
       }
     });
 
@@ -503,7 +519,7 @@ export class LegacyTimelineCalculator {
     const hasSoundFxAfterVoices = maxSoundFxEndTime > voiceEndTime + 0.1; // Small tolerance
 
     console.log(
-      `Content timing: voices end at ${voiceEndTime}s, sound effects end at ${maxSoundFxEndTime}s`
+      `Content timing: voices end at ${voiceEndTime}s, sound effects end at ${maxSoundFxEndTime}s`,
     );
 
     // Position music tracks - typically at the beginning with full timeline duration
@@ -521,18 +537,18 @@ export class LegacyTimelineCalculator {
         if (!hasSoundFxAfterVoices) {
           targetMusicEndTime = voiceEndTime + MUSIC_FADEOUT_EXTENSION;
           console.log(
-            `No ending sound effects detected - extending music ${MUSIC_FADEOUT_EXTENSION}s for fade-out`
+            `No ending sound effects detected - extending music ${MUSIC_FADEOUT_EXTENSION}s for fade-out`,
           );
         } else {
           console.log(
-            `Sound effects play after voices - music will end around voice end time`
+            `Sound effects play after voices - music will end around voice end time`,
           );
         }
 
         const visualDuration = Math.min(actualDuration, targetMusicEndTime);
 
         console.log(
-          `Positioning music track ${musicTrack.label} with duration ${visualDuration}s (actual: ${actualDuration}s, target end: ${targetMusicEndTime}s)`
+          `Positioning music track ${musicTrack.label} with duration ${visualDuration}s (actual: ${actualDuration}s, target end: ${targetMusicEndTime}s)`,
         );
 
         result.push({
@@ -550,8 +566,10 @@ export class LegacyTimelineCalculator {
     }
 
     // Process sound effects with explicit timing
-    console.log(`[Timeline] Processing ${soundFxTracks.length} SFX tracks. Voice tracks in result:`,
-      result.filter(t => t.type === "voice").map(t => t.id));
+    console.log(
+      `[Timeline] Processing ${soundFxTracks.length} SFX tracks. Voice tracks in result:`,
+      result.filter((t) => t.type === "voice").map((t) => t.id),
+    );
     //
     // KNOWN LIMITATION: Sound effects placed "after voice N" will overlay with voice N+1
     // because ALL voice tracks are positioned first (lines 148-305), and only then are
@@ -576,18 +594,22 @@ export class LegacyTimelineCalculator {
 
       // Resolve placement intent if present
       let resolvedPlayAfter = track.playAfter;
-      console.log(`[Timeline] SFX "${track.label}": playAfter=${track.playAfter}, placementIntent=${JSON.stringify(track.metadata?.placementIntent)}`);
+      console.log(
+        `[Timeline] SFX "${track.label}": playAfter=${track.playAfter}, placementIntent=${JSON.stringify(track.metadata?.placementIntent)}`,
+      );
       if (track.metadata?.placementIntent) {
-        const voiceTracksCalculated = result.filter(t => t.type === "voice");
+        const voiceTracksCalculated = result.filter((t) => t.type === "voice");
         resolvedPlayAfter = this.resolvePlacementIntent(
           track.metadata.placementIntent as SoundFxPlacementIntent,
-          voiceTracksCalculated
+          voiceTracksCalculated,
         );
         console.log(
-          `[Timeline] ✅ Resolved placement for "${track.label}": ${JSON.stringify(track.metadata.placementIntent)} → "${resolvedPlayAfter || 'end'}"`
+          `[Timeline] ✅ Resolved placement for "${track.label}": ${JSON.stringify(track.metadata.placementIntent)} → "${resolvedPlayAfter || "end"}"`,
         );
       } else {
-        console.log(`[Timeline] ⚠️ No placementIntent for SFX "${track.label}", using playAfter=${track.playAfter}`);
+        console.log(
+          `[Timeline] ⚠️ No placementIntent for SFX "${track.label}", using playAfter=${track.playAfter}`,
+        );
       }
 
       // Process tracks with explicit start times
@@ -605,7 +627,10 @@ export class LegacyTimelineCalculator {
       // Handle tracks that should play after another track
       if (resolvedPlayAfter) {
         // Skip "start" and "concurrent-start" cases - we already handled those earlier
-        if (resolvedPlayAfter === "start" || resolvedPlayAfter === "concurrent-start") {
+        if (
+          resolvedPlayAfter === "start" ||
+          resolvedPlayAfter === "concurrent-start"
+        ) {
           return; // Skip because we already processed intro sound effects
         }
 
@@ -680,7 +705,7 @@ export class LegacyTimelineCalculator {
       });
       trackStartTimes.set(
         track.id,
-        lastVoiceEndTime > 0 ? lastVoiceEndTime : 0
+        lastVoiceEndTime > 0 ? lastVoiceEndTime : 0,
       );
     });
 
@@ -707,7 +732,7 @@ export class LegacyTimelineCalculator {
     // Calculate total duration directly from track timings
     // Find the maximum end time of all tracks (excluding music tracks with originalDuration)
     const excludeMusicForLength = result.some(
-      (t) => t.type === "voice" || t.type === "soundfx"
+      (t) => t.type === "voice" || t.type === "soundfx",
     );
 
     const calculatedMaxDuration =
@@ -719,7 +744,7 @@ export class LegacyTimelineCalculator {
                 return t.actualStartTime + t.actualDuration;
               }
               return t.actualStartTime + t.actualDuration;
-            })
+            }),
           )
         : 0;
 
@@ -735,13 +760,13 @@ export class LegacyTimelineCalculator {
         start: track.actualStartTime,
         duration: track.actualDuration,
         end: track.actualStartTime + track.actualDuration,
-      }))
+      })),
     );
     console.log(
       "Total timeline duration:",
       totalDuration,
       "(exact end time:",
-      calculatedMaxDuration + ")"
+      calculatedMaxDuration + ")",
     );
 
     return {

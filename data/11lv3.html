@@ -1328,7 +1328,8 @@
               <div
                 class="relative w-[280px] py-2.5 pb-1.5 px-3.5 bg-background overflow-hidden"
                 style="
-                  box-shadow: rgba(0, 0, 0, 0.075) 0px 2px 4px,
+                  box-shadow:
+                    rgba(0, 0, 0, 0.075) 0px 2px 4px,
                     rgba(0, 0, 0, 0.075) 0px 4px 8px,
                     rgba(0, 0, 0, 0.075) 0px 12px 24px;
                   width: 280px;
@@ -1828,7 +1829,11 @@
                           >
                             <li
                               class="relative group rounded-[10px] bg-transparent inter font-medium text-sm [&amp;_svg]:w-4 [&amp;_svg]:h-4"
-                              style="transition: background 0.35s, color 0.1s"
+                              style="
+                                transition:
+                                  background 0.35s,
+                                  color 0.1s;
+                              "
                             >
                               <a
                                 class="flex h-8 md:h-10 px-2.5 rounded-[10px] overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 items-center"
@@ -1873,7 +1878,9 @@
                             <li
                               class="relative group rounded-[10px] bg-transparent inter font-medium text-sm [&amp;_svg]:w-4 [&amp;_svg]:h-4 !bg-gray-alpha-100 !text-gray-alpha-950"
                               style="
-                                transition: background 0.35s, color 0.1s 0.1s;
+                                transition:
+                                  background 0.35s,
+                                  color 0.1s 0.1s;
                               "
                             >
                               <a
@@ -1900,7 +1907,11 @@
                             </li>
                             <li
                               class="relative group rounded-[10px] bg-transparent inter font-medium text-sm [&amp;_svg]:w-4 [&amp;_svg]:h-4"
-                              style="transition: background 0.35s, color 0.1s"
+                              style="
+                                transition:
+                                  background 0.35s,
+                                  color 0.1s;
+                              "
                             >
                               <a
                                 class="flex h-8 md:h-10 px-2.5 rounded-[10px] overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 items-center"
@@ -1926,7 +1937,11 @@
                             </li>
                             <li
                               class="relative group rounded-[10px] bg-transparent inter font-medium text-sm [&amp;_svg]:w-4 [&amp;_svg]:h-4"
-                              style="transition: background 0.35s, color 0.1s"
+                              style="
+                                transition:
+                                  background 0.35s,
+                                  color 0.1s;
+                              "
                             >
                               <button
                                 class="flex h-8 md:h-10 px-2.5 rounded-[10px] overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 items-center"
@@ -52414,7 +52429,7 @@
       window,
       document,
       "script",
-      "https://connect.facebook.net/en_US/fbevents.js"
+      "https://connect.facebook.net/en_US/fbevents.js",
     );
     if (typeof fbq !== "undefined") {
       if (
@@ -52486,7 +52501,7 @@
       var a = (d[e] = d[e] || []);
       a.methods =
         "page track identify instances debug on off once ready alias group enableCookie disableCookie holdConsent revokeConsent grantConsent".split(
-          " "
+          " ",
         );
       a.setAndDefer = function (b, c) {
         b[c] = function () {
@@ -52544,7 +52559,7 @@
                       var e = window[f];
                       if (e.initialized) return e[b].apply(e, arguments);
                       var g = [].slice.call(arguments);
-                      return g.unshift(b), e.push(g), e;
+                      return (g.unshift(b), e.push(g), e);
                     });
                 }),
               c.apiEndpoint.includes("http") ||

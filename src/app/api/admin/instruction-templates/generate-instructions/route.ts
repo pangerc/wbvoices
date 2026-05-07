@@ -35,14 +35,14 @@ export async function POST(req: NextRequest) {
     if (!inputs.title.trim() || !inputs.description.trim()) {
       return NextResponse.json(
         { error: "title and description are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: "OPENAI_API_KEY not configured" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     if (!instructions) {
       return NextResponse.json(
         { error: "No instructions generated" },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -83,15 +83,20 @@ export async function POST(req: NextRequest) {
       error instanceof UnsupportedFormatError ||
       error instanceof FileTooLargeError
     ) {
-      return NextResponse.json({ error: error.message, code: error.code }, { status: 400 });
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: 400 },
+      );
     }
     console.error("Error generating template instructions:", error);
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Failed to generate instructions",
+          error instanceof Error
+            ? error.message
+            : "Failed to generate instructions",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -104,18 +109,20 @@ async function readInputs(req: NextRequest): Promise<PromptInputs> {
     const title = String(form.get("title") ?? "");
     const description = String(form.get("description") ?? "");
     const category = form.get("category");
-    const files = form.getAll("files").filter((f): f is File => f instanceof File);
+    const files = form
+      .getAll("files")
+      .filter((f): f is File => f instanceof File);
 
     if (files.length > MAX_FILES_PER_REQUEST) {
       throw new Error(
-        `Too many files (${files.length}); max is ${MAX_FILES_PER_REQUEST} per request.`
+        `Too many files (${files.length}); max is ${MAX_FILES_PER_REQUEST} per request.`,
       );
     }
     const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
     if (totalBytes > MAX_TOTAL_BYTES) {
       throw new Error(
         `Combined upload size ${(totalBytes / 1024 / 1024).toFixed(1)} MB exceeds the ` +
-          `${MAX_TOTAL_BYTES / 1024 / 1024} MB total limit.`
+          `${MAX_TOTAL_BYTES / 1024 / 1024} MB total limit.`,
       );
     }
 

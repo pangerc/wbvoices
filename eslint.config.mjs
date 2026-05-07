@@ -1,4 +1,5 @@
 import nextConfig from "eslint-config-next";
+import eslintConfigPrettier from "eslint-config-prettier/flat";
 
 const config = [
   ...nextConfig,
@@ -19,6 +20,7 @@ const config = [
       "react-hooks/set-state-in-effect": "warn",
     },
   },
+  eslintConfigPrettier,
 ];
 
 export default config;

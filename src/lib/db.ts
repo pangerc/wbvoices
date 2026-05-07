@@ -1,6 +1,6 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import * as schema from './db/schema';
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "./db/schema";
 
 // Lazy initialization to avoid connection errors at module load time
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -10,7 +10,7 @@ function getDb() {
     const connectionString = process.env.DATABASE_URL;
 
     if (!connectionString) {
-      throw new Error('DATABASE_URL environment variable is not set');
+      throw new Error("DATABASE_URL environment variable is not set");
     }
 
     // Create postgres client with serverless config
@@ -30,7 +30,7 @@ export const db = new Proxy({} as ReturnType<typeof drizzle>, {
   get(target, prop) {
     const instance = getDb();
     return instance[prop as keyof typeof instance];
-  }
+  },
 });
 
 /** Get the raw drizzle instance (needed by DrizzleAdapter which inspects the object type) */

@@ -21,7 +21,7 @@ export interface LoudlyTaskResponse {
 export async function generateMusicWithLoudly(
   prompt: string,
   duration: number,
-  projectId?: string
+  projectId?: string,
 ): Promise<MusicTrack | null> {
   try {
     console.log("Generating music with Loudly...");
@@ -44,14 +44,14 @@ export async function generateMusicWithLoudly(
           const errorData = JSON.parse(errorText);
           throw new Error(
             errorData.error ||
-              `API error: ${createResponse.status} ${createResponse.statusText}`
+              `API error: ${createResponse.status} ${createResponse.statusText}`,
           );
         } catch {
           // If parsing fails, use the raw text
           throw new Error(
             `API error: ${createResponse.status} ${
               createResponse.statusText
-            }. Details: ${errorText.substring(0, 100)}`
+            }. Details: ${errorText.substring(0, 100)}`,
           );
         }
       }
@@ -60,7 +60,7 @@ export async function generateMusicWithLoudly(
       throw new Error(
         error instanceof Error
           ? error.message
-          : "Failed to create music generation task"
+          : "Failed to create music generation task",
       );
     }
 
@@ -80,7 +80,7 @@ export async function generateMusicWithLoudly(
     // If the music_file_path is already available in the initial response, use it directly
     if (responseData.music_file_path) {
       console.log(
-        "Music is already generated and available in the initial response!"
+        "Music is already generated and available in the initial response!",
       );
       console.log(`Direct music file URL: ${responseData.music_file_path}`);
 
@@ -100,7 +100,7 @@ export async function generateMusicWithLoudly(
     // This is a fallback and likely won't be needed based on your logs
     const id = responseData.id;
     console.log(
-      `Music generation task created with ID: ${id}, but music_file_path not immediately available. Will poll for result.`
+      `Music generation task created with ID: ${id}, but music_file_path not immediately available. Will poll for result.`,
     );
 
     // Step 2: Poll for the result using our API route
@@ -127,14 +127,14 @@ export async function generateMusicWithLoudly(
             const errorData = JSON.parse(errorText);
             throw new Error(
               errorData.error ||
-                `API error: ${statusResponse.status} ${statusResponse.statusText}`
+                `API error: ${statusResponse.status} ${statusResponse.statusText}`,
             );
           } catch {
             // If parsing fails, use the raw text
             throw new Error(
               `API error: ${statusResponse.status} ${
                 statusResponse.statusText
-              }. Details: ${errorText.substring(0, 100)}`
+              }. Details: ${errorText.substring(0, 100)}`,
             );
           }
         }
@@ -152,7 +152,7 @@ export async function generateMusicWithLoudly(
       } catch (error) {
         console.error(
           `Error parsing status response (attempt ${attempt + 1}):`,
-          error
+          error,
         );
         // Wait before retrying
         await new Promise((resolve) => setTimeout(resolve, interval));

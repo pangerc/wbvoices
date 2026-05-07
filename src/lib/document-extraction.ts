@@ -31,7 +31,8 @@ const EXTENSION_MAP: Record<string, SupportedFormat> = {
 
 const MIME_MAP: Record<string, SupportedFormat> = {
   "application/pdf": "pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+    "docx",
   "text/markdown": "markdown",
   "text/x-markdown": "markdown",
   "text/plain": "text",
@@ -43,9 +44,12 @@ const MIME_MAP: Record<string, SupportedFormat> = {
 
 // Extension wins over MIME — browsers report `application/octet-stream`
 // for some types (notably .md) so MIME alone misses them.
-export function detectFormat(name: string, mime?: string): SupportedFormat | null {
+export function detectFormat(
+  name: string,
+  mime?: string,
+): SupportedFormat | null {
   const lowerName = name.toLowerCase();
-  const ext = lowerName.includes(".") ? lowerName.split(".").pop() ?? "" : "";
+  const ext = lowerName.includes(".") ? (lowerName.split(".").pop() ?? "") : "";
   if (ext && EXTENSION_MAP[ext]) return EXTENSION_MAP[ext];
   if (mime && MIME_MAP[mime.toLowerCase()]) return MIME_MAP[mime.toLowerCase()];
   return null;
@@ -53,20 +57,26 @@ export function detectFormat(name: string, mime?: string): SupportedFormat | nul
 
 export class UnsupportedFormatError extends Error {
   readonly code = "UNSUPPORTED_FORMAT";
-  constructor(public readonly filename: string, public readonly mime?: string) {
+  constructor(
+    public readonly filename: string,
+    public readonly mime?: string,
+  ) {
     super(
       `Unsupported file format for "${filename}"${mime ? ` (mime=${mime})` : ""}. ` +
-        `Allowed: PDF, DOCX, Markdown (.md), plain text (.txt), CSV, Excel (.xlsx/.xls).`
+        `Allowed: PDF, DOCX, Markdown (.md), plain text (.txt), CSV, Excel (.xlsx/.xls).`,
     );
   }
 }
 
 export class FileTooLargeError extends Error {
   readonly code = "FILE_TOO_LARGE";
-  constructor(public readonly filename: string, public readonly bytes: number) {
+  constructor(
+    public readonly filename: string,
+    public readonly bytes: number,
+  ) {
     super(
       `File "${filename}" is ${(bytes / 1024 / 1024).toFixed(1)} MB — ` +
-        `exceeds the per-file limit of ${MAX_FILE_BYTES / 1024 / 1024} MB.`
+        `exceeds the per-file limit of ${MAX_FILE_BYTES / 1024 / 1024} MB.`,
     );
   }
 }
@@ -83,7 +93,7 @@ export type ExtractionResult = {
 export async function extractTextFromFile(
   buffer: ArrayBuffer,
   filename: string,
-  mime?: string
+  mime?: string,
 ): Promise<ExtractionResult> {
   const sizeBytes = buffer.byteLength;
   if (sizeBytes > MAX_FILE_BYTES) {
@@ -113,7 +123,7 @@ export async function extractTextFromFile(
 async function extractByFormat(
   format: SupportedFormat,
   buffer: ArrayBuffer,
-  filename: string
+  filename: string,
 ): Promise<string> {
   switch (format) {
     case "pdf": {
@@ -153,7 +163,9 @@ async function extractByFormat(
     }
     default: {
       const _exhaustive: never = format;
-      throw new Error(`No extractor wired for format ${String(_exhaustive)} (file: ${filename})`);
+      throw new Error(
+        `No extractor wired for format ${String(_exhaustive)} (file: ${filename})`,
+      );
     }
   }
 }

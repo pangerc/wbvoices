@@ -19,7 +19,11 @@ import { describe, it, expect } from "vitest";
 import type { DropReferenceClip } from "../anchorFromDrop";
 import { anchorFromDrop } from "../anchorFromDrop";
 
-const clip = (slotId: string, startTime: number, duration: number): DropReferenceClip => ({
+const clip = (
+  slotId: string,
+  startTime: number,
+  duration: number,
+): DropReferenceClip => ({
   slotId,
   startTime,
   duration,
@@ -29,11 +33,17 @@ describe("anchorFromDrop", () => {
   describe("rule 5 — absolute fallback", () => {
     it("drops past the last clip's end → absolute(t)", () => {
       const others = [clip("a", 0, 5)];
-      expect(anchorFromDrop("x", 10, others)).toEqual({ kind: "absolute", t: 10 });
+      expect(anchorFromDrop("x", 10, others)).toEqual({
+        kind: "absolute",
+        t: 10,
+      });
     });
 
     it("empty timeline → absolute(t)", () => {
-      expect(anchorFromDrop("x", 3.5, [])).toEqual({ kind: "absolute", t: 3.5 });
+      expect(anchorFromDrop("x", 3.5, [])).toEqual({
+        kind: "absolute",
+        t: 3.5,
+      });
     });
 
     it("negative drop time clamps to 0", () => {
@@ -72,7 +82,10 @@ describe("anchorFromDrop", () => {
       const others = [clip("a", 0, 5)];
       // 0.2s past end is beyond the default 0.1s snap AND the 0.15s align —
       // falls through to absolute since 5.2 is past the last clip's end.
-      expect(anchorFromDrop("x", 5.2, others)).toEqual({ kind: "absolute", t: 5.2 });
+      expect(anchorFromDrop("x", 5.2, others)).toEqual({
+        kind: "absolute",
+        t: 5.2,
+      });
     });
 
     it("tie-break by closest distance, then by earlier-starting clip", () => {
@@ -90,7 +103,10 @@ describe("anchorFromDrop", () => {
       // If we didn't exclude self, dropping at x's own end edge would snap
       // to itself (cycle). Result must ignore x and fall through.
       const others = [clip("x", 0, 5), clip("a", 10, 3)];
-      expect(anchorFromDrop("x", 5, others)).toEqual({ kind: "absolute", t: 5 });
+      expect(anchorFromDrop("x", 5, others)).toEqual({
+        kind: "absolute",
+        t: 5,
+      });
     });
   });
 
@@ -257,7 +273,11 @@ describe("anchorFromDrop", () => {
       const others = [{ slotId: "v0", startTime: 0, duration: 5 }];
       const anchor = anchorFromDrop("v1", 5.02, others);
       // Without cycle info we trust the drop rule. relativeTo is fine.
-      expect(anchor).toMatchObject({ kind: "relativeTo", slotId: "v0", edge: "end" });
+      expect(anchor).toMatchObject({
+        kind: "relativeTo",
+        slotId: "v0",
+        edge: "end",
+      });
     });
 
     it("long chain traversal terminates without creating a cycle", () => {
@@ -268,7 +288,9 @@ describe("anchorFromDrop", () => {
         startTime: i * 2,
         duration: 2,
       }));
-      const existingRefs: Record<string, string | undefined> = { v0: undefined };
+      const existingRefs: Record<string, string | undefined> = {
+        v0: undefined,
+      };
       for (let i = 1; i < 9; i++) existingRefs[`v${i}`] = `v${i - 1}`;
       existingRefs.tail = undefined;
 

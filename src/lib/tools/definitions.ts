@@ -21,7 +21,8 @@ const ANCHOR_SCHEMA = {
     },
     t: {
       type: "number",
-      description: "For kind=absolute: start time in seconds from timeline start.",
+      description:
+        "For kind=absolute: start time in seconds from timeline start.",
     },
     trackRef: {
       type: "string",
@@ -31,7 +32,8 @@ const ANCHOR_SCHEMA = {
     edge: {
       type: "string",
       enum: ["start", "end"],
-      description: "For kind=relativeTo: align this clip to the referenced clip's start or end.",
+      description:
+        "For kind=relativeTo: align this clip to the referenced clip's start or end.",
     },
     offset: {
       type: "number",
@@ -41,11 +43,13 @@ const ANCHOR_SCHEMA = {
     alignment: {
       type: "string",
       enum: ["startAtStart", "endAtEnd", "centerAtCenter"],
-      description: "For kind=simultaneousWith: how to align this clip with the referenced clip.",
+      description:
+        "For kind=simultaneousWith: how to align this clip with the referenced clip.",
     },
     fraction: {
       type: "number",
-      description: "For kind=atFraction: 0..1; position at referenced clip's start + duration * fraction.",
+      description:
+        "For kind=atFraction: 0..1; position at referenced clip's start + duration * fraction.",
     },
   },
   required: ["kind"],
@@ -63,12 +67,21 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         properties: {
           provider: {
             type: "string",
-            enum: ["elevenlabs", "openai", "lovo", "qwen", "bytedance", "lahajati"],
-            description: "Voice provider to search (REQUIRED - use the provider specified in the brief)",
+            enum: [
+              "elevenlabs",
+              "openai",
+              "lovo",
+              "qwen",
+              "bytedance",
+              "lahajati",
+            ],
+            description:
+              "Voice provider to search (REQUIRED - use the provider specified in the brief)",
           },
           language: {
             type: "string",
-            description: "ISO 639-1 language code (e.g., 'fr', 'de', 'es', 'th', 'id', 'pl', 'en')",
+            description:
+              "ISO 639-1 language code (e.g., 'fr', 'de', 'es', 'th', 'id', 'pl', 'en')",
           },
           gender: {
             type: "string",
@@ -77,7 +90,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           },
           accent: {
             type: "string",
-            description: "Accent filter (optional) - only use if user explicitly specified an accent",
+            description:
+              "Accent filter (optional) - only use if user explicitly specified an accent",
           },
           count: {
             type: "number",
@@ -201,7 +215,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 },
                 provider: {
                   type: "string",
-                  enum: ["elevenlabs", "lovo", "openai", "lahajati", "bytedance"],
+                  enum: [
+                    "elevenlabs",
+                    "lovo",
+                    "openai",
+                    "lahajati",
+                    "bytedance",
+                  ],
                   description:
                     "Voice provider - REQUIRED for fallback if voice lookup fails",
                 },
@@ -225,8 +245,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           adId: { type: "string", description: "The ad ID" },
           prompt: {
             type: "string",
-            description:
-              "Base music concept (1 sentence, used as fallback)",
+            description: "Base music concept (1 sentence, used as fallback)",
           },
           elevenlabs: {
             type: "string",
@@ -284,8 +303,14 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                   properties: {
                     type: {
                       type: "string",
-                      enum: ["beforeVoices", "withFirstVoice", "afterVoice", "end"],
-                      description: "Placement type: beforeVoices (sequential intro), withFirstVoice (concurrent intro), afterVoice (after specific voice), end (outro)",
+                      enum: [
+                        "beforeVoices",
+                        "withFirstVoice",
+                        "afterVoice",
+                        "end",
+                      ],
+                      description:
+                        "Placement type: beforeVoices (sequential intro), withFirstVoice (concurrent intro), afterVoice (after specific voice), end (outro)",
                     },
                     index: {
                       type: "number",
@@ -295,7 +320,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 },
                 duration: {
                   type: "number",
-                  description: "Duration in seconds (0.5-15, typical 2-3s for stingers, 5-10s for ambient)",
+                  description:
+                    "Duration in seconds (0.5-15, typical 2-3s for stingers, 5-10s for ambient)",
                 },
               },
               required: ["description"],
@@ -342,4 +368,3 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
 ];
-

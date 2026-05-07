@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { voiceCatalogue, VoiceCounts, PreloadedBlacklist } from "@/services/voiceCatalogueService";
+import {
+  voiceCatalogue,
+  VoiceCounts,
+  PreloadedBlacklist,
+} from "@/services/voiceCatalogueService";
 import { voiceMetadataService } from "@/services/voiceMetadataService";
 import { lahajatiDialectService } from "@/services/lahajatiDialectService";
 import { Language, Provider, CampaignFormat } from "@/types";
-import { normalizeLanguageCode, getLanguageRegions, accentRegions } from "@/utils/language";
+import {
+  normalizeLanguageCode,
+  getLanguageRegions,
+  accentRegions,
+} from "@/utils/language";
 
 export const runtime = "nodejs";
 
@@ -26,7 +34,8 @@ export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
     const rawLanguage = searchParams.get("language");
-    const campaignFormat = (searchParams.get("campaignFormat") || "ad_read") as CampaignFormat;
+    const campaignFormat = (searchParams.get("campaignFormat") ||
+      "ad_read") as CampaignFormat;
     const region = searchParams.get("region") || null;
     const provider = searchParams.get("provider") || null;
     const accent = searchParams.get("accent") || null;
@@ -34,7 +43,7 @@ export async function GET(req: NextRequest) {
     if (!rawLanguage) {
       return NextResponse.json(
         { error: "Language parameter required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -42,12 +51,14 @@ export async function GET(req: NextRequest) {
 
     // 1. Get regions (static, from language utils)
     const rawRegions = getLanguageRegions(language);
-    const regions: RegionOption[] = rawRegions.length > 0
-      ? [{ code: "all", displayName: "All Regions" }, ...rawRegions]
-      : [];
+    const regions: RegionOption[] =
+      rawRegions.length > 0
+        ? [{ code: "all", displayName: "All Regions" }, ...rawRegions]
+        : [];
 
     // 2. PRE-FETCH: Get blacklist ONCE (towers auto-cached in voiceCatalogue)
-    const blacklistMap = await voiceMetadataService.getAllBlacklistedForLanguage(language);
+    const blacklistMap =
+      await voiceMetadataService.getAllBlacklistedForLanguage(language);
 
     // 3-5. Towers automatically deduplicated via 200ms promise cache in voiceCatalogue
     const [accents, voiceCounts, filteredVoiceCount] = await Promise.all([
@@ -74,7 +85,7 @@ export async function GET(req: NextRequest) {
     console.error("Error in language-options:", error);
     return NextResponse.json(
       { error: "Failed to get language options" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -83,8 +94,17 @@ export async function GET(req: NextRequest) {
  * Get voice counts per provider with blacklist filtering.
  * Towers auto-cached in voiceCatalogue - no manual plumbing needed.
  */
-async function getFilteredVoiceCounts(language: Language, blacklistMap: PreloadedBlacklist): Promise<VoiceCounts> {
-  const providers = ["elevenlabs", "openai", "qwen", "bytedance", "lahajati"] as const;
+async function getFilteredVoiceCounts(
+  language: Language,
+  blacklistMap: PreloadedBlacklist,
+): Promise<VoiceCounts> {
+  const providers = [
+    "elevenlabs",
+    "openai",
+    "qwen",
+    "bytedance",
+    "lahajati",
+  ] as const;
 
   const results = await Promise.all(
     providers.map(async (provider) => {
@@ -94,13 +114,13 @@ async function getFilteredVoiceCounts(language: Language, blacklistMap: Preloade
           language,
           undefined, // accent
           true, // requireApproval - filter out blacklisted!
-          blacklistMap // Pre-loaded blacklist
+          blacklistMap, // Pre-loaded blacklist
         );
         return { provider, count: voices.length };
       } catch {
         return { provider, count: 0 };
       }
-    })
+    }),
   );
 
   const counts: VoiceCounts = {
@@ -129,7 +149,7 @@ async function getFilteredVoiceCountForDialog(
   language: Language,
   provider: string | null,
   accent: string | null,
-  blacklistMap: PreloadedBlacklist
+  blacklistMap: PreloadedBlacklist,
 ): Promise<number> {
   // If no specific provider, check all providers
   const providersToCheck = provider
@@ -144,13 +164,13 @@ async function getFilteredVoiceCountForDialog(
           language,
           accent || undefined, // Pass accent filter if specified
           true, // requireApproval - filter out blacklisted
-          blacklistMap // Pre-loaded blacklist
+          blacklistMap, // Pre-loaded blacklist
         );
         return voices.length;
       } catch {
         return 0;
       }
-    })
+    }),
   );
 
   return results.reduce((sum, count) => sum + count, 0);
@@ -160,13 +180,17 @@ async function getFilteredVoiceCountForDialog(
  * Get available accents for a language from voice data (with blacklist filtering)
  * Optionally filter by region if specified
  */
-async function getAccentsForLanguage(language: Language, region: string | null, blacklistMap: PreloadedBlacklist): Promise<AccentOption[]> {
+async function getAccentsForLanguage(
+  language: Language,
+  region: string | null,
+  blacklistMap: PreloadedBlacklist,
+): Promise<AccentOption[]> {
   // Special case: Arabic uses dialect service (Lahajati voices are dialect-agnostic)
   if (language === "ar" || language.startsWith("ar-")) {
     const accentCodes = await lahajatiDialectService.getAvailableAccents();
     const accents: AccentOption[] = accentCodes
-      .filter(code => code !== "neutral" && code !== "maghrebi") // exclude meta-accents
-      .map(code => ({
+      .filter((code) => code !== "neutral" && code !== "maghrebi") // exclude meta-accents
+      .map((code) => ({
         code,
         displayName: formatAccentDisplayName(code, language),
       }));
@@ -187,12 +211,12 @@ async function getAccentsForLanguage(language: Language, region: string | null, 
           language,
           undefined, // accent
           true, // requireApproval - filter out blacklisted!
-          blacklistMap // Pre-loaded blacklist
+          blacklistMap, // Pre-loaded blacklist
         );
       } catch {
         return [];
       }
-    })
+    }),
   );
 
   // Collect accents from all providers
@@ -208,9 +232,10 @@ async function getAccentsForLanguage(language: Language, region: string | null, 
   // Get the allowed accents for this region (if region is specified and not "all")
   const baseLang = language.split("-")[0];
   const regionAccentMapping = accentRegions[baseLang];
-  const allowedAccentsForRegion = region && region !== "all" && regionAccentMapping
-    ? regionAccentMapping[region] || null
-    : null;
+  const allowedAccentsForRegion =
+    region && region !== "all" && regionAccentMapping
+      ? regionAccentMapping[region] || null
+      : null;
 
   // Convert to display format, filtering by region if applicable
   const accents: AccentOption[] = Array.from(availableAccents)
@@ -268,7 +293,10 @@ function suggestProvider(language: string, voiceCounts: VoiceCounts): Provider {
 /**
  * Format accent code into display name
  */
-function formatAccentDisplayName(accentCode: string, language: Language): string {
+function formatAccentDisplayName(
+  accentCode: string,
+  language: Language,
+): string {
   if (!accentCode || accentCode === "neutral") return "Any Accent";
 
   const accentDisplayNames: Record<string, Record<string, string>> = {

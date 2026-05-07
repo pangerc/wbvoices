@@ -15,10 +15,7 @@ import {
   AnchorInput,
 } from "./types";
 import { reconcileSlots } from "./slotReconciliation";
-import {
-  translateAnchorInput,
-  type OrdinalRefs,
-} from "./anchorTranslation";
+import { translateAnchorInput, type OrdinalRefs } from "./anchorTranslation";
 import { voiceCatalogue } from "@/services/voiceCatalogueService";
 import {
   synthesizeMetadata,
@@ -42,7 +39,14 @@ import {
   type LintViolation,
 } from "./validation/voice-tag-lint";
 import { withAdLock } from "@/lib/redis/adLock";
-import type { Language, Provider, Voice, VoiceTrack, MusicProvider, SoundFxPlacementIntent } from "@/types";
+import type {
+  Language,
+  Provider,
+  Voice,
+  VoiceTrack,
+  MusicProvider,
+  SoundFxPlacementIntent,
+} from "@/types";
 import type {
   Anchor,
   VoiceVersion,
@@ -64,7 +68,7 @@ import type { KnowledgeContext } from "@/lib/knowledge/types";
  */
 function reconcileContextFromTracks(
   inherited: KnowledgeContext,
-  tracks: VoiceTrack[]
+  tracks: VoiceTrack[],
 ): KnowledgeContext {
   const first = tracks[0]?.voice;
   if (!first) return inherited;
@@ -72,7 +76,11 @@ function reconcileContextFromTracks(
   const next: KnowledgeContext = { ...inherited };
   if (first.language) next.language = first.language;
   if (first.provider) next.voiceProvider = first.provider;
-  if (first.accent && first.accent !== "neutral" && first.accent !== "standard") {
+  if (
+    first.accent &&
+    first.accent !== "neutral" &&
+    first.accent !== "standard"
+  ) {
     next.accent = first.accent;
   }
   return next;
@@ -111,7 +119,7 @@ async function freezeExistingDraft(
 async function resolveParentVersionId(
   adId: string,
   streamType: StreamType,
-  explicit: ParentVersionRef
+  explicit: ParentVersionRef,
 ): Promise<VersionId | null> {
   if (explicit === null) return null;
   if (typeof explicit === "string") return explicit;
@@ -132,7 +140,7 @@ async function resolveParentVersionId(
 async function loadParentSlotIds(
   adId: string,
   streamType: "voices" | "sfx",
-  parentVersionId: VersionId | null
+  parentVersionId: VersionId | null,
 ): Promise<Array<string | undefined> | null> {
   if (!parentVersionId) return null;
   const data = await getVersion(adId, streamType, parentVersionId);
@@ -154,7 +162,7 @@ async function loadParentSlotIds(
  */
 async function loadOrdinalRefs(
   adId: string,
-  overrides: Partial<OrdinalRefs>
+  overrides: Partial<OrdinalRefs>,
 ): Promise<OrdinalRefs> {
   const refs: OrdinalRefs = { ...overrides };
 
@@ -165,7 +173,7 @@ async function loadOrdinalRefs(
       const voiceVersion = (await getVersion(
         adId,
         "voices",
-        activeVoiceId
+        activeVoiceId,
       )) as VoiceVersion | null;
       if (voiceVersion) {
         refs.voices = voiceVersion.voiceTracks.map((t) => t.slotId);
@@ -180,7 +188,7 @@ async function loadOrdinalRefs(
       const sfxVersion = (await getVersion(
         adId,
         "sfx",
-        activeSfxId
+        activeSfxId,
       )) as SfxVersion | null;
       if (sfxVersion) {
         refs.sfx = sfxVersion.soundFxPrompts.map((p) => p.slotId);
@@ -195,7 +203,7 @@ async function loadOrdinalRefs(
       const musicVersion = (await getVersion(
         adId,
         "music",
-        activeMusicId
+        activeMusicId,
       )) as MusicVersion | null;
       if (musicVersion?.slotId) refs.music = musicVersion.slotId;
     }
@@ -211,13 +219,13 @@ async function loadOrdinalRefs(
  */
 function safeTranslateAnchor(
   input: AnchorInput | undefined,
-  refs: OrdinalRefs
+  refs: OrdinalRefs,
 ): Anchor | undefined {
   if (!input) return undefined;
   const translated = translateAnchorInput(input, refs);
   if (!translated) {
     console.warn(
-      `[anchor-translate] Unresolvable trackRef in anchor input: ${JSON.stringify(input)}`
+      `[anchor-translate] Unresolvable trackRef in anchor input: ${JSON.stringify(input)}`,
     );
     return undefined;
   }
@@ -280,9 +288,9 @@ function seededShuffle<T>(items: readonly T[], seed: number): T[] {
  * providers and ElevenLabs single-language voices, the flag is false
  * and they sort first as natives.
  */
-function stableSortByMultilingual<T extends { voice: { capabilities?: { isMultilingual?: boolean } } }>(
-  items: readonly T[]
-): T[] {
+function stableSortByMultilingual<
+  T extends { voice: { capabilities?: { isMultilingual?: boolean } } },
+>(items: readonly T[]): T[] {
   const natives: T[] = [];
   const multilinguals: T[] = [];
   for (const item of items) {
@@ -357,7 +365,9 @@ export async function searchVoices(
   }));
 
   const filtered = anyFilter
-    ? withMetadata.filter((x) => voiceMatchesFilters(x.metadata, semanticFilters))
+    ? withMetadata.filter((x) =>
+        voiceMatchesFilters(x.metadata, semanticFilters),
+      )
     : withMetadata;
 
   // Seed the shuffle on the full filter tuple so changing any filter dimension
@@ -379,8 +389,8 @@ export async function searchVoices(
             pace_tendency ?? "",
             use_case ?? "",
             dialect_register ?? "",
-          ].join("|")
-        )
+          ].join("|"),
+        ),
       )
     : filtered;
 
@@ -436,12 +446,15 @@ export async function searchVoices(
         provider as Provider,
         language as Language,
         undefined,
-        true
+        true,
       );
       const reGender = gender
         ? reAll.filter((v) => v.gender.toLowerCase() === gender.toLowerCase())
         : reAll;
-      pool = reGender.map((v) => ({ voice: v, metadata: synthesizeMetadata(v) }));
+      pool = reGender.map((v) => ({
+        voice: v,
+        metadata: synthesizeMetadata(v),
+      }));
     }
     if (pool.length === 0 && gender) {
       broadened.push("gender");
@@ -449,13 +462,16 @@ export async function searchVoices(
         provider as Provider,
         language as Language,
         undefined,
-        true
+        true,
       );
       pool = reAll.map((v) => ({ voice: v, metadata: synthesizeMetadata(v) }));
     }
 
     const shuffledBroad = adId
-      ? seededShuffle(pool, fnv1a32([adId, provider, language, "broadened"].join("|")))
+      ? seededShuffle(
+          pool,
+          fnv1a32([adId, provider, language, "broadened"].join("|")),
+        )
       : pool;
     const orderedBroad = stableSortByMultilingual(shuffledBroad);
     const broadSelected = orderedBroad.slice(0, count);
@@ -504,16 +520,29 @@ export async function createVoiceDraft(
 }
 
 async function createVoiceDraftLocked(
-  params: CreateVoiceDraftParams
+  params: CreateVoiceDraftParams,
 ): Promise<DraftCreationResult> {
-  const { adId, tracks, parentVersionId: explicitParent, knowledgeContext: explicitContext } = params;
+  const {
+    adId,
+    tracks,
+    parentVersionId: explicitParent,
+    knowledgeContext: explicitContext,
+  } = params;
 
   // Freeze any existing draft before creating new one
   await freezeExistingDraft(adId, "voices");
 
   // Resolve parent lineage + inherit slot ids by ordinal match
-  const parentVersionId = await resolveParentVersionId(adId, "voices", explicitParent);
-  const parentSlotIds = await loadParentSlotIds(adId, "voices", parentVersionId);
+  const parentVersionId = await resolveParentVersionId(
+    adId,
+    "voices",
+    explicitParent,
+  );
+  const parentSlotIds = await loadParentSlotIds(
+    adId,
+    "voices",
+    parentVersionId,
+  );
 
   // Resolve context snapshot: explicit context wins (agent-executor injection on the
   // first version from the brief, or iteration with explicit overrides). Otherwise
@@ -521,14 +550,18 @@ async function createVoiceDraftLocked(
   // no parent and no injected context (legacy path).
   let snapshotContext = explicitContext;
   if (!snapshotContext && parentVersionId) {
-    const parent = (await getVersion(adId, "voices", parentVersionId)) as VoiceVersion | null;
+    const parent = (await getVersion(
+      adId,
+      "voices",
+      parentVersionId,
+    )) as VoiceVersion | null;
     snapshotContext = parent?.knowledgeContext;
   }
   const { assigned: slotIds, report } = reconcileSlots(
     parentSlotIds,
     tracks.length,
     "voices",
-    parentVersionId
+    parentVersionId,
   );
 
   // Ordinal refs for anchor translation — voices table is this draft's own slot
@@ -627,7 +660,7 @@ async function createVoiceDraftLocked(
   const lintResult = await runTagLintWithRetry(
     wovenTracks,
     resolvedTracks,
-    finalContext
+    finalContext,
   );
 
   const voiceVersion: VoiceVersion = {
@@ -652,9 +685,9 @@ async function createVoiceDraftLocked(
     (err) => {
       console.warn(
         `[tag-lint] telemetry write failed for ${adId}/${versionId}:`,
-        err instanceof Error ? err.message : err
+        err instanceof Error ? err.message : err,
       );
-    }
+    },
   );
 
   return slotReportedResult(adId, versionId, report);
@@ -669,7 +702,7 @@ async function createVoiceDraftLocked(
  */
 async function runTagWeaverPass(
   tracks: VoiceTrack[],
-  context: KnowledgeContext | undefined
+  context: KnowledgeContext | undefined,
 ): Promise<VoiceTrack[]> {
   return Promise.all(
     tracks.map(async (track) => {
@@ -677,13 +710,13 @@ async function runTagWeaverPass(
       const result = await weaveTagsForElevenlabsTrack(
         track.text,
         track.voice,
-        context
+        context,
       );
       console.log(
-        `[tag-weaver] track=${track.slotId ?? "?"} provider=elevenlabs ok=${result.ok} latency=${result.latencyMs}ms${result.fallbackReason ? ` fallback=${result.fallbackReason}` : ""}`
+        `[tag-weaver] track=${track.slotId ?? "?"} provider=elevenlabs ok=${result.ok} latency=${result.latencyMs}ms${result.fallbackReason ? ` fallback=${result.fallbackReason}` : ""}`,
       );
       return result.ok ? { ...track, text: result.text } : track;
-    })
+    }),
   );
 }
 
@@ -701,14 +734,18 @@ interface LintRetryOutcome {
 async function runTagLintWithRetry(
   wovenTracks: VoiceTrack[],
   originalResolvedTracks: VoiceTrack[],
-  context: KnowledgeContext | undefined
+  context: KnowledgeContext | undefined,
 ): Promise<LintRetryOutcome> {
   const firstPass = lintVoiceTracks(
-    wovenTracks.map((t) => ({ text: t.text, voice: t.voice }))
+    wovenTracks.map((t) => ({ text: t.text, voice: t.voice })),
   );
   if (firstPass.ok) {
     logLintSummary(firstPass.telemetry, /*retried*/ false);
-    return { tracks: wovenTracks, telemetry: firstPass.telemetry, warnings: [] };
+    return {
+      tracks: wovenTracks,
+      telemetry: firstPass.telemetry,
+      warnings: [],
+    };
   }
 
   // Group violations by track for targeted retry.
@@ -729,17 +766,17 @@ async function runTagLintWithRetry(
         sourceText,
         track.voice,
         context,
-        { lintFeedback: feedback }
+        { lintFeedback: feedback },
       );
       console.log(
-        `[tag-weaver] retry track=${track.slotId ?? idx} ok=${result.ok} latency=${result.latencyMs}ms`
+        `[tag-weaver] retry track=${track.slotId ?? idx} ok=${result.ok} latency=${result.latencyMs}ms`,
       );
       return result.ok ? { ...track, text: result.text } : track;
-    })
+    }),
   );
 
   const secondPass = lintVoiceTracks(
-    retried.map((t) => ({ text: t.text, voice: t.voice }))
+    retried.map((t) => ({ text: t.text, voice: t.voice })),
   );
   logLintSummary(secondPass.telemetry, /*retried*/ true);
 
@@ -752,11 +789,11 @@ async function runTagLintWithRetry(
 
 function logLintSummary(
   telemetry: ReturnType<typeof lintVoiceTracks>["telemetry"],
-  retried: boolean
+  retried: boolean,
 ): void {
   for (const e of telemetry) {
     console.log(
-      `[tag-lint] track=${e.trackIndex} pass=${e.lintPassed}${retried ? " retried=true" : ""} opening=${e.openingStackSize} body=${e.bodyTags} accent=${e.accentPresent}${e.violations.length ? ` violations=${e.violations.join(",")}` : ""}`
+      `[tag-lint] track=${e.trackIndex} pass=${e.lintPassed}${retried ? " retried=true" : ""} opening=${e.openingStackSize} body=${e.bodyTags} accent=${e.accentPresent}${e.violations.length ? ` violations=${e.violations.join(",")}` : ""}`,
     );
   }
 }
@@ -771,7 +808,7 @@ export async function createMusicDraft(
 }
 
 async function createMusicDraftLocked(
-  params: CreateMusicDraftParams
+  params: CreateMusicDraftParams,
 ): Promise<DraftCreationResult> {
   const {
     adId,
@@ -798,27 +835,37 @@ async function createMusicDraftLocked(
   const effectiveDuration = Math.max(duration ?? 0, minimumMusicDuration);
   if (duration && duration < minimumMusicDuration) {
     console.log(
-      `[create_music_draft] LLM asked for ${duration}s but bumping to ${effectiveDuration}s (brief=${briefDuration}s, +10s buffer for script overrun)`
+      `[create_music_draft] LLM asked for ${duration}s but bumping to ${effectiveDuration}s (brief=${briefDuration}s, +10s buffer for script overrun)`,
     );
   } else if (!duration) {
-    console.log(`[create_music_draft] Derived duration ${effectiveDuration}s from brief (ad: ${briefDuration}s)`);
+    console.log(
+      `[create_music_draft] Derived duration ${effectiveDuration}s from brief (ad: ${briefDuration}s)`,
+    );
   }
 
   // Freeze any existing draft before creating new one
   await freezeExistingDraft(adId, "music");
 
   // Resolve parent lineage. Music has exactly one slot per version; carry its id forward.
-  const parentVersionId = await resolveParentVersionId(adId, "music", explicitParent);
+  const parentVersionId = await resolveParentVersionId(
+    adId,
+    "music",
+    explicitParent,
+  );
   let parentSlotId: string | undefined;
   if (parentVersionId) {
-    const parent = (await getVersion(adId, "music", parentVersionId)) as MusicVersion | null;
+    const parent = (await getVersion(
+      adId,
+      "music",
+      parentVersionId,
+    )) as MusicVersion | null;
     parentSlotId = parent?.slotId;
   }
   const { assigned: slotIds, report } = reconcileSlots(
     parentSlotId ? [parentSlotId] : parentVersionId ? [undefined] : null,
     1,
     "music",
-    parentVersionId
+    parentVersionId,
   );
 
   // Anchor translation — music mostly references voices for ducking / swell.
@@ -859,7 +906,7 @@ export async function createSfxDraft(
 }
 
 async function createSfxDraftLocked(
-  params: CreateSfxDraftParams
+  params: CreateSfxDraftParams,
 ): Promise<DraftCreationResult> {
   const { adId, prompts, parentVersionId: explicitParent } = params;
 
@@ -867,13 +914,17 @@ async function createSfxDraftLocked(
   await freezeExistingDraft(adId, "sfx");
 
   // Resolve parent lineage + inherit slot ids by ordinal match
-  const parentVersionId = await resolveParentVersionId(adId, "sfx", explicitParent);
+  const parentVersionId = await resolveParentVersionId(
+    adId,
+    "sfx",
+    explicitParent,
+  );
   const parentSlotIds = await loadParentSlotIds(adId, "sfx", parentVersionId);
   const { assigned: slotIds, report } = reconcileSlots(
     parentSlotIds,
     prompts.length,
     "sfx",
-    parentVersionId
+    parentVersionId,
   );
 
   // Anchor translation — sfx typically references voices in the active voice version.
@@ -938,7 +989,7 @@ async function createSfxDraftLocked(
 function slotReportedResult(
   adId: string,
   versionId: VersionId,
-  report: SlotReconciliation
+  report: SlotReconciliation,
 ): DraftCreationResult {
   const inheritedFromParent =
     report.parentVersionId !== null ||
@@ -946,7 +997,7 @@ function slotReportedResult(
     report.orphaned.length > 0;
 
   console.log(
-    `[slot-reconciliation] adId=${adId} stream=${report.stream} versionId=${versionId} parent=${report.parentVersionId ?? "none"} preserved=${report.preserved.length} created=${report.created.length} orphaned=${report.orphaned.length}`
+    `[slot-reconciliation] adId=${adId} stream=${report.stream} versionId=${versionId} parent=${report.parentVersionId ?? "none"} preserved=${report.preserved.length} created=${report.created.length} orphaned=${report.orphaned.length}`,
   );
 
   return inheritedFromParent

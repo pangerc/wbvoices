@@ -38,12 +38,12 @@ async function createSimpleTestAd() {
 
     // 2. Add to user's ads list
     const userAdsKey = `ads:by_user:${sessionId}`;
-    const existingAds = await redis.get<string[]>(userAdsKey) || [];
+    const existingAds = (await redis.get<string[]>(userAdsKey)) || [];
     await redis.set(userAdsKey, JSON.stringify([...existingAds, adId]));
     console.log(`✅ Added to user's ads list`);
 
     // 3. Add to global ads index
-    const allAds = await redis.get<string[]>("ads:all") || [];
+    const allAds = (await redis.get<string[]>("ads:all")) || [];
     await redis.set("ads:all", JSON.stringify([...allAds, adId]));
     console.log(`✅ Added to global ads index`);
 
@@ -76,8 +76,9 @@ async function createSimpleTestAd() {
 
     console.log(`🎉 Test ad created successfully!`);
     console.log(`   Visit: http://localhost:3003/ad/${adId}`);
-    console.log(`   History drawer will show this ad with session: ${sessionId}`);
-
+    console.log(
+      `   History drawer will show this ad with session: ${sessionId}`,
+    );
   } catch (error) {
     console.error("❌ Error creating test ad:", error);
     process.exit(1);

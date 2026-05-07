@@ -26,7 +26,13 @@ describe("reconcileSlots", () => {
   it("parent and new have the same count — all preserved, none orphaned", () => {
     const mint = makeCounter();
     const parent = ["a", "b", "c"];
-    const { assigned, report } = reconcileSlots(parent, 3, "voices", "v4", mint);
+    const { assigned, report } = reconcileSlots(
+      parent,
+      3,
+      "voices",
+      "v4",
+      mint,
+    );
 
     expect(assigned).toEqual(["a", "b", "c"]);
     expect(report.parentVersionId).toBe("v4");
@@ -42,7 +48,13 @@ describe("reconcileSlots", () => {
   it("new draft adds a track — first N preserved, trailing are created", () => {
     const mint = makeCounter();
     const parent = ["a", "b"];
-    const { assigned, report } = reconcileSlots(parent, 4, "voices", "v2", mint);
+    const { assigned, report } = reconcileSlots(
+      parent,
+      4,
+      "voices",
+      "v2",
+      mint,
+    );
 
     expect(assigned).toEqual(["a", "b", "id-0", "id-1"]);
     expect(report.preserved).toHaveLength(2);
@@ -56,7 +68,13 @@ describe("reconcileSlots", () => {
   it("new draft drops a track — first N preserved, remaining parent slots orphaned", () => {
     const mint = makeCounter();
     const parent = ["a", "b", "c", "d"];
-    const { assigned, report } = reconcileSlots(parent, 2, "voices", "v5", mint);
+    const { assigned, report } = reconcileSlots(
+      parent,
+      2,
+      "voices",
+      "v5",
+      mint,
+    );
 
     expect(assigned).toEqual(["a", "b"]);
     expect(report.preserved).toEqual([
@@ -73,7 +91,13 @@ describe("reconcileSlots", () => {
   it("parent with missing slotIds at some ordinals (legacy pre-slotId data) — mints fresh ids at those ordinals", () => {
     const mint = makeCounter();
     const parent = ["a", undefined, "c"];
-    const { assigned, report } = reconcileSlots(parent, 3, "voices", "v1", mint);
+    const { assigned, report } = reconcileSlots(
+      parent,
+      3,
+      "voices",
+      "v1",
+      mint,
+    );
 
     expect(assigned).toEqual(["a", "id-0", "c"]);
     expect(report.preserved).toEqual([
@@ -88,7 +112,13 @@ describe("reconcileSlots", () => {
     const mint = makeCounter();
     // Parent had 4 tracks but slotIds only minted for indices 0 and 2
     const parent = ["a", undefined, "c", undefined];
-    const { assigned, report } = reconcileSlots(parent, 2, "voices", "v3", mint);
+    const { assigned, report } = reconcileSlots(
+      parent,
+      2,
+      "voices",
+      "v3",
+      mint,
+    );
 
     expect(assigned).toEqual(["a", "id-0"]);
     // Ordinal 1 was preserved-but-freshly-minted; ordinals 2+3 are dropped.
@@ -98,16 +128,30 @@ describe("reconcileSlots", () => {
 
   it("single-slot music stream — one preserved", () => {
     const mint = makeCounter();
-    const { assigned, report } = reconcileSlots(["music-slot"], 1, "music", "v2", mint);
+    const { assigned, report } = reconcileSlots(
+      ["music-slot"],
+      1,
+      "music",
+      "v2",
+      mint,
+    );
 
     expect(assigned).toEqual(["music-slot"]);
     expect(report.stream).toBe("music");
-    expect(report.preserved).toEqual([{ slotId: "music-slot", ordinalIndex: 0 }]);
+    expect(report.preserved).toEqual([
+      { slotId: "music-slot", ordinalIndex: 0 },
+    ]);
   });
 
   it("music with parent pre-dating slotIds — mints one fresh", () => {
     const mint = makeCounter();
-    const { assigned, report } = reconcileSlots([undefined], 1, "music", "v1", mint);
+    const { assigned, report } = reconcileSlots(
+      [undefined],
+      1,
+      "music",
+      "v1",
+      mint,
+    );
 
     expect(assigned).toEqual(["id-0"]);
     expect(report.created).toEqual([{ slotId: "id-0", ordinalIndex: 0 }]);

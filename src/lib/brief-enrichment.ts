@@ -74,14 +74,14 @@ export interface PrefetchedEnrichments {
 async function withDeadline<T>(
   promise: Promise<T>,
   deadlineMs: number,
-  label: string
+  label: string,
 ): Promise<{ ok: true; value: T } | { ok: false; reason: string }> {
   let timeoutHandle: NodeJS.Timeout | undefined;
   try {
     const timeout = new Promise<never>((_, reject) => {
       timeoutHandle = setTimeout(
         () => reject(new Error(`${label}: deadline ${deadlineMs}ms exceeded`)),
-        deadlineMs
+        deadlineMs,
       );
     });
     const value = await Promise.race([promise, timeout]);
@@ -120,7 +120,9 @@ export function detectUrlType(url: string): UrlType {
     host.endsWith("vimeo.com") ||
     (host.endsWith("youtube.com") && parsed.searchParams.has("v")) ||
     host === "youtu.be" ||
-    /\/(case[-_ ]?study|case[-_ ]?studies|our[-_ ]?work|portfolio)\b/.test(path) ||
+    /\/(case[-_ ]?study|case[-_ ]?studies|our[-_ ]?work|portfolio)\b/.test(
+      path,
+    ) ||
     /\/(ad|spot|commercial|creative)s?\//.test(path)
   ) {
     return "reference_ad";
@@ -128,7 +130,9 @@ export function detectUrlType(url: string): UrlType {
 
   // Press / news indicators
   if (
-    /\/(press|news|newsroom|blog|insights|articles?|stories|press[-_ ]?release)s?\b/.test(path) ||
+    /\/(press|news|newsroom|blog|insights|articles?|stories|press[-_ ]?release)s?\b/.test(
+      path,
+    ) ||
     /\/\d{4}\/\d{2}\b/.test(path) // /YYYY/MM/ archive style
   ) {
     return "press_release";
@@ -136,8 +140,10 @@ export function detectUrlType(url: string): UrlType {
 
   // Product indicators
   if (
-    /\/(product|p|shop|store|item|sku|collection|category|catalogue|catalog)s?\//.test(path) ||
-    /\.(html|htm)$/.test(path) && path.split("/").length > 3
+    /\/(product|p|shop|store|item|sku|collection|category|catalogue|catalog)s?\//.test(
+      path,
+    ) ||
+    (/\.(html|htm)$/.test(path) && path.split("/").length > 3)
   ) {
     return "product";
   }
@@ -244,29 +250,32 @@ export interface PrefetchInput {
  * all in parallel, all bounded by a 12s wall-clock cap.
  */
 export async function prefetchBriefEnrichments(
-  input: PrefetchInput
+  input: PrefetchInput,
 ): Promise<PrefetchedEnrichments> {
   const start = Date.now();
 
-  const sfPromise: Promise<{ ok: boolean; bundle?: SfClientBundle; error?: string }> =
-    input.salesforceAccountId
-      ? alaric
-          .getSfClient(input.salesforceAccountId)
-          .then((bundle) => ({ ok: true as const, bundle }))
-          .catch((err: unknown) => ({
-            ok: false as const,
-            error:
-              err instanceof AlaricRequestError
-                ? `${err.message} (HTTP ${err.status})`
-                : err instanceof Error
-                  ? err.message
-                  : "sf lookup failed",
-          }))
-      : Promise.resolve({ ok: false as const, error: undefined });
+  const sfPromise: Promise<{
+    ok: boolean;
+    bundle?: SfClientBundle;
+    error?: string;
+  }> = input.salesforceAccountId
+    ? alaric
+        .getSfClient(input.salesforceAccountId)
+        .then((bundle) => ({ ok: true as const, bundle }))
+        .catch((err: unknown) => ({
+          ok: false as const,
+          error:
+            err instanceof AlaricRequestError
+              ? `${err.message} (HTTP ${err.status})`
+              : err instanceof Error
+                ? err.message
+                : "sf lookup failed",
+        }))
+    : Promise.resolve({ ok: false as const, error: undefined });
 
-  const urlPromises: Promise<PrefetchedUrlExtract>[] = (input.referenceUrls || []).map(
-    prefetchOneUrl
-  );
+  const urlPromises: Promise<PrefetchedUrlExtract>[] = (
+    input.referenceUrls || []
+  ).map(prefetchOneUrl);
 
   // Race the whole bundle against a single deadline so a slow URL can't
   // stall the entire fan-out. Individual results that miss the deadline
@@ -274,14 +283,14 @@ export async function prefetchBriefEnrichments(
   const settled = await withDeadline(
     Promise.allSettled([sfPromise, ...urlPromises]),
     PREFETCH_DEADLINE_MS,
-    `[prefetch ad=${input.adId}]`
+    `[prefetch ad=${input.adId}]`,
   );
 
   const elapsedMs = Date.now() - start;
 
   if (!settled.ok) {
     console.warn(
-      `[brief-enrichment] ${input.adId} timed out after ${elapsedMs}ms — proceeding without enrichments. Reason: ${settled.reason}`
+      `[brief-enrichment] ${input.adId} timed out after ${elapsedMs}ms — proceeding without enrichments. Reason: ${settled.reason}`,
     );
     return {
       sfClient: null,
@@ -301,11 +310,16 @@ export async function prefetchBriefEnrichments(
     if (r.ok && r.bundle) sfClient = r.bundle;
     else if (r.error) sfError = r.error;
   } else if (sfResult.status === "rejected") {
-    sfError = sfResult.reason instanceof Error ? sfResult.reason.message : String(sfResult.reason);
+    sfError =
+      sfResult.reason instanceof Error
+        ? sfResult.reason.message
+        : String(sfResult.reason);
   }
 
   if (sfError) {
-    console.warn(`[brief-enrichment] ${input.adId} sf lookup failed: ${sfError}`);
+    console.warn(
+      `[brief-enrichment] ${input.adId} sf lookup failed: ${sfError}`,
+    );
   }
 
   // v2 Stage J — async fire-and-forget enrichment trigger. Default ON
@@ -318,11 +332,7 @@ export async function prefetchBriefEnrichments(
   // Cost watchdog: alaric logs a `[aca-enrich-trigger]` sentinel per
   // call. The dispatch itself is idempotent (alaric's
   // `getActiveEnrichmentJob` guard) so duplicate fires are no-ops.
-  if (
-    input.salesforceAccountId &&
-    sfClient &&
-    sfClient.intelligence === null
-  ) {
+  if (input.salesforceAccountId && sfClient && sfClient.intelligence === null) {
     const accountIdForTrigger = input.salesforceAccountId;
     void alaric
       .triggerEnrichCompany(accountIdForTrigger)
@@ -333,24 +343,24 @@ export async function prefetchBriefEnrichments(
         // (informational). All other statuses are routine.
         if (result.status === "dispatch_failed") {
           console.warn(
-            `[brief-enrichment] ${input.adId} enrich trigger DISPATCH FAILED for ${accountIdForTrigger}${result.warning ? ` — ${result.warning}` : ""}`
+            `[brief-enrichment] ${input.adId} enrich trigger DISPATCH FAILED for ${accountIdForTrigger}${result.warning ? ` — ${result.warning}` : ""}`,
           );
           return;
         }
         if (result.status === "noop_fresh") {
           console.log(
-            `[brief-enrichment] ${input.adId} enrich trigger noop_fresh for ${accountIdForTrigger} (age=${result.ageHours}h window=${result.windowHours}h)`
+            `[brief-enrichment] ${input.adId} enrich trigger noop_fresh for ${accountIdForTrigger} (age=${result.ageHours}h window=${result.windowHours}h)`,
           );
           return;
         }
         console.log(
-          `[brief-enrichment] ${input.adId} enrich trigger for ${accountIdForTrigger}: status=${result.status}${result.jobId ? ` jobId=${result.jobId}` : ""}`
+          `[brief-enrichment] ${input.adId} enrich trigger for ${accountIdForTrigger}: status=${result.status}${result.jobId ? ` jobId=${result.jobId}` : ""}`,
         );
       })
       .catch((err) => {
         console.warn(
           `[brief-enrichment] ${input.adId} enrich trigger failed for ${accountIdForTrigger}:`,
-          err instanceof Error ? err.message : err
+          err instanceof Error ? err.message : err,
         );
       });
   }
@@ -370,13 +380,13 @@ export async function prefetchBriefEnrichments(
   for (const ext of urlExtracts) {
     if (ext.error) {
       console.warn(
-        `[brief-enrichment] ${input.adId} url ${ext.url} failed: ${ext.error}`
+        `[brief-enrichment] ${input.adId} url ${ext.url} failed: ${ext.error}`,
       );
     }
   }
 
   console.log(
-    `[brief-enrichment] ${input.adId} done in ${elapsedMs}ms — sf=${sfClient ? "ok" : "skip"}, urls=${urlExtracts.length} (${urlExtracts.filter((e) => e.extract).length} with content)`
+    `[brief-enrichment] ${input.adId} done in ${elapsedMs}ms — sf=${sfClient ? "ok" : "skip"}, urls=${urlExtracts.length} (${urlExtracts.filter((e) => e.extract).length} with content)`,
   );
 
   return { sfClient, sfError, urlExtracts, elapsedMs, timedOut: false };
@@ -394,7 +404,7 @@ export async function prefetchBriefEnrichments(
  *   const userMessage = buildUserMessage({ ..., enrichmentSections: sections });
  */
 export function renderEnrichmentSections(
-  enrichments: PrefetchedEnrichments
+  enrichments: PrefetchedEnrichments,
 ): string {
   const parts: string[] = [];
 
@@ -403,13 +413,15 @@ export function renderEnrichmentSections(
     // Falls back to the legacy SF-account + BrandVoiceExtract sections
     // only when dossier is null (alaric has no companies row at all).
     if (enrichments.sfClient.dossier) {
-      parts.push(renderBrandDossier(enrichments.sfClient.dossier, enrichments.sfClient));
+      parts.push(
+        renderBrandDossier(enrichments.sfClient.dossier, enrichments.sfClient),
+      );
     } else {
       parts.push(renderSfClientSection(enrichments.sfClient));
       if (enrichments.sfClient.intelligence) {
         const block = renderBrandVoiceSection(
           enrichments.sfClient.intelligence,
-          enrichments.sfClient.intelligenceAge
+          enrichments.sfClient.intelligenceAge,
         );
         if (block) parts.push(block);
       }
@@ -436,14 +448,17 @@ export function renderEnrichmentSections(
  * NO COST BOUNDING — bring everything alaric has. Prompt caching makes
  * the repeat-seeing-of-large-blocks efficient.
  */
-function renderBrandDossier(dossier: BrandDossier, bundle: SfClientBundle): string {
+function renderBrandDossier(
+  dossier: BrandDossier,
+  bundle: SfClientBundle,
+): string {
   const lines: string[] = [`## Brand Dossier — ${dossier.identity.name}`];
 
   // ===== Identity (compact territory + state line) =====
   const identityBits: string[] = [];
   if (dossier.identity.territoryDivergent) {
     identityBits.push(
-      `Reporting territory: ${dossier.identity.reportingTerritory} (legal entity in ${dossier.identity.legalEntity} — divergent)`
+      `Reporting territory: ${dossier.identity.reportingTerritory} (legal entity in ${dossier.identity.legalEntity} — divergent)`,
     );
   } else if (dossier.identity.reportingTerritory) {
     identityBits.push(`Territory: ${dossier.identity.reportingTerritory}`);
@@ -453,7 +468,9 @@ function renderBrandDossier(dossier: BrandDossier, bundle: SfClientBundle): stri
   if (dossier.meta.state === "rich") {
     identityBits.push("alaric profile: rich");
   } else if (dossier.meta.state === "thin") {
-    identityBits.push("alaric profile: thin (no advertising-activity reports yet)");
+    identityBits.push(
+      "alaric profile: thin (no advertising-activity reports yet)",
+    );
   }
   if (identityBits.length) {
     lines.push(`- ${identityBits.join(" · ")}`);
@@ -463,19 +480,31 @@ function renderBrandDossier(dossier: BrandDossier, bundle: SfClientBundle): stri
   const c = dossier.commercial;
   const commercialLines: string[] = [];
   if (c.creativePosture) {
-    commercialLines.push(`- Creative posture: ${posturePromptLine(c.creativePosture)}`);
+    commercialLines.push(
+      `- Creative posture: ${posturePromptLine(c.creativePosture)}`,
+    );
   }
-  if (c.isActivelySpending !== undefined || c.isOnboardedClient !== undefined || c.trailing12MonthRevenue !== undefined) {
+  if (
+    c.isActivelySpending !== undefined ||
+    c.isOnboardedClient !== undefined ||
+    c.trailing12MonthRevenue !== undefined
+  ) {
     const relParts: string[] = [];
     if (c.isActivelySpending) relParts.push("Active spending client");
-    else if (c.isOnboardedClient) relParts.push("Onboarded, not actively spending");
-    else if (c.isOnboardedClient === false) relParts.push("Not an onboarded client");
-    if (typeof c.trailing12MonthRevenue === "number" && c.trailing12MonthRevenue > 0) {
+    else if (c.isOnboardedClient)
+      relParts.push("Onboarded, not actively spending");
+    else if (c.isOnboardedClient === false)
+      relParts.push("Not an onboarded client");
+    if (
+      typeof c.trailing12MonthRevenue === "number" &&
+      c.trailing12MonthRevenue > 0
+    ) {
       relParts.push(`T12M revenue ${formatRevenue(c.trailing12MonthRevenue)}`);
     } else if (c.isOnboardedClient && !c.isActivelySpending) {
       relParts.push("T12M revenue €0");
     }
-    if (relParts.length) commercialLines.push(`- Aleph relationship: ${relParts.join(", ")}`);
+    if (relParts.length)
+      commercialLines.push(`- Aleph relationship: ${relParts.join(", ")}`);
   }
   if (c.revenueByPlatform) {
     const platformLine = formatRevenueByPlatformLine(c.revenueByPlatform);
@@ -487,7 +516,8 @@ function renderBrandDossier(dossier: BrandDossier, bundle: SfClientBundle): stri
   }
   if (c.openPipeline?.length) {
     const pipelineSummary = formatPipeline(c.openPipeline);
-    if (pipelineSummary) commercialLines.push(`- Open pipeline: ${pipelineSummary}`);
+    if (pipelineSummary)
+      commercialLines.push(`- Open pipeline: ${pipelineSummary}`);
   }
   if (c.leadType) {
     commercialLines.push(`- Lead profile: ${c.leadType}`);
@@ -507,13 +537,17 @@ function renderBrandDossier(dossier: BrandDossier, bundle: SfClientBundle): stri
     creativeLines.push(`- Value proposition: ${cr.valueProposition}`);
   }
   if (cr.whatTheyreAdvertising?.length) {
-    creativeLines.push(`- Currently advertising: ${cr.whatTheyreAdvertising.slice(0, 8).join(" · ")}`);
+    creativeLines.push(
+      `- Currently advertising: ${cr.whatTheyreAdvertising.slice(0, 8).join(" · ")}`,
+    );
   }
   if (cr.salesBriefing) {
     creativeLines.push(`- Sales briefing: ${cr.salesBriefing}`);
   }
   if (cr.creativeStyleNotes?.length) {
-    creativeLines.push(`- Creative style: ${cr.creativeStyleNotes.join(" · ")}`);
+    creativeLines.push(
+      `- Creative style: ${cr.creativeStyleNotes.join(" · ")}`,
+    );
   }
   if (cr.tonalAxes) {
     const t = cr.tonalAxes;
@@ -521,8 +555,10 @@ function renderBrandDossier(dossier: BrandDossier, bundle: SfClientBundle): stri
     if (t.energy !== undefined) tonalParts.push(`energy ${t.energy}/5`);
     if (t.pace) tonalParts.push(`pace: ${t.pace}`);
     if (t.vocabRegister) tonalParts.push(`register: ${t.vocabRegister}`);
-    if (t.humorTolerance) tonalParts.push(`humor tolerance: ${t.humorTolerance}`);
-    if (tonalParts.length) creativeLines.push(`- Tonal axes: ${tonalParts.join(" · ")}`);
+    if (t.humorTolerance)
+      tonalParts.push(`humor tolerance: ${t.humorTolerance}`);
+    if (tonalParts.length)
+      creativeLines.push(`- Tonal axes: ${tonalParts.join(" · ")}`);
   }
   if (creativeLines.length) {
     lines.push("", "### Creative posture", ...creativeLines);
@@ -540,7 +576,7 @@ function renderBrandDossier(dossier: BrandDossier, bundle: SfClientBundle): stri
   }
   if (comp.agencyManaged) {
     compLines.push(
-      `- Agency-managed${comp.agencyName ? ` (${comp.agencyName})` : ""}`
+      `- Agency-managed${comp.agencyName ? ` (${comp.agencyName})` : ""}`,
     );
   }
   if (comp.crossSellGap) {
@@ -557,11 +593,17 @@ function renderBrandDossier(dossier: BrandDossier, bundle: SfClientBundle): stri
     audLines.push(`- Target ages: ${aud.targetAges.join(", ")}`);
   }
   if (aud.targetLocations?.length) {
-    audLines.push(`- Target locations: ${aud.targetLocations.slice(0, 6).join(", ")}`);
+    audLines.push(
+      `- Target locations: ${aud.targetLocations.slice(0, 6).join(", ")}`,
+    );
   }
   if (aud.publisherPlatforms?.length) {
     const pubs = aud.publisherPlatforms
-      .map((p) => p.activeAdCount !== undefined ? `${p.name} (${p.activeAdCount} ads)` : p.name)
+      .map((p) =>
+        p.activeAdCount !== undefined
+          ? `${p.name} (${p.activeAdCount} ads)`
+          : p.name,
+      )
       .join(" · ");
     audLines.push(`- Publisher platforms: ${pubs}`);
   }
@@ -569,7 +611,9 @@ function renderBrandDossier(dossier: BrandDossier, bundle: SfClientBundle): stri
     audLines.push(`- 30-day EU reach: ${formatReach(aud.euTotalReach)}`);
   }
   if (aud.primaryLanguages?.length) {
-    audLines.push(`- Primary creative languages: ${aud.primaryLanguages.join(", ")}`);
+    audLines.push(
+      `- Primary creative languages: ${aud.primaryLanguages.join(", ")}`,
+    );
   }
   if (audLines.length) {
     lines.push("", "### Audience signals", ...audLines);
@@ -580,7 +624,9 @@ function renderBrandDossier(dossier: BrandDossier, bundle: SfClientBundle): stri
   const polLines: string[] = [];
   if (pol.industryGroup && pol.industrySubCategory) {
     const flag = pol.adsPolicyRelevant ? " ⚠ ads-policy relevant" : "";
-    polLines.push(`- Industry: ${pol.industryGroup} > ${pol.industrySubCategory} (canonical${flag})`);
+    polLines.push(
+      `- Industry: ${pol.industryGroup} > ${pol.industrySubCategory} (canonical${flag})`,
+    );
   }
   if (pol.mandatoryLegal?.length) {
     polLines.push(`- Mandatory legal: ${pol.mandatoryLegal.join(" | ")}`);
@@ -594,13 +640,19 @@ function renderBrandDossier(dossier: BrandDossier, bundle: SfClientBundle): stri
 
   // ===== Optional verbatim SF Description =====
   if (bundle.account.Description && bundle.account.Description.trim()) {
-    lines.push("", "### Brand description (verbatim from Salesforce)", bundle.account.Description.trim());
+    lines.push(
+      "",
+      "### Brand description (verbatim from Salesforce)",
+      bundle.account.Description.trim(),
+    );
   }
 
   return lines.join("\n");
 }
 
-function formatRevenueByPlatformLine(byPlatform: Record<string, number>): string | null {
+function formatRevenueByPlatformLine(
+  byPlatform: Record<string, number>,
+): string | null {
   const entries = Object.entries(byPlatform).filter(([, v]) => v > 0);
   if (entries.length === 0) return null;
   const total = entries.reduce((s, [, v]) => s + v, 0);
@@ -614,7 +666,7 @@ function formatRevenueByPlatformLine(byPlatform: Record<string, number>): string
 }
 
 function formatRevenueTrend(
-  timeline: NonNullable<BrandDossier["commercial"]["revenueTimeline"]>
+  timeline: NonNullable<BrandDossier["commercial"]["revenueTimeline"]>,
 ): string | null {
   if (timeline.length === 0) return null;
   const sorted = [...timeline].sort((a, b) => (a.quarter < b.quarter ? -1 : 1));
@@ -628,7 +680,7 @@ function formatRevenueTrend(
 }
 
 function formatPipeline(
-  pipeline: NonNullable<BrandDossier["commercial"]["openPipeline"]>
+  pipeline: NonNullable<BrandDossier["commercial"]["openPipeline"]>,
 ): string | null {
   if (pipeline.length === 0) return null;
   const products = pipeline
@@ -638,7 +690,8 @@ function formatPipeline(
     ? ` · products: ${unique(products).slice(0, 3).join(", ")}`
     : "";
   const totalAmount = pipeline.reduce((s, p) => s + (p.amount ?? 0), 0);
-  const amountStr = totalAmount > 0 ? ` · total ${formatRevenue(totalAmount)}` : "";
+  const amountStr =
+    totalAmount > 0 ? ` · total ${formatRevenue(totalAmount)}` : "";
   return `${pipeline.length} open opportunit${pipeline.length === 1 ? "y" : "ies"}${productStr}${amountStr}`;
 }
 
@@ -662,7 +715,9 @@ function renderSfClientSection(bundle: SfClientBundle): string {
   // and angle, not to recite figures back to the listener.
   const a = bundle.account;
   const p = bundle.alaricProfile;
-  const headline = p ? `## Client (from Salesforce + alaric)` : `## Client (from Salesforce)`;
+  const headline = p
+    ? `## Client (from Salesforce + alaric)`
+    : `## Client (from Salesforce)`;
   const lines: string[] = [headline];
 
   lines.push(`- Name: ${a.Name}`);
@@ -671,7 +726,7 @@ function renderSfClientSection(bundle: SfClientBundle): string {
   if (p?.industryGroup && p.industrySubCategory) {
     const policyNote = p.adsPolicyRelevant ? " · ⚠ ads-policy relevant" : "";
     lines.push(
-      `- Industry: ${p.industryGroup} > ${p.industrySubCategory} (canonical${policyNote})`
+      `- Industry: ${p.industryGroup} > ${p.industrySubCategory} (canonical${policyNote})`,
     );
   } else if (a.Industry) {
     lines.push(`- Industry: ${a.Industry}`);
@@ -684,7 +739,7 @@ function renderSfClientSection(bundle: SfClientBundle): string {
     const billing = p.sfBillingCountry;
     if (reporting && billing && reporting !== billing) {
       lines.push(
-        `- Reporting territory: ${reporting} (legal entity registered in ${billing} — divergent)`
+        `- Reporting territory: ${reporting} (legal entity registered in ${billing} — divergent)`,
       );
     } else if (reporting) {
       lines.push(`- Reporting territory: ${reporting}`);
@@ -706,7 +761,7 @@ function renderSfClientSection(bundle: SfClientBundle): string {
     // Fallback to the legacy Status__c heuristic when alaric hasn't ingested.
     const lapsed = /lapsed|churn|inactive/i.test(a.Status__c);
     lines.push(
-      `- Status: ${a.Status__c}${lapsed ? " (this is a win-back posture — acknowledge return / freshness)" : ""}`
+      `- Status: ${a.Status__c}${lapsed ? " (this is a win-back posture — acknowledge return / freshness)" : ""}`,
     );
   }
 
@@ -724,12 +779,18 @@ function renderSfClientSection(bundle: SfClientBundle): string {
  * is left as `€` because the SF data we ingest is Aleph-EMEA-Aleph; if
  * we ever go cross-region the formatting policy lives here.
  */
-function relationshipLine(p: import("./alaric-client").AlaricCompanyProfile): string | null {
+function relationshipLine(
+  p: import("./alaric-client").AlaricCompanyProfile,
+): string | null {
   const parts: string[] = [];
   if (p.isActivelySpending === true) parts.push("Active client");
-  else if (p.isOnboardedClient === true) parts.push("Onboarded but not actively spending");
+  else if (p.isOnboardedClient === true)
+    parts.push("Onboarded but not actively spending");
   else if (p.isOnboardedClient === false) parts.push("Not an onboarded client");
-  if (typeof p.trailing12MonthRevenue === "number" && p.trailing12MonthRevenue > 0) {
+  if (
+    typeof p.trailing12MonthRevenue === "number" &&
+    p.trailing12MonthRevenue > 0
+  ) {
     parts.push(`T12M revenue ${formatRevenue(p.trailing12MonthRevenue)}`);
   } else if (p.isOnboardedClient && !p.isActivelySpending) {
     parts.push("T12M revenue €0");
@@ -738,7 +799,9 @@ function relationshipLine(p: import("./alaric-client").AlaricCompanyProfile): st
   return `- Aleph relationship: ${parts.join(", ")}`;
 }
 
-function revenueByPlatformLine(p: import("./alaric-client").AlaricCompanyProfile): string | null {
+function revenueByPlatformLine(
+  p: import("./alaric-client").AlaricCompanyProfile,
+): string | null {
   if (!p.revenueByPlatform) return null;
   const entries = Object.entries(p.revenueByPlatform).filter(([, v]) => v > 0);
   if (entries.length === 0) return null;
@@ -759,7 +822,7 @@ function revenueByPlatformLine(p: import("./alaric-client").AlaricCompanyProfile
  * framing.
  */
 function posturePromptLine(
-  posture: "active" | "dormant_onboarded" | "lapsed" | "prospect"
+  posture: "active" | "dormant_onboarded" | "lapsed" | "prospect",
 ): string {
   switch (posture) {
     case "active":
@@ -781,7 +844,7 @@ function formatRevenue(amount: number): string {
 
 function renderBrandVoiceSection(
   extract: BrandVoiceExtract,
-  ageSeconds: number | null
+  ageSeconds: number | null,
 ): string | null {
   const lines: string[] = [];
   if (extract.tagline) lines.push(`- Tagline: "${extract.tagline}"`);
@@ -789,30 +852,45 @@ function renderBrandVoiceSection(
     lines.push(`- Named products: ${extract.productNames.join(", ")}`);
   }
   if (extract.signOffPhrases?.length) {
-    lines.push(`- Recurring CTAs / sign-offs: ${extract.signOffPhrases.join(", ")}`);
+    lines.push(
+      `- Recurring CTAs / sign-offs: ${extract.signOffPhrases.join(", ")}`,
+    );
   }
   if (extract.tabooWords?.length) {
-    lines.push(`- AVOID these words / phrases: ${extract.tabooWords.join(", ")}`);
+    lines.push(
+      `- AVOID these words / phrases: ${extract.tabooWords.join(", ")}`,
+    );
   }
   if (extract.mandatoryLegal?.length) {
-    lines.push(`- MANDATORY legal phrases: ${extract.mandatoryLegal.join(" | ")}`);
+    lines.push(
+      `- MANDATORY legal phrases: ${extract.mandatoryLegal.join(" | ")}`,
+    );
   }
 
   const tonal = extract.tonalAxes;
-  if (tonal && (tonal.energy !== undefined || tonal.pace || tonal.vocabRegister || tonal.humorTolerance)) {
+  if (
+    tonal &&
+    (tonal.energy !== undefined ||
+      tonal.pace ||
+      tonal.vocabRegister ||
+      tonal.humorTolerance)
+  ) {
     const tonalParts: string[] = [];
     if (tonal.energy !== undefined) tonalParts.push(`energy ${tonal.energy}/5`);
     if (tonal.pace) tonalParts.push(`pace: ${tonal.pace}`);
-    if (tonal.vocabRegister) tonalParts.push(`register: ${tonal.vocabRegister}`);
-    if (tonal.humorTolerance) tonalParts.push(`humor tolerance: ${tonal.humorTolerance}`);
+    if (tonal.vocabRegister)
+      tonalParts.push(`register: ${tonal.vocabRegister}`);
+    if (tonal.humorTolerance)
+      tonalParts.push(`humor tolerance: ${tonal.humorTolerance}`);
     lines.push(`- Tonal axes: ${tonalParts.join(" · ")}`);
   }
 
   if (lines.length === 0) return null;
 
-  const ageNote = ageSeconds !== null
-    ? ` (intelligence cached ${formatAge(ageSeconds)})`
-    : "";
+  const ageNote =
+    ageSeconds !== null
+      ? ` (intelligence cached ${formatAge(ageSeconds)})`
+      : "";
 
   return `## Brand Voice — extracted${ageNote}\n${lines.join("\n")}`;
 }
@@ -832,4 +910,3 @@ function renderReferencePagesSection(extracts: PrefetchedUrlExtract[]): string {
   }
   return blocks.join("\n");
 }
-

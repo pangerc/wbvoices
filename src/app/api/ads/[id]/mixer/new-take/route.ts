@@ -31,13 +31,11 @@ export const runtime = "nodejs";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
-    const body = (await request
-      .json()
-      .catch(() => ({}))) as { label?: string };
+    const body = (await request.json().catch(() => ({}))) as { label?: string };
 
     await withAdLock(
       adId,
@@ -45,12 +43,14 @@ export async function POST(
         const activeId = await getActiveVersion(adId, "mixer");
         if (!activeId) {
           throw new Error(
-            "no active mixer version — generate content first or bootstrap via a mixer read"
+            "no active mixer version — generate content first or bootstrap via a mixer read",
           );
         }
-        const active = (await getVersion(adId, "mixer", activeId)) as
-          | MixerVersion
-          | null;
+        const active = (await getVersion(
+          adId,
+          "mixer",
+          activeId,
+        )) as MixerVersion | null;
         if (!active) {
           throw new Error(`active mixer version ${activeId} not found`);
         }
@@ -68,9 +68,11 @@ export async function POST(
 
         // Step 2: fork. Reload so we carry forward any updates just made
         // (including the status flip) — paranoia, but cheap.
-        const source = (await getVersion(adId, "mixer", activeId)) as
-          | MixerVersion
-          | null;
+        const source = (await getVersion(
+          adId,
+          "mixer",
+          activeId,
+        )) as MixerVersion | null;
         if (!source) {
           throw new Error(`source mixer version ${activeId} vanished mid-fork`);
         }
@@ -91,17 +93,17 @@ export async function POST(
         await setActiveVersion(adId, "mixer", newDraftId);
 
         console.log(
-          `[mixer-new-take] adId=${adId} frozePrev=${active.status === "draft"} newDraft=${newDraftId} parent=${activeId}`
+          `[mixer-new-take] adId=${adId} frozePrev=${active.status === "draft"} newDraft=${newDraftId} parent=${activeId}`,
         );
       },
-      { ttlSec: 10 }
+      { ttlSec: 10 },
     );
 
     const updated = await getMixerState(adId);
     if (!updated) {
       return NextResponse.json(
         { error: "mixer state unavailable after new-take" },
-        { status: 500 }
+        { status: 500 },
       );
     }
     return NextResponse.json(updated);
@@ -112,7 +114,7 @@ export async function POST(
         error: "Failed to start new take",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

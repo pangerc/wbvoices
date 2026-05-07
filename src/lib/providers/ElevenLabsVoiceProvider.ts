@@ -14,7 +14,16 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
   readonly providerType = "voice" as const;
 
   validateParams(body: Record<string, unknown>): ValidationResult {
-    const { text, voiceId, style, useCase, projectId, pronunciationDictionaryId, pronunciationVersionId, speed } = body;
+    const {
+      text,
+      voiceId,
+      style,
+      useCase,
+      projectId,
+      pronunciationDictionaryId,
+      pronunciationVersionId,
+      speed,
+    } = body;
 
     if (!text || typeof text !== "string") {
       return {
@@ -38,8 +47,14 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
         style: typeof style === "string" ? style : undefined,
         useCase: typeof useCase === "string" ? useCase : undefined,
         projectId: typeof projectId === "string" ? projectId : undefined,
-        pronunciationDictionaryId: typeof pronunciationDictionaryId === "string" ? pronunciationDictionaryId : undefined,
-        pronunciationVersionId: typeof pronunciationVersionId === "string" ? pronunciationVersionId : undefined,
+        pronunciationDictionaryId:
+          typeof pronunciationDictionaryId === "string"
+            ? pronunciationDictionaryId
+            : undefined,
+        pronunciationVersionId:
+          typeof pronunciationVersionId === "string"
+            ? pronunciationVersionId
+            : undefined,
         speed: typeof speed === "number" ? speed : undefined,
       },
     };
@@ -62,9 +77,17 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
 
   async makeRequest(
     params: Record<string, unknown>,
-    credentials: AuthCredentials
+    credentials: AuthCredentials,
   ): Promise<ProviderResponse> {
-    const { text, voiceId, style, useCase, pronunciationDictionaryId, pronunciationVersionId, speed } = params;
+    const {
+      text,
+      voiceId,
+      style,
+      useCase,
+      pronunciationDictionaryId,
+      pronunciationVersionId,
+      speed,
+    } = params;
     const { apiKey } = credentials;
 
     // Recover the bare ElevenLabs voice_id from the catalogue-synthesized id.
@@ -77,7 +100,9 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
     console.log(`  Voice ID: ${voiceId} (cleaned: ${cleanVoiceId})`);
     console.log(`  Style: ${style || "none"}`);
     console.log(`  Use Case: ${useCase || "none"}`);
-    console.log(`  Speed parameter received: ${speed !== undefined ? `${speed}x` : 'undefined (will use preset)'}`);
+    console.log(
+      `  Speed parameter received: ${speed !== undefined ? `${speed}x` : "undefined (will use preset)"}`,
+    );
     console.log(`  Has emotional tags: ${/\[.*?\]/.test(text as string)}`);
 
     // Build voice settings based on emotional dimensions
@@ -254,8 +279,12 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
 
     console.log(`  🎛️ Speed calculation:`);
     console.log(`    - Preset speed (from voice tone): ${presetSpeed}x`);
-    console.log(`    - Manual speed override: ${speed !== undefined ? `${speed}x` : 'none'}`);
-    console.log(`    - Effective speed (FINAL): ${effectiveSpeed}x ${speed !== undefined ? "(using manual override)" : "(using preset)"}`);
+    console.log(
+      `    - Manual speed override: ${speed !== undefined ? `${speed}x` : "none"}`,
+    );
+    console.log(
+      `    - Effective speed (FINAL): ${effectiveSpeed}x ${speed !== undefined ? "(using manual override)" : "(using preset)"}`,
+    );
 
     console.log(
       `  🎛️ Applied voice settings for "${style || "neutral"}":` +
@@ -263,13 +292,15 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
         ` similarity_boost=${voiceSettings.similarity_boost},` +
         ` style=${voiceSettings.style},` +
         ` speed=${effectiveSpeed},` +
-        ` use_speaker_boost=${voiceSettings.use_speaker_boost}`
+        ` use_speaker_boost=${voiceSettings.use_speaker_boost}`,
     );
 
     // Check text length - ElevenLabs V3 supports up to 3,000 characters per request
     const textStr = text as string;
     if (textStr.length > 3000) {
-      console.warn(`⚠️ Text length (${textStr.length}) exceeds V3 limit of 3,000 characters`);
+      console.warn(
+        `⚠️ Text length (${textStr.length}) exceeds V3 limit of 3,000 characters`,
+      );
     }
 
     // V3 supports speed parameter (empirically validated)
@@ -296,16 +327,24 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
     };
 
     // Add pronunciation dictionary if provided
-    if (pronunciationDictionaryId && typeof pronunciationDictionaryId === 'string') {
+    if (
+      pronunciationDictionaryId &&
+      typeof pronunciationDictionaryId === "string"
+    ) {
       requestBody.pronunciation_dictionary_locators = [
         {
           pronunciation_dictionary_id: pronunciationDictionaryId,
-          ...(pronunciationVersionId && typeof pronunciationVersionId === 'string' ? {
-            version_id: pronunciationVersionId
-          } : {}),
+          ...(pronunciationVersionId &&
+          typeof pronunciationVersionId === "string"
+            ? {
+                version_id: pronunciationVersionId,
+              }
+            : {}),
         },
       ];
-      console.log(`  📖 Using pronunciation dictionary: ${pronunciationDictionaryId}`);
+      console.log(
+        `  📖 Using pronunciation dictionary: ${pronunciationDictionaryId}`,
+      );
     }
 
     console.log(`\n  📡 === FINAL REQUEST TO ELEVENLABS API ===`);
@@ -327,9 +366,11 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
 
     console.log(`  ✅ ElevenLabs API response status: ${response.status}`);
     console.log(`  📋 Response headers:`, {
-      'content-type': response.headers.get('content-type'),
-      'content-length': response.headers.get('content-length'),
-      'x-elevenlabs-request-id': response.headers.get('x-elevenlabs-request-id'),
+      "content-type": response.headers.get("content-type"),
+      "content-length": response.headers.get("content-length"),
+      "x-elevenlabs-request-id": response.headers.get(
+        "x-elevenlabs-request-id",
+      ),
     });
 
     if (!response.ok) {
@@ -338,7 +379,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       return {
         success: false,
         error: errorInfo.message,
-        errorDetails: errorInfo.details
+        errorDetails: errorInfo.details,
       };
     }
 
@@ -360,7 +401,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
   }
 
   public async processSuccessfulResponse(
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
   ): Promise<NextResponse> {
     const { audioArrayBuffer, text, voiceId, style, useCase, projectId } = data;
 
@@ -374,7 +415,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
         audioBlob,
         (text as string).substring(0, 50),
         "elevenlabs",
-        projectId as string
+        projectId as string,
       );
 
       console.log(`ElevenLabs voice uploaded to blob: ${blobResult.url}`);
@@ -398,7 +439,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       // Fallback: return raw audio (this shouldn't happen in practice)
       return NextResponse.json(
         { error: "Failed to upload audio to blob storage" },
-        { status: 500 }
+        { status: 500 },
       );
     }
   }

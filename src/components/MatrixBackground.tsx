@@ -171,7 +171,7 @@ export function MatrixBackground({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [drawGrid]
+    [drawGrid],
   );
 
   // Initialize the animation on mount

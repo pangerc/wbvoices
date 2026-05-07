@@ -98,13 +98,13 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
 
   // 🧪 DEMON DIAGNOSTIC: Hook lifecycle tracking
   useEffect(() => {
-    console.log('🏁 VOICE MANAGER V2 HOOK MOUNTED');
-    return () => console.log('💀 VOICE MANAGER V2 HOOK UNMOUNTED');
+    console.log("🏁 VOICE MANAGER V2 HOOK MOUNTED");
+    return () => console.log("💀 VOICE MANAGER V2 HOOK UNMOUNTED");
   }, []);
 
   // Initialize available languages on mount
   useEffect(() => {
-    console.count('🔥 vm:init-languages'); // 🧪 DEMON DIAGNOSTIC
+    console.count("🔥 vm:init-languages"); // 🧪 DEMON DIAGNOSTIC
     const initLanguages = async () => {
       setIsLoading(true);
       try {
@@ -121,7 +121,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
 
         if (languages.length === 0) {
           console.error(
-            "⚠️ No languages available! Run POST /api/admin/voice-cache"
+            "⚠️ No languages available! Run POST /api/admin/voice-cache",
           );
           return;
         }
@@ -130,7 +130,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
 
         // Let users and project restoration control their own language choice
         console.log(
-          `✅ Languages loaded (${languages.length}), current language: ${selectedLanguage}`
+          `✅ Languages loaded (${languages.length}), current language: ${selectedLanguage}`,
         );
       } catch (error) {
         console.error("Failed to initialize languages:", error);
@@ -144,7 +144,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
 
   // When language changes, update available regions
   useEffect(() => {
-    console.count('🔥 vm:language->regions'); // 🧪 DEMON DIAGNOSTIC
+    console.count("🔥 vm:language->regions"); // 🧪 DEMON DIAGNOSTIC
     // Clear current voices immediately when language changes to prevent stale data
     console.log("🔄 Language changed, clearing stale voices");
     setCurrentVoices([]);
@@ -161,13 +161,13 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
 
     // Let project restoration and user choice control region selection
     console.log(
-      `✅ Language changed to ${selectedLanguage}, regions available: ${regions.length}, current region: ${selectedRegion}`
+      `✅ Language changed to ${selectedLanguage}, regions available: ${regions.length}, current region: ${selectedRegion}`,
     );
   }, [selectedLanguage, selectedRegion]);
 
   // When language or region changes, update available accents
   useEffect(() => {
-    console.count('🔥 vm:accents'); // 🧪 DEMON DIAGNOSTIC
+    console.count("🔥 vm:accents"); // 🧪 DEMON DIAGNOSTIC
     const updateAccents = async () => {
       setIsLoading(true);
       try {
@@ -176,7 +176,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
         // Always use API for proper accent display names
         const url = new URL(
           "/api/voice-catalogue/accents",
-          window.location.origin
+          window.location.origin,
         );
         url.searchParams.set("language", selectedLanguage);
 
@@ -196,26 +196,30 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
         if (selectedRegion && selectedRegion !== "all" && hasRegions) {
           const regionalAccentCodes = getRegionalAccents(
             selectedLanguage,
-            selectedRegion
+            selectedRegion,
           ).map((accent) => (accent === "none" ? "neutral" : accent));
 
           // Filter the properly formatted accents to only include those in the selected region
           accents = accents.filter((accent) =>
-            regionalAccentCodes.includes(accent.code)
+            regionalAccentCodes.includes(accent.code),
           );
         }
 
         setAvailableAccents(accents);
 
         // 🔥 NEW: Reset accent if it's no longer valid for the new language
-        const currentAccentIsValid = accents.some(accent => accent.code === selectedAccent);
+        const currentAccentIsValid = accents.some(
+          (accent) => accent.code === selectedAccent,
+        );
         if (!currentAccentIsValid) {
-          console.log(`🔄 Current accent "${selectedAccent}" is invalid for ${selectedLanguage}, resetting to "neutral"`);
+          console.log(
+            `🔄 Current accent "${selectedAccent}" is invalid for ${selectedLanguage}, resetting to "neutral"`,
+          );
           setSelectedAccent("neutral");
         }
 
         console.log(
-          `✅ Accents updated for ${selectedLanguage}/${selectedRegion}, current accent: ${selectedAccent}${currentAccentIsValid ? '' : ' → neutral'}`
+          `✅ Accents updated for ${selectedLanguage}/${selectedRegion}, current accent: ${selectedAccent}${currentAccentIsValid ? "" : " → neutral"}`,
         );
       } catch (error) {
         console.error("Failed to update accents:", error);
@@ -234,7 +238,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
 
   // When language OR ACCENT changes, update voice counts and providers
   useEffect(() => {
-    console.count('🔥 vm:providers'); // 🧪 DEMON DIAGNOSTIC
+    console.count("🔥 vm:providers"); // 🧪 DEMON DIAGNOSTIC
     const updateProviders = async () => {
       setIsLoading(true);
       try {
@@ -279,7 +283,8 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
           lovo: 0, // Excluded
           openai: providers.find((p) => p.provider === "openai")?.count || 0,
           qwen: providers.find((p) => p.provider === "qwen")?.count || 0,
-          bytedance: providers.find((p) => p.provider === "bytedance")?.count || 0,
+          bytedance:
+            providers.find((p) => p.provider === "bytedance")?.count || 0,
           any: providers.find((p) => p.provider === "any")?.count || 0,
         };
         setVoiceCounts(counts);
@@ -308,7 +313,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
     console.log(
       `🔄 Loading filtered voices for language=${selectedLanguage}, region=${
         selectedRegion || "all"
-      }, accent=${selectedAccent} (excluding Lovo)`
+      }, accent=${selectedAccent} (excluding Lovo)`,
     );
     setIsLoading(true);
     setCurrentVoices([]); // Clear immediately
@@ -374,27 +379,27 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
       // Only update state if this request wasn't aborted
       if (!abortController.signal.aborted) {
         console.log(
-          `✅ Loaded ${mappedVoices.length} voices from all providers for ${selectedLanguage}`
+          `✅ Loaded ${mappedVoices.length} voices from all providers for ${selectedLanguage}`,
         );
         console.log(`🔍 Provider breakdown:`, {
           elevenlabs: mappedVoices.filter(
             (v) =>
-              (v as Voice & { provider?: string }).provider === "elevenlabs"
+              (v as Voice & { provider?: string }).provider === "elevenlabs",
           ).length,
           lovo: mappedVoices.filter(
-            (v) => (v as Voice & { provider?: string }).provider === "lovo"
+            (v) => (v as Voice & { provider?: string }).provider === "lovo",
           ).length,
           openai: mappedVoices.filter(
-            (v) => (v as Voice & { provider?: string }).provider === "openai"
+            (v) => (v as Voice & { provider?: string }).provider === "openai",
           ).length,
           qwen: mappedVoices.filter(
-            (v) => (v as Voice & { provider?: string }).provider === "qwen"
+            (v) => (v as Voice & { provider?: string }).provider === "qwen",
           ).length,
         });
         setCurrentVoices(mappedVoices);
       } else {
         console.log(
-          "🚫 Voice loading request was aborted, skipping state update"
+          "🚫 Voice loading request was aborted, skipping state update",
         );
       }
     } catch (error) {
@@ -414,7 +419,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
 
   // Load voices when language or accent changes (not provider!)
   useEffect(() => {
-    console.count('🔥 vm:load-voices'); // 🧪 DEMON DIAGNOSTIC
+    console.count("🔥 vm:load-voices"); // 🧪 DEMON DIAGNOSTIC
     loadVoices();
   }, [loadVoices]);
 
@@ -422,7 +427,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
   // This should only be used when overrideVoices is not available
   const getFilteredVoices = useCallback(() => {
     console.log(
-      "⚠️ getFilteredVoices called (DEPRECATED - use server APIs instead)"
+      "⚠️ getFilteredVoices called (DEPRECATED - use server APIs instead)",
     );
 
     // Simple fallback: return current voices without complex filtering

@@ -2,7 +2,12 @@
 
 import React from "react";
 import type { VoiceVersion } from "@/types/versions";
-import { VersionIterationInput, VersionLineage, TruncatedText, Tooltip } from "@/components/ui";
+import {
+  VersionIterationInput,
+  VersionLineage,
+  TruncatedText,
+  Tooltip,
+} from "@/components/ui";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { highlightElevenLabsTags } from "@/lib/highlightElevenLabsTags";
 import { useShallow } from "zustand/react/shallow";
@@ -33,7 +38,7 @@ export function VoiceVersionContent({
       currentSource: state.currentSource,
       play: state.play,
       stop: state.stop,
-    }))
+    })),
   );
 
   // Check if a specific track from this version is playing
@@ -157,7 +162,9 @@ export function VoiceVersionContent({
                 <div className="mt-2 text-xs text-gray-400 italic">
                   <TruncatedText
                     text={track.voiceInstructions || track.description || ""}
-                    label={track.voiceInstructions ? "Instructions: " : "Tone: "}
+                    label={
+                      track.voiceInstructions ? "Instructions: " : "Tone: "
+                    }
                     maxLength={100}
                   />
                 </div>
@@ -170,12 +177,14 @@ export function VoiceVersionContent({
                 <div className="flex gap-4 mt-2 text-xs text-gray-400">
                   {track.playAfter !== "start" && (
                     <span>
-                      After: <span className="text-white">{track.playAfter}</span>
+                      After:{" "}
+                      <span className="text-white">{track.playAfter}</span>
                     </span>
                   )}
                   {track.overlap !== 0 && (
                     <span>
-                      Overlap: <span className="text-white">{track.overlap}s</span>
+                      Overlap:{" "}
+                      <span className="text-white">{track.overlap}s</span>
                     </span>
                   )}
                   {track.speed && track.speed !== 1 && (

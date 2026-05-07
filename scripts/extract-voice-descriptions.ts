@@ -12,9 +12,9 @@
  *   data/voice-descriptions.json
  */
 
-import * as cheerio from 'cheerio';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as cheerio from "cheerio";
+import * as fs from "fs";
+import * as path from "path";
 
 interface VoiceDescription {
   voiceId: string;
@@ -27,12 +27,12 @@ interface VoiceDescription {
  */
 function cleanText(text: string): string {
   return text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -41,7 +41,7 @@ function cleanText(text: string): string {
  */
 function stripAgeSuffix(text: string): string {
   // Match pattern: space + digits + 'y' or 'd' at end of string
-  return text.replace(/\s+\d+[dy]$/, '').trim();
+  return text.replace(/\s+\d+[dy]$/, "").trim();
 }
 
 /**
@@ -56,13 +56,15 @@ function extractVoiceId(testId: string): string | null {
 /**
  * Main extraction logic
  */
-async function extractVoiceDescriptions(): Promise<Map<string, VoiceDescription>> {
-  const htmlPath = path.join(process.cwd(), 'data', '11lv5.html');
+async function extractVoiceDescriptions(): Promise<
+  Map<string, VoiceDescription>
+> {
+  const htmlPath = path.join(process.cwd(), "data", "11lv5.html");
 
-  console.log('📖 Reading HTML file...');
-  const html = fs.readFileSync(htmlPath, 'utf-8');
+  console.log("📖 Reading HTML file...");
+  const html = fs.readFileSync(htmlPath, "utf-8");
 
-  console.log('🔍 Parsing HTML with Cheerio...');
+  console.log("🔍 Parsing HTML with Cheerio...");
   const $ = cheerio.load(html);
 
   const descriptions = new Map<string, VoiceDescription>();
@@ -74,7 +76,7 @@ async function extractVoiceDescriptions(): Promise<Map<string, VoiceDescription>
     const $item = $(element);
 
     // Extract voice ID from data-testid
-    const testId = $item.attr('data-testid');
+    const testId = $item.attr("data-testid");
     if (!testId) {
       skipped++;
       return;
@@ -87,24 +89,30 @@ async function extractVoiceDescriptions(): Promise<Map<string, VoiceDescription>
     }
 
     // Extract voice name from the button aria-label or the paragraph
-    const ariaLabel = $item.find('button[data-type="list-item-trigger-overlay"]').attr('aria-label');
-    let voiceName = '';
+    const ariaLabel = $item
+      .find('button[data-type="list-item-trigger-overlay"]')
+      .attr("aria-label");
+    let voiceName = "";
 
     if (ariaLabel) {
       // aria-label format: "Name - Description - ..."
       // Extract just the name part
-      const namePart = ariaLabel.split(' - ')[0];
+      const namePart = ariaLabel.split(" - ")[0];
       voiceName = cleanText(namePart);
     }
 
     // If we couldn't get name from aria-label, try the paragraph
     if (!voiceName) {
-      const nameElement = $item.find('p.text-sm.text-foreground.font-semibold span.truncate');
+      const nameElement = $item.find(
+        "p.text-sm.text-foreground.font-semibold span.truncate",
+      );
       voiceName = cleanText(nameElement.text());
     }
 
     // Extract description from the specific paragraph class
-    const descElement = $item.find('p.text-sm.text-subtle.font-normal.line-clamp-1');
+    const descElement = $item.find(
+      "p.text-sm.text-subtle.font-normal.line-clamp-1",
+    );
     const description = stripAgeSuffix(cleanText(descElement.text()));
 
     if (description) {
@@ -115,7 +123,9 @@ async function extractVoiceDescriptions(): Promise<Map<string, VoiceDescription>
       });
       processed++;
     } else {
-      console.warn(`⚠️  No description found for voice: ${voiceId} (${voiceName})`);
+      console.warn(
+        `⚠️  No description found for voice: ${voiceId} (${voiceName})`,
+      );
       skipped++;
     }
   });
@@ -130,7 +140,7 @@ async function extractVoiceDescriptions(): Promise<Map<string, VoiceDescription>
  * Save results to JSON files
  */
 function saveResults(descriptions: Map<string, VoiceDescription>): void {
-  const outputDir = path.join(process.cwd(), 'data');
+  const outputDir = path.join(process.cwd(), "data");
 
   // Ensure output directory exists
   if (!fs.existsSync(outputDir)) {
@@ -147,23 +157,29 @@ function saveResults(descriptions: Map<string, VoiceDescription>): void {
   });
 
   // Save simple mapping (voice ID → description)
-  const simplePath = path.join(outputDir, 'voice-descriptions.json');
-  fs.writeFileSync(simplePath, JSON.stringify(descriptionsObj, null, 2), 'utf-8');
+  const simplePath = path.join(outputDir, "voice-descriptions.json");
+  fs.writeFileSync(
+    simplePath,
+    JSON.stringify(descriptionsObj, null, 2),
+    "utf-8",
+  );
   console.log(`\n💾 Saved simple mapping: ${simplePath}`);
   console.log(`   ${Object.keys(descriptionsObj).length} voice descriptions`);
 
   // Save detailed data (includes names)
-  const detailedPath = path.join(outputDir, 'voice-descriptions-detailed.json');
-  fs.writeFileSync(detailedPath, JSON.stringify(detailedObj, null, 2), 'utf-8');
+  const detailedPath = path.join(outputDir, "voice-descriptions-detailed.json");
+  fs.writeFileSync(detailedPath, JSON.stringify(detailedObj, null, 2), "utf-8");
   console.log(`\n💾 Saved detailed data: ${detailedPath}`);
 
   // Print sample
-  console.log('\n📋 Sample output:');
+  console.log("\n📋 Sample output:");
   const sample = Array.from(descriptions.values()).slice(0, 3);
   sample.forEach((voice) => {
     console.log(`\n  ${voice.voiceId}`);
     console.log(`  Name: ${voice.voiceName}`);
-    console.log(`  Description: ${voice.description.substring(0, 80)}${voice.description.length > 80 ? '...' : ''}`);
+    console.log(
+      `  Description: ${voice.description.substring(0, 80)}${voice.description.length > 80 ? "..." : ""}`,
+    );
   });
 }
 
@@ -171,21 +187,21 @@ function saveResults(descriptions: Map<string, VoiceDescription>): void {
  * Main execution
  */
 async function main() {
-  console.log('🎤 ElevenLabs Voice Description Extractor - POC\n');
+  console.log("🎤 ElevenLabs Voice Description Extractor - POC\n");
 
   try {
     const descriptions = await extractVoiceDescriptions();
 
     if (descriptions.size === 0) {
-      console.error('❌ No descriptions extracted! Check HTML structure.');
+      console.error("❌ No descriptions extracted! Check HTML structure.");
       process.exit(1);
     }
 
     saveResults(descriptions);
 
-    console.log('\n✨ Extraction complete!\n');
+    console.log("\n✨ Extraction complete!\n");
   } catch (error) {
-    console.error('❌ Extraction failed:', error);
+    console.error("❌ Extraction failed:", error);
     process.exit(1);
   }
 }

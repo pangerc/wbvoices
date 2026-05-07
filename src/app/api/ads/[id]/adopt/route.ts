@@ -19,7 +19,7 @@ const USER_ADS_KEY = (email: string) => `ads:by_user:${email}`;
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { email } = await requireAuth();
@@ -34,7 +34,7 @@ export async function POST(
     if (!LEGACY_OWNERS.includes(meta.owner)) {
       return NextResponse.json(
         { error: "This ad is already owned by another user" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -56,12 +56,12 @@ export async function POST(
     return NextResponse.json({ success: true, adId, owner: email });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     console.error("❌ Error adopting ad:", error);
-    return NextResponse.json(
-      { error: "Failed to adopt ad" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to adopt ad" }, { status: 500 });
   }
 }

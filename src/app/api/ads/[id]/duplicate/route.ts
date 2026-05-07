@@ -40,22 +40,20 @@ export async function POST(
 
   const newAdId = generateProjectId();
 
-  const [voices, music, sfx, mixer, conversation, preview] =
-    await Promise.all([
-      getActiveVersionData(duplicatedAdId, "voices"),
-      getActiveVersionData(duplicatedAdId, "music"),
-      getActiveVersionData(duplicatedAdId, "sfx"),
-      getActiveVersionData(duplicatedAdId, "mixer"),
-      getConversation(duplicatedAdId),
-      getPreviewData(duplicatedAdId),
-    ] as const);
+  const [voices, music, sfx, mixer, conversation, preview] = await Promise.all([
+    getActiveVersionData(duplicatedAdId, "voices"),
+    getActiveVersionData(duplicatedAdId, "music"),
+    getActiveVersionData(duplicatedAdId, "sfx"),
+    getActiveVersionData(duplicatedAdId, "mixer"),
+    getConversation(duplicatedAdId),
+    getPreviewData(duplicatedAdId),
+  ] as const);
 
   if (!mixer || !conversation || !voices || !music || !sfx) {
     return NextResponse.json(
       {
         error: "Failed to duplicate ad",
-        details:
-          "Ad mixer / conversation / voices / music / sfx is missing",
+        details: "Ad mixer / conversation / voices / music / sfx is missing",
       },
       { status: 400 },
     );

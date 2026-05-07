@@ -64,14 +64,14 @@ function getConfig(): { baseUrl: string; secret: string } {
   if (!baseUrl) {
     throw new AlaricRequestError(
       "ALARIC_BASE_URL env var not set — cannot reach alaric.",
-      500
+      500,
     );
   }
   const secret = process.env.ACA_ALARIC_SHARED_SECRET;
   if (!secret) {
     throw new AlaricRequestError(
       "ACA_ALARIC_SHARED_SECRET env var not set — cannot sign alaric requests.",
-      500
+      500,
     );
   }
   return { baseUrl: baseUrl.replace(/\/+$/, ""), secret };
@@ -114,7 +114,7 @@ async function signedFetch<T>(init: SignedRequestInit): Promise<T> {
     throw new AlaricRequestError(
       `alaric ${init.method} ${init.path} failed: ${response.status}`,
       response.status,
-      errBody
+      errBody,
     );
   }
 
@@ -170,7 +170,7 @@ export interface AlaricFetchResult {
  */
 export async function fetchContent(
   url: string,
-  opts: { policy?: AlaricFetchPolicy } = {}
+  opts: { policy?: AlaricFetchPolicy } = {},
 ): Promise<AlaricFetchResult> {
   return signedFetch<AlaricFetchResult>({
     method: "POST",
@@ -198,7 +198,7 @@ export interface SfAccountSearchResult {
  */
 export async function searchSfAccounts(
   query: string,
-  opts: { limit?: number; clientPlatforms?: string[]; market?: string } = {}
+  opts: { limit?: number; clientPlatforms?: string[]; market?: string } = {},
 ): Promise<SfAccountSearchResult[]> {
   const params = new URLSearchParams({ q: query });
   if (opts.limit) params.set("limit", String(opts.limit));
@@ -500,7 +500,7 @@ export interface MarketsResponse {
  *   Pass "spotify" for ACA's default warm path.
  */
 export async function getMarkets(
-  opts: { platform?: string } = {}
+  opts: { platform?: string } = {},
 ): Promise<MarketsResponse> {
   const params = new URLSearchParams();
   if (opts.platform) params.set("platform", opts.platform);
@@ -512,7 +512,7 @@ export async function getMarkets(
 }
 
 export async function triggerEnrichCompany(
-  accountId: string
+  accountId: string,
 ): Promise<EnrichTriggerResult> {
   return signedFetch<EnrichTriggerResult>({
     method: "POST",

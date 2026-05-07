@@ -46,7 +46,7 @@ export function CollapsibleSection({
         <ChevronDownIcon
           className={twMerge(
             "w-4 h-4 text-gray-400 flex-shrink-0 transition-transform",
-            open ? "rotate-180" : ""
+            open ? "rotate-180" : "",
           )}
         />
       </button>

@@ -15,8 +15,10 @@ export async function GET() {
   } catch (error) {
     console.error("Error listing tones:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to list tones" },
-      { status: 500 }
+      {
+        error: error instanceof Error ? error.message : "Failed to list tones",
+      },
+      { status: 500 },
     );
   }
 }
@@ -29,7 +31,7 @@ export async function POST(req: NextRequest) {
     if (!title?.trim() || !description?.trim() || !voiceInstructions?.trim()) {
       return NextResponse.json(
         { error: "title, description and voiceInstructions are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -44,8 +46,10 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Error creating tone:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create tone" },
-      { status: 500 }
+      {
+        error: error instanceof Error ? error.message : "Failed to create tone",
+      },
+      { status: 500 },
     );
   }
 }

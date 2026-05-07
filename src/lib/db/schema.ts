@@ -30,7 +30,7 @@ export const voiceMetadata = pgTable(
   (table) => ({
     voiceKeyIdx: index("voice_key_idx").on(table.voiceKey),
     providerIdx: index("provider_idx").on(table.provider),
-  })
+  }),
 );
 
 /**
@@ -56,9 +56,9 @@ export const voiceBlacklist = pgTable(
     voiceKeyIdx: index("blacklist_voice_key_idx").on(table.voiceKey),
     languageAccentIdx: index("blacklist_language_accent_idx").on(
       table.language,
-      table.accent
+      table.accent,
     ),
-  })
+  }),
 );
 
 /**
@@ -70,14 +70,18 @@ export const voiceDescriptions = pgTable(
   {
     voiceKey: text("voice_key").primaryKey(), // "{provider}:{voiceId}"
     description: text("description").notNull(),
-    descriptionSource: text("description_source").notNull().default("scraped_2024"),
+    descriptionSource: text("description_source")
+      .notNull()
+      .default("scraped_2024"),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    sourceIdx: index("voice_descriptions_source_idx").on(table.descriptionSource),
-  })
+    sourceIdx: index("voice_descriptions_source_idx").on(
+      table.descriptionSource,
+    ),
+  }),
 );
 
 /**
@@ -97,7 +101,7 @@ export const suggestedTones = pgTable(
   },
   (table) => ({
     isActiveIdx: index("suggested_tones_is_active_idx").on(table.isActive),
-  })
+  }),
 );
 
 // Distinct from `suggested_tones`: tones drive TTS delivery (how voices
@@ -126,9 +130,11 @@ export const instructionTemplates = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    isActiveIdx: index("instruction_templates_is_active_idx").on(table.isActive),
+    isActiveIdx: index("instruction_templates_is_active_idx").on(
+      table.isActive,
+    ),
     categoryIdx: index("instruction_templates_category_idx").on(table.category),
-  })
+  }),
 );
 
 // ============ Auth.js (NextAuth v5) adapter tables ============
@@ -137,46 +143,60 @@ export const instructionTemplates = pgTable(
  * Users table — managed by NextAuth Drizzle adapter.
  * Custom `role` column added for admin/user distinction.
  */
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name"),
-  email: text("email").unique().notNull(),
-  emailVerified: timestamp("email_verified"),
-  image: text("image"),
-  role: text("role").notNull().default("user"), // 'user' | 'admin'
-}, (table) => ({
-  emailIdx: index("users_email_idx").on(table.email),
-}));
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name"),
+    email: text("email").unique().notNull(),
+    emailVerified: timestamp("email_verified"),
+    image: text("image"),
+    role: text("role").notNull().default("user"), // 'user' | 'admin'
+  },
+  (table) => ({
+    emailIdx: index("users_email_idx").on(table.email),
+  }),
+);
 
 /**
  * Accounts table — links OAuth providers (Google) to users.
  */
-export const accounts = pgTable("accounts", {
-  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  type: text("type").notNull(),
-  provider: text("provider").notNull(),
-  providerAccountId: text("provider_account_id").notNull(),
-  refresh_token: text("refresh_token"),
-  access_token: text("access_token"),
-  expires_at: integer("expires_at"),
-  token_type: text("token_type"),
-  scope: text("scope"),
-  id_token: text("id_token"),
-  session_state: text("session_state"),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.provider, table.providerAccountId] }),
-}));
+export const accounts = pgTable(
+  "accounts",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    provider: text("provider").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    refresh_token: text("refresh_token"),
+    access_token: text("access_token"),
+    expires_at: integer("expires_at"),
+    token_type: text("token_type"),
+    scope: text("scope"),
+    id_token: text("id_token"),
+    session_state: text("session_state"),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.provider, table.providerAccountId] }),
+  }),
+);
 
 /**
  * Verification tokens — short-lived tokens for magic link sign-in.
  */
-export const verificationTokens = pgTable("verification_tokens", {
-  identifier: text("identifier").notNull(),
-  token: text("token").notNull(),
-  expires: timestamp("expires").notNull(),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.identifier, table.token] }),
-}));
+export const verificationTokens = pgTable(
+  "verification_tokens",
+  {
+    identifier: text("identifier").notNull(),
+    token: text("token").notNull(),
+    expires: timestamp("expires").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.identifier, table.token] }),
+  }),
+);
 
 export type User = typeof users.$inferSelect;
 
@@ -191,4 +211,5 @@ export type InsertVoiceDescription = typeof voiceDescriptions.$inferInsert;
 export type SuggestedTone = typeof suggestedTones.$inferSelect;
 export type InsertSuggestedTone = typeof suggestedTones.$inferInsert;
 export type InstructionTemplate = typeof instructionTemplates.$inferSelect;
-export type InsertInstructionTemplate = typeof instructionTemplates.$inferInsert;
+export type InsertInstructionTemplate =
+  typeof instructionTemplates.$inferInsert;

@@ -103,11 +103,13 @@ export function BrandPickerSubeditor({
         });
         if (!primaryRes.ok) {
           const body = await primaryRes.json().catch(() => ({}));
-          throw new Error(body?.error || `search failed (${primaryRes.status})`);
+          throw new Error(
+            body?.error || `search failed (${primaryRes.status})`,
+          );
         }
         const primary = await primaryRes.json();
         const primaryHits: SfAccountSearchResult[] = Array.isArray(
-          primary?.candidates
+          primary?.candidates,
         )
           ? primary.candidates
           : [];
@@ -129,7 +131,7 @@ export function BrandPickerSubeditor({
           if (fallbackRes.ok) {
             const fb = await fallbackRes.json();
             const fbHits: SfAccountSearchResult[] = Array.isArray(
-              fb?.candidates
+              fb?.candidates,
             )
               ? fb.candidates
               : [];
@@ -173,7 +175,7 @@ export function BrandPickerSubeditor({
       setHits([]);
       setDropdownOpen(false);
     },
-    [onBrandChanged]
+    [onBrandChanged],
   );
 
   const pickStandalone = useCallback(
@@ -189,7 +191,7 @@ export function BrandPickerSubeditor({
       setHits([]);
       setDropdownOpen(false);
     },
-    [onBrandChanged]
+    [onBrandChanged],
   );
 
   const pickRecent = useCallback(
@@ -199,7 +201,7 @@ export function BrandPickerSubeditor({
       setHits([]);
       setDropdownOpen(false);
     },
-    [onBrandChanged]
+    [onBrandChanged],
   );
 
   const clearBrand = useCallback(() => {
@@ -224,7 +226,8 @@ export function BrandPickerSubeditor({
           <div className="text-sm text-white truncate">{brand.name}</div>
           {brand.salesforceAccountSnapshot ? (
             <div className="text-xs text-gray-400 truncate">
-              SF · {brand.salesforceAccountSnapshot.industry || "Unknown industry"}
+              SF ·{" "}
+              {brand.salesforceAccountSnapshot.industry || "Unknown industry"}
             </div>
           ) : (
             <div className="text-xs text-gray-500">Standalone (no SF link)</div>
@@ -312,7 +315,9 @@ export function BrandPickerSubeditor({
               >
                 <div className="text-sm text-gray-300">
                   Use as standalone brand:{" "}
-                  <span className="text-white">&ldquo;{query.trim()}&rdquo;</span>
+                  <span className="text-white">
+                    &ldquo;{query.trim()}&rdquo;
+                  </span>
                 </div>
                 <div className="text-xs text-gray-500">
                   No Salesforce link; brand voice will rely on the brief alone

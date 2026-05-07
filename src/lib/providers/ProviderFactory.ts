@@ -1,4 +1,4 @@
-import { BaseAudioProvider } from './BaseAudioProvider';
+import { BaseAudioProvider } from "./BaseAudioProvider";
 
 // Provider registry type
 type ProviderRegistry = {
@@ -15,16 +15,16 @@ export class AudioProviderFactory {
   private static providers: ProviderRegistry = {
     voice: {},
     music: {},
-    sfx: {}
+    sfx: {},
   };
 
   /**
    * Register a new provider
    */
   static register(
-    type: 'voice' | 'music' | 'sfx',
+    type: "voice" | "music" | "sfx",
     name: string,
-    providerClass: new () => BaseAudioProvider
+    providerClass: new () => BaseAudioProvider,
   ): void {
     this.providers[type][name] = providerClass;
   }
@@ -32,11 +32,16 @@ export class AudioProviderFactory {
   /**
    * Create a provider instance
    */
-  static create(type: 'voice' | 'music' | 'sfx', providerName: string): BaseAudioProvider {
+  static create(
+    type: "voice" | "music" | "sfx",
+    providerName: string,
+  ): BaseAudioProvider {
     const ProviderClass = this.providers[type][providerName];
-    
+
     if (!ProviderClass) {
-      throw new Error(`Provider '${providerName}' of type '${type}' not found. Available providers: ${Object.keys(this.providers[type]).join(', ')}`);
+      throw new Error(
+        `Provider '${providerName}' of type '${type}' not found. Available providers: ${Object.keys(this.providers[type]).join(", ")}`,
+      );
     }
 
     return new ProviderClass();
@@ -45,14 +50,17 @@ export class AudioProviderFactory {
   /**
    * Get all available providers for a type
    */
-  static getAvailableProviders(type: 'voice' | 'music' | 'sfx'): string[] {
+  static getAvailableProviders(type: "voice" | "music" | "sfx"): string[] {
     return Object.keys(this.providers[type]);
   }
 
   /**
    * Check if a provider is registered
    */
-  static isProviderRegistered(type: 'voice' | 'music' | 'sfx', providerName: string): boolean {
+  static isProviderRegistered(
+    type: "voice" | "music" | "sfx",
+    providerName: string,
+  ): boolean {
     return providerName in this.providers[type];
   }
 
@@ -67,6 +75,9 @@ export class AudioProviderFactory {
 /**
  * Convenience function for creating providers
  */
-export function createProvider(type: 'voice' | 'music' | 'sfx', providerName: string): BaseAudioProvider {
+export function createProvider(
+  type: "voice" | "music" | "sfx",
+  providerName: string,
+): BaseAudioProvider {
   return AudioProviderFactory.create(type, providerName);
 }

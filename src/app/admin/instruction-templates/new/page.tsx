@@ -5,9 +5,9 @@ import dynamic from "next/dynamic";
 const InstructionTemplateForm = dynamic(
   () =>
     import("@/components/admin/InstructionTemplateForm").then(
-      (m) => m.InstructionTemplateForm
+      (m) => m.InstructionTemplateForm,
     ),
-  { ssr: false }
+  { ssr: false },
 );
 
 export default function NewInstructionTemplatePage() {

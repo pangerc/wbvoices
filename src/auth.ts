@@ -33,7 +33,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (process.env.NODE_ENV !== "production") {
           const banner = "═".repeat(70);
           console.log(
-            `\n${banner}\n🔐 DEV SIGN-IN LINK for ${email}\n${url}\n${banner}\n`
+            `\n${banner}\n🔐 DEV SIGN-IN LINK for ${email}\n${url}\n${banner}\n`,
           );
         }
         const { Resend: ResendClient } = await import("resend");

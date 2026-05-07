@@ -12,18 +12,22 @@ The Music Library feature allows users to browse, search, preview, and reuse mus
 ## User Experience
 
 ### Access
+
 Users access the Music Library via a third tab in the Music Panel:
+
 1. **Generate** - Create new music with AI providers (Loudly, Mubert, ElevenLabs)
 2. **Upload** - Upload custom music files (MP3, WAV, M4A)
 3. **Library** - Browse and reuse music from previous projects ✨ **NEW**
 
 ### Features
+
 - **Search** - Filter tracks by project title, music prompt, or provider
 - **Preview** - Play any track before selecting (with play/pause controls)
 - **Select** - Add track to current project's mixer with one click
 - **Auto-switch** - Automatically navigates to Mixer tab after selection
 
 ### User Flow
+
 ```
 1. User clicks "Library" tab in Music Panel
 2. System loads all music tracks from user's projects
@@ -45,6 +49,7 @@ Users access the Music Library via a third tab in the Music Panel:
 ### Components
 
 #### 1. API Layer
+
 **File:** `src/app/api/music-library/route.ts`
 
 ```typescript
@@ -52,12 +57,14 @@ GET /api/music-library?sessionId=universal-session
 ```
 
 **Responsibilities:**
+
 - Query all projects for the user session from Redis
 - Extract music tracks from projects with `generatedTracks.musicUrl`
 - Aggregate track metadata (title, prompt, provider, duration)
 - Return sorted list (newest first)
 
 **Response Format:**
+
 ```json
 {
   "tracks": [
@@ -75,6 +82,7 @@ GET /api/music-library?sessionId=universal-session
 ```
 
 #### 2. Type System
+
 **File:** `src/types/index.ts`
 
 ```typescript
@@ -90,6 +98,7 @@ export type LibraryMusicTrack = {
 ```
 
 **Mixer Track Metadata Extension:**
+
 ```typescript
 metadata?: {
   // ... existing fields
@@ -99,18 +108,21 @@ metadata?: {
 ```
 
 #### 3. Frontend Component
+
 **File:** `src/components/MusicPanel.tsx`
 
 **State Management:**
+
 ```typescript
-const [mode, setMode] = useState<MusicMode>('generate' | 'upload' | 'library');
+const [mode, setMode] = useState<MusicMode>("generate" | "upload" | "library");
 const [libraryTracks, setLibraryTracks] = useState<LibraryMusicTrack[]>([]);
-const [searchQuery, setSearchQuery] = useState('');
+const [searchQuery, setSearchQuery] = useState("");
 const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
 const audioRef = useRef<HTMLAudioElement | null>(null);
 ```
 
 **Key Functions:**
+
 - `loadLibraryTracks()` - Fetch tracks from API
 - `handlePlayPause(track)` - Preview track with state management
 - `handleLibraryTrackSelect(track)` - Add track to mixer and update project
@@ -121,6 +133,7 @@ const audioRef = useRef<HTMLAudioElement | null>(null);
 ## Data Flow
 
 ### Loading Library
+
 ```
 User switches to Library tab
   ↓
@@ -146,6 +159,7 @@ Render track list with search
 ```
 
 ### Selecting a Track
+
 ```
 User clicks "Select" on library track
   ↓
@@ -179,17 +193,20 @@ Timeline recalculates with new track
 ## Audio Player State Management
 
 ### Problem Solved
+
 Previously, clicking play on multiple tracks would play them simultaneously. The solution implements proper audio state management.
 
 ### Implementation
 
 **Single Audio Instance:**
+
 ```typescript
 const audioRef = useRef<HTMLAudioElement | null>(null);
 const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
 ```
 
 **Play/Pause Logic:**
+
 ```typescript
 const handlePlayPause = (track) => {
   const trackId = `${track.projectId}-${track.createdAt}`;
@@ -222,14 +239,14 @@ const handlePlayPause = (track) => {
 ```
 
 **Visual Feedback:**
+
 ```tsx
 const isPlaying = playingTrackId === trackId;
-<button onClick={() => handlePlayPause(track)}>
-  {isPlaying ? '⏸' : '▶'}
-</button>
+<button onClick={() => handlePlayPause(track)}>{isPlaying ? "⏸" : "▶"}</button>;
 ```
 
 **Cleanup:**
+
 - Auto-cleanup when switching away from library mode
 - Auto-cleanup on component unmount
 - Prevents memory leaks from orphaned audio elements
@@ -239,44 +256,52 @@ const isPlaying = playingTrackId === trackId;
 ## Integration Points
 
 ### 1. Mixer Store
+
 **File:** `src/store/mixerStore.ts`
 
 **Track Replacement:**
+
 ```typescript
 clearTracks("music"); // Remove existing music track
-addTrack(newTrack);   // Add library track
+addTrack(newTrack); // Add library track
 ```
 
 **Consistent with:**
+
 - Music generation (`audioService.ts:106`)
 - Custom music upload (`MusicPanel.tsx:223`)
 - Library selection (`MusicPanel.tsx:273`)
 
 ### 2. Project History Store
+
 **File:** `src/store/projectHistoryStore.ts`
 
 **Project Updates:**
+
 ```typescript
 await updateProject(projectId, {
   generatedTracks: { musicUrl: track.musicUrl },
   musicPrompt: track.musicPrompt,
-  lastModified: Date.now()
+  lastModified: Date.now(),
 });
 ```
 
 ### 3. Redis Data Structure
+
 **Keys Used:**
+
 - `user_projects:{sessionId}` - Array of project IDs (unlimited since multi-region pilot)
 - `project:{projectId}` - Full project data with music URLs
 - `project_meta:{projectId}` - Project metadata for listings
 
 **Music Track Extraction:**
+
 ```typescript
 // Primary source
-project.generatedTracks.musicUrl
+project.generatedTracks.musicUrl;
 
 // Duration source (if available)
-project.mixerState?.tracks.find(t => t.type === "music")?.duration
+project.mixerState?.tracks.find((t) => t.type === "music")?.duration;
 ```
 
 ---
@@ -284,25 +309,29 @@ project.mixerState?.tracks.find(t => t.type === "music")?.duration
 ## Search & Filtering
 
 **Implementation:**
+
 ```typescript
 const filteredLibraryTracks = useMemo(() => {
   if (!searchQuery.trim()) return libraryTracks;
 
   const query = searchQuery.toLowerCase();
-  return libraryTracks.filter(track =>
-    track.projectTitle.toLowerCase().includes(query) ||
-    track.musicPrompt.toLowerCase().includes(query) ||
-    track.musicProvider.toLowerCase().includes(query)
+  return libraryTracks.filter(
+    (track) =>
+      track.projectTitle.toLowerCase().includes(query) ||
+      track.musicPrompt.toLowerCase().includes(query) ||
+      track.musicProvider.toLowerCase().includes(query),
   );
 }, [libraryTracks, searchQuery]);
 ```
 
 **Search Fields:**
+
 - Project title (e.g., "Holiday Campaign")
 - Music prompt (e.g., "upbeat piano melody")
 - Provider name (e.g., "loudly", "mubert")
 
 **Performance:**
+
 - Uses `useMemo` for efficient re-filtering
 - Client-side search (all tracks loaded once)
 - Instant results as user types
@@ -312,21 +341,23 @@ const filteredLibraryTracks = useMemo(() => {
 ## UI Components
 
 ### Tab Navigation
+
 ```tsx
 <GlassTabBar>
-  <GlassTab isActive={mode === 'generate'} onClick={() => setMode('generate')}>
+  <GlassTab isActive={mode === "generate"} onClick={() => setMode("generate")}>
     {/* Sparkle icon */}
   </GlassTab>
-  <GlassTab isActive={mode === 'upload'} onClick={() => setMode('upload')}>
+  <GlassTab isActive={mode === "upload"} onClick={() => setMode("upload")}>
     {/* Upload icon */}
   </GlassTab>
-  <GlassTab isActive={mode === 'library'} onClick={() => setMode('library')}>
+  <GlassTab isActive={mode === "library"} onClick={() => setMode("library")}>
     {/* Library icon (vertical bars) */}
   </GlassTab>
 </GlassTabBar>
 ```
 
 ### Track List Item
+
 ```tsx
 <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
   <div className="grid grid-cols-[1fr_auto] gap-4">
@@ -342,11 +373,9 @@ const filteredLibraryTracks = useMemo(() => {
 
     <div className="flex gap-2">
       <button onClick={() => handlePlayPause(track)}>
-        {isPlaying ? '⏸' : '▶'}
+        {isPlaying ? "⏸" : "▶"}
       </button>
-      <button onClick={() => handleLibraryTrackSelect(track)}>
-        Select
-      </button>
+      <button onClick={() => handleLibraryTrackSelect(track)}>Select</button>
     </div>
   </div>
 </div>
@@ -357,11 +386,13 @@ const filteredLibraryTracks = useMemo(() => {
 ## Scaling Considerations
 
 ### Current Limits
+
 - **Project limit:** None (removed 20-project limit for multi-region pilot)
 - **Session scope:** `universal-session` (all users share same library for pilot)
 - **Storage:** Vercel Blob (permanent URLs, no expiration)
 
 ### Future Enhancements
+
 - **Pagination:** Add if libraries grow beyond ~100 tracks
 - **Lazy loading:** Infinite scroll for large libraries
 - **Server-side search:** Move filtering to API for better performance
@@ -372,6 +403,7 @@ const filteredLibraryTracks = useMemo(() => {
 - **Export:** Download multiple tracks at once
 
 ### Performance Optimizations
+
 - All tracks loaded once on tab open
 - Client-side filtering with `useMemo`
 - Audio element reuse (single instance)
@@ -384,11 +416,13 @@ const filteredLibraryTracks = useMemo(() => {
 ### Manual Test Cases
 
 **1. Library Loading**
+
 - [ ] Switch to Library tab loads all music tracks
 - [ ] Tracks sorted by creation date (newest first)
 - [ ] Empty state shows helpful message
 
 **2. Search**
+
 - [ ] Search by project title works
 - [ ] Search by music prompt works
 - [ ] Search by provider name works
@@ -396,6 +430,7 @@ const filteredLibraryTracks = useMemo(() => {
 - [ ] Clear search shows all tracks again
 
 **3. Audio Preview**
+
 - [ ] Click ▶ plays track
 - [ ] Click ⏸ pauses track
 - [ ] Click ▶ on different track stops previous and plays new
@@ -404,6 +439,7 @@ const filteredLibraryTracks = useMemo(() => {
 - [ ] Button shows correct icon (▶/⏸)
 
 **4. Track Selection**
+
 - [ ] Select adds track to mixer
 - [ ] Select clears previous music track
 - [ ] Select updates project in Redis
@@ -412,6 +448,7 @@ const filteredLibraryTracks = useMemo(() => {
 - [ ] Preview shows selected track
 
 **5. Edge Cases**
+
 - [ ] No music in any projects (empty state)
 - [ ] Only one project with music
 - [ ] Multiple tracks from same project
@@ -423,15 +460,18 @@ const filteredLibraryTracks = useMemo(() => {
 ## Security & Privacy
 
 ### Session Isolation
+
 - Currently: `universal-session` (all users share)
 - Future: User-specific sessions with authentication
 
 ### Data Access
+
 - API validates `sessionId` parameter
 - Only returns projects owned by session
 - No cross-session data leakage
 
 ### Audio URLs
+
 - Stored in Vercel Blob (permanent, public URLs)
 - No sensitive data in URLs
 - CDN-backed for performance
@@ -441,10 +481,13 @@ const filteredLibraryTracks = useMemo(() => {
 ## Migration Notes
 
 ### Breaking Changes
+
 None. Feature is additive.
 
 ### Database Changes
+
 **mixer Store metadata extension:**
+
 ```typescript
 // Before
 metadata?: {
@@ -460,6 +503,7 @@ metadata?: {
 ```
 
 ### Backwards Compatibility
+
 - Old projects without `source` field work normally
 - Library only shows projects with music
 - Missing duration handled gracefully (optional field)
@@ -469,25 +513,33 @@ metadata?: {
 ## Troubleshooting
 
 ### Library is empty
+
 **Check:**
+
 1. Do any projects have `generatedTracks.musicUrl`?
 2. Is Redis accessible?
 3. Check browser console for API errors
 
 ### Track won't play
+
 **Check:**
+
 1. Is the Blob URL still valid?
 2. Browser console for CORS errors
 3. Network tab shows successful audio fetch
 
 ### Search not working
+
 **Check:**
+
 1. Search is case-insensitive
 2. Searches across title, prompt, and provider
 3. Check for typos in search query
 
 ### Track selection doesn't navigate to Mixer
+
 **Check:**
+
 1. `onTrackSelected` callback is wired up
 2. No JavaScript errors in console
 3. Mixer store is receiving the track
@@ -506,6 +558,7 @@ metadata?: {
 ## Changelog
 
 ### v1.0.0 - December 2024
+
 - ✅ Initial release
 - ✅ Search functionality
 - ✅ Audio preview with play/pause
@@ -514,6 +567,7 @@ metadata?: {
 - ✅ Removed 20-project limit for multi-region pilot
 
 ### Future Roadmap
+
 - 🔲 Pagination for large libraries
 - 🔲 Waveform visualizations
 - 🔲 Favorite tracks

@@ -23,14 +23,14 @@ export function getBaseUrl(): string {
 export async function internalFetch(
   path: string,
   options: RequestInit = {},
-  cookie?: string | null
+  cookie?: string | null,
 ): Promise<Response> {
   const baseUrl = getBaseUrl();
   const url = path.startsWith("http") ? path : `${baseUrl}${path}`;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(options.headers as Record<string, string> || {}),
+    ...((options.headers as Record<string, string>) || {}),
   };
 
   // Forward auth cookie from the original request

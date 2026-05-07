@@ -10,10 +10,7 @@ import { LahajatiPromptStrategy } from "./LahajatiPromptStrategy";
  * Factory for creating prompt strategy instances based on provider
  */
 export class PromptStrategyFactory {
-  private static strategies: Record<
-    Provider,
-    () => PromptStrategy
-  > = {
+  private static strategies: Record<Provider, () => PromptStrategy> = {
     elevenlabs: () => new ElevenLabsV3PromptStrategy(),
     openai: () => new OpenAIPromptStrategy(),
     lovo: () => new LovoPromptStrategy(),

@@ -15,7 +15,12 @@ import { NextRequest } from "next/server";
 import { runAgentLoop } from "@/lib/tool-calling";
 import { getLanguageName } from "@/utils/language";
 import { internalFetch } from "@/utils/internal-fetch";
-import { setAdMetadata, getAdMetadata, getVersion, setActiveVersion } from "@/lib/redis/versions";
+import {
+  setAdMetadata,
+  getAdMetadata,
+  getVersion,
+  setActiveVersion,
+} from "@/lib/redis/versions";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
 import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
 import {
@@ -64,8 +69,17 @@ type StreamEvent =
   | { type: "model-text-delta"; text: string }
   | { type: "model-tool-call-start"; name: string; callId: string }
   | { type: "model-tool-call-args-delta"; callId: string; delta: string }
-  | { type: "drafts-created"; drafts: { voices?: string; music?: string; sfx?: string }; adName: string }
-  | { type: "voice-generating"; index: number; total: number; versionId: string }
+  | {
+      type: "drafts-created";
+      drafts: { voices?: string; music?: string; sfx?: string };
+      adName: string;
+    }
+  | {
+      type: "voice-generating";
+      index: number;
+      total: number;
+      versionId: string;
+    }
   | { type: "voice-ready"; index: number; url: string }
   | { type: "voice-failed"; index: number; error: string }
   | { type: "music-generating" }
@@ -133,28 +147,34 @@ function buildUserMessage(params: {
     dialectNote = `\n- Region: ${region} (use local expressions)`;
   }
 
-  const pacingNote = pacing && pacing !== "normal" ? `\n- Pacing: ${pacing}` : "";
+  const pacingNote =
+    pacing && pacing !== "normal" ? `\n- Pacing: ${pacing}` : "";
   const ctaNote = cta ? `\n- Call to Action: ${cta}` : "";
-  const voiceInstructionsNote = voiceInstructions && voiceInstructions.trim()
-    ? `\n- Voice delivery instructions: ${voiceInstructions.trim()}`
-    : "";
+  const voiceInstructionsNote =
+    voiceInstructions && voiceInstructions.trim()
+      ? `\n- Voice delivery instructions: ${voiceInstructions.trim()}`
+      : "";
   const referenceSection =
     referenceUrls && referenceUrls.length
       ? `\n\n## Reference URLs\n${referenceUrls.map((u) => `- ${u}`).join("\n")}`
       : "";
-  const forbiddenSection = forbiddenWords && forbiddenWords.trim()
-    ? `\n\n## Forbidden words / phrases (do NOT use)\n${forbiddenWords.trim()}`
-    : "";
-  const providedScriptSection = providedScript && providedScript.trim()
-    ? `\n\n## Provided Script (USE VERBATIM)\nThe user has supplied the script text below. Use it exactly as written; only write acting instructions, music, and SFX around it. Do not edit, translate, or paraphrase.\n\n\`\`\`\n${providedScript.trim()}\n\`\`\``
-    : "";
+  const forbiddenSection =
+    forbiddenWords && forbiddenWords.trim()
+      ? `\n\n## Forbidden words / phrases (do NOT use)\n${forbiddenWords.trim()}`
+      : "";
+  const providedScriptSection =
+    providedScript && providedScript.trim()
+      ? `\n\n## Provided Script (USE VERBATIM)\nThe user has supplied the script text below. Use it exactly as written; only write acting instructions, music, and SFX around it. Do not edit, translate, or paraphrase.\n\n\`\`\`\n${providedScript.trim()}\n\`\`\``
+      : "";
 
-  const creativeAngleSection = creativeAngle && creativeAngle.trim()
-    ? `\n\n## Creative angle (THIS spot only)\n${creativeAngle.trim()}\nThis is the variance — what makes THIS ad different from every other ad for this brand. Brand voice is the constant; treat the angle as load-bearing.`
-    : "";
+  const creativeAngleSection =
+    creativeAngle && creativeAngle.trim()
+      ? `\n\n## Creative angle (THIS spot only)\n${creativeAngle.trim()}\nThis is the variance — what makes THIS ad different from every other ad for this brand. Brand voice is the constant; treat the angle as load-bearing.`
+      : "";
 
   const totalWords = Math.round(duration * 2.5);
-  const wordsPerSpeaker = campaignFormat === "dialog" ? Math.round(totalWords / 2) : totalWords;
+  const wordsPerSpeaker =
+    campaignFormat === "dialog" ? Math.round(totalWords / 2) : totalWords;
 
   return `Create a ${duration}-second ${campaignFormat} audio ad.
 
@@ -220,8 +240,10 @@ export async function POST(req: NextRequest) {
 
   // Same precedence rule as /api/ai/generate. Keep the two routes in lockstep.
   const effectiveSfAccountId: string | null =
-    (brand && typeof brand === "object" && typeof (brand as Record<string, unknown>).salesforceAccountId === "string"
-      ? ((brand as { salesforceAccountId: string }).salesforceAccountId)
+    (brand &&
+    typeof brand === "object" &&
+    typeof (brand as Record<string, unknown>).salesforceAccountId === "string"
+      ? (brand as { salesforceAccountId: string }).salesforceAccountId
       : null) ||
     (typeof salesforceAccountId === "string" ? salesforceAccountId : null);
 
@@ -249,8 +271,11 @@ export async function POST(req: NextRequest) {
 
   if (!language || !clientDescription || !creativeBrief || !campaignFormat) {
     return new Response(
-      JSON.stringify({ error: "Missing required fields: language, clientDescription, creativeBrief, campaignFormat" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({
+        error:
+          "Missing required fields: language, clientDescription, creativeBrief, campaignFormat",
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
 
@@ -285,7 +310,8 @@ export async function POST(req: NextRequest) {
       let creativeTemplateInstructions: string | undefined;
       if (selectedTemplateId) {
         try {
-          const template = await instructionTemplatesService.getById(selectedTemplateId);
+          const template =
+            await instructionTemplatesService.getById(selectedTemplateId);
           if (template) {
             creativeTemplateTitle = template.title;
             const musicStyle = template.defaultMusicStyle?.trim();
@@ -294,13 +320,13 @@ export async function POST(req: NextRequest) {
               : template.systemInstructions;
           } else {
             console.warn(
-              `[generate-stream] selectedTemplateId ${selectedTemplateId} not found — proceeding without template`
+              `[generate-stream] selectedTemplateId ${selectedTemplateId} not found — proceeding without template`,
             );
           }
         } catch (err) {
           console.warn(
             `[generate-stream] template fetch failed for ${selectedTemplateId} — proceeding without template:`,
-            err
+            err,
           );
         }
       }
@@ -312,7 +338,11 @@ export async function POST(req: NextRequest) {
         language: language,
         voiceProvider: voiceProvider,
         campaignFormat: campaignFormat as KnowledgeContext["campaignFormat"],
-        hasProvidedScript: !!(providedScript && typeof providedScript === "string" && providedScript.trim()),
+        hasProvidedScript: !!(
+          providedScript &&
+          typeof providedScript === "string" &&
+          providedScript.trim()
+        ),
         creativeTemplateTitle,
         creativeTemplateInstructions,
       };
@@ -343,7 +373,8 @@ export async function POST(req: NextRequest) {
         referenceUrls,
         forbiddenWords,
         providedScript,
-        creativeAngle: typeof creativeAngle === "string" ? creativeAngle : undefined,
+        creativeAngle:
+          typeof creativeAngle === "string" ? creativeAngle : undefined,
         enrichmentSections,
       });
 
@@ -352,10 +383,15 @@ export async function POST(req: NextRequest) {
       // Forward model stream events as SSE so the UI can render tokens as
       // they arrive. Errors in the SSE write are swallowed — the agent
       // loop must keep going even if the client disconnected.
-      const forwardModelEvent = (event: { type: string } & Record<string, unknown>) => {
+      const forwardModelEvent = (
+        event: { type: string } & Record<string, unknown>,
+      ) => {
         try {
           if (event.type === "text_delta") {
-            void sendEvent({ type: "model-text-delta", text: event.text as string });
+            void sendEvent({
+              type: "model-text-delta",
+              text: event.text as string,
+            });
           } else if (event.type === "tool_call_start") {
             void sendEvent({
               type: "model-tool-call-start",
@@ -399,11 +435,25 @@ export async function POST(req: NextRequest) {
         voiceInstructions: voiceInstructionsText,
         selectedTemplateId,
         selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
-        ...(Array.isArray(referenceUrls) && referenceUrls.length ? { referenceUrls } : {}),
-        ...(forbiddenWords && typeof forbiddenWords === "string" && forbiddenWords.trim() ? { forbiddenWords: forbiddenWords.trim() } : {}),
-        ...(providedScript && typeof providedScript === "string" && providedScript.trim() ? { providedScript: providedScript.trim() } : {}),
-        ...(effectiveSfAccountId ? { salesforceAccountId: effectiveSfAccountId } : {}),
-        ...(typeof creativeAngle === "string" && creativeAngle.trim() ? { creativeAngle: creativeAngle.trim() } : {}),
+        ...(Array.isArray(referenceUrls) && referenceUrls.length
+          ? { referenceUrls }
+          : {}),
+        ...(forbiddenWords &&
+        typeof forbiddenWords === "string" &&
+        forbiddenWords.trim()
+          ? { forbiddenWords: forbiddenWords.trim() }
+          : {}),
+        ...(providedScript &&
+        typeof providedScript === "string" &&
+        providedScript.trim()
+          ? { providedScript: providedScript.trim() }
+          : {}),
+        ...(effectiveSfAccountId
+          ? { salesforceAccountId: effectiveSfAccountId }
+          : {}),
+        ...(typeof creativeAngle === "string" && creativeAngle.trim()
+          ? { creativeAngle: creativeAngle.trim() }
+          : {}),
         ...(brand && typeof brand === "object"
           ? { brand: brand as ProjectBrief["brand"] }
           : {}),
@@ -415,7 +465,8 @@ export async function POST(req: NextRequest) {
 
       // Get ad title (LLM may have set it via set_ad_title tool)
       const currentMeta = await getAdMetadata(adId);
-      const llmSetTitle = currentMeta?.name && currentMeta.name !== "Untitled Ad";
+      const llmSetTitle =
+        currentMeta?.name && currentMeta.name !== "Untitled Ad";
       const adTitle = llmSetTitle
         ? currentMeta.name
         : `${extractBrandName(clientDescription)} - ${languageName}`;
@@ -450,40 +501,61 @@ export async function POST(req: NextRequest) {
 
       // Voice tracks - ALL in parallel
       if (result.drafts.voices) {
-        const voiceVersion = (await getVersion(adId, "voices", result.drafts.voices)) as VoiceVersion | null;
+        const voiceVersion = (await getVersion(
+          adId,
+          "voices",
+          result.drafts.voices,
+        )) as VoiceVersion | null;
 
         if (voiceVersion?.voiceTracks?.length) {
           const tracks = [...voiceVersion.voiceTracks]; // Copy for safe mutation
           const versionId = result.drafts.voices;
 
           // Create array to track generated URLs for final persist
-          const generatedResults: Array<{ index: number; url: string; duration: number } | null> =
-            new Array(tracks.length).fill(null);
+          const generatedResults: Array<{
+            index: number;
+            url: string;
+            duration: number;
+          } | null> = new Array(tracks.length).fill(null);
 
           const voicePromises = tracks.map(async (track, i) => {
             if (!track.voice?.id || !track.text?.trim()) return;
 
-            const provider = track.voice?.provider || track.trackProvider || voiceProvider;
-            const endpoint = VOICE_ENDPOINTS[provider] || VOICE_ENDPOINTS.elevenlabs;
+            const provider =
+              track.voice?.provider || track.trackProvider || voiceProvider;
+            const endpoint =
+              VOICE_ENDPOINTS[provider] || VOICE_ENDPOINTS.elevenlabs;
 
-            await sendEvent({ type: "voice-generating", index: i, total: tracks.length, versionId });
+            await sendEvent({
+              type: "voice-generating",
+              index: i,
+              total: tracks.length,
+              versionId,
+            });
 
             try {
-              const voiceRes = await internalFetch(endpoint, {
-                method: "POST",
-                body: JSON.stringify({
-                  text: track.text,
-                  voiceId: track.voice.id,
-                  style: track.style,
-                  useCase: track.useCase,
-                  voiceInstructions: track.voiceInstructions,
-                  speed: track.speed,
-                }),
-              }, cookie);
+              const voiceRes = await internalFetch(
+                endpoint,
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    text: track.text,
+                    voiceId: track.voice.id,
+                    style: track.style,
+                    useCase: track.useCase,
+                    voiceInstructions: track.voiceInstructions,
+                    speed: track.speed,
+                  }),
+                },
+                cookie,
+              );
 
               if (!voiceRes.ok) {
                 const errData = await voiceRes.json().catch(() => ({}));
-                throw new Error(errData.error || `Voice generation failed: ${voiceRes.status}`);
+                throw new Error(
+                  errData.error ||
+                    `Voice generation failed: ${voiceRes.status}`,
+                );
               }
 
               const voiceData = await voiceRes.json();
@@ -493,10 +565,17 @@ export async function POST(req: NextRequest) {
                 throw new Error("No audio URL returned");
               }
 
-              generatedResults[i] = { index: i, url: audioUrl, duration: voiceData.duration || 0 };
+              generatedResults[i] = {
+                index: i,
+                url: audioUrl,
+                duration: voiceData.duration || 0,
+              };
               await sendEvent({ type: "voice-ready", index: i, url: audioUrl });
             } catch (error) {
-              console.error(`[generate-stream] Voice track ${i} failed:`, error);
+              console.error(
+                `[generate-stream] Voice track ${i} failed:`,
+                error,
+              );
               await sendEvent({
                 type: "voice-failed",
                 index: i,
@@ -512,17 +591,25 @@ export async function POST(req: NextRequest) {
               const updatedTracks = tracks.map((t, idx) => {
                 const result = generatedResults[idx];
                 if (result) {
-                  return { ...t, generatedUrl: result.url, generatedDuration: result.duration };
+                  return {
+                    ...t,
+                    generatedUrl: result.url,
+                    generatedDuration: result.duration,
+                  };
                 }
                 return t;
               });
 
               // Single PATCH to persist all voice URLs
-              await internalFetch(`/api/ads/${adId}/voices/${versionId}`, {
-                method: "PATCH",
-                body: JSON.stringify({ voiceTracks: updatedTracks }),
-              }, cookie);
-            })
+              await internalFetch(
+                `/api/ads/${adId}/voices/${versionId}`,
+                {
+                  method: "PATCH",
+                  body: JSON.stringify({ voiceTracks: updatedTracks }),
+                },
+                cookie,
+              );
+            }),
           );
         }
       }
@@ -530,127 +617,174 @@ export async function POST(req: NextRequest) {
       // Music - starts immediately (parallel with voices)
       if (result.drafts.music) {
         const musicVersionId = result.drafts.music; // Capture for closure
-        generationPromises.push((async () => {
-          const musicVersion = (await getVersion(adId, "music", musicVersionId)) as MusicVersion | null;
-          if (!musicVersion) return;
+        generationPromises.push(
+          (async () => {
+            const musicVersion = (await getVersion(
+              adId,
+              "music",
+              musicVersionId,
+            )) as MusicVersion | null;
+            if (!musicVersion) return;
 
-          await sendEvent({ type: "music-generating" });
+            await sendEvent({ type: "music-generating" });
 
-          try {
-            const musicProvider = musicVersion.provider || "loudly";
-            const musicDuration = musicVersion.duration || duration + 15;
-            const adjustedDuration =
-              musicProvider === "loudly" ? Math.ceil(musicDuration / 15) * 15 : musicDuration;
+            try {
+              const musicProvider = musicVersion.provider || "loudly";
+              const musicDuration = musicVersion.duration || duration + 15;
+              const adjustedDuration =
+                musicProvider === "loudly"
+                  ? Math.ceil(musicDuration / 15) * 15
+                  : musicDuration;
 
-            const musicRes = await internalFetch(`/api/music/${musicProvider}`, {
-              method: "POST",
-              body: JSON.stringify({
-                prompt: musicVersion.musicPrompts?.[musicProvider] || musicVersion.musicPrompt,
-                duration: adjustedDuration,
-                projectId: adId,
-              }),
-            }, cookie);
+              const musicRes = await internalFetch(
+                `/api/music/${musicProvider}`,
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    prompt:
+                      musicVersion.musicPrompts?.[musicProvider] ||
+                      musicVersion.musicPrompt,
+                    duration: adjustedDuration,
+                    projectId: adId,
+                  }),
+                },
+                cookie,
+              );
 
-            if (!musicRes.ok) {
-              const errData = await musicRes.json().catch(() => ({}));
-              throw new Error(errData.error || `Music generation failed: ${musicRes.status}`);
-            }
-
-            const musicData = await musicRes.json();
-            let generatedUrl = musicData.url;
-
-            // Handle Mubert polling if needed
-            if (musicProvider === "mubert" && musicData.status === "processing" && musicData.id) {
-              console.log(`[generate-stream] Mubert polling for track ${musicData.id}...`);
-              const maxAttempts = 60;
-              const interval = 5000;
-
-              for (let attempt = 0; attempt < maxAttempts; attempt++) {
-                await new Promise((r) => setTimeout(r, interval));
-
-                const statusRes = await internalFetch(
-                  `/api/music/mubert/status?id=${musicData.id}&customer_id=${musicData.customer_id}&access_token=${musicData.access_token}`,
-                  {},
-                  cookie
+              if (!musicRes.ok) {
+                const errData = await musicRes.json().catch(() => ({}));
+                throw new Error(
+                  errData.error ||
+                    `Music generation failed: ${musicRes.status}`,
                 );
+              }
 
-                if (!statusRes.ok) continue;
+              const musicData = await musicRes.json();
+              let generatedUrl = musicData.url;
 
-                const statusData = await statusRes.json();
-                const generation = statusData.data?.generations?.[0];
+              // Handle Mubert polling if needed
+              if (
+                musicProvider === "mubert" &&
+                musicData.status === "processing" &&
+                musicData.id
+              ) {
+                console.log(
+                  `[generate-stream] Mubert polling for track ${musicData.id}...`,
+                );
+                const maxAttempts = 60;
+                const interval = 5000;
 
-                if (generation?.status === "done" && generation.url) {
-                  const finalRes = await internalFetch(`/api/music/mubert`, {
-                    method: "POST",
-                    body: JSON.stringify({
-                      prompt: musicVersion.musicPrompt,
-                      duration: adjustedDuration,
-                      projectId: adId,
-                      _internal_ready_url: generation.url,
-                      _internal_track_id: musicData.id,
-                    }),
-                  }, cookie);
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                  await new Promise((r) => setTimeout(r, interval));
 
-                  if (finalRes.ok) {
-                    const finalData = await finalRes.json();
-                    generatedUrl = finalData.url;
-                  } else {
-                    generatedUrl = generation.url;
+                  const statusRes = await internalFetch(
+                    `/api/music/mubert/status?id=${musicData.id}&customer_id=${musicData.customer_id}&access_token=${musicData.access_token}`,
+                    {},
+                    cookie,
+                  );
+
+                  if (!statusRes.ok) continue;
+
+                  const statusData = await statusRes.json();
+                  const generation = statusData.data?.generations?.[0];
+
+                  if (generation?.status === "done" && generation.url) {
+                    const finalRes = await internalFetch(
+                      `/api/music/mubert`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({
+                          prompt: musicVersion.musicPrompt,
+                          duration: adjustedDuration,
+                          projectId: adId,
+                          _internal_ready_url: generation.url,
+                          _internal_track_id: musicData.id,
+                        }),
+                      },
+                      cookie,
+                    );
+
+                    if (finalRes.ok) {
+                      const finalData = await finalRes.json();
+                      generatedUrl = finalData.url;
+                    } else {
+                      generatedUrl = generation.url;
+                    }
+                    break;
                   }
-                  break;
                 }
               }
+
+              if (!generatedUrl) {
+                throw new Error("No URL returned from music provider");
+              }
+
+              // Persist to Redis
+              await internalFetch(
+                `/api/ads/${adId}/music/${musicVersionId}`,
+                {
+                  method: "PATCH",
+                  body: JSON.stringify({
+                    generatedUrl,
+                    duration: adjustedDuration,
+                  }),
+                },
+                cookie,
+              );
+
+              await sendEvent({ type: "music-ready", url: generatedUrl });
+            } catch (error) {
+              console.error(`[generate-stream] Music failed:`, error);
+              await sendEvent({
+                type: "music-failed",
+                error: error instanceof Error ? error.message : "Unknown error",
+              });
             }
-
-            if (!generatedUrl) {
-              throw new Error("No URL returned from music provider");
-            }
-
-            // Persist to Redis
-            await internalFetch(`/api/ads/${adId}/music/${musicVersionId}`, {
-              method: "PATCH",
-              body: JSON.stringify({
-                generatedUrl,
-                duration: adjustedDuration,
-              }),
-            }, cookie);
-
-            await sendEvent({ type: "music-ready", url: generatedUrl });
-          } catch (error) {
-            console.error(`[generate-stream] Music failed:`, error);
-            await sendEvent({
-              type: "music-failed",
-              error: error instanceof Error ? error.message : "Unknown error",
-            });
-          }
-        })());
+          })(),
+        );
       }
 
       // SFX - ALL in parallel, starts immediately (parallel with voices and music)
       if (result.drafts.sfx) {
-        const sfxVersion = (await getVersion(adId, "sfx", result.drafts.sfx)) as SfxVersion | null;
+        const sfxVersion = (await getVersion(
+          adId,
+          "sfx",
+          result.drafts.sfx,
+        )) as SfxVersion | null;
 
         if (sfxVersion?.soundFxPrompts?.length) {
           const prompts = sfxVersion.soundFxPrompts;
           const versionId = result.drafts.sfx;
-          const generatedUrls: (string | null)[] = new Array(prompts.length).fill(null);
+          const generatedUrls: (string | null)[] = new Array(
+            prompts.length,
+          ).fill(null);
 
           const sfxPromises = prompts.map(async (prompt, i) => {
-            await sendEvent({ type: "sfx-generating", index: i, total: prompts.length });
+            await sendEvent({
+              type: "sfx-generating",
+              index: i,
+              total: prompts.length,
+            });
 
             try {
-              const sfxRes = await internalFetch(`/api/sfx/elevenlabs-v2`, {
-                method: "POST",
-                body: JSON.stringify({
-                  text: prompt.description,
-                  duration: prompt.duration || 3,
-                  projectId: adId,
-                }),
-              }, cookie);
+              const sfxRes = await internalFetch(
+                `/api/sfx/elevenlabs-v2`,
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    text: prompt.description,
+                    duration: prompt.duration || 3,
+                    projectId: adId,
+                  }),
+                },
+                cookie,
+              );
 
               if (!sfxRes.ok) {
                 const errData = await sfxRes.json().catch(() => ({}));
-                throw new Error(errData.error || `SFX generation failed: ${sfxRes.status}`);
+                throw new Error(
+                  errData.error || `SFX generation failed: ${sfxRes.status}`,
+                );
               }
 
               const sfxData = await sfxRes.json();
@@ -660,7 +794,11 @@ export async function POST(req: NextRequest) {
               }
 
               generatedUrls[i] = sfxData.audio_url;
-              await sendEvent({ type: "sfx-ready", index: i, url: sfxData.audio_url });
+              await sendEvent({
+                type: "sfx-ready",
+                index: i,
+                url: sfxData.audio_url,
+              });
             } catch (error) {
               console.error(`[generate-stream] SFX ${i} failed:`, error);
               await sendEvent({
@@ -675,21 +813,29 @@ export async function POST(req: NextRequest) {
           generationPromises.push(
             Promise.all(sfxPromises).then(async () => {
               // Single PATCH to persist all SFX URLs
-              const validUrls = generatedUrls.filter((url): url is string => url !== null);
+              const validUrls = generatedUrls.filter(
+                (url): url is string => url !== null,
+              );
               if (validUrls.length > 0) {
-                await internalFetch(`/api/ads/${adId}/sfx/${versionId}`, {
-                  method: "PATCH",
-                  body: JSON.stringify({ generatedUrls: generatedUrls }),
-                }, cookie);
+                await internalFetch(
+                  `/api/ads/${adId}/sfx/${versionId}`,
+                  {
+                    method: "PATCH",
+                    body: JSON.stringify({ generatedUrls: generatedUrls }),
+                  },
+                  cookie,
+                );
               }
-            })
+            }),
           );
         }
       }
 
       // Wait for ALL generation to complete
       await Promise.all(generationPromises);
-      console.log(`[generate-stream] All audio generation complete for ad ${adId}`);
+      console.log(
+        `[generate-stream] All audio generation complete for ad ${adId}`,
+      );
 
       // ============ AUTO-ACTIVATE AND REBUILD MIXER ============
       // Set active versions so mixer can see the drafts
@@ -705,7 +851,9 @@ export async function POST(req: NextRequest) {
 
       // Rebuild mixer from active versions
       const mixer = await rebuildMixer(adId);
-      console.log(`[generate-stream] Mixer rebuilt with ${mixer.tracks.length} tracks`);
+      console.log(
+        `[generate-stream] Mixer rebuilt with ${mixer.tracks.length} tracks`,
+      );
 
       await sendEvent({ type: "complete", success: true });
     } catch (error) {

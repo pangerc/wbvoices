@@ -27,11 +27,16 @@ export function useStreamOperations(adId: string, stream: StreamType) {
       // forceFreeze=true ensures the draft is actually frozen, not just activated
       const existingDraft = getDraft();
       if (existingDraft) {
-        const freezeRes = await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze?forceFreeze=true`, {
-          method: "POST",
-        });
+        const freezeRes = await fetch(
+          `/api/ads/${adId}/${stream}/${existingDraft.id}/freeze?forceFreeze=true`,
+          {
+            method: "POST",
+          },
+        );
         if (!freezeRes.ok) {
-          console.error(`Failed to freeze draft ${existingDraft.id} before clone - aborting`);
+          console.error(
+            `Failed to freeze draft ${existingDraft.id} before clone - aborting`,
+          );
           return;
         }
       }
@@ -86,11 +91,16 @@ export function useStreamOperations(adId: string, stream: StreamType) {
       // forceFreeze=true ensures the draft is actually frozen, not just activated
       const existingDraft = getDraft();
       if (existingDraft) {
-        const freezeRes = await fetch(`/api/ads/${adId}/${stream}/${existingDraft.id}/freeze?forceFreeze=true`, {
-          method: "POST",
-        });
+        const freezeRes = await fetch(
+          `/api/ads/${adId}/${stream}/${existingDraft.id}/freeze?forceFreeze=true`,
+          {
+            method: "POST",
+          },
+        );
         if (!freezeRes.ok) {
-          console.error(`Failed to freeze draft ${existingDraft.id} before creating new draft - aborting`);
+          console.error(
+            `Failed to freeze draft ${existingDraft.id} before creating new draft - aborting`,
+          );
           return;
         }
       }
@@ -118,13 +128,16 @@ export function useStreamOperations(adId: string, stream: StreamType) {
    * Get the current draft version (if any)
    * Returns the NEWEST draft (last in versions array) to show most recent LLM iteration
    */
-  const getDraft = (): { id: VersionId; version: VoiceVersion | MusicVersion | SfxVersion } | null => {
+  const getDraft = (): {
+    id: VersionId;
+    version: VoiceVersion | MusicVersion | SfxVersion;
+  } | null => {
     if (!data) return null;
     // Use reverse to find newest draft (versions are ordered by creation time)
     // Use optional chaining for safety during SWR revalidation transitions
-    const draftId = [...data.versions].reverse().find(
-      (vId) => data.versionsData[vId]?.status === "draft"
-    );
+    const draftId = [...data.versions]
+      .reverse()
+      .find((vId) => data.versionsData[vId]?.status === "draft");
     if (!draftId) return null;
     return {
       id: draftId,
@@ -137,13 +150,19 @@ export function useStreamOperations(adId: string, stream: StreamType) {
    * Freezes the version in Redis and rebuilds mixer server-side.
    * UI updates via SWR cache invalidation (no manual track building).
    */
-  const sendToMixer = async (versionId: VersionId, switchToMixTab: () => void) => {
+  const sendToMixer = async (
+    versionId: VersionId,
+    switchToMixTab: () => void,
+  ) => {
     if (!data) return;
 
     try {
-      const res = await fetch(`/api/ads/${adId}/${stream}/${versionId}/freeze`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `/api/ads/${adId}/${stream}/${versionId}/freeze`,
+        {
+          method: "POST",
+        },
+      );
 
       if (!res.ok) {
         const errorData = await res.json();

@@ -18,14 +18,14 @@ export async function POST(req: NextRequest) {
     if (!title?.trim() || !description?.trim()) {
       return NextResponse.json(
         { error: "title and description are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: "OPENAI_API_KEY not configured" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     if (!instructions) {
       return NextResponse.json(
         { error: "No instructions generated" },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -58,9 +58,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Failed to generate instructions",
+          error instanceof Error
+            ? error.message
+            : "Failed to generate instructions",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

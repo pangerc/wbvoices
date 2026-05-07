@@ -351,7 +351,9 @@ export function CreativeTopic({
                   className="text-xs text-orange-400 hover:text-orange-300 mt-2 flex items-center gap-1 transition-colors"
                 >
                   <MicrophoneIcon className="h-3 w-3" />
-                  Try another provider — {voiceCounts[selectedProvider] || 0} voices
+                  Try another provider — {voiceCounts[selectedProvider] ||
+                    0}{" "}
+                  voices
                 </button>
               )}
             </div>
@@ -373,8 +375,8 @@ export function CreativeTopic({
               />
               {showAngleNudge && (
                 <p className="mt-2 text-xs text-amber-400">
-                  Without an angle, the script will brand-anchor cleanly
-                  but lose the per-spot edge.
+                  Without an angle, the script will brand-anchor cleanly but
+                  lose the per-spot edge.
                 </p>
               )}
             </CollapsibleSection>
@@ -496,7 +498,8 @@ export function CreativeTopic({
               tickMarks={DURATION_TICK_MARKS}
             />
             <div className="mt-3 text-xs text-gray-500">
-              Spotify: standard ads max 30s; long-form (60s) in select markets only.
+              Spotify: standard ads max 30s; long-form (60s) in select markets
+              only.
               {adDuration > 30 && (
                 <span className="text-red-900 ml-1">
                   Duration exceeds 30s standard.

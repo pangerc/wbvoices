@@ -76,7 +76,7 @@ describe("bootstrapLegacyMixer", () => {
     // Seed the legacy single-key blob so we can verify deletion.
     await mockRedis.set(
       AD_KEYS.mixer(mockAdId),
-      JSON.stringify({ tracks: [], volumes: {} })
+      JSON.stringify({ tracks: [], volumes: {} }),
     );
 
     const result = await bootstrapLegacyMixer(mockAdId);
@@ -116,7 +116,10 @@ describe("bootstrapLegacyMixer", () => {
     const sfxVersion: SfxVersion = {
       ...mockSfxVersionFrozen,
       soundFxPrompts: [{ ...mockSoundFxPrompt }, { ...mockSoundFxPrompt }],
-      generatedUrls: ["https://example.com/s1.mp3", "https://example.com/s2.mp3"],
+      generatedUrls: [
+        "https://example.com/s1.mp3",
+        "https://example.com/s2.mp3",
+      ],
     };
 
     await createVersion(mockAdId, "voices", voiceVersion);
@@ -128,8 +131,16 @@ describe("bootstrapLegacyMixer", () => {
 
     await bootstrapLegacyMixer(mockAdId);
 
-    const voicePost = (await getVersion(mockAdId, "voices", "v1")) as VoiceVersion;
-    const musicPost = (await getVersion(mockAdId, "music", "v1")) as MusicVersion;
+    const voicePost = (await getVersion(
+      mockAdId,
+      "voices",
+      "v1",
+    )) as VoiceVersion;
+    const musicPost = (await getVersion(
+      mockAdId,
+      "music",
+      "v1",
+    )) as MusicVersion;
     const sfxPost = (await getVersion(mockAdId, "sfx", "v1")) as SfxVersion;
 
     expect(voicePost.voiceTracks.every((t) => !!t.slotId)).toBe(true);
@@ -180,7 +191,11 @@ describe("bootstrapLegacyMixer", () => {
 
     await bootstrapLegacyMixer(mockAdId);
 
-    const voicePost = (await getVersion(mockAdId, "voices", "v1")) as VoiceVersion;
+    const voicePost = (await getVersion(
+      mockAdId,
+      "voices",
+      "v1",
+    )) as VoiceVersion;
     expect(voicePost.status).toBe("draft");
   });
 

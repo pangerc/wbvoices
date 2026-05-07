@@ -43,6 +43,7 @@ Seamless verse-by-verse playback
 **Purpose**: Generate prayer structure from user conversation.
 
 **Input**:
+
 ```json
 {
   "user_id": "uuid",
@@ -52,6 +53,7 @@ Seamless verse-by-verse playback
 ```
 
 **Output**:
+
 ```json
 {
   "prayer_id": "uuid",
@@ -85,6 +87,7 @@ Seamless verse-by-verse playback
 **Purpose**: Convert verse text to audio using ElevenLabs.
 
 **Responsibilities**:
+
 - Call ElevenLabs V3 API
 - Upload audio to Supabase Storage
 - Implement caching (avoid regenerating identical verses)
@@ -105,10 +108,10 @@ const BROTHER_THOMAS_VOICE_ID = Deno.env.get("BROTHER_THOMAS_VOICE_ID")!;
 
 // Prayer-optimized voice settings (calm, reverent tone)
 const PRAYER_VOICE_SETTINGS = {
-  stability: 1.0,        // Robust stability for consistent delivery
+  stability: 1.0, // Robust stability for consistent delivery
   similarity_boost: 0.7, // Natural voice variance
-  style: 0.15,          // Subtle expressiveness
-  speed: 0.96,          // Slightly slower for reverence
+  style: 0.15, // Subtle expressiveness
+  speed: 0.96, // Slightly slower for reverence
   use_speaker_boost: false,
 };
 
@@ -122,13 +125,14 @@ interface VerseRequest {
 serve(async (req) => {
   try {
     // Parse request
-    const { prayer_id, verse_number, text, user_id }: VerseRequest = await req.json();
+    const { prayer_id, verse_number, text, user_id }: VerseRequest =
+      await req.json();
 
     // Validate inputs
     if (!prayer_id || verse_number === undefined || !text || !user_id) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -159,7 +163,7 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ audio_url: cached.audio_url, cached: true }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -169,7 +173,7 @@ serve(async (req) => {
       text,
       prayer_id,
       verse_number,
-      supabase
+      supabase,
     );
 
     // Store in cache
@@ -189,14 +193,14 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ audio_url: audioUrl, cached: false }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("Error generating verse audio:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 });
 
@@ -204,7 +208,7 @@ async function generateVerseAudio(
   text: string,
   prayerId: string,
   verseNumber: number,
-  supabase: any
+  supabase: any,
 ): Promise<string> {
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 1000;
@@ -225,7 +229,7 @@ async function generateVerseAudio(
             model_id: "eleven_turbo_v2_5", // Fast, high-quality model
             voice_settings: PRAYER_VOICE_SETTINGS,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -233,7 +237,7 @@ async function generateVerseAudio(
         throw new Error(
           `ElevenLabs API error (${response.status}): ${
             errorData.detail?.message || "Unknown error"
-          }`
+          }`,
         );
       }
 
@@ -270,7 +274,7 @@ async function generateVerseAudio(
 
       // Exponential backoff
       await new Promise((resolve) =>
-        setTimeout(resolve, RETRY_DELAY * Math.pow(2, attempt - 1))
+        setTimeout(resolve, RETRY_DELAY * Math.pow(2, attempt - 1)),
       );
     }
   }
@@ -278,10 +282,7 @@ async function generateVerseAudio(
   throw new Error("Failed after all retries");
 }
 
-async function generateCacheKey(
-  text: string,
-  settings: any
-): Promise<string> {
+async function generateCacheKey(text: string, settings: any): Promise<string> {
   // Create deterministic key from content
   const content = JSON.stringify({ text, settings });
   const encoder = new TextEncoder();
@@ -299,6 +300,7 @@ async function generateCacheKey(
 Based on production experience with ElevenLabs V3:
 
 **Voice Characteristics**:
+
 - **Gender**: Male (traditional Brother Thomas archetype)
 - **Age**: Middle-aged (35-50 years)
 - **Accent**: General American or British (clear, neutral)
@@ -306,6 +308,7 @@ Based on production experience with ElevenLabs V3:
 - **Tone**: Calm, warm, empathetic
 
 **Browse ElevenLabs Voice Library**:
+
 ```bash
 # Use this to test different voices
 curl -X GET "https://api.elevenlabs.io/v1/voices" \
@@ -313,11 +316,13 @@ curl -X GET "https://api.elevenlabs.io/v1/voices" \
 ```
 
 **Recommended Voices** (as of Jan 2025):
+
 - **Michael**: Deep, calm, authoritative
 - **Daniel**: Warm, British accent, mature
 - **Adam**: Clear, professional, gentle
 
 **Testing Protocol**:
+
 1. Generate sample prayer with 3-5 candidate voices
 2. Test with actual prayer content (not promotional text)
 3. Evaluate reverence, clarity, warmth
@@ -346,6 +351,7 @@ const PRAYER_VOICE_SETTINGS = {
 ```
 
 **Critical Constraints** (from production testing):
+
 - **Stability**: Must be 0.0, 0.5, or 1.0 (V3 API requirement)
 - **Speed**: 0.7-1.2 range (values outside silently ignored)
 - **Character Limit**: 3000 characters per request (V3)
@@ -355,17 +361,19 @@ const PRAYER_VOICE_SETTINGS = {
 ElevenLabs V3 supports baseline tones + inline emotional tags:
 
 **Baseline Tones** (set via `description` field in advanced usage):
+
 ```typescript
 // For different prayer sections
 const PRAYER_TONES = {
-  opening: "calm",      // Gentle introduction
-  body: "empathetic",   // Warm, caring
+  opening: "calm", // Gentle introduction
+  body: "empathetic", // Warm, caring
   intercession: "gentle", // Soothing for requests
-  closing: "warm",      // Comforting conclusion
+  closing: "warm", // Comforting conclusion
 };
 ```
 
 **Emotional Tags** (inline in text, optional):
+
 ```typescript
 // Example prayer with tags (use sparingly)
 const contemplativeVerse = "[gentle] Lord, hear our prayer... [pauses] Amen.";
@@ -382,6 +390,7 @@ const joyfulVerse = "[cheerful] We rejoice in Your blessings!";
 ElevenLabs supports custom pronunciations (IPA or alias format):
 
 **Setup** (optional enhancement):
+
 ```typescript
 // Create pronunciation dictionary via API
 const religiousPronunciations = {
@@ -411,6 +420,7 @@ const religiousPronunciations = {
 ```
 
 **When to Use**:
+
 - User reports mispronounced religious terms
 - Multiple languages (pronunciation varies by locale)
 - Classical vs modern pronunciations (e.g., "Amen" with short vs long 'a')
@@ -992,7 +1002,7 @@ try {
         details: { message: "Too many requests. Please try again later." },
         retry_after: 60,
       }),
-      { status: 429 }
+      { status: 429 },
     );
   } else if (error.status === 401) {
     // Authentication error (API key issue)
@@ -1002,7 +1012,7 @@ try {
         error: ERROR_CODES.PROVIDER_ERROR,
         details: { message: "Service temporarily unavailable." },
       }),
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -1050,6 +1060,7 @@ extension PrayerPlayer {
 **Goal**: Minimize ElevenLabs API calls by reusing audio for identical verses.
 
 **Cache Key Generation**:
+
 ```typescript
 // Deterministic key from content + settings
 async function generateCacheKey(text: string, settings: any): Promise<string> {
@@ -1071,27 +1082,32 @@ async function generateCacheKey(text: string, settings: any): Promise<string> {
 ```
 
 **Cache Hit Scenarios**:
+
 - Common prayer phrases ("Lord, hear our prayer", "In Jesus' name, Amen")
 - Repeated thanksgiving expressions
 - Standard liturgical responses
 
 **Expected Savings**:
+
 - 30-50% cache hit rate for common prayers
 - Higher hit rate for template-based prayers
 
 ### ElevenLabs Pricing (as of Jan 2025)
 
 **API Costs**:
+
 - Free Tier: 10,000 characters/month
 - Creator Plan: $11/month for 100,000 characters
 - Pro Plan: $99/month for 500,000 characters
 
 **Typical Prayer**:
+
 - Average prayer: 500-800 characters (3-5 verses)
 - Short prayer: 200-300 characters (2-3 verses)
 - Long prayer: 1000-1500 characters (5-8 verses)
 
 **Usage Estimates**:
+
 - 100 prayers/month: ~50,000 characters (Creator tier)
 - 500 prayers/month: ~250,000 characters (Pro tier)
 - With 40% cache hit rate: Effective 60% of cost
@@ -1156,6 +1172,7 @@ curl -X POST \
 ### Environment Variables
 
 **Supabase Edge Functions**:
+
 ```bash
 # Set secrets for edge functions
 supabase secrets set ELEVENLABS_API_KEY=your_api_key_here
@@ -1163,6 +1180,7 @@ supabase secrets set BROTHER_THOMAS_VOICE_ID=your_voice_id_here
 ```
 
 **iOS App** (`.env` or Xcode configuration):
+
 ```
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_ANON_KEY=your_anon_key_here
@@ -1171,6 +1189,7 @@ SUPABASE_ANON_KEY=your_anon_key_here
 ### Deployment Steps
 
 1. **Database Setup**:
+
    ```bash
    # Run migrations
    supabase db push
@@ -1180,12 +1199,14 @@ SUPABASE_ANON_KEY=your_anon_key_here
    ```
 
 2. **Storage Bucket**:
+
    ```bash
    # Create bucket via Supabase Dashboard or SQL
    # Set public access policy
    ```
 
 3. **Deploy Edge Functions**:
+
    ```bash
    # Deploy Clemens (if updated)
    supabase functions deploy clemens
@@ -1198,6 +1219,7 @@ SUPABASE_ANON_KEY=your_anon_key_here
    ```
 
 4. **iOS Build**:
+
    ```bash
    # Update environment variables in Xcode
    # Build for TestFlight
@@ -1217,6 +1239,7 @@ SUPABASE_ANON_KEY=your_anon_key_here
 For synchronized text highlighting during playback:
 
 **ElevenLabs Endpoint**:
+
 ```typescript
 // Use streaming endpoint for word-level timing
 const response = await fetch(
@@ -1232,7 +1255,7 @@ const response = await fetch(
       model_id: "eleven_turbo_v2_5",
       voice_settings: PRAYER_VOICE_SETTINGS,
     }),
-  }
+  },
 );
 
 // Response includes audio chunks + character-level timing
@@ -1247,6 +1270,7 @@ interface TimestampResponse {
 ```
 
 **iOS Implementation**:
+
 - Parse timestamps
 - Highlight words in sync with audio
 - Smooth scrolling as prayer progresses
@@ -1254,22 +1278,25 @@ interface TimestampResponse {
 ### 2. Multi-Language Support
 
 **Voice Selection by Language**:
+
 ```typescript
 const LANGUAGE_VOICES = {
-  en: "michael-voice-id",    // English
-  es: "spanish-voice-id",    // Spanish
-  fr: "french-voice-id",     // French
+  en: "michael-voice-id", // English
+  es: "spanish-voice-id", // Spanish
+  fr: "french-voice-id", // French
   // ... more languages
 };
 ```
 
 **Pronunciation Dictionaries by Locale**:
+
 - Language-specific religious term pronunciations
 - Cultural variations (e.g., "Amen" pronunciation varies)
 
 ### 3. Custom Prayer Templates
 
 **Template-Based Generation**:
+
 ```typescript
 const PRAYER_TEMPLATES = {
   morning: {
@@ -1285,6 +1312,7 @@ const PRAYER_TEMPLATES = {
 ```
 
 **Benefits**:
+
 - Faster generation (less LLM processing)
 - Higher cache hit rate (standard phrases)
 - Consistent structure
@@ -1292,11 +1320,13 @@ const PRAYER_TEMPLATES = {
 ### 4. Offline Mode
 
 **Preload Common Prayers**:
+
 - Bundle 10-20 common prayers in app
 - Pre-generate audio during app installation
 - No network required for bundled content
 
 **Sync Strategy**:
+
 - Download user's prayer history on login
 - Cache most recent 50 prayers locally
 - Background sync when online
@@ -1304,12 +1334,14 @@ const PRAYER_TEMPLATES = {
 ### 5. Prayer Collections
 
 **Curated Prayer Sets**:
+
 - Morning prayers
 - Evening prayers
 - Prayers for specific occasions (healing, guidance, etc.)
 - Liturgical calendar prayers (Advent, Lent, etc.)
 
 **Implementation**:
+
 ```sql
 CREATE TABLE prayer_collections (
   id UUID PRIMARY KEY,
@@ -1324,41 +1356,51 @@ CREATE TABLE prayer_collections (
 ### Common Issues
 
 **1. ElevenLabs Authentication Failure**
+
 ```
 Error: 401 Unauthorized
 ```
+
 - **Cause**: Invalid API key
 - **Fix**: Verify `ELEVENLABS_API_KEY` in edge function secrets
 - **Test**: `curl -H "xi-api-key: $KEY" https://api.elevenlabs.io/v1/voices`
 
 **2. Audio Not Playing in iOS**
+
 ```
 Error: AVPlayer failed to load item
 ```
+
 - **Cause**: Invalid audio URL or CORS issue
 - **Fix**: Check Supabase Storage public access policy
 - **Test**: Open audio URL in browser, verify MP3 downloads
 
 **3. Supabase Storage Upload Fails**
+
 ```
 Error: Bucket not found
 ```
+
 - **Cause**: Bucket not created or incorrect name
 - **Fix**: Create `prayer-audio` bucket in Supabase Dashboard
 - **Verify**: Check bucket policies allow service role uploads
 
 **4. Cache Not Working**
+
 ```
 Cache hit rate: 0%
 ```
+
 - **Cause**: Cache key generation inconsistent
 - **Fix**: Ensure text normalization (trim, lowercase) in key generation
 - **Debug**: Log cache keys to verify consistency
 
 **5. First Verse Takes Too Long**
+
 ```
 User waiting >5 seconds for playback
 ```
+
 - **Cause**: ElevenLabs API latency
 - **Fix**:
   - Use `eleven_turbo_v2_5` model (faster than `eleven_v3`)
@@ -1376,6 +1418,7 @@ User waiting >5 seconds for playback
 - **Remaining Verses**: 3-6 seconds each (background)
 
 **Optimization Tips**:
+
 - Use `eleven_turbo_v2_5` for speed (vs `eleven_v3`)
 - Parallel background loading of verses 1-N
 - Pre-cache common prayer phrases
@@ -1386,6 +1429,7 @@ User waiting >5 seconds for playback
 This implementation guide provides a complete architecture for the Brother Thomas prayer app, leveraging battle-tested patterns from production ElevenLabs integration:
 
 **Key Wins**:
+
 - ✅ **Hybrid loading**: Instant first verse playback, seamless background loading
 - ✅ **Caching**: 30-50% cost reduction via intelligent deduplication
 - ✅ **Security**: API keys never exposed, RLS for prayer privacy
@@ -1394,6 +1438,7 @@ This implementation guide provides a complete architecture for the Brother Thoma
 - ✅ **Scalability**: Edge functions auto-scale, Supabase Storage CDN-backed
 
 **Next Steps**:
+
 1. Set up Supabase project and database
 2. Create and test `generate-verse-audio` edge function
 3. Integrate Clemens with prayer JSON schema
@@ -1402,6 +1447,7 @@ This implementation guide provides a complete architecture for the Brother Thoma
 6. Deploy to TestFlight for beta testing
 
 **Estimated Implementation Time**:
+
 - Backend (edge functions + database): 2-3 days
 - iOS client (API + player): 3-4 days
 - Testing & refinement: 2-3 days
@@ -1410,6 +1456,7 @@ This implementation guide provides a complete architecture for the Brother Thoma
 ---
 
 **Related Resources**:
+
 - [ElevenLabs API Documentation](https://elevenlabs.io/docs)
 - [Supabase Edge Functions Guide](https://supabase.com/docs/guides/functions)
 - [Supabase Storage Documentation](https://supabase.com/docs/guides/storage)

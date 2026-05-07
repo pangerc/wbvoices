@@ -23,7 +23,7 @@ import { applyTimeStretch } from "@/utils/audio-processing";
  */
 export function getEffectiveProvider(
   track: VoiceTrack | undefined,
-  defaultProvider: Provider
+  defaultProvider: Provider,
 ): Provider {
   if (!track) return defaultProvider;
   return track.trackProvider || track.voice?.provider || defaultProvider;
@@ -70,7 +70,7 @@ export interface PersistOptions {
  */
 export async function generateVoiceTrack(
   track: VoiceTrack,
-  options: GenerateOptions = {}
+  options: GenerateOptions = {},
 ): Promise<GenerateResult> {
   if (!track.voice?.id) {
     throw new Error("No voice selected for track");
@@ -82,7 +82,7 @@ export async function generateVoiceTrack(
 
   const provider = getEffectiveProvider(
     track,
-    options.defaultProvider || "elevenlabs"
+    options.defaultProvider || "elevenlabs",
   );
   const endpoint = VOICE_ENDPOINTS[provider];
 
@@ -96,7 +96,7 @@ export async function generateVoiceTrack(
   }
 
   console.log(
-    `🎙️ Generating voice track: provider=${provider}, voice=${track.voice.name}, text="${text.substring(0, 50)}..."`
+    `🎙️ Generating voice track: provider=${provider}, voice=${track.voice.name}, text="${text.substring(0, 50)}..."`,
   );
 
   const response = await fetch(endpoint, {
@@ -123,13 +123,14 @@ export async function generateVoiceTrack(
     // Handle timeout specifically (504 from gateway, 408 from server)
     if (response.status === 504 || response.status === 408) {
       throw new Error(
-        `Voice generation timed out. The text may be too long for ${provider}. Try shorter segments.`
+        `Voice generation timed out. The text may be too long for ${provider}. Try shorter segments.`,
       );
     }
 
     const error = await response.json().catch(() => ({}));
     throw new Error(
-      error.error || `Voice generation failed: ${response.status} ${response.statusText}`
+      error.error ||
+        `Voice generation failed: ${response.status} ${response.statusText}`,
     );
   }
 
@@ -139,7 +140,9 @@ export async function generateVoiceTrack(
     throw new Error("No audio URL in response");
   }
 
-  console.log(`✅ Voice track generated: ${data.audio_url.substring(0, 50)}... (duration: ${data.duration || 0}s)`);
+  console.log(
+    `✅ Voice track generated: ${data.audio_url.substring(0, 50)}... (duration: ${data.duration || 0}s)`,
+  );
 
   let audioUrl = data.audio_url;
   let duration = data.duration || 0;
@@ -171,12 +174,12 @@ export async function generateVoiceTrack(
 export async function persistTrackUrl(
   audioUrl: string,
   duration: number,
-  options: PersistOptions
+  options: PersistOptions,
 ): Promise<void> {
   const { adId, versionId, trackIndex } = options;
 
   console.log(
-    `💾 Persisting track URL: adId=${adId}, versionId=${versionId}, index=${trackIndex}, duration=${duration}s`
+    `💾 Persisting track URL: adId=${adId}, versionId=${versionId}, index=${trackIndex}, duration=${duration}s`,
   );
 
   // Fetch current version to get existing tracks
@@ -209,7 +212,9 @@ export async function persistTrackUrl(
     throw new Error(`Failed to persist URL: ${patchRes.statusText}`);
   }
 
-  console.log(`✅ Track URL persisted to voiceTracks[${trackIndex}].generatedUrl`);
+  console.log(
+    `✅ Track URL persisted to voiceTracks[${trackIndex}].generatedUrl`,
+  );
 }
 
 // ============ Combined Convenience ============
@@ -221,7 +226,7 @@ export async function persistTrackUrl(
 export async function generateAndPersistTrack(
   track: VoiceTrack,
   persistOptions: PersistOptions,
-  genOptions: GenerateOptions = {}
+  genOptions: GenerateOptions = {},
 ): Promise<GenerateResult> {
   const result = await generateVoiceTrack(track, genOptions);
   await persistTrackUrl(result.audioUrl, result.duration, persistOptions);
@@ -238,7 +243,7 @@ export async function generateAndPersistTrack(
 async function applyPostProcessing(
   originalUrl: string,
   track: VoiceTrack,
-  originalDurationFromProvider: number
+  originalDurationFromProvider: number,
 ): Promise<{ audioUrl: string; duration: number }> {
   try {
     console.log(`🎬 Post-processing required for ElevenLabs track`);
@@ -259,8 +264,10 @@ async function applyPostProcessing(
       if (!originalDuration) {
         originalDuration = await new Promise<number>((resolve) => {
           const audio = new Audio(originalUrl);
-          audio.addEventListener('loadedmetadata', () => resolve(audio.duration));
-          audio.addEventListener('error', () => resolve(0));
+          audio.addEventListener("loadedmetadata", () =>
+            resolve(audio.duration),
+          );
+          audio.addEventListener("error", () => resolve(0));
           audio.load();
         });
       }
@@ -268,33 +275,51 @@ async function applyPostProcessing(
       if (originalDuration > 0) {
         speedup = originalDuration / track.targetDuration;
         if (speedup > 1.6) {
-          console.warn(`Calculated speedup ${speedup.toFixed(2)}x exceeds 1.6x, clamping`);
+          console.warn(
+            `Calculated speedup ${speedup.toFixed(2)}x exceeds 1.6x, clamping`,
+          );
           speedup = 1.6;
         }
-        console.log(`🎯 Target duration ${track.targetDuration}s → ${speedup.toFixed(2)}x speedup`);
+        console.log(
+          `🎯 Target duration ${track.targetDuration}s → ${speedup.toFixed(2)}x speedup`,
+        );
       }
     }
 
     // Apply time-stretching
     const pitch = track.postProcessingPitch || 1.0;
-    console.log(`⚡ Applying ${speedup.toFixed(2)}x time-stretch with ${pitch.toFixed(2)}x pitch`);
-    const processedArrayBuffer = await applyTimeStretch(audioArrayBuffer, speedup, pitch);
+    console.log(
+      `⚡ Applying ${speedup.toFixed(2)}x time-stretch with ${pitch.toFixed(2)}x pitch`,
+    );
+    const processedArrayBuffer = await applyTimeStretch(
+      audioArrayBuffer,
+      speedup,
+      pitch,
+    );
 
     // Upload processed audio
-    const processedBlob = new Blob([processedArrayBuffer], { type: 'audio/wav' });
+    const processedBlob = new Blob([processedArrayBuffer], {
+      type: "audio/wav",
+    });
     const formData = new FormData();
-    formData.append('audio', processedBlob, `processed-voice-${Date.now()}.wav`);
-    formData.append('voiceId', track.voice?.id || 'unknown');
-    formData.append('provider', 'elevenlabs-processed');
-    formData.append('projectId', `voice-processed-${Date.now()}`);
+    formData.append(
+      "audio",
+      processedBlob,
+      `processed-voice-${Date.now()}.wav`,
+    );
+    formData.append("voiceId", track.voice?.id || "unknown");
+    formData.append("provider", "elevenlabs-processed");
+    formData.append("projectId", `voice-processed-${Date.now()}`);
 
-    const uploadResponse = await fetch('/api/voice/upload-processed', {
-      method: 'POST',
+    const uploadResponse = await fetch("/api/voice/upload-processed", {
+      method: "POST",
       body: formData,
     });
 
     if (!uploadResponse.ok) {
-      throw new Error(`Failed to upload processed audio: ${uploadResponse.statusText}`);
+      throw new Error(
+        `Failed to upload processed audio: ${uploadResponse.statusText}`,
+      );
     }
 
     const { audio_url } = await uploadResponse.json();
@@ -302,10 +327,12 @@ async function applyPostProcessing(
       ? originalDurationFromProvider / speedup
       : 0;
 
-    console.log(`✅ Post-processed audio: ${audio_url.substring(0, 50)}... (${processedDuration.toFixed(1)}s)`);
+    console.log(
+      `✅ Post-processed audio: ${audio_url.substring(0, 50)}... (${processedDuration.toFixed(1)}s)`,
+    );
     return { audioUrl: audio_url, duration: processedDuration };
   } catch (error) {
-    console.error('❌ Post-processing failed, using original audio:', error);
+    console.error("❌ Post-processing failed, using original audio:", error);
     return { audioUrl: originalUrl, duration: originalDurationFromProvider };
   }
 }

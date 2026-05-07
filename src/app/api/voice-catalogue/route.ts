@@ -31,12 +31,12 @@ export async function GET(req: NextRequest) {
         if (!language) {
           return NextResponse.json(
             { error: "Language required" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         const counts = await voiceCatalogue.getVoiceCounts(
           language as Language,
-          accent || undefined
+          accent || undefined,
         );
         return NextResponse.json(counts);
       }
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
         if (!provider || !language) {
           return NextResponse.json(
             { error: "Provider and language required" },
-            { status: 400 }
+            { status: 400 },
           );
         }
 
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
         if (region) {
           const regionVoices = await voiceCatalogue.getVoicesByRegion(
             language as Language,
-            region
+            region,
           );
 
           // For OpenAI, always include all voices regardless of region
@@ -66,18 +66,17 @@ export async function GET(req: NextRequest) {
               "openai",
               language as Language,
               accent || undefined,
-              requireApproval
+              requireApproval,
             );
             // Enrich with descriptions before returning
-            const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(
-              allOpenAIVoices
-            );
+            const enrichedVoices =
+              await voiceCatalogue.enrichWithDescriptions(allOpenAIVoices);
             return NextResponse.json(enrichedVoices);
           }
 
           // For other providers, filter by provider
           const providerVoices = regionVoices.filter(
-            (voice) => voice.provider === provider || provider === "any"
+            (voice) => voice.provider === provider || provider === "any",
           );
           // Enrich with descriptions before returning
           const enrichedProviderVoices =
@@ -90,12 +89,11 @@ export async function GET(req: NextRequest) {
           provider as Provider,
           language as Language,
           accent || undefined,
-          requireApproval
+          requireApproval,
         );
         // Enrich with descriptions before returning
-        const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(
-          voices
-        );
+        const enrichedVoices =
+          await voiceCatalogue.enrichWithDescriptions(voices);
         return NextResponse.json(enrichedVoices);
       }
 
@@ -103,12 +101,12 @@ export async function GET(req: NextRequest) {
         if (!language || !accent) {
           return NextResponse.json(
             { error: "Language and accent required" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         const voices = await voiceCatalogue.getVoicesByAccent(
           language as Language,
-          accent
+          accent,
         );
         return NextResponse.json(voices);
       }
@@ -118,11 +116,11 @@ export async function GET(req: NextRequest) {
         if (!language) {
           return NextResponse.json(
             { error: "Language required" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         const regions = await voiceCatalogue.getRegionsForLanguage(
-          language as Language
+          language as Language,
         );
         return NextResponse.json(regions);
       }
@@ -131,12 +129,12 @@ export async function GET(req: NextRequest) {
         if (!language || !region) {
           return NextResponse.json(
             { error: "Language and region required" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         const voices = await voiceCatalogue.getVoicesByRegion(
           language as Language,
-          region
+          region,
         );
         return NextResponse.json(voices);
       }
@@ -145,12 +143,12 @@ export async function GET(req: NextRequest) {
         if (!language || !region) {
           return NextResponse.json(
             { error: "Language and region required" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         const counts = await voiceCatalogue.getVoiceCountsByRegion(
           language as Language,
-          region
+          region,
         );
         return NextResponse.json(counts);
       }
@@ -159,7 +157,7 @@ export async function GET(req: NextRequest) {
         if (!language) {
           return NextResponse.json(
             { error: "Language required" },
-            { status: 400 }
+            { status: 400 },
           );
         }
 
@@ -183,7 +181,7 @@ export async function GET(req: NextRequest) {
         if (!language) {
           return NextResponse.json(
             { error: "Language required" },
-            { status: 400 }
+            { status: 400 },
           );
         }
 
@@ -204,7 +202,7 @@ export async function GET(req: NextRequest) {
             region,
             accent,
             exclude: excludeProviders,
-          }
+          },
         );
 
         try {
@@ -221,7 +219,7 @@ export async function GET(req: NextRequest) {
             "lahajati",
           ] as const;
           const providersToLoad = availableProviders.filter(
-            (p) => !excludeProviders.includes(p)
+            (p) => !excludeProviders.includes(p),
           );
 
           for (const providerName of providersToLoad) {
@@ -237,14 +235,14 @@ export async function GET(req: NextRequest) {
                 console.log(
                   `🔍 Region filtering: region=${region}, accent=${
                     accent || "none"
-                  }, provider=${providerName}`
+                  }, provider=${providerName}`,
                 );
                 const regionVoices = await voiceCatalogue.getVoicesByRegion(
                   language as Language,
-                  region
+                  region,
                 );
                 console.log(
-                  `🔍 Found ${regionVoices.length} voices for region "${region}"`
+                  `🔍 Found ${regionVoices.length} voices for region "${region}"`,
                 );
                 console.log(
                   `🔍 Sample voices:`,
@@ -253,7 +251,7 @@ export async function GET(req: NextRequest) {
                     accent: v.accent,
                     language: v.language,
                     name: v.name,
-                  }))
+                  })),
                 );
 
                 // For OpenAI, always include all voices regardless of region
@@ -262,21 +260,22 @@ export async function GET(req: NextRequest) {
                     providerName,
                     language as Language,
                     accent || undefined,
-                    requireApproval
+                    requireApproval,
                   );
                 } else {
                   // For other providers, get ALL voices (with blacklist filtering)
                   // then filter to only voices in the selected region
-                  const allProviderVoices = await voiceCatalogue.getVoicesForProvider(
-                    providerName,
-                    language as Language,
-                    accent || undefined,
-                    requireApproval
-                  );
+                  const allProviderVoices =
+                    await voiceCatalogue.getVoicesForProvider(
+                      providerName,
+                      language as Language,
+                      accent || undefined,
+                      requireApproval,
+                    );
 
                   // Determine which accents belong to the selected region
                   const normalizedLanguage = normalizeLanguageCode(language);
-                  const [lang] = normalizedLanguage.split('-');
+                  const [lang] = normalizedLanguage.split("-");
                   const regionAccents = accentRegions[lang]?.[region] || [];
 
                   // Filter to voices that belong to this region
@@ -292,7 +291,7 @@ export async function GET(req: NextRequest) {
                   console.log(
                     `🔍 After filtering by region (${region}) and accent (${
                       accent || "any"
-                    }): ${providerVoices.length} voices (blacklist applied: ${requireApproval})`
+                    }): ${providerVoices.length} voices (blacklist applied: ${requireApproval})`,
                   );
                 }
               } else {
@@ -300,16 +299,16 @@ export async function GET(req: NextRequest) {
                 console.log(
                   `🔍 Loading ${providerName} voices for language: ${language}, accent: ${
                     accent || "none"
-                  }`
+                  }`,
                 );
                 providerVoices = await voiceCatalogue.getVoicesForProvider(
                   providerName,
                   language as Language,
                   accent || undefined,
-                  requireApproval
+                  requireApproval,
                 );
                 console.log(
-                  `🔍 Loaded ${providerVoices.length} ${providerName} voices for ${language}`
+                  `🔍 Loaded ${providerVoices.length} ${providerName} voices for ${language}`,
                 );
               }
 
@@ -331,24 +330,24 @@ export async function GET(req: NextRequest) {
           const voiceCounts = {
             elevenlabs: allVoices.filter(
               (voice) =>
-                (voice as { provider?: string }).provider === "elevenlabs"
+                (voice as { provider?: string }).provider === "elevenlabs",
             ).length,
             lovo: allVoices.filter(
-              (voice) => (voice as { provider?: string }).provider === "lovo"
+              (voice) => (voice as { provider?: string }).provider === "lovo",
             ).length,
             openai: allVoices.filter(
-              (voice) => (voice as { provider?: string }).provider === "openai"
+              (voice) => (voice as { provider?: string }).provider === "openai",
             ).length,
             qwen: allVoices.filter(
-              (voice) => (voice as { provider?: string }).provider === "qwen"
+              (voice) => (voice as { provider?: string }).provider === "qwen",
             ).length,
             bytedance: allVoices.filter(
               (voice) =>
-                (voice as { provider?: string }).provider === "bytedance"
+                (voice as { provider?: string }).provider === "bytedance",
             ).length,
             lahajati: allVoices.filter(
               (voice) =>
-                (voice as { provider?: string }).provider === "lahajati"
+                (voice as { provider?: string }).provider === "lahajati",
             ).length,
             any: allVoices.length, // Total filtered voices across all providers
           };
@@ -368,7 +367,7 @@ export async function GET(req: NextRequest) {
           });
 
           console.log(
-            `🧹 Deduplication: ${allVoices.length} → ${deduplicatedVoices.length} voices`
+            `🧹 Deduplication: ${allVoices.length} → ${deduplicatedVoices.length} voices`,
           );
 
           // 🔥 Provider selection and filtering logic
@@ -397,37 +396,37 @@ export async function GET(req: NextRequest) {
               voiceCounts,
               language, // Pass language for smart Chinese defaults
               region || undefined, // Pass region for context-aware selection
-              accent || undefined // Pass accent for context-aware selection
+              accent || undefined, // Pass accent for context-aware selection
             );
 
             console.log(
-              `🎯 Auto-selected provider: ${selectedProvider} for ${campaignFormat}`
+              `🎯 Auto-selected provider: ${selectedProvider} for ${campaignFormat}`,
             );
 
             // Filter to only selected provider's voices
             finalVoices = deduplicatedVoices.filter(
               (voice) =>
-                (voice as { provider?: string }).provider === selectedProvider
+                (voice as { provider?: string }).provider === selectedProvider,
             );
 
             console.log(
-              `🎯 Server auto-selected ${selectedProvider} for ${campaignFormat} (${finalVoices.length} voices)`
+              `🎯 Server auto-selected ${selectedProvider} for ${campaignFormat} (${finalVoices.length} voices)`,
             );
           } else if (provider && provider !== "any") {
             // Apply specific provider filtering
             finalVoices = deduplicatedVoices.filter(
-              (voice) => (voice as { provider?: string }).provider === provider
+              (voice) => (voice as { provider?: string }).provider === provider,
             );
             selectedProvider = provider as Provider;
             console.log(
-              `🔍 Using explicitly selected provider: ${selectedProvider} (${finalVoices.length} voices)`
+              `🔍 Using explicitly selected provider: ${selectedProvider} (${finalVoices.length} voices)`,
             );
           }
 
           // 🎨 ENRICH VOICES WITH DESCRIPTIONS from Neon database
           // This follows the overlay pattern: Redis (ephemeral) + Neon (persistent metadata)
           const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(
-            finalVoices as UnifiedVoice[]
+            finalVoices as UnifiedVoice[],
           );
 
           // Validation for dialog format based on final filtered voices
@@ -477,14 +476,14 @@ export async function GET(req: NextRequest) {
       default:
         return NextResponse.json(
           { error: "Invalid operation" },
-          { status: 400 }
+          { status: 400 },
         );
     }
   } catch (error) {
     console.error("Voice catalogue API error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

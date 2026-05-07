@@ -35,7 +35,10 @@ end
 `.trim();
 
 export class AdLockTimeoutError extends Error {
-  constructor(public readonly adId: string, public readonly waitedMs: number) {
+  constructor(
+    public readonly adId: string,
+    public readonly waitedMs: number,
+  ) {
     super(`Failed to acquire ad lock for ${adId} within ${waitedMs}ms`);
     this.name = "AdLockTimeoutError";
   }
@@ -58,7 +61,7 @@ export interface AdLockOptions {
 export async function withAdLock<T>(
   adId: string,
   op: () => Promise<T>,
-  options: AdLockOptions = {}
+  options: AdLockOptions = {},
 ): Promise<T> {
   const ttlSec = options.ttlSec ?? DEFAULT_LOCK_TTL_SEC;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -66,9 +69,10 @@ export async function withAdLock<T>(
 
   const redis = getRedisV3();
   const key = lockKey(adId);
-  const token = typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const token =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const startedAt = Date.now();
 
   while (true) {

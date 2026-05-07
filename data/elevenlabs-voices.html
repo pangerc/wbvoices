@@ -379,9 +379,21 @@
       :where([data-sonner-toaster]) {
         position: fixed;
         width: var(--width);
-        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-          Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif,
-          Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          Segoe UI,
+          Roboto,
+          Helvetica Neue,
+          Arial,
+          Noto Sans,
+          sans-serif,
+          Apple Color Emoji,
+          Segoe UI Emoji,
+          Segoe UI Symbol,
+          Noto Color Emoji;
         --gray1: hsl(0, 0%, 99%);
         --gray2: hsl(0, 0%, 97.3%);
         --gray3: hsl(0, 0%, 95.1%);
@@ -427,7 +439,11 @@
         transform: var(--y);
         filter: blur(0);
         touch-action: none;
-        transition: transform 0.4s, opacity 0.4s, height 0.4s, box-shadow 0.2s;
+        transition:
+          transform 0.4s,
+          opacity 0.4s,
+          height 0.4s,
+          box-shadow 0.2s;
         box-sizing: border-box;
         outline: none;
         overflow-wrap: anywhere;
@@ -446,7 +462,9 @@
         gap: 6px;
       }
       :where([data-sonner-toast]:focus-visible) {
-        box-shadow: 0 4px 12px #0000001a, 0 0 0 2px #0003;
+        box-shadow:
+          0 4px 12px #0000001a,
+          0 0 0 2px #0003;
       }
       :where([data-sonner-toast][data-y-position="top"]) {
         top: 0;
@@ -517,7 +535,9 @@
         display: flex;
         align-items: center;
         flex-shrink: 0;
-        transition: opacity 0.4s, box-shadow 0.2s;
+        transition:
+          opacity 0.4s,
+          box-shadow 0.2s;
       }
       :where([data-sonner-toast]) :where([data-button]):focus-visible {
         box-shadow: 0 0 0 2px #0006;
@@ -551,10 +571,15 @@
         border-radius: 50%;
         cursor: pointer;
         z-index: 1;
-        transition: opacity 0.1s, background 0.2s, border-color 0.2s;
+        transition:
+          opacity 0.1s,
+          background 0.2s,
+          border-color 0.2s;
       }
       :where([data-sonner-toast]) :where([data-close-button]):focus-visible {
-        box-shadow: 0 4px 12px #0000001a, 0 0 0 2px #0003;
+        box-shadow:
+          0 4px 12px #0000001a,
+          0 0 0 2px #0003;
       }
       :where([data-sonner-toast]) :where([data-disabled="true"]) {
         cursor: not-allowed;
@@ -572,20 +597,20 @@
         z-index: -1;
       }
       :where(
-          [data-sonner-toast][data-y-position="top"][data-swiping="true"]
-        ):before {
+        [data-sonner-toast][data-y-position="top"][data-swiping="true"]
+      ):before {
         bottom: 50%;
         transform: scaleY(3) translateY(50%);
       }
       :where(
-          [data-sonner-toast][data-y-position="bottom"][data-swiping="true"]
-        ):before {
+        [data-sonner-toast][data-y-position="bottom"][data-swiping="true"]
+      ):before {
         top: 50%;
         transform: scaleY(3) translateY(-50%);
       }
       :where(
-          [data-sonner-toast][data-swiping="false"][data-removed="true"]
-        ):before {
+        [data-sonner-toast][data-swiping="false"][data-removed="true"]
+      ):before {
         content: "";
         position: absolute;
         inset: 0;
@@ -627,29 +652,31 @@
         height: var(--initial-height);
       }
       :where(
-          [data-sonner-toast][data-removed="true"][data-front="true"][data-swipe-out="false"]
-        ) {
+        [data-sonner-toast][data-removed="true"][data-front="true"][data-swipe-out="false"]
+      ) {
         --y: translateY(calc(var(--lift) * -100%));
         opacity: 0;
       }
       :where(
-          [data-sonner-toast][data-removed="true"][data-front="false"][data-swipe-out="false"][data-expanded="true"]
-        ) {
+        [data-sonner-toast][data-removed="true"][data-front="false"][data-swipe-out="false"][data-expanded="true"]
+      ) {
         --y: translateY(
           calc(var(--lift) * var(--offset) + var(--lift) * -100%)
         );
         opacity: 0;
       }
       :where(
-          [data-sonner-toast][data-removed="true"][data-front="false"][data-swipe-out="false"][data-expanded="false"]
-        ) {
+        [data-sonner-toast][data-removed="true"][data-front="false"][data-swipe-out="false"][data-expanded="false"]
+      ) {
         --y: translateY(40%);
         opacity: 0;
-        transition: transform 0.5s, opacity 0.2s;
+        transition:
+          transform 0.5s,
+          opacity 0.2s;
       }
       :where(
-          [data-sonner-toast][data-removed="true"][data-front="false"]
-        ):before {
+        [data-sonner-toast][data-removed="true"][data-front="false"]
+      ):before {
         height: calc(var(--initial-height) + 20%);
       }
       [data-sonner-toast][data-swiping="true"] {
@@ -902,7 +929,9 @@
         left: 50%;
         transform: translate(-50%, -50%);
         transform-origin: center;
-        transition: opacity 0.2s, transform 0.2s;
+        transition:
+          opacity 0.2s,
+          transform 0.2s;
       }
       .sonner-loader[data-visible="false"] {
         opacity: 0;
@@ -2640,7 +2669,8 @@
                 <div
                   class="relative w-[280px] py-2.5 pb-1.5 px-3.5 bg-background overflow-hidden"
                   style="
-                    box-shadow: rgba(0, 0, 0, 0.075) 0px 2px 4px,
+                    box-shadow:
+                      rgba(0, 0, 0, 0.075) 0px 2px 4px,
                       rgba(0, 0, 0, 0.075) 0px 4px 8px,
                       rgba(0, 0, 0, 0.075) 0px 12px 24px;
                     width: 280px;
@@ -3168,7 +3198,11 @@
                             >
                               <li
                                 class="relative group rounded-[10px] bg-transparent inter font-medium text-sm [&amp;_svg]:w-4 [&amp;_svg]:h-4"
-                                style="transition: background 0.35s, color 0.1s"
+                                style="
+                                  transition:
+                                    background 0.35s,
+                                    color 0.1s;
+                                "
                               >
                                 <a
                                   class="flex h-8 md:h-10 px-2.5 rounded-[10px] overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 items-center"
@@ -3211,7 +3245,9 @@
                               <li
                                 class="relative group rounded-[10px] bg-transparent inter font-medium text-sm [&amp;_svg]:w-4 [&amp;_svg]:h-4 !bg-gray-alpha-100 !text-gray-alpha-950"
                                 style="
-                                  transition: background 0.35s, color 0.1s 0.1s;
+                                  transition:
+                                    background 0.35s,
+                                    color 0.1s 0.1s;
                                 "
                               >
                                 <a
@@ -3236,7 +3272,11 @@
                               </li>
                               <li
                                 class="relative group rounded-[10px] bg-transparent inter font-medium text-sm [&amp;_svg]:w-4 [&amp;_svg]:h-4"
-                                style="transition: background 0.35s, color 0.1s"
+                                style="
+                                  transition:
+                                    background 0.35s,
+                                    color 0.1s;
+                                "
                               >
                                 <a
                                   class="flex h-8 md:h-10 px-2.5 rounded-[10px] overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 items-center"
@@ -3260,7 +3300,11 @@
                               </li>
                               <li
                                 class="relative group rounded-[10px] bg-transparent inter font-medium text-sm [&amp;_svg]:w-4 [&amp;_svg]:h-4"
-                                style="transition: background 0.35s, color 0.1s"
+                                style="
+                                  transition:
+                                    background 0.35s,
+                                    color 0.1s;
+                                "
                               >
                                 <button
                                   class="flex h-8 md:h-10 px-2.5 rounded-[10px] overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 items-center"

@@ -62,7 +62,7 @@ describe("lintVoiceTracks — accent presence", () => {
     const result = lintVoiceTracks([
       track(
         "[STRONG PARISIAN ACCENT][excited] Salut!",
-        v({ accent: "Parisian" })
+        v({ accent: "Parisian" }),
       ),
     ]);
     expect(result.ok).toBe(true);
@@ -71,17 +71,19 @@ describe("lintVoiceTracks — accent presence", () => {
 
 describe("lintVoiceTracks — opening stack size", () => {
   it("allows up to 8 tags in the opening stack", () => {
-    const eightTags = "[strong parisian accent][excited][rapid-fire][fast][fast][happy][warm][confident]";
+    const eightTags =
+      "[strong parisian accent][excited][rapid-fire][fast][fast][happy][warm][confident]";
     const result = lintVoiceTracks([track(`${eightTags} Salut!`)]);
     expect(result.ok).toBe(true);
   });
 
   it("flags a 9-tag opening stack as oversize", () => {
-    const nineTags = "[strong parisian accent][excited][rapid-fire][fast][fast][happy][warm][confident][gentle]";
+    const nineTags =
+      "[strong parisian accent][excited][rapid-fire][fast][fast][happy][warm][confident][gentle]";
     const result = lintVoiceTracks([track(`${nineTags} Salut!`)]);
     expect(result.ok).toBe(false);
     const oversize = result.violations.find(
-      (x) => x.rule === "opening_stack_oversize"
+      (x) => x.rule === "opening_stack_oversize",
     );
     expect(oversize).toBeDefined();
   });
@@ -99,7 +101,7 @@ describe("lintVoiceTracks — opening stack size", () => {
   it("body tags do not count toward opening-stack size", () => {
     const result = lintVoiceTracks([
       track(
-        "[strong parisian accent][excited] Salut. [chuckles] Tu vas bien? [whispers] Vraiment?"
+        "[strong parisian accent][excited] Salut. [chuckles] Tu vas bien? [whispers] Vraiment?",
       ),
     ]);
     expect(result.ok).toBe(true);
@@ -113,12 +115,12 @@ describe("lintVoiceTracks — tag syntax", () => {
     const result = lintVoiceTracks([
       track(
         "[strong parisian accent][excited Salut le monde",
-        v({ accent: "parisian" })
+        v({ accent: "parisian" }),
       ),
     ]);
     expect(result.ok).toBe(false);
     const malformed = result.violations.find(
-      (x) => x.rule === "malformed_tag_syntax"
+      (x) => x.rule === "malformed_tag_syntax",
     );
     expect(malformed).toBeDefined();
   });
@@ -127,12 +129,12 @@ describe("lintVoiceTracks — tag syntax", () => {
     const result = lintVoiceTracks([
       track(
         "[strong parisian accent][[excited]] Salut",
-        v({ accent: "parisian" })
+        v({ accent: "parisian" }),
       ),
     ]);
     expect(result.ok).toBe(false);
     const malformed = result.violations.find(
-      (x) => x.rule === "malformed_tag_syntax"
+      (x) => x.rule === "malformed_tag_syntax",
     );
     expect(malformed).toBeDefined();
   });
@@ -141,7 +143,7 @@ describe("lintVoiceTracks — tag syntax", () => {
     const result = lintVoiceTracks([
       track(
         "[strong parisian accent][rapid-fire][happy gasp] Salut!",
-        v({ accent: "parisian" })
+        v({ accent: "parisian" }),
       ),
     ]);
     expect(result.ok).toBe(true);
@@ -163,9 +165,7 @@ describe("lintVoiceTracks — body weave is NOT linted", () => {
 describe("lintVoiceTracks — telemetry", () => {
   it("counts all tags, splits opening vs body", () => {
     const result = lintVoiceTracks([
-      track(
-        "[strong parisian accent][excited] Salut. [chuckles] Ça va?"
-      ),
+      track("[strong parisian accent][excited] Salut. [chuckles] Ça va?"),
     ]);
     const t = result.telemetry[0];
     expect(t.openingStackSize).toBe(2);

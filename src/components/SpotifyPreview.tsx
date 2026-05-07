@@ -264,7 +264,7 @@ export function SpotifyPreview({
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.min(
       Math.max((e.clientX - rect.left) / rect.width, 0),
-      1
+      1,
     );
     const audio = audioRef.current;
     if (!audio) return;
@@ -279,14 +279,14 @@ export function SpotifyPreview({
     let cancelled = false;
     console.log(
       "🎨 SpotifyPreview: Gradient effect triggered, adImage:",
-      adImage
+      adImage,
     );
 
     (async () => {
       if (adImage) {
         console.log(
           "🎨 SpotifyPreview: Processing image for gradient:",
-          adImage
+          adImage,
         );
 
         try {
@@ -294,14 +294,14 @@ export function SpotifyPreview({
           const dominantColor = await getDominantRgb(adImage);
           console.log(
             "🎨 SpotifyPreview: getDominantRgb result:",
-            dominantColor
+            dominantColor,
           );
 
           let dom = dominantColor;
 
           if (!dom) {
             console.log(
-              "🎨 SpotifyPreview: No dominant color, trying getAverageRgb..."
+              "🎨 SpotifyPreview: No dominant color, trying getAverageRgb...",
             );
             dom = await getAverageRgb(adImage);
             console.log("🎨 SpotifyPreview: getAverageRgb result:", dom);
@@ -312,7 +312,7 @@ export function SpotifyPreview({
               "🎨 SpotifyPreview: No dominant color found or cancelled, dom:",
               dom,
               "cancelled:",
-              cancelled
+              cancelled,
             );
             return;
           }
@@ -339,7 +339,7 @@ export function SpotifyPreview({
         } catch (error) {
           console.error(
             "🎨 SpotifyPreview: Error processing image for gradient:",
-            error
+            error,
           );
           // Fallback to default gradient
           setGrad({
@@ -384,12 +384,15 @@ export function SpotifyPreview({
               {!isGenerating && uploadError && (
                 <>
                   <div className="mb-4">
-                    <ExclamationCircleIcon className="h-12 w-12 mx-auto text-red-400" strokeWidth={2} />
+                    <ExclamationCircleIcon
+                      className="h-12 w-12 mx-auto text-red-400"
+                      strokeWidth={2}
+                    />
                   </div>
-                  <p className="text-lg font-semibold text-red-400">Upload Failed</p>
-                  <p className="text-sm text-gray-300 mt-2">
-                    {uploadError}
+                  <p className="text-lg font-semibold text-red-400">
+                    Upload Failed
                   </p>
+                  <p className="text-sm text-gray-300 mt-2">{uploadError}</p>
                   <p className="text-xs text-gray-400 mt-3">
                     Go to Mixer and click PLAY to retry
                   </p>
@@ -398,7 +401,10 @@ export function SpotifyPreview({
               {!isGenerating && !uploadError && isInvalid && (
                 <>
                   <div className="mb-4">
-                    <ExclamationTriangleIcon className="h-12 w-12 mx-auto text-yellow-400" strokeWidth={2} />
+                    <ExclamationTriangleIcon
+                      className="h-12 w-12 mx-auto text-yellow-400"
+                      strokeWidth={2}
+                    />
                   </div>
                   <p className="text-lg font-semibold">Preview Outdated</p>
                   <p className="text-sm text-gray-300 mt-2">

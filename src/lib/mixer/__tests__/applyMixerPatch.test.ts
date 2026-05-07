@@ -72,7 +72,11 @@ describe("applyMixerPatch", () => {
 
     // mixedAudioUrl is on the active mixer version.
     const activeId = (await getActiveVersion(mockAdId, "mixer"))!;
-    const mixer = (await getVersion(mockAdId, "mixer", activeId)) as MixerVersion;
+    const mixer = (await getVersion(
+      mockAdId,
+      "mixer",
+      activeId,
+    )) as MixerVersion;
     expect(mixer.mixedAudioUrl).toBe(url);
   });
 
@@ -85,7 +89,10 @@ describe("applyMixerPatch", () => {
       ],
       generatedUrls: ["https://x/a.mp3", "https://x/b.mp3"],
     };
-    const music: MusicVersion = { ...mockMusicVersionFrozen, slotId: "music-slot" };
+    const music: MusicVersion = {
+      ...mockMusicVersionFrozen,
+      slotId: "music-slot",
+    };
     await createVersion(mockAdId, "voices", voice);
     await createVersion(mockAdId, "music", music);
     await setActiveVersion(mockAdId, "voices", "v1");
@@ -100,7 +107,11 @@ describe("applyMixerPatch", () => {
     });
 
     const activeId = (await getActiveVersion(mockAdId, "mixer"))!;
-    const mixer = (await getVersion(mockAdId, "mixer", activeId)) as MixerVersion;
+    const mixer = (await getVersion(
+      mockAdId,
+      "mixer",
+      activeId,
+    )) as MixerVersion;
 
     expect(mixer.overrides?.["voice-slot-a"]?.volume).toBe(0.55);
     expect(mixer.overrides?.["voice-slot-b"]?.volume).toBe(0.77);
@@ -191,7 +202,11 @@ describe("applyMixerPatch", () => {
     // Second patch: move slot-b. Must preserve slot-a's anchor (non-destructive merge).
     await applyMixerPatch(mockAdId, {
       anchorUpdates: {
-        "voice-slot-b": { kind: "relativeTo", slotId: "voice-slot-a", edge: "end" },
+        "voice-slot-b": {
+          kind: "relativeTo",
+          slotId: "voice-slot-a",
+          edge: "end",
+        },
       },
     });
 
@@ -320,7 +335,11 @@ describe("applyMixerPatch", () => {
     });
 
     const activeId = (await getActiveVersion(mockAdId, "mixer"))!;
-    const mixer = (await getVersion(mockAdId, "mixer", activeId)) as MixerVersion;
+    const mixer = (await getVersion(
+      mockAdId,
+      "mixer",
+      activeId,
+    )) as MixerVersion;
     expect(mixer.overrides?.["voice-slot-0"]?.trim).toEqual({
       start: 0,
       end: 7.5,
@@ -346,7 +365,11 @@ describe("applyMixerPatch", () => {
     });
 
     const activeId = (await getActiveVersion(mockAdId, "mixer"))!;
-    const mixer = (await getVersion(mockAdId, "mixer", activeId)) as MixerVersion;
+    const mixer = (await getVersion(
+      mockAdId,
+      "mixer",
+      activeId,
+    )) as MixerVersion;
     expect(mixer.overrides?.["voice-slot-0"]?.trim).toBeUndefined();
     expect(mixer.overrides?.["voice-slot-0"]?.volume).toBe(0.6);
   });
@@ -368,7 +391,11 @@ describe("applyMixerPatch", () => {
     });
 
     const activeId = (await getActiveVersion(mockAdId, "mixer"))!;
-    const mixer = (await getVersion(mockAdId, "mixer", activeId)) as MixerVersion;
+    const mixer = (await getVersion(
+      mockAdId,
+      "mixer",
+      activeId,
+    )) as MixerVersion;
     expect(mixer.overrides?.["voice-slot-0"]?.trim).toBeUndefined();
   });
 
@@ -389,7 +416,11 @@ describe("applyMixerPatch", () => {
 
     expect(state).not.toBeNull();
     const activeId = (await getActiveVersion(mockAdId, "mixer"))!;
-    const mixer = (await getVersion(mockAdId, "mixer", activeId)) as MixerVersion;
+    const mixer = (await getVersion(
+      mockAdId,
+      "mixer",
+      activeId,
+    )) as MixerVersion;
     // Only the two authorized fields were written.
     expect(mixer.mixedAudioUrl).toBe("https://x/mix.mp3");
     expect(mixer.overrides?.["voice-slot-0"]?.volume).toBe(0.9);

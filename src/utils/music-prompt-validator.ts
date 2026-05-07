@@ -93,11 +93,14 @@ export function removeArtistReferences(prompt: string): string {
   // Remove phrases like "inspired by Artist Name", "similar to Band Name", etc.
   let cleaned = prompt.replace(
     /,?\s*(?:like|similar to|inspired by|reminiscent of|in the style of)\s+[^,.]+(,|\.|$)/gi,
-    "$1"
+    "$1",
   );
 
   // Clean up any double commas or spaces
-  cleaned = cleaned.replace(/,\s*,/g, ",").replace(/\s{2,}/g, " ").trim();
+  cleaned = cleaned
+    .replace(/,\s*,/g, ",")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 
   return cleaned;
 }
@@ -107,7 +110,7 @@ export function removeArtistReferences(prompt: string): string {
  * Uses smart transformations based on provider constraints
  */
 export function generatePromptsFromDescription(
-  description: string
+  description: string,
 ): MusicPrompts {
   // For Loudly: Use description as-is (no limit, can have artist refs)
   const loudly = description;
@@ -133,7 +136,7 @@ export function generatePromptsFromDescription(
  */
 export function validateMusicPrompts(
   prompts: Partial<MusicPrompts> | null,
-  fallbackDescription?: string
+  fallbackDescription?: string,
 ): MusicPrompts {
   // If we have no prompts, generate from fallback description
   if (!prompts) {
@@ -157,7 +160,7 @@ export function validateMusicPrompts(
   // Ensure Mubert is within character limit
   if (validated.mubert.length > MUSIC_PROVIDER_LIMITS.mubert) {
     console.warn(
-      `Mubert prompt exceeds ${MUSIC_PROVIDER_LIMITS.mubert} chars (${validated.mubert.length}), truncating...`
+      `Mubert prompt exceeds ${MUSIC_PROVIDER_LIMITS.mubert} chars (${validated.mubert.length}), truncating...`,
     );
     validated.mubert = truncateMubertPrompt(validated.mubert);
   }
@@ -165,7 +168,7 @@ export function validateMusicPrompts(
   // Warn if ElevenLabs has artist references (but don't auto-fix to preserve user intent)
   if (containsArtistReferences(validated.elevenlabs)) {
     console.warn(
-      "ElevenLabs prompt appears to contain artist references. This may not work well."
+      "ElevenLabs prompt appears to contain artist references. This may not work well.",
     );
   }
 

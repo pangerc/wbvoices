@@ -27,7 +27,10 @@ async function importOpenAIDescriptions() {
   }));
 
   try {
-    await voiceDescriptionService.batchUpsert(batch, "openai_vocal_ranges_2024");
+    await voiceDescriptionService.batchUpsert(
+      batch,
+      "openai_vocal_ranges_2024",
+    );
 
     console.log("\n✨ Import complete!");
     console.log(`   Imported ${batch.length} OpenAI voice descriptions`);

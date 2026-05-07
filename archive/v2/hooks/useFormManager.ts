@@ -60,15 +60,19 @@ export function useFormManager(): FormManagerState {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
   const [isGeneratingSoundFx, setIsGeneratingSoundFx] = useState(false);
-  const [generatingSoundFxStates, setGeneratingSoundFxStates] = useState<boolean[]>([]);
+  const [generatingSoundFxStates, setGeneratingSoundFxStates] = useState<
+    boolean[]
+  >([]);
   const [statusMessage, setStatusMessage] = useState("");
 
   // Prompt state
   const [musicPrompt, setMusicPrompt] = useState("");
   const [musicPrompts, setMusicPrompts] = useState<MusicPrompts | null>(null);
-  const [soundFxPrompts, setSoundFxPromptsState] = useState<SoundFxPrompt[]>([]);
+  const [soundFxPrompts, setSoundFxPromptsState] = useState<SoundFxPrompt[]>(
+    [],
+  );
   const [soundFxPrompt, setSoundFxPrompt] = useState<SoundFxPrompt | null>(
-    null
+    null,
   ); // LEGACY: kept for backward compatibility
 
   // Voice track actions
@@ -113,7 +117,10 @@ export function useFormManager(): FormManagerState {
     setSoundFxPrompt(newPrompt);
   };
 
-  const updateSoundFxPrompt = (index: number, updates: Partial<SoundFxPrompt>) => {
+  const updateSoundFxPrompt = (
+    index: number,
+    updates: Partial<SoundFxPrompt>,
+  ) => {
     const newPrompts = [...soundFxPrompts];
     // Merge partial updates with existing prompt to preserve all fields
     newPrompts[index] = { ...newPrompts[index], ...updates };
@@ -130,7 +137,9 @@ export function useFormManager(): FormManagerState {
     setSoundFxPromptsState(newPrompts);
     setGeneratingSoundFxStates(newStates);
     // Update legacy field with new last prompt
-    setSoundFxPrompt(newPrompts.length > 0 ? newPrompts[newPrompts.length - 1] : null);
+    setSoundFxPrompt(
+      newPrompts.length > 0 ? newPrompts[newPrompts.length - 1] : null,
+    );
   };
 
   const setGeneratingSoundFxState = (index: number, generating: boolean) => {

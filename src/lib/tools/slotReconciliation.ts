@@ -35,7 +35,7 @@ export function reconcileSlots(
   newCount: number,
   stream: StreamType,
   parentVersionId: VersionId | null,
-  mintId: () => string = () => crypto.randomUUID()
+  mintId: () => string = () => crypto.randomUUID(),
 ): {
   assigned: string[];
   report: SlotReconciliation;

@@ -28,7 +28,7 @@ describe("synthesizeMetadata", () => {
         age: "middle_aged",
         useCase: "advertisement",
         personality: "A warm, friendly voice",
-      })
+      }),
     );
     expect(m.age_bracket).toBe("mid_adult");
     expect(m.use_case).toBe("advertising");
@@ -39,7 +39,7 @@ describe("synthesizeMetadata", () => {
     const m = synthesizeMetadata(
       makeVoice({
         personality: "Energetic, fast-paced delivery with a punchy confidence",
-      })
+      }),
     );
     expect(m.energy).toBe("punchy");
     expect(m.pace_tendency).toBe("fast");
@@ -64,7 +64,7 @@ describe("synthesizeMetadata", () => {
         accent: "standard",
         useCase: "advertisement",
         personality: "Rashid - Arabic voice",
-      })
+      }),
     );
     // Hardcoded on every Lahajati voice — excluding these axes prevents
     // systematic include/exclude of the entire provider on a single filter.
@@ -76,37 +76,32 @@ describe("synthesizeMetadata", () => {
 
   it("detects dialect_register from Arabic accent strings", () => {
     expect(
-      synthesizeMetadata(
-        makeVoice({ language: "ar", accent: "egyptian" })
-      ).dialect_register
+      synthesizeMetadata(makeVoice({ language: "ar", accent: "egyptian" }))
+        .dialect_register,
     ).toBe("egyptian");
     expect(
-      synthesizeMetadata(
-        makeVoice({ language: "ar", accent: "Saudi" })
-      ).dialect_register
+      synthesizeMetadata(makeVoice({ language: "ar", accent: "Saudi" }))
+        .dialect_register,
     ).toBe("khaleeji");
     expect(
-      synthesizeMetadata(
-        makeVoice({ language: "ar", accent: "Lebanese" })
-      ).dialect_register
+      synthesizeMetadata(makeVoice({ language: "ar", accent: "Lebanese" }))
+        .dialect_register,
     ).toBe("levantine");
     expect(
-      synthesizeMetadata(
-        makeVoice({ language: "ar", accent: "moroccan" })
-      ).dialect_register
+      synthesizeMetadata(makeVoice({ language: "ar", accent: "moroccan" }))
+        .dialect_register,
     ).toBe("maghrebi");
     expect(
       synthesizeMetadata(
-        makeVoice({ language: "ar", accent: "Modern Standard" })
-      ).dialect_register
+        makeVoice({ language: "ar", accent: "Modern Standard" }),
+      ).dialect_register,
     ).toBe("msa");
   });
 
   it("leaves dialect_register undefined for non-Arabic voices", () => {
     expect(
-      synthesizeMetadata(
-        makeVoice({ language: "en", accent: "egyptian" })
-      ).dialect_register
+      synthesizeMetadata(makeVoice({ language: "en", accent: "egyptian" }))
+        .dialect_register,
     ).toBeUndefined();
   });
 });
@@ -116,17 +111,14 @@ describe("voiceMatchesFilters (missing = pass rule)", () => {
     expect(
       voiceMatchesFilters(
         { casting_note: "x", age_bracket: "young_adult" },
-        { age_bracket: "mature" }
-      )
+        { age_bracket: "mature" },
+      ),
     ).toBe(false);
   });
 
   it("includes when the axis is missing on the voice", () => {
     expect(
-      voiceMatchesFilters(
-        { casting_note: "x" },
-        { age_bracket: "mature" }
-      )
+      voiceMatchesFilters({ casting_note: "x" }, { age_bracket: "mature" }),
     ).toBe(true);
   });
 
@@ -138,8 +130,8 @@ describe("voiceMatchesFilters (missing = pass rule)", () => {
     expect(
       voiceMatchesFilters(
         { casting_note: "x", age_bracket: "mature", energy: "punchy" },
-        { age_bracket: "mature", energy: "calm" }
-      )
+        { age_bracket: "mature", energy: "calm" },
+      ),
     ).toBe(false);
   });
 });

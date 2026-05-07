@@ -74,7 +74,7 @@ export abstract class BasePromptStrategy implements PromptStrategy {
    * Format voice metadata - default implementation includes ALL relevant fields
    * INCLUDING GENDER (critical fix)
    */
-   
+
   formatVoiceMetadata(voice: Voice, _context: PromptContext): string {
     let desc = `${voice.name} (id: ${voice.id})`;
 
@@ -178,7 +178,7 @@ Create a script that:
       cta
         ? `\n3. Includes a call-to-action - MUST end with "${cta.replace(
             /-/g,
-            " "
+            " ",
           )}" translated to ${languageName}`
         : ""
     }

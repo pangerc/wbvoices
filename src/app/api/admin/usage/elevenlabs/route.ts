@@ -28,7 +28,7 @@ export async function GET() {
   if (!apiKey) {
     return NextResponse.json(
       { error: "ElevenLabs API key not configured" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -39,7 +39,7 @@ export async function GET() {
         headers: {
           "xi-api-key": apiKey,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -47,7 +47,7 @@ export async function GET() {
       console.error("ElevenLabs subscription API error:", errorText);
       return NextResponse.json(
         { error: "Failed to fetch ElevenLabs subscription" },
-        { status: response.status }
+        { status: response.status },
       );
     }
 
@@ -61,7 +61,7 @@ export async function GET() {
       usagePercent:
         Math.round((data.character_count / data.character_limit) * 1000) / 10,
       resetDate: new Date(
-        data.next_character_count_reset_unix * 1000
+        data.next_character_count_reset_unix * 1000,
       ).toISOString(),
       status: data.status,
     });
@@ -69,7 +69,7 @@ export async function GET() {
     console.error("Failed to fetch ElevenLabs subscription:", error);
     return NextResponse.json(
       { error: "Failed to connect to ElevenLabs API" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

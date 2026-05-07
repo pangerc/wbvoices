@@ -5,7 +5,10 @@
  */
 
 import { redis } from "@/lib/redis";
-import { fetchLahajatiDialects, LahajatiDialect } from "@/services/voiceProviderService";
+import {
+  fetchLahajatiDialects,
+  LahajatiDialect,
+} from "@/services/voiceProviderService";
 import { buildDialectMappings } from "@/lib/providers/lahajatiDialectMapping";
 
 const REDIS_KEY = "lahajati_dialects";
@@ -40,38 +43,38 @@ const FALLBACK_ACCENT_TO_DIALECT: Record<string, number> = {
 
 // Arabic country prefixes for grouping dialects in UI
 const ARABIC_COUNTRY_MAP: Record<string, string> = {
-  'المصرية': 'egyptian',
-  'السعودية': 'saudi',
-  'السورية': 'syrian',
-  'اللبنانية': 'lebanese',
-  'الأردنية': 'jordanian',
-  'الفلسطينية': 'palestinian',
-  'الجزائرية': 'algerian',
-  'المغربية': 'moroccan',
-  'التونسية': 'tunisian',
-  'العراقية': 'iraqi',
-  'اليمنية': 'yemeni',
-  'السودانية': 'sudanese',
-  'الليبية': 'libyan',
-  'العمانية': 'omani',
-  'الكويتية': 'kuwaiti',
-  'البحرينية': 'bahraini',
-  'القطرية': 'qatari',
-  'الإماراتية': 'emirati',
-  'الموريتانية': 'mauritanian',
-  'الفصحى': 'standard',  // Modern Standard Arabic
+  المصرية: "egyptian",
+  السعودية: "saudi",
+  السورية: "syrian",
+  اللبنانية: "lebanese",
+  الأردنية: "jordanian",
+  الفلسطينية: "palestinian",
+  الجزائرية: "algerian",
+  المغربية: "moroccan",
+  التونسية: "tunisian",
+  العراقية: "iraqi",
+  اليمنية: "yemeni",
+  السودانية: "sudanese",
+  الليبية: "libyan",
+  العمانية: "omani",
+  الكويتية: "kuwaiti",
+  البحرينية: "bahraini",
+  القطرية: "qatari",
+  الإماراتية: "emirati",
+  الموريتانية: "mauritanian",
+  الفصحى: "standard", // Modern Standard Arabic
 };
 
 export type ArabicDialect = {
   dialect_id: number;
-  display_name: string;  // Arabic name (e.g., "المصرية (القاهرية)")
-  country: string;       // English country code for grouping (e.g., "egyptian")
+  display_name: string; // Arabic name (e.g., "المصرية (القاهرية)")
+  country: string; // English country code for grouping (e.g., "egyptian")
 };
 
 type DialectCache = {
   accentToDialectId: Record<string, number>;
   dialectIdToName: Record<number, string>;
-  allArabicDialects: ArabicDialect[];  // All Arabic dialects for UI
+  allArabicDialects: ArabicDialect[]; // All Arabic dialects for UI
   lastUpdated: number;
 };
 
@@ -82,12 +85,14 @@ class LahajatiDialectService {
    * Extract country code from Arabic display name
    */
   private getCountryFromName(displayName: string): string {
-    for (const [arabicPrefix, countryCode] of Object.entries(ARABIC_COUNTRY_MAP)) {
+    for (const [arabicPrefix, countryCode] of Object.entries(
+      ARABIC_COUNTRY_MAP,
+    )) {
       if (displayName.includes(arabicPrefix)) {
         return countryCode;
       }
     }
-    return 'other';
+    return "other";
   }
 
   /**
@@ -110,8 +115,8 @@ class LahajatiDialectService {
 
       // Build all Arabic dialects list (IDs 1-72)
       const allArabicDialects: ArabicDialect[] = dialects
-        .filter(d => d.dialect_id <= 72)
-        .map(d => ({
+        .filter((d) => d.dialect_id <= 72)
+        .map((d) => ({
           dialect_id: d.dialect_id,
           display_name: d.display_name,
           country: this.getCountryFromName(d.display_name),
@@ -120,7 +125,7 @@ class LahajatiDialectService {
       // Log unmapped Arabic dialects for review
       if (unmapped.length > 0) {
         console.warn(
-          `⚠️ Lahajati: ${unmapped.length} unmapped Arabic dialects:`
+          `⚠️ Lahajati: ${unmapped.length} unmapped Arabic dialects:`,
         );
         for (const d of unmapped) {
           console.warn(`   - ID ${d.dialect_id}: ${d.display_name}`);
@@ -140,7 +145,7 @@ class LahajatiDialectService {
       console.log(
         `✅ Lahajati dialects cached: ${dialects.length} total, ${allArabicDialects.length} Arabic, ${
           Object.keys(accentToDialectId).length
-        } accent mappings`
+        } accent mappings`,
       );
 
       return {
@@ -152,7 +157,13 @@ class LahajatiDialectService {
       };
     } catch (error) {
       console.error("❌ Failed to refresh Lahajati dialects:", error);
-      return { success: false, count: 0, mapped: 0, unmapped: 0, arabicDialects: 0 };
+      return {
+        success: false,
+        count: 0,
+        mapped: 0,
+        unmapped: 0,
+        arabicDialects: 0,
+      };
     }
   }
 
@@ -177,7 +188,7 @@ class LahajatiDialectService {
     }
 
     console.warn(
-      `⚠️ Lahajati: Unknown accent "${accent}", defaulting to MSA (1)`
+      `⚠️ Lahajati: Unknown accent "${accent}", defaulting to MSA (1)`,
     );
     return 1;
   }

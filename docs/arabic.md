@@ -5,6 +5,7 @@ This document covers the Arabic-specific aspects of the Lahajati TTS integration
 ## Overview
 
 Lahajati is a specialized Arabic TTS provider offering:
+
 - **72 Arabic dialects** (IDs 1-72) with regional sub-variants
 - **~1996 performance styles** for prosody control
 - **Two input modes**: Structured (Mode 0) vs Custom Prompt (Mode 1)
@@ -18,57 +19,64 @@ Unlike other providers (ElevenLabs, OpenAI), Lahajati controls prosody through e
 ### Complete Dialect Reference
 
 #### Egyptian Dialects
-| ID | Arabic Name | English Name | Use Case |
-|----|-------------|--------------|----------|
-| 7 | المصرية (القاهرية) | Egyptian Cairo | Standard Cairo dialect |
-| 8 | المصرية (عامية القاهرة) | Egyptian Cairo Slang | Youth-oriented, casual |
-| 9 | المصرية (إسكندرية) | Egyptian Alexandria | Alexandria region |
-| 10 | المصرية (صعيدي) | Egyptian Upper Egypt | Upper Egypt/Sa'idi |
+
+| ID  | Arabic Name             | English Name         | Use Case               |
+| --- | ----------------------- | -------------------- | ---------------------- |
+| 7   | المصرية (القاهرية)      | Egyptian Cairo       | Standard Cairo dialect |
+| 8   | المصرية (عامية القاهرة) | Egyptian Cairo Slang | Youth-oriented, casual |
+| 9   | المصرية (إسكندرية)      | Egyptian Alexandria  | Alexandria region      |
+| 10  | المصرية (صعيدي)         | Egyptian Upper Egypt | Upper Egypt/Sa'idi     |
 
 #### Gulf Dialects
-| ID | Arabic Name | English Name |
-|----|-------------|--------------|
-| 2 | السعودية (نجدية) | Saudi Najdi (Central) |
-| 3 | السعودية (حجازية) | Saudi Hijazi (Western/Jeddah) |
-| 60 | العمانية | Omani |
-| 64 | الكويتية | Kuwaiti |
-| 67 | البحرينية | Bahraini |
-| 69 | القطرية | Qatari |
-| 70 | الإماراتية | Emirati (UAE) |
+
+| ID  | Arabic Name       | English Name                  |
+| --- | ----------------- | ----------------------------- |
+| 2   | السعودية (نجدية)  | Saudi Najdi (Central)         |
+| 3   | السعودية (حجازية) | Saudi Hijazi (Western/Jeddah) |
+| 60  | العمانية          | Omani                         |
+| 64  | الكويتية          | Kuwaiti                       |
+| 67  | البحرينية         | Bahraini                      |
+| 69  | القطرية           | Qatari                        |
+| 70  | الإماراتية        | Emirati (UAE)                 |
 
 #### Levantine Dialects
-| ID | Arabic Name | English Name |
-|----|-------------|--------------|
-| 12 | السورية (دمشق) | Syrian Damascus |
-| 17 | اللبنانية (بيروت) | Lebanese Beirut |
-| 22 | الأردنية | Jordanian |
-| 26 | الفلسطينية | Palestinian |
+
+| ID  | Arabic Name       | English Name    |
+| --- | ----------------- | --------------- |
+| 12  | السورية (دمشق)    | Syrian Damascus |
+| 17  | اللبنانية (بيروت) | Lebanese Beirut |
+| 22  | الأردنية          | Jordanian       |
+| 26  | الفلسطينية        | Palestinian     |
 
 #### North African (Maghreb) Dialects
-| ID | Arabic Name | English Name |
-|----|-------------|--------------|
-| 30 | الجزائرية | Algerian |
-| 35 | المغربية | Moroccan |
-| 40 | التونسية | Tunisian |
-| 57 | الليبية | Libyan |
+
+| ID  | Arabic Name | English Name |
+| --- | ----------- | ------------ |
+| 30  | الجزائرية   | Algerian     |
+| 35  | المغربية    | Moroccan     |
+| 40  | التونسية    | Tunisian     |
+| 57  | الليبية     | Libyan       |
 
 #### Other Arabic Dialects
-| ID | Arabic Name | English Name |
-|----|-------------|--------------|
-| 1 | الفصحى | Modern Standard Arabic (MSA) |
-| 44 | العراقية | Iraqi |
-| 48 | اليمنية | Yemeni |
-| 53 | السودانية | Sudanese |
-| 72 | الموريتانية | Mauritanian |
+
+| ID  | Arabic Name | English Name                 |
+| --- | ----------- | ---------------------------- |
+| 1   | الفصحى      | Modern Standard Arabic (MSA) |
+| 44  | العراقية    | Iraqi                        |
+| 48  | اليمنية     | Yemeni                       |
+| 53  | السودانية   | Sudanese                     |
+| 72  | الموريتانية | Mauritanian                  |
 
 ### Dialect Selection Logic
 
 **Resolution Priority:**
+
 1. Explicit `dialectId` from LLM or UI → Use directly
 2. Accent code (e.g., "egyptian") → Map via dialect service
 3. Fallback → MSA (ID 1)
 
 **Accent-to-Dialect Mapping:**
+
 ```
 egyptian → 7 (Cairo)
 saudi → 2 (Najdi)
@@ -85,14 +93,14 @@ standard → 1 (MSA)
 
 ### Key Ad Performance Styles
 
-| ID | Arabic Name | English Name | Use For |
-|----|-------------|--------------|---------|
-| 1542 | إعلان سيارة | Automotive Ad | **Car/vehicle commercials** |
-| 1280 | تكنولوجي متقدم | Tech/Advanced | Tech products, apps, gadgets |
-| 1308 | درامي ومثير | Dramatic | Documentary, cinematic ads |
-| 1309 | بهدوء ودفء | Calm and Warm | Food, beverage, lifestyle |
-| 1565 | ثقة هادئة | Calm Confidence | Banking, insurance, finance |
-| 1306 | محايد ومعلوماتي | Neutral/Informative | **Default** - general use |
+| ID   | Arabic Name     | English Name        | Use For                      |
+| ---- | --------------- | ------------------- | ---------------------------- |
+| 1542 | إعلان سيارة     | Automotive Ad       | **Car/vehicle commercials**  |
+| 1280 | تكنولوجي متقدم  | Tech/Advanced       | Tech products, apps, gadgets |
+| 1308 | درامي ومثير     | Dramatic            | Documentary, cinematic ads   |
+| 1309 | بهدوء ودفء      | Calm and Warm       | Food, beverage, lifestyle    |
+| 1565 | ثقة هادئة       | Calm Confidence     | Banking, insurance, finance  |
+| 1306 | محايد ومعلوماتي | Neutral/Informative | **Default** - general use    |
 
 ### Selection Rules for LLM
 
@@ -126,6 +134,7 @@ Used when **no custom voice instructions** provided. Sends explicit IDs.
 ```
 
 **Advantages:**
+
 - Precise, repeatable prosody
 - LLM-selected style ensures ad-appropriate delivery
 - Dialect-specific pronunciation
@@ -228,12 +237,12 @@ const LAHAJATI_PER_PAGE = 100;
 
 ### Request Counts (with per_page=100)
 
-| Resource | Total | Pages | Requests |
-|----------|-------|-------|----------|
-| Dialects | 116 | 2 | 2 |
-| Performances | ~1996 | 20 | 20 |
-| Voices | ~339 | 4 | 4 |
-| **Total** | - | - | **26** |
+| Resource     | Total | Pages | Requests |
+| ------------ | ----- | ----- | -------- |
+| Dialects     | 116   | 2     | 2        |
+| Performances | ~1996 | 20    | 20       |
+| Voices       | ~339  | 4     | 4        |
+| **Total**    | -     | -     | **26**   |
 
 Cache refresh completes in ~65-90 seconds.
 
@@ -241,15 +250,15 @@ Cache refresh completes in ~65-90 seconds.
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `src/lib/providers/LahajatiVoiceProvider.ts` | API integration, mode selection |
+| File                                                  | Purpose                                  |
+| ----------------------------------------------------- | ---------------------------------------- |
+| `src/lib/providers/LahajatiVoiceProvider.ts`          | API integration, mode selection          |
 | `src/lib/prompt-strategies/LahajatiPromptStrategy.ts` | LLM instructions for dialect/performance |
-| `src/services/lahajatiDialectService.ts` | Dialect caching and resolution |
-| `src/services/voiceProviderService.ts` | Voice/dialect/performance fetching |
-| `src/app/api/lahajati/metadata/route.ts` | UI metadata endpoint |
-| `src/lib/tools/definitions.ts` | Tool schema with dialectId/performanceId |
-| `src/lib/voice-utils.ts` | Audio generation request building |
+| `src/services/lahajatiDialectService.ts`              | Dialect caching and resolution           |
+| `src/services/voiceProviderService.ts`                | Voice/dialect/performance fetching       |
+| `src/app/api/lahajati/metadata/route.ts`              | UI metadata endpoint                     |
+| `src/lib/tools/definitions.ts`                        | Tool schema with dialectId/performanceId |
+| `src/lib/voice-utils.ts`                              | Audio generation request building        |
 
 ---
 
@@ -260,6 +269,7 @@ Cache refresh completes in ~65-90 seconds.
 **Problem:** Explicit dialectId not being used.
 
 **Check:**
+
 1. Is dialectId stored in Redis track? (Check VoiceInstructionsDialog)
 2. Is voice-utils.ts passing dialectId in request body?
 3. Is the value a number (not string)?
@@ -269,6 +279,7 @@ Cache refresh completes in ~65-90 seconds.
 **Problem:** LLM not outputting performanceId.
 
 **Check:**
+
 1. LahajatiPromptStrategy has clear selection rules?
 2. Tool definitions include performanceId parameter?
 3. Brief mentions ad type (automotive, tech, etc.)?
@@ -304,5 +315,6 @@ Expected LLM output:
 ### Fallback Behavior
 
 If no explicit IDs provided:
+
 - Dialect: Resolved from accent code → MSA (1)
 - Performance: Resolved from style tone → Neutral (1306)

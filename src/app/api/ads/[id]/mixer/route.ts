@@ -11,13 +11,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { applyMixerPatch, getMixerState, type MixerPatch } from "@/lib/mixer/rebuilder";
+import {
+  applyMixerPatch,
+  getMixerState,
+  type MixerPatch,
+} from "@/lib/mixer/rebuilder";
 
 export const runtime = "nodejs";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -50,14 +54,14 @@ export async function GET(
         error: "Failed to get mixer state",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -76,7 +80,8 @@ export async function PATCH(
     };
 
     console.log(`✏️ Patching mixer state for ad ${adId}`, {
-      hasVolumeUpdates: !!patch.volumes && Object.keys(patch.volumes).length > 0,
+      hasVolumeUpdates:
+        !!patch.volumes && Object.keys(patch.volumes).length > 0,
       hasMixedAudioUrl: !!patch.mixedAudioUrl,
       anchorUpdateCount: patch.anchorUpdates
         ? Object.keys(patch.anchorUpdates).length
@@ -92,7 +97,7 @@ export async function PATCH(
         {
           error: "Cannot patch mixer state for ad without any content streams",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
     return NextResponse.json(updated);
@@ -103,7 +108,7 @@ export async function PATCH(
         error: "Failed to patch mixer state",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

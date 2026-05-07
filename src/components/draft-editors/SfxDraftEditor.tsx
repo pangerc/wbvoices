@@ -45,10 +45,10 @@ export function SfxDraftEditor({
   // Ref to expose VersionIterationInput's expand function
   const iterationExpandRef = useRef<(() => void) | null>(null);
   const [soundFxPrompts, setSoundFxPrompts] = useState<SoundFxPrompt[]>(
-    draftVersion.soundFxPrompts
+    draftVersion.soundFxPrompts,
   );
   const [generatedUrls, setGeneratedUrls] = useState<(string | null)[]>(
-    draftVersion.generatedUrls || []
+    draftVersion.generatedUrls || [],
   );
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -64,7 +64,8 @@ export function SfxDraftEditor({
   }, [draftVersion]);
 
   // Use centralized audio playback store for state
-  const { isGenerating, isPlaying, generatingPromptIndex } = useSfxDraftState(draftVersionId);
+  const { isGenerating, isPlaying, generatingPromptIndex } =
+    useSfxDraftState(draftVersionId);
   const { play, setGeneratingSfx } = usePlaybackActions();
 
   // Compute voice track previews for SFX placement options (after voice X)
@@ -75,13 +76,13 @@ export function SfxDraftEditor({
 
     // Use ACTIVE voice version - must match what mixer rebuilder uses
     const activeVersion = voiceStream.data.active
-      ? voiceStream.data.versionsData[voiceStream.data.active] as VoiceVersion
+      ? (voiceStream.data.versionsData[voiceStream.data.active] as VoiceVersion)
       : null;
 
     if (!activeVersion?.voiceTracks) return [];
-    return activeVersion.voiceTracks.map(t => ({
+    return activeVersion.voiceTracks.map((t) => ({
       name: t.voice?.name || "Voice",
-      text: t.text || ""
+      text: t.text || "",
     }));
   }, [voiceStream?.data]);
 
@@ -89,10 +90,14 @@ export function SfxDraftEditor({
 
   // Compute draft state from LOCAL state (not SWR props) for immediate badge feedback
   const draftState = useMemo((): DraftState => {
-    if (isGenerating) return 'generating';
-    const promptsWithContent = soundFxPrompts.filter(p => p.description?.trim());
-    if (promptsWithContent.length === 0) return 'editing';
-    return promptsWithContent.every((_, i) => !!generatedUrls[i]) ? 'ready' : 'changed';
+    if (isGenerating) return "generating";
+    const promptsWithContent = soundFxPrompts.filter((p) =>
+      p.description?.trim(),
+    );
+    if (promptsWithContent.length === 0) return "editing";
+    return promptsWithContent.every((_, i) => !!generatedUrls[i])
+      ? "ready"
+      : "changed";
   }, [soundFxPrompts, generatedUrls, isGenerating]);
 
   // Notify parent of draft state changes
@@ -104,7 +109,7 @@ export function SfxDraftEditor({
   // Invalidates generated URL if content-affecting fields changed
   const updatePrompt = async (
     index: number,
-    updates: Partial<SoundFxPrompt>
+    updates: Partial<SoundFxPrompt>,
   ) => {
     editInFlightRef.current = true;
     const newPrompts = [...soundFxPrompts];
@@ -112,11 +117,14 @@ export function SfxDraftEditor({
     setSoundFxPrompts(newPrompts);
 
     // Check if content-affecting fields changed
-    const contentFields = ['description', 'duration', 'placement'];
-    const contentChanged = contentFields.some(field => field in updates);
+    const contentFields = ["description", "duration", "placement"];
+    const contentChanged = contentFields.some((field) => field in updates);
 
     // Build the patch body
-    const patchBody: { soundFxPrompts: SoundFxPrompt[]; generatedUrls?: (string | null)[] } = {
+    const patchBody: {
+      soundFxPrompts: SoundFxPrompt[];
+      generatedUrls?: (string | null)[];
+    } = {
       soundFxPrompts: newPrompts,
     };
 
@@ -127,7 +135,9 @@ export function SfxDraftEditor({
       newUrls[index] = null;
       patchBody.generatedUrls = newUrls;
       setGeneratedUrls(newUrls); // Update local state immediately
-      console.log(`[SfxDraftEditor] Invalidating generated URL for prompt ${index} due to content change`);
+      console.log(
+        `[SfxDraftEditor] Invalidating generated URL for prompt ${index} due to content change`,
+      );
     }
 
     // Persist to backend via PATCH
@@ -196,13 +206,16 @@ export function SfxDraftEditor({
     setStatusMessage("Generating sound effects...");
 
     try {
-      const res = await fetch(`/api/ads/${adId}/sfx/${draftVersionId}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          soundFxPrompts,
-        }),
-      });
+      const res = await fetch(
+        `/api/ads/${adId}/sfx/${draftVersionId}/generate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            soundFxPrompts,
+          }),
+        },
+      );
 
       if (res.ok) {
         const result = await res.json();
@@ -212,7 +225,9 @@ export function SfxDraftEditor({
         return result.generatedUrls; // Return URLs for autoplay
       } else {
         const error = await res.json();
-        setStatusMessage(`Generation failed: ${error.error || "Unknown error"}`);
+        setStatusMessage(
+          `Generation failed: ${error.error || "Unknown error"}`,
+        );
         return null;
       }
     } catch (error) {
@@ -248,11 +263,14 @@ export function SfxDraftEditor({
     setStatusMessage(`Generating sound effect ${index + 1}...`);
 
     try {
-      const res = await fetch(`/api/ads/${adId}/sfx/${draftVersionId}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ soundFxPrompts, promptIndex: index }),
-      });
+      const res = await fetch(
+        `/api/ads/${adId}/sfx/${draftVersionId}/generate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ soundFxPrompts, promptIndex: index }),
+        },
+      );
 
       if (res.ok) {
         const result = await res.json();
@@ -271,7 +289,9 @@ export function SfxDraftEditor({
         }
       } else {
         const error = await res.json();
-        setStatusMessage(`Generation failed: ${error.error || "Unknown error"}`);
+        setStatusMessage(
+          `Generation failed: ${error.error || "Unknown error"}`,
+        );
       }
     } catch (error) {
       console.error("Failed to generate sound effect:", error);
@@ -301,8 +321,8 @@ export function SfxDraftEditor({
     const promptCount = freshVersion?.soundFxPrompts.length || 0;
 
     // Check that ALL prompts have corresponding URLs (using fresh data)
-    const allPromptsHaveUrls = promptCount > 0 &&
-      freshUrls.filter(Boolean).length >= promptCount;
+    const allPromptsHaveUrls =
+      promptCount > 0 && freshUrls.filter(Boolean).length >= promptCount;
 
     // Generate if any prompt is missing audio
     if (!allPromptsHaveUrls) {
@@ -360,8 +380,9 @@ export function SfxDraftEditor({
   useEffect(() => {
     if (onPlayAllRef) onPlayAllRef.current = handlePlayAll;
     if (onSendToMixerRef) onSendToMixerRef.current = handleSendToMixer;
-    if (onRequestChangeRef) onRequestChangeRef.current = () => iterationExpandRef.current?.();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (onRequestChangeRef)
+      onRequestChangeRef.current = () => iterationExpandRef.current?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [soundFxPrompts, draftVersion, isPlaying, draftVersionId]);
 
   // Reset form (not used in draft mode)
@@ -375,7 +396,8 @@ export function SfxDraftEditor({
   // these are prompts the user dragged in the mixer, making the panel's
   // "Placement" dropdown value stale. The panel renders a badge and a
   // reset button on those entries.
-  const { data: mixerData, patchAnchors: mixerPatchAnchors } = useMixerData(adId);
+  const { data: mixerData, patchAnchors: mixerPatchAnchors } =
+    useMixerData(adId);
   const mixerOverriddenSlotIds = useMemo(() => {
     const ids = new Set<string>();
     for (const track of mixerData?.tracks ?? []) {
@@ -417,7 +439,11 @@ export function SfxDraftEditor({
         parentVersionId={draftVersionId}
         onNewVersion={onUpdate}
         onNewBlankVersion={onNewBlankVersion}
-        disabled={!draftVersion.generatedUrls?.length || draftVersion.generatedUrls.filter(Boolean).length < soundFxPrompts.length}
+        disabled={
+          !draftVersion.generatedUrls?.length ||
+          draftVersion.generatedUrls.filter(Boolean).length <
+            soundFxPrompts.length
+        }
         disabledReason="Generate all sound effects before requesting changes"
         expandRef={iterationExpandRef}
       />

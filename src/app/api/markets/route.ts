@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const response = await alaric.getMarkets(
-      showAll ? {} : { platform: "spotify" }
+      showAll ? {} : { platform: "spotify" },
     );
     return NextResponse.json(response, {
       // Mirror alaric's caching posture so our edge layer can also benefit
@@ -51,13 +51,13 @@ export async function GET(req: NextRequest) {
     if (err instanceof AlaricRequestError) {
       return NextResponse.json(
         { error: err.message, status: err.status },
-        { status: err.status === 401 ? 502 : err.status }
+        { status: err.status === 401 ? 502 : err.status },
       );
     }
     console.error("[/api/markets] failed:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "markets fetch failed" },
-      { status: 502 }
+      { status: 502 },
     );
   }
 }

@@ -25,7 +25,7 @@ export function useStreamData(adId: string, stream: StreamType) {
       revalidateOnFocus: false, // Prevent focus events from overwriting in-flight edits
       revalidateOnReconnect: true,
       dedupingInterval: 2000, // Debounce rapid revalidations; explicit mutate() still works
-    }
+    },
   );
 
   return {

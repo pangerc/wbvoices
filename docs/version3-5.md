@@ -128,34 +128,34 @@ The brief is persisted in `AdMetadata.brief` under `ad:{adId}:meta` as a JSON bl
 
 **Added** in this window:
 
-| Field | Shape | Persistence | Reader compat |
-|-------|-------|-------------|---------------|
-| `brand` | `BrandRef` (see below) | Stored when set | New readers prefer `brand.*`; legacy readers fall back to top-level `salesforceAccountId`. |
-| `salesforceAccountId` | `string \| null` | Mirrored at top level when `brand.salesforceAccountId` is set | Kept top-level for v1 reader back-compat. New code reads `brand.salesforceAccountId ?? salesforceAccountId`. |
-| `creativeAngle` | `string` | Stored when non-empty | Soft warning when SF/URLs populated but angle empty; never blocks generation. Demoted into a Creative-topic collapsible in V4 (was exposed mid-revision; user override). |
-| `varianceMode` | `"anchored" \| "exploratory"` | Reserved field, not yet written by UI | Forward-compat. Stage F (transcript-level retrieval) will gate on this. |
-| `selectedTone` | `string \| null` | Stored when set | UUID-or-title pointer into the admin-managed `suggested_tones` table (Sergiu's pipeline). Resolves to a `voiceInstructions` template; the LLM only sees `voiceInstructions`, never the preset id. Replaces v3.5's pre-merge `ToneOfVoiceTag[]` enum (which never shipped to prod). |
-| `voiceInstructions` | `string \| null` | Stored when non-empty | TTS-delivery prose. Auto-seeded from the picked tone preset's template; user-editable. Threaded into per-track `VoiceTrack.voiceInstructions` via the generate routes. |
-| `referenceUrls` | `string[]` | Stored when length > 0 | Per-URL alaric fetch + URL-type detection at prefetch time; type union is `homepage \| product \| press_release \| reference_ad \| unknown`. Behind a Creative-topic collapsible in V4. |
-| `forbiddenWords` | `string` | Stored when non-empty | Free-text comma/newline list; renders into `## Avoid` prompt block. Behind a collapsible in V4. |
-| `providedScript` | `string` | Stored when non-empty | Use-verbatim mode — agent only writes acting/music/SFX around it. Surfaced via the "I have the script" tab on Creative topic; brief save carries both fields so toggling preserves edits. |
-| `selectedCTA` | `string` | Stored | One of 22 canonical tokens + `none`. Behind a collapsible in V4. |
-| `campaignFormat` | `CampaignFormat` | Extended enum | Was `ad_read \| dialog \| testimonial`; now includes `vox_pop \| dramatized_scene \| radio_skit`. Surfaced as a 6-option `GlassyListbox` in V4 (was a 2-button toggle in BriefPanelBase — UI lagged the prompt). |
+| Field                 | Shape                         | Persistence                                                   | Reader compat                                                                                                                                                                                                                                                                      |
+| --------------------- | ----------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `brand`               | `BrandRef` (see below)        | Stored when set                                               | New readers prefer `brand.*`; legacy readers fall back to top-level `salesforceAccountId`.                                                                                                                                                                                         |
+| `salesforceAccountId` | `string \| null`              | Mirrored at top level when `brand.salesforceAccountId` is set | Kept top-level for v1 reader back-compat. New code reads `brand.salesforceAccountId ?? salesforceAccountId`.                                                                                                                                                                       |
+| `creativeAngle`       | `string`                      | Stored when non-empty                                         | Soft warning when SF/URLs populated but angle empty; never blocks generation. Demoted into a Creative-topic collapsible in V4 (was exposed mid-revision; user override).                                                                                                           |
+| `varianceMode`        | `"anchored" \| "exploratory"` | Reserved field, not yet written by UI                         | Forward-compat. Stage F (transcript-level retrieval) will gate on this.                                                                                                                                                                                                            |
+| `selectedTone`        | `string \| null`              | Stored when set                                               | UUID-or-title pointer into the admin-managed `suggested_tones` table (Sergiu's pipeline). Resolves to a `voiceInstructions` template; the LLM only sees `voiceInstructions`, never the preset id. Replaces v3.5's pre-merge `ToneOfVoiceTag[]` enum (which never shipped to prod). |
+| `voiceInstructions`   | `string \| null`              | Stored when non-empty                                         | TTS-delivery prose. Auto-seeded from the picked tone preset's template; user-editable. Threaded into per-track `VoiceTrack.voiceInstructions` via the generate routes.                                                                                                             |
+| `referenceUrls`       | `string[]`                    | Stored when length > 0                                        | Per-URL alaric fetch + URL-type detection at prefetch time; type union is `homepage \| product \| press_release \| reference_ad \| unknown`. Behind a Creative-topic collapsible in V4.                                                                                            |
+| `forbiddenWords`      | `string`                      | Stored when non-empty                                         | Free-text comma/newline list; renders into `## Avoid` prompt block. Behind a collapsible in V4.                                                                                                                                                                                    |
+| `providedScript`      | `string`                      | Stored when non-empty                                         | Use-verbatim mode — agent only writes acting/music/SFX around it. Surfaced via the "I have the script" tab on Creative topic; brief save carries both fields so toggling preserves edits.                                                                                          |
+| `selectedCTA`         | `string`                      | Stored                                                        | One of 22 canonical tokens + `none`. Behind a collapsible in V4.                                                                                                                                                                                                                   |
+| `campaignFormat`      | `CampaignFormat`              | Extended enum                                                 | Was `ad_read \| dialog \| testimonial`; now includes `vox_pop \| dramatized_scene \| radio_skit`. Surfaced as a 6-option `GlassyListbox` in V4 (was a 2-button toggle in BriefPanelBase — UI lagged the prompt).                                                                   |
 
 **Repurposed** (same type, semantic shift):
 
-| Field | Old meaning | New meaning |
-|-------|-------------|-------------|
+| Field            | Old meaning                                                                   | New meaning                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `selectedRegion` | Voice-region taxonomy code (e.g. `"us-east"`) — filtered the voice catalogue. | Alaric alpha-2 market code (e.g. `"SI"`, `"DE"`). Drives SF search filter, language defaults, dossier territory grounding. Legacy non-alpha-2 values render with a `(legacy)` suffix in the picker; re-picking promotes to a real alpha-2. The legacy "voice region depends on language" coupling is gone — picking a market no longer wipes itself when language changes. |
 
 **Deprecated** (still on the type, still decoded, ignored by writers):
 
-| Field | Why deprecated | Compat policy |
-|-------|----------------|---------------|
-| `enrichWithWebSearch` | Hosted-tool web search dropped in v4 Stage X; alaric BrandDossier replaces for SF-backed brands. | Zero live readers. Generate routes don't read it; brief-enrichment doesn't branch on it. Field stays on the type as `@deprecated removal-pending` for legacy decode only. |
-| `salesforceAccountId` (top-level) | Superseded by `brand.salesforceAccountId`. | Stays at top level; new writes mirror both. Generate routes read `brand.salesforceAccountId ?? salesforceAccountId`. |
-| `brandVoice` | Replaced by alaric's `BrandDossier` projection (commercial / creative / audience / policy slots) which feeds the LLM richer brand context than free-text. | Field stays on the type as `@deprecated`. BriefPanelV4 surfaces legacy values in a read-only `<details>` block at the top of the Brand topic so users can SEE what was there but not edit. Generate routes don't read the field — no `## Brand Voice` prompt section anymore. Scheduled for full removal in a follow-up cleanup PR. |
-| `toneOfVoice` (`ToneOfVoiceTag[]`) | Pre-merge v3.5 internal addition (11-value closed enum chip multi-select). Replaced by Sergiu's `selectedTone` + `voiceInstructions` pipeline before either shape reached prod. | Type and field removed from `ProjectBrief`. Knowledge-context plumbing removed. Any prod brief that somehow carried the field decodes via JSON parse without crashing — readers silently ignore. No migration. |
+| Field                              | Why deprecated                                                                                                                                                                  | Compat policy                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enrichWithWebSearch`              | Hosted-tool web search dropped in v4 Stage X; alaric BrandDossier replaces for SF-backed brands.                                                                                | Zero live readers. Generate routes don't read it; brief-enrichment doesn't branch on it. Field stays on the type as `@deprecated removal-pending` for legacy decode only.                                                                                                                                                           |
+| `salesforceAccountId` (top-level)  | Superseded by `brand.salesforceAccountId`.                                                                                                                                      | Stays at top level; new writes mirror both. Generate routes read `brand.salesforceAccountId ?? salesforceAccountId`.                                                                                                                                                                                                                |
+| `brandVoice`                       | Replaced by alaric's `BrandDossier` projection (commercial / creative / audience / policy slots) which feeds the LLM richer brand context than free-text.                       | Field stays on the type as `@deprecated`. BriefPanelV4 surfaces legacy values in a read-only `<details>` block at the top of the Brand topic so users can SEE what was there but not edit. Generate routes don't read the field — no `## Brand Voice` prompt section anymore. Scheduled for full removal in a follow-up cleanup PR. |
+| `toneOfVoice` (`ToneOfVoiceTag[]`) | Pre-merge v3.5 internal addition (11-value closed enum chip multi-select). Replaced by Sergiu's `selectedTone` + `voiceInstructions` pipeline before either shape reached prod. | Type and field removed from `ProjectBrief`. Knowledge-context plumbing removed. Any prod brief that somehow carried the field decodes via JSON parse without crashing — readers silently ignore. No migration.                                                                                                                      |
 
 **Removed:** `ToneOfVoiceTag` union type and `ProjectBrief.toneOfVoice` field. The naive multi-select tag enum from the v3.5 prompting rewrite was replaced wholesale by Sergiu's admin-managed preset pipeline during the post-v3.5 merge.
 
@@ -179,18 +179,18 @@ brand?: {
 
 The voice track shape gained provider-specific control fields. All optional — legacy tracks decode unchanged.
 
-| Field | Provider scope | Purpose |
-|-------|----------------|---------|
-| `description` | ElevenLabs | Baseline tone token (`cheerful \| happy \| excited \| energetic \| dynamic \| calm \| gentle \| soothing \| serious \| professional \| authoritative \| empathetic \| warm \| fast_read \| slow_read`). REQUIRED on every ElevenLabs track per the v3.5 prompt. |
-| `voiceInstructions` | OpenAI / Lahajati / ByteDance | Provider-specific voice control. OpenAI: structured `Voice Affect / Tone / Pacing / Emotion / Emphasis / Pronunciation / Pauses` blob. Lahajati: Arabic persona text. ByteDance: free-text style. |
-| `dialectId` | Lahajati only | Numeric dialect ID (e.g. 7 for Cairo, 8 for Alexandria). |
-| `performanceId` | Lahajati only | Numeric performance style ID (e.g. 1542 for automotive ad). |
-| `emotion` | ByteDance only | Closed enum: `happy \| sad \| angry \| excited \| warm \| neutral \| fear \| surprised \| coldness \| affectionate \| chat \| ASMR \| authoritative`. |
-| `speed` | All | Per-track speed multiplier (OpenAI 0.25–4.0, ElevenLabs 0.7–1.2). |
-| `postProcessingSpeedup` | All | Provider-agnostic WSOLA time-stretch (1.0–1.6x). ElevenLabs uses alongside native speed; Qwen / Lovo / ByteDance use as their only speed lever. |
-| `postProcessingPitch` | All | Provider-agnostic pitch adjustment (0.7–1.2x, default 1.0). |
-| `targetDuration` | All | Target duration in seconds; auto-calculates `postProcessingSpeedup` capped at 1.6x. |
-| `generatedDuration` | All | Actual measured duration after generation (via `music-metadata`). Drives mixer timeline calculation. |
+| Field                   | Provider scope                | Purpose                                                                                                                                                                                                                                                         |
+| ----------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `description`           | ElevenLabs                    | Baseline tone token (`cheerful \| happy \| excited \| energetic \| dynamic \| calm \| gentle \| soothing \| serious \| professional \| authoritative \| empathetic \| warm \| fast_read \| slow_read`). REQUIRED on every ElevenLabs track per the v3.5 prompt. |
+| `voiceInstructions`     | OpenAI / Lahajati / ByteDance | Provider-specific voice control. OpenAI: structured `Voice Affect / Tone / Pacing / Emotion / Emphasis / Pronunciation / Pauses` blob. Lahajati: Arabic persona text. ByteDance: free-text style.                                                               |
+| `dialectId`             | Lahajati only                 | Numeric dialect ID (e.g. 7 for Cairo, 8 for Alexandria).                                                                                                                                                                                                        |
+| `performanceId`         | Lahajati only                 | Numeric performance style ID (e.g. 1542 for automotive ad).                                                                                                                                                                                                     |
+| `emotion`               | ByteDance only                | Closed enum: `happy \| sad \| angry \| excited \| warm \| neutral \| fear \| surprised \| coldness \| affectionate \| chat \| ASMR \| authoritative`.                                                                                                           |
+| `speed`                 | All                           | Per-track speed multiplier (OpenAI 0.25–4.0, ElevenLabs 0.7–1.2).                                                                                                                                                                                               |
+| `postProcessingSpeedup` | All                           | Provider-agnostic WSOLA time-stretch (1.0–1.6x). ElevenLabs uses alongside native speed; Qwen / Lovo / ByteDance use as their only speed lever.                                                                                                                 |
+| `postProcessingPitch`   | All                           | Provider-agnostic pitch adjustment (0.7–1.2x, default 1.0).                                                                                                                                                                                                     |
+| `targetDuration`        | All                           | Target duration in seconds; auto-calculates `postProcessingSpeedup` capped at 1.6x.                                                                                                                                                                             |
+| `generatedDuration`     | All                           | Actual measured duration after generation (via `music-metadata`). Drives mixer timeline calculation.                                                                                                                                                            |
 
 `voiceInstructions` is provider-polymorphic by design. The `/api/ai/convert-voice-track` endpoint translates between provider grammars when the user swaps providers on a single track.
 
@@ -214,7 +214,10 @@ interface VoiceVersion {
    *  absent when the draft cleared lint. */
   tagLintWarnings?: Array<{
     trackIndex: number;
-    rule: "missing_accent_tag" | "opening_stack_oversize" | "malformed_tag_syntax";
+    rule:
+      | "missing_accent_tag"
+      | "opening_stack_oversize"
+      | "malformed_tag_syntax";
     message: string;
     castVoiceAccent?: string;
     requiredTag?: string;
@@ -250,7 +253,14 @@ type AgeBracket = "young" | "middle_aged" | "senior";
 type EnergyLevel = "low" | "mid" | "high";
 type WarmthLevel = "cool" | "neutral" | "warm";
 type PaceTendency = "slow" | "medium" | "fast";
-type UseCaseTag = "advertisement" | "narration" | "social_media" | "audiobook" | "characters" | "informative_educational" | "conversational";
+type UseCaseTag =
+  | "advertisement"
+  | "narration"
+  | "social_media"
+  | "audiobook"
+  | "characters"
+  | "informative_educational"
+  | "conversational";
 type DialectRegister = "formal" | "conversational" | "street" | "regional";
 ```
 
@@ -268,8 +278,8 @@ interface SearchVoicesResult {
     language: string;
     gender: string;
     accent?: string;
-    style?: string;          // Lovo styles only (was previously `style || personality` until v3.5 split)
-    description?: string;    // NEW v3.5 — Neon voice_descriptions, surfaced for casting discriminator
+    style?: string; // Lovo styles only (was previously `style || personality` until v3.5 split)
+    description?: string; // NEW v3.5 — Neon voice_descriptions, surfaced for casting discriminator
     provider?: string;
     age_bracket?: AgeBracket;
     energy?: EnergyLevel;
@@ -277,7 +287,7 @@ interface SearchVoicesResult {
     pace_tendency?: PaceTendency;
     use_case?: UseCaseTag;
     dialect_register?: DialectRegister;
-    casting_note: string;    // NEW v3.5 — synthesized vibe glue
+    casting_note: string; // NEW v3.5 — synthesized vibe glue
   }>;
   count: number;
   /** Present when the catalogue auto-broadened the search because the
@@ -285,7 +295,7 @@ interface SearchVoicesResult {
    *  dropped (semantic filters → accent → gender). The agent treats
    *  these voices as still valid for casting and does NOT need to
    *  re-search. */
-  broadened_from?: string[];  // NEW v3.5
+  broadened_from?: string[]; // NEW v3.5
 }
 ```
 
@@ -298,13 +308,13 @@ Five-slot projection of EVERYTHING alaric knows about a brand. The shape is full
 ```ts
 interface BrandDossier {
   identity: {
-    name: string;                       // always present
+    name: string; // always present
     sfAccountId?: string;
     domain?: string;
     market?: string;
     reportingTerritory?: string;
     legalEntity?: string;
-    territoryDivergent?: boolean;       // reporting != billing country
+    territoryDivergent?: boolean; // reporting != billing country
   };
   commercial: {
     isOnboardedClient?: boolean;
@@ -313,7 +323,7 @@ interface BrandDossier {
     lastCloseWonDate?: string | null;
     revenueByPlatform?: Record<string, number>;
     revenueTimeline?: Array<{
-      quarter: string;                  // "2026Q1" format
+      quarter: string; // "2026Q1" format
       total: number;
       perPlatform?: Record<string, number>;
     }>;
@@ -324,7 +334,7 @@ interface BrandDossier {
       closeDate?: string;
       product?: string;
     }>;
-    leadType?: string;                  // alaric prospects classifier output
+    leadType?: string; // alaric prospects classifier output
     creativePosture?: "active" | "dormant_onboarded" | "lapsed" | "prospect";
   };
   creative: {
@@ -333,7 +343,7 @@ interface BrandDossier {
     whatTheyreAdvertising?: string[];
     messagingThemes?: string[];
     salesBriefing?: string;
-    tonalAxes?: BrandTonalAxes;         // { energy?, pace?, vocabRegister?, humorTolerance? }
+    tonalAxes?: BrandTonalAxes; // { energy?, pace?, vocabRegister?, humorTolerance? }
     creativeStyleNotes?: string[];
     perPlatform?: Array<{
       platform: "meta" | "google" | "tiktok" | "msads";
@@ -365,26 +375,28 @@ interface BrandDossier {
   policy: {
     industryGroup?: string;
     industrySubCategory?: string;
-    industryCode?: string;              // canonical taxonomy code (alaric Phase 28)
+    industryCode?: string; // canonical taxonomy code (alaric Phase 28)
     adsPolicyRelevant?: boolean;
     mandatoryLegal?: string[];
     tabooWords?: string[];
   };
   meta: {
     state: "rich" | "thin" | "empty";
-    lastEnrichedAt?: number;            // Unix ms
-    reportTypesPresent: string[];       // e.g. ["meta_advertising_activity", "intelligence_synthesis"]
+    lastEnrichedAt?: number; // Unix ms
+    reportTypesPresent: string[]; // e.g. ["meta_advertising_activity", "intelligence_synthesis"]
   };
 }
 ```
 
 **Pulled from** (alaric DB):
+
 - SF Account fields (`Name`, `Description`, `Industry`, `BillingCountry`)
 - alaric `companies.signals` (Phase 27/28: `isOnboardedClient`, `isActivelySpending`, `trailing12MonthRevenue`, `revenueByPlatform`, `revenueTimeline`, `pipeline`, `sfReportingCountry`, `sfReportingCountryCode`, `sfBillingCountry`, `sfManagingEntity`, `clientPlatforms`, `lastCloseWonDate`)
 - alaric `intelligence_reports` rows where `is_current = true` — every type, no cost-bounding (`meta_advertising_activity`, `tiktok_advertising_activity`, `google_advertising_activity`, `ms_advertising_activity`, `web_presence`, `intelligence_synthesis`, `organic_social_activity`, `company_intelligence`)
 - alaric `company_industries` join → canonical 119-category taxonomy with `ads_policy_relevant` flag
 
 **Computed projection rules:**
+
 - `commercial.creativePosture` derived from `(isOnboardedClient × isActivelySpending × lastCloseWonDate)` with 18-month-recency cutoff for lapsed-vs-dormant.
 - `competitive.longestCampaignDays` = `max` across all per-platform reports.
 - `creative.pitchAngles[]` = deduplicated union across per-platform `tactical_brief.pitch_angles`.
@@ -399,11 +411,11 @@ The full response from `GET /api/aca/sf-client?accountId=…`:
 
 ```ts
 interface SfClientBundle {
-  account: SfAccountFull;                  // SF Account record (Name/Industry/Description/BillingCountry/Status__c/Website)
-  intelligence: BrandVoiceExtract | null;  // @deprecated v4 — kept for back-compat
-  intelligenceAge: number | null;          // seconds since the report was generated
-  alaricProfile: AlaricCompanyProfile | null;  // @deprecated v4 — superseded by dossier
-  dossier: BrandDossier | null;            // v4 — the load-bearing field, null when alaric has no companies row
+  account: SfAccountFull; // SF Account record (Name/Industry/Description/BillingCountry/Status__c/Website)
+  intelligence: BrandVoiceExtract | null; // @deprecated v4 — kept for back-compat
+  intelligenceAge: number | null; // seconds since the report was generated
+  alaricProfile: AlaricCompanyProfile | null; // @deprecated v4 — superseded by dossier
+  dossier: BrandDossier | null; // v4 — the load-bearing field, null when alaric has no companies row
 }
 ```
 
@@ -450,6 +462,7 @@ Service-to-service auth between ACA and alaric uses HMAC over `(timestamp + meth
 **v3 migration:** the previous `x-aca-*` header scheme was migrated to canonical `x-aleph-*` headers per the alaric team's convention. Both schemes are accepted on alaric's verifier during a transition window (legacy header path is the fallback when the canonical path fails).
 
 **Header set** (request, signed):
+
 ```
 x-aleph-consumer: "aca"
 x-aleph-timestamp: <unix_seconds>
@@ -464,13 +477,13 @@ x-aleph-signature: <hex_hmac_sha256>
 
 Public contract for the ACA → alaric service-to-service surface. All HMAC-verified. All additive — none of these existed in V3 baseline.
 
-| Route | Method | Body / Query | Returns |
-|-------|--------|--------------|---------|
-| `/api/aca/fetch-content` | POST | `{ url: string, policy?: PolicyName }` | `FetchResult` (alaric tiered fetch result minus `attempts` audit trail) |
-| `/api/aca/sf-search` | GET | `?q=<query>&limit=<n>&clientPlatforms=<csv>&market=<alpha-2>` | `SfAccountSearchHit[]` (id, name, website, industry). `market` filter (alpha-2) added post-v3.5 — composes with `clientPlatforms` (intersect, both ANDed in SOQL). Validation: `^[A-Za-z]{2}$`; non-alpha-2 values 400. |
-| `/api/aca/sf-client` | GET | `?accountId=<sfId>` | `SfClientBundle` (see above) |
-| `/api/aca/enrich-company-async` | POST | `{ accountId: string }` | `202 { status: "enqueued" \| "in_progress" \| "noop_fresh" \| "noop_no_company" \| "noop_no_domain" \| "dispatch_failed", jobId? }` |
-| `/api/aca/markets` | GET | `?platform=<spotify\|...>` (optional) | `{ markets: MarketRow[]; totalCount: number; generatedAt: string }`. 86 alpha-2 markets with `{ code, name, region, aliases[], tld, platformCoverage{}, language: { code, name, script, commerceVocabulary[], legalDescriptors[] } }`. Cache-Control headers (`max-age=60, s-maxage=300, swr=300`) on alaric side. When `platform` is set, drops markets where the platform is `unsupported`; `empty` markets stay (campaigns can still run there). |
+| Route                           | Method | Body / Query                                                  | Returns                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------- | ------ | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/aca/fetch-content`        | POST   | `{ url: string, policy?: PolicyName }`                        | `FetchResult` (alaric tiered fetch result minus `attempts` audit trail)                                                                                                                                                                                                                                                                                                                                                                             |
+| `/api/aca/sf-search`            | GET    | `?q=<query>&limit=<n>&clientPlatforms=<csv>&market=<alpha-2>` | `SfAccountSearchHit[]` (id, name, website, industry). `market` filter (alpha-2) added post-v3.5 — composes with `clientPlatforms` (intersect, both ANDed in SOQL). Validation: `^[A-Za-z]{2}$`; non-alpha-2 values 400.                                                                                                                                                                                                                             |
+| `/api/aca/sf-client`            | GET    | `?accountId=<sfId>`                                           | `SfClientBundle` (see above)                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `/api/aca/enrich-company-async` | POST   | `{ accountId: string }`                                       | `202 { status: "enqueued" \| "in_progress" \| "noop_fresh" \| "noop_no_company" \| "noop_no_domain" \| "dispatch_failed", jobId? }`                                                                                                                                                                                                                                                                                                                 |
+| `/api/aca/markets`              | GET    | `?platform=<spotify\|...>` (optional)                         | `{ markets: MarketRow[]; totalCount: number; generatedAt: string }`. 86 alpha-2 markets with `{ code, name, region, aliases[], tld, platformCoverage{}, language: { code, name, script, commerceVocabulary[], legalDescriptors[] } }`. Cache-Control headers (`max-age=60, s-maxage=300, swr=300`) on alaric side. When `platform` is set, drops markets where the platform is `unsupported`; `empty` markets stay (campaigns can still run there). |
 
 **Compat policy:** new fields on response shapes are additive (mirror types in ACA may lag; legacy response shapes still validate). Removing fields requires lockstep deploy.
 
@@ -478,22 +491,23 @@ Public contract for the ACA → alaric service-to-service surface. All HMAC-veri
 
 For an industrialization team checking which deploys must be coordinated:
 
-| Change | Impact | Coordination |
-|--------|--------|--------------|
-| HMAC header scheme migrated `x-aca-*` → `x-aleph-*` | ACA → alaric service-to-service requests | alaric accepts both during transition. Once both apps run v4, legacy can be retired (one extra alaric deploy). |
-| `ProjectBrief.enrichWithWebSearch` ignored | Generate routes no longer honor the toggle | None — field still decodes; agent just doesn't see the directive anymore. UI control gone. |
-| Hosted `web_search` removed from agent loop | Agent can no longer call OpenAI's hosted web_search mid-iteration | None — replaced by alaric BrandDossier for SF brands; standalone-brand fallback held for v4 Stage W. |
-| Two-pass tag-weaver runs inside `createVoiceDraft` | Each ElevenLabs voice draft generation triggers N additional OpenAI calls (one per track, pass 2) | Cost: ~1 extra `gpt-5.5` call per ElevenLabs track. Falls back gracefully on error (uses pass-1 text). Set `TAG_WEAVER_MODEL=<other>` env var to override. |
-| `ad:{adId}:enrichment-cache` Redis key removed | None for prod — never went to real customers | Stale dev keys auto-evict on 24h TTL. |
-| `enableWebSearch` adapter request flag, `webSearchCallCount` adapter response field, `web_search_start` SSE event removed | Internal types only — no external consumers | None. |
-| `salesforceAccountId` (top-level) marked `@deprecated` | Still emitted, still read | New writers mirror both `brand.salesforceAccountId` AND top-level. Eventual cleanup is a future stage. |
-| `ProjectBrief.toneOfVoice` (`ToneOfVoiceTag[]`) removed in post-v3.5 merge | None for prod — never shipped. Local-only v3.5 internal field replaced by Sergiu's `selectedTone` + `voiceInstructions`. | If any prod brief somehow carried the field, JSON.parse silently ignores. Knowledge-context plumbing also removed; tag-weaver no longer reads it. |
-| `ProjectBrief.brandVoice` no longer in form, no longer read by generate routes | Free-text "brand archetype" field retired in favour of alaric `BrandDossier` projection | Field stays on type as `@deprecated` for legacy decode. BriefPanelV4 surfaces legacy values in a read-only `<details>` block. Removal-pending. |
-| `selectedRegion` semantic shift (voice-region taxonomy → alaric alpha-2) | Brief panel writes alpha-2 codes; generate routes still pass it through unchanged | Legacy non-alpha-2 values render with `(legacy)` suffix in MarketPicker; re-pick promotes. SF-search now accepts `?market=<alpha-2>` filter. |
-| `/api/sf-accounts/search` + `/api/brands/recent` deleted | Folded into `/api/brand-context` discriminated-union route | Both endpoints had zero clientside callers in the merged tree (BriefPanelV3 was deleted in the same commit). No external consumers. |
-| Mixer `getMixerState` / `updateMixerState` Redis helpers deleted | Mixer is a versioned stream now (`ad:{adId}:mixer:v:{versionId}`) | The legacy single-blob `ad:{adId}:mixer` key is no longer written; readers consume the active mixer version via `getActiveVersionData(adId, "mixer")`. Alexandru's pre-merge ad-duplication route was rewritten to clone the four versioned streams uniformly. |
+| Change                                                                                                                    | Impact                                                                                                                   | Coordination                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HMAC header scheme migrated `x-aca-*` → `x-aleph-*`                                                                       | ACA → alaric service-to-service requests                                                                                 | alaric accepts both during transition. Once both apps run v4, legacy can be retired (one extra alaric deploy).                                                                                                                                                 |
+| `ProjectBrief.enrichWithWebSearch` ignored                                                                                | Generate routes no longer honor the toggle                                                                               | None — field still decodes; agent just doesn't see the directive anymore. UI control gone.                                                                                                                                                                     |
+| Hosted `web_search` removed from agent loop                                                                               | Agent can no longer call OpenAI's hosted web_search mid-iteration                                                        | None — replaced by alaric BrandDossier for SF brands; standalone-brand fallback held for v4 Stage W.                                                                                                                                                           |
+| Two-pass tag-weaver runs inside `createVoiceDraft`                                                                        | Each ElevenLabs voice draft generation triggers N additional OpenAI calls (one per track, pass 2)                        | Cost: ~1 extra `gpt-5.5` call per ElevenLabs track. Falls back gracefully on error (uses pass-1 text). Set `TAG_WEAVER_MODEL=<other>` env var to override.                                                                                                     |
+| `ad:{adId}:enrichment-cache` Redis key removed                                                                            | None for prod — never went to real customers                                                                             | Stale dev keys auto-evict on 24h TTL.                                                                                                                                                                                                                          |
+| `enableWebSearch` adapter request flag, `webSearchCallCount` adapter response field, `web_search_start` SSE event removed | Internal types only — no external consumers                                                                              | None.                                                                                                                                                                                                                                                          |
+| `salesforceAccountId` (top-level) marked `@deprecated`                                                                    | Still emitted, still read                                                                                                | New writers mirror both `brand.salesforceAccountId` AND top-level. Eventual cleanup is a future stage.                                                                                                                                                         |
+| `ProjectBrief.toneOfVoice` (`ToneOfVoiceTag[]`) removed in post-v3.5 merge                                                | None for prod — never shipped. Local-only v3.5 internal field replaced by Sergiu's `selectedTone` + `voiceInstructions`. | If any prod brief somehow carried the field, JSON.parse silently ignores. Knowledge-context plumbing also removed; tag-weaver no longer reads it.                                                                                                              |
+| `ProjectBrief.brandVoice` no longer in form, no longer read by generate routes                                            | Free-text "brand archetype" field retired in favour of alaric `BrandDossier` projection                                  | Field stays on type as `@deprecated` for legacy decode. BriefPanelV4 surfaces legacy values in a read-only `<details>` block. Removal-pending.                                                                                                                 |
+| `selectedRegion` semantic shift (voice-region taxonomy → alaric alpha-2)                                                  | Brief panel writes alpha-2 codes; generate routes still pass it through unchanged                                        | Legacy non-alpha-2 values render with `(legacy)` suffix in MarketPicker; re-pick promotes. SF-search now accepts `?market=<alpha-2>` filter.                                                                                                                   |
+| `/api/sf-accounts/search` + `/api/brands/recent` deleted                                                                  | Folded into `/api/brand-context` discriminated-union route                                                               | Both endpoints had zero clientside callers in the merged tree (BriefPanelV3 was deleted in the same commit). No external consumers.                                                                                                                            |
+| Mixer `getMixerState` / `updateMixerState` Redis helpers deleted                                                          | Mixer is a versioned stream now (`ad:{adId}:mixer:v:{versionId}`)                                                        | The legacy single-blob `ad:{adId}:mixer` key is no longer written; readers consume the active mixer version via `getActiveVersionData(adId, "mixer")`. Alexandru's pre-merge ad-duplication route was rewritten to clone the four versioned streams uniformly. |
 
 **Not breaking** (additive, safe to deploy independently):
+
 - New ProjectBrief fields (`brand`, `creativeAngle`, `varianceMode`, `referenceUrls`, `forbiddenWords`, `providedScript`, `selectedCTA`, `selectedTone`, `voiceInstructions`, `campaignFormat` enum extension) — every reader handles undefined.
 - `VoiceVersion.knowledgeContext` and `tagLintWarnings` — both optional.
 - `VoiceTrack` provider-specific fields (`dialectId`, `performanceId`, `emotion`, `description`, `voiceInstructions`, post-processing fields) — all optional.
@@ -534,7 +548,8 @@ The cogwheel on `ScripterPanel` (per-track iteration entry point) previously onl
 Model bump from `gpt-5` to `gpt-5.5` across the codebase. Two callsites: the agent loop (`OpenAIAdapter.invoke` in `tool-calling/adapters/`) and the per-track conversion endpoint (`/api/ai/convert-voice-track`). Both use the Responses API.
 
 Knobs settled after experimentation:
-- **Reasoning effort: `medium`.** Initial proposal was `low` for the first generation (cheaper, faster). User pushed back: *"the agent needs to consider full input from BriefPanelV3 including thinking about the brand voice"* — kept at `medium`.
+
+- **Reasoning effort: `medium`.** Initial proposal was `low` for the first generation (cheaper, faster). User pushed back: _"the agent needs to consider full input from BriefPanelV3 including thinking about the brand voice"_ — kept at `medium`.
 - **Output verbosity: `low`.** The agent loop produces tool calls, not long prose. GPT-5.5's migration guide recommends `low` for concise responses; tool preambles (the 1-sentence reasoning before each call from the system prompt) are independent of `text.verbosity` and still emitted.
 - **`previous_response_id` continuity.** Same as v3 — chain-of-thought retained across iterations via the response ID, not by manually echoing assistant items.
 - **24-hour prompt caching.** Built-in.
@@ -554,17 +569,17 @@ The previous system prompt was process-first ("FOLLOW EXACTLY: 1. read state, 2.
 
 The brief panel grew substantially during this window (before the alaric integration came on top). Fields added to `ProjectBrief`:
 
-| Field | Render path | Notes |
-|-------|-------------|-------|
-| `toneOfVoice` | `## Brand register` chips → injected into `KnowledgeContext` for ElevenLabs module | 11 canonical tags (warm / urgent / playful / authoritative / conversational / earnest / sardonic / tender / confident / intimate / irreverent). Multi-select. Distinct from per-voice acting tone — this is brand-level. |
-| `brandVoice` | `## Brand voice (free-text)` block in user message | One-paragraph archetype. Examples: "underdog with quiet confidence — never claims authority, earns it through specifics" / "luxury brand told from the artisan's perspective, not the marketing team's". |
-| `referenceUrls` | `## Reference Page Content` block per URL (URL-type aware extract) | Alaric's tiered fetch cascade scrapes; URL-type detection runs per URL. Was originally rendered into prompt verbatim in v3 stage 3; the alaric fetch wiring landed in stage A–E. |
-| `forbiddenWords` | `## Avoid these words / phrases` block | Regulatory / brand / cliché bans. Pre-fillable from alaric `policy.tabooWords` when present. |
-| `providedScript` | `## Provided Script (USE VERBATIM)` block | Use-verbatim mode — agent only writes acting instructions / music / SFX around it. Doesn't translate, paraphrase, or edit. |
-| `creativeAngle` | `## Creative angle (THIS spot only)` block | The variance — what makes this ad different from every other ad for this brand. Brand voice = constant; angle = variance. Soft warning when alaric/SF or `referenceUrls` are populated but `creativeAngle` is empty (the brand-anchored output loses per-spot edge). |
-| `selectedCTA` | One of 22 canonical tokens | apply-now / book-now / shop-now / etc. + `none`. |
-| `campaignFormat` | extended to 6 values | See above. |
-| `varianceMode` | reserved | `"anchored" \| "exploratory"`. Forward-compat field for Stage F (transcript-level retrieval, opt-in). Not yet UI-surfaced. |
+| Field            | Render path                                                                        | Notes                                                                                                                                                                                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `toneOfVoice`    | `## Brand register` chips → injected into `KnowledgeContext` for ElevenLabs module | 11 canonical tags (warm / urgent / playful / authoritative / conversational / earnest / sardonic / tender / confident / intimate / irreverent). Multi-select. Distinct from per-voice acting tone — this is brand-level.                                             |
+| `brandVoice`     | `## Brand voice (free-text)` block in user message                                 | One-paragraph archetype. Examples: "underdog with quiet confidence — never claims authority, earns it through specifics" / "luxury brand told from the artisan's perspective, not the marketing team's".                                                             |
+| `referenceUrls`  | `## Reference Page Content` block per URL (URL-type aware extract)                 | Alaric's tiered fetch cascade scrapes; URL-type detection runs per URL. Was originally rendered into prompt verbatim in v3 stage 3; the alaric fetch wiring landed in stage A–E.                                                                                     |
+| `forbiddenWords` | `## Avoid these words / phrases` block                                             | Regulatory / brand / cliché bans. Pre-fillable from alaric `policy.tabooWords` when present.                                                                                                                                                                         |
+| `providedScript` | `## Provided Script (USE VERBATIM)` block                                          | Use-verbatim mode — agent only writes acting instructions / music / SFX around it. Doesn't translate, paraphrase, or edit.                                                                                                                                           |
+| `creativeAngle`  | `## Creative angle (THIS spot only)` block                                         | The variance — what makes this ad different from every other ad for this brand. Brand voice = constant; angle = variance. Soft warning when alaric/SF or `referenceUrls` are populated but `creativeAngle` is empty (the brand-anchored output loses per-spot edge). |
+| `selectedCTA`    | One of 22 canonical tokens                                                         | apply-now / book-now / shop-now / etc. + `none`.                                                                                                                                                                                                                     |
+| `campaignFormat` | extended to 6 values                                                               | See above.                                                                                                                                                                                                                                                           |
+| `varianceMode`   | reserved                                                                           | `"anchored" \| "exploratory"`. Forward-compat field for Stage F (transcript-level retrieval, opt-in). Not yet UI-surfaced.                                                                                                                                           |
 
 Each field has a corresponding section helper in `buildUserMessage` in both `/api/ai/generate/route.ts` and `/api/ai/generate-stream/route.ts`.
 
@@ -577,6 +592,7 @@ Event vocabulary (`StreamUpdateEvent` union in the route file): `llm-thinking`, 
 ### Lahajati + Smart Speed + draft persistence fixes
 
 Three smaller cuts shipped in this window:
+
 - **Lahajati provider polish.** `LahajatiVoiceProvider` got dynamic dialect fetching, 339 Arabic voices + 116 dialects cached in Redis, accent → dialect_id mapping (e.g. "المصرية" → "egyptian" → dialect 7), `input_mode: "1"` for custom Arabic role instructions. Knowledge module had a stuck-state where TTS preview failed for newly-cast Lahajati voices — fixed by ensuring the provider config flows through the cogwheel iteration path.
 - **Smart Speed for Qwen + ByteDance + Lovo.** Generalized the post-processing time-stretch (`postProcessingSpeedup`, WSOLA) so providers without native speed control get the same lever. ElevenLabs uses both native + post-processing; Qwen / Lovo / ByteDance use only post-processing.
 - **"Request a change" survives focus loss.** The iteration entry-point textarea on `ScripterPanel` lost typed content if the user blurred away (e.g. switched tabs to read a reference URL). Now drafts to local state until explicit cancel/submit.
@@ -601,12 +617,14 @@ Two sibling Next.js apps, one dev. Alaric has a battle-tested tiered fetch casca
 **Auth (Stage A — `src/lib/aca-auth.ts` on alaric, `src/lib/alaric-client.ts` on ACA).** HMAC over canonical `(timestamp + method + path + sha256(body))` with `consumer_id: "aca"` binding and a 60s replay window. Single shared secret `ACA_ALARIC_SHARED_SECRET` on both apps. Migrated in v3 from a legacy `x-aca-*` header scheme to canonical `x-aleph-*` headers per the alaric team's convention.
 
 **Endpoint surface on alaric** (under `/api/aca/*`, all HMAC-verified):
+
 - `POST /api/aca/fetch-content` — wraps `fetchContent(url, { policy })`.
 - `GET /api/aca/sf-search` — Salesforce Account name-prefix search. v3 Stage P added `?clientPlatforms=spotify` filter (joins alaric `companies.signals.clientPlatforms` first, then bounds SOQL by `Id IN (…)`). Excludes accounts with `!Blocked` name prefix at the SOQL level.
 - `GET /api/aca/sf-client?accountId=…` — bundled Account + intelligence + alaric profile + (v4) BrandDossier in one shot.
 - `POST /api/aca/enrich-company-async` — fire-and-forget enrichment trigger (Stage J). Returns 202 with `status: "enqueued" | "in_progress" | "noop_fresh" | "noop_no_company" | "noop_no_domain" | "dispatch_failed"`. Idempotency guard via alaric's `getActiveEnrichmentJob`; staleness window 48h.
 
 **Brief enrichment pipeline** (`src/lib/brief-enrichment.ts`):
+
 - `prefetchBriefEnrichments({ adId, salesforceAccountId, referenceUrls })` — fans out SF lookup + per-URL fetches in parallel, capped at a 12s wall-clock deadline. Anything slow gets dropped silently with a structured log line — alaric being unreachable should never block generation.
 - URL-type detection: `homepage` → tagline + lede (1200 chars); `press_release` → lede + headline (2000 chars); `product` → full readable (4000 chars); `reference_ad` → excluded by default (regression-to-the-mean trap held for Stage F).
 - `renderEnrichmentSections(prefetched)` — produces the `## Brand Dossier — {name}` block (v4) or legacy `## Client (from Salesforce)` + `## Brand Voice — extracted` blocks (when dossier is null) + `## Reference Page Content`. Empty slots omitted.
@@ -623,7 +641,7 @@ Two sibling Next.js apps, one dev. Alaric has a battle-tested tiered fetch casca
 
 ### v4 chrome amputation (Stages U + V + X)
 
-Stage R in v3 had shipped an explicit "Enrich brief" button + result-card panel as the answer to "no black-box enrichment." On real client testing (Heineken Bulgaria, SF-backed but no alaric profile), the result card rendered: *"Salesforce + alaric / Heineken Bulgaria"* — the brand name, again. Empty success theater. User feedback was sharp: *"you ran enrichment but displayed nothing? what is the point of doing it, then?"* + *"why are there two 'enrich' actions, one in pane 1 and the other in pane 2?"* + *"NO EMOJIS IN UI!!!"*.
+Stage R in v3 had shipped an explicit "Enrich brief" button + result-card panel as the answer to "no black-box enrichment." On real client testing (Heineken Bulgaria, SF-backed but no alaric profile), the result card rendered: _"Salesforce + alaric / Heineken Bulgaria"_ — the brand name, again. Empty success theater. User feedback was sharp: _"you ran enrichment but displayed nothing? what is the point of doing it, then?"_ + _"why are there two 'enrich' actions, one in pane 1 and the other in pane 2?"_ + _"NO EMOJIS IN UI!!!"_.
 
 Audio-ads-creative-expert agent diagnosed it: two surfaces doing one job, badly. v4 collapsed them.
 
@@ -642,6 +660,7 @@ After v3.5 was committed locally on `mixer-version-stream` but before it shipped
 Pre-merge, v3.5 had its own tone-of-voice surface: an 11-value closed enum (`ToneOfVoiceTag`) rendered as a chip multi-select, framed as "brand register / tone of voice." Comma-joined into a `## Brand register` bullet in the prompt.
 
 Sergiu independently shipped a different mental model on `main`:
+
 - DB-backed `suggested_tones` table (Drizzle migration `0002_add_suggested_tones`): `{ id uuid, title, description, voice_instructions, is_active, timestamps }`. Five seeded presets (Professional / Energetic / Warm / Authoritative / Sarcastic).
 - Admin CRUD at `/admin/tone-of-voice` (list / new / edit / delete) gated by the `admin` role middleware, with an "Generate instructions with AI" button calling `gpt-5.4` to draft prosody-focused voice instructions for a given title + description.
 - Public read-only `GET /api/tone-of-voice` (active-only, sorted newest first) consumed by the brief panel.
@@ -652,6 +671,7 @@ Sergiu independently shipped a different mental model on `main`:
 The two pipelines were orthogonal mental models — multi-select tags ("how the BRAND should feel") vs. single preset → resolved prosody string ("how the line is read"). The user picked **Sergiu's pipeline as canonical**, dropping our naive enum entirely.
 
 What landed in this revision:
+
 - `ToneOfVoiceTag` union type + `ProjectBrief.toneOfVoice` field deleted (zero prod readers — never shipped).
 - `KnowledgeContext.toneOfVoice` plumbing removed; `tag-weaver` brief-line composer no longer references it.
 - All of Sergiu's files adopted verbatim: admin pages, admin API routes, public API route, service, `ToneSelector`, `Switch`, `ConfirmDialog` UI primitives, the `useToneOfVoice` hook (`src/hooks/useToneOfVoice.ts`).
@@ -661,6 +681,7 @@ What landed in this revision:
 ### Alexandru's ad-duplication feature (AAC-18, rewritten for v3.5 mixer streams)
 
 Alexandru shipped `/api/ads/[id]/duplicate` + a `DuplicateAdPopup` component on `main`. The original implementation predated v3.5's mixer redesign:
+
 - Read mixer state via `getMixerState(adId)` (single Redis blob `ad:{adId}:mixer`)
 - Wrote it to the duplicate via `updateMixerState(newAdId, mixerState)`
 - Cloned voice/music/sfx via `getActiveVersionData` + `createVersion` (per-stream, three streams)
@@ -669,6 +690,7 @@ Alexandru shipped `/api/ads/[id]/duplicate` + a `DuplicateAdPopup` component on 
 In v3.5, `getMixerState` / `updateMixerState` are **deleted** — the mixer is a versioned stream (`ad:{adId}:mixer:v:{versionId}` + active pointer), and `MixerVersion` carries the entire arrangement (anchors, pins, overrides, cachedResolverOutput, mixedAudioUrl). Alexandru's route would not compile against v3.5 as-shipped.
 
 The route was rewritten in this revision to clone all four streams uniformly:
+
 - `getActiveVersionData(adId, stream)` for each of `["voices", "music", "sfx", "mixer"]`
 - `mixer.mixedAudioUrl` rewritten via `@vercel/blob` `copy()` to a new blob path under `newAdId/...` (preview logo + visual the same way)
 - `createVersion(newAdId, stream, data)` for each of the four streams
@@ -703,6 +725,7 @@ BriefPanelV4 (orchestrator: useState + Redis save + alaric implicit-on-save)
 ```
 
 Decisions worth carrying forward:
+
 - **Three primary fields exposed** (creative brief, ad format, tone of voice). Everything else collapsed.
 - **Custom script via tabbar, not collapsible.** Mirrors the music panel's mode-toggle idiom (`GlassTabBar` / `GlassTab` from `@/components/ui`). When in script mode, brief/angle/collapsibles all hide; brief save still includes both fields so toggling preserves edits.
 - **Pacing / CTA / Tone collapsibles carry a badge** showing the current value (`Normal` / `Fast`, the matched CTA label, the matched tone preset title). User sees state without expanding.
@@ -734,15 +757,21 @@ Replaced two separate endpoints (`/api/sf-accounts/search` and `/api/brands/rece
 // POST /api/brand-context
 type BrandContextRequest =
   | { kind: "sf-account"; accountId: string; marketAlpha2?: string }
-  | { kind: "search"; query: string; marketAlpha2?: string; clientPlatforms?: string[]; limit?: number }
+  | {
+      kind: "search";
+      query: string;
+      marketAlpha2?: string;
+      clientPlatforms?: string[];
+      limit?: number;
+    }
   | { kind: "greenfield"; marketAlpha2?: string; limit?: number }
-  | { kind: "spotify-ad-manager"; campaignId: string; marketAlpha2?: string };  // 501 today
+  | { kind: "spotify-ad-manager"; campaignId: string; marketAlpha2?: string }; // 501 today
 
 type BrandContextResponse = {
   brand: BrandRef | null;
-  candidates?: SfAccountSearchResult[];   // for kind: "search"
-  recents?: BrandRef[];                   // for kind: "greenfield"
-  dossier: BrandDossier | null;           // for kind: "sf-account"
+  candidates?: SfAccountSearchResult[]; // for kind: "search"
+  recents?: BrandRef[]; // for kind: "greenfield"
+  dossier: BrandDossier | null; // for kind: "sf-account"
   market: MarketRow | null;
   enrichmentSummary?: { slotCount: number; lastEnrichedAt?: number };
 };
@@ -770,6 +799,7 @@ For preview-domain deploys (e.g. `mixer.alephcreative.cloud` aliased to the `mix
 ### Files added / deleted in this revision
 
 **Added:**
+
 - `src/components/BriefPanelV4.tsx`
 - `src/components/brief-topics/{BrandTopic,CreativeTopic,LanguageTopic,CollapsibleSection}.tsx`
 - `src/components/brief-topics/subeditors/{BrandPickerSubeditor,MarketPicker,DossierSummary,VoiceInstructionsSubeditor,ReferenceUrlsSubeditor,ForbiddenWordsSubeditor,CustomScriptSubeditor}.tsx`
@@ -787,12 +817,14 @@ For preview-domain deploys (e.g. `mixer.alephcreative.cloud` aliased to the `mix
 - `drizzle/migrations/0002_add_suggested_tones.sql` (Sergiu's)
 
 **Deleted:**
+
 - `src/components/BriefPanelV3.tsx`
 - `src/app/api/sf-accounts/search/route.ts`
 - `src/app/api/brands/recent/route.ts`
 - v3.5 internal: `ToneOfVoiceTag` union, `ProjectBrief.toneOfVoice` field, `KnowledgeContext.toneOfVoice`, `tag-weaver` brief-line `tone=` segment
 
 **Modified (notable):**
+
 - `src/lib/alaric-client.ts` — added `getMarkets`, `MarketRow`, `MarketsResponse`, `PlatformCoverage`, `MarketLanguage` types; `searchSfAccounts` accepts `market?: string` opt
 - `src/lib/redis/versions.ts` — `getActiveVersionData` uses `VersionFor<T>` so `mixer` stream type-checks; legacy `getMixerState` / `updateMixerState` deleted
 - `src/types/index.ts` — `selectedTone` + `voiceInstructions` added; `brandVoice` + `enrichWithWebSearch` marked `@deprecated`; `ToneOfVoiceTag` removed
@@ -810,21 +842,23 @@ The December 2025 design doc (`docs/mixer-v3-concept.md`) correctly named the sy
 
 What shipped is the same architectural intent with five substantive corrections:
 
-| Mixer-V3 proposal | What v3.5 actually shipped | Why the change |
-|-------------------|----------------------------|----------------|
-| Semantic IDs (`voice-1`, `sfx-1`, `music-1`) baked into track IDs | **Slot IDs** minted server-side per stream version, decoupled from any user-facing label, stable across regeneration via ordinal-match copy through `parentVersionId` | The "semantic" framing conflated identity (slot) with order (ordinal) and produced a brittle string format. Slot IDs are opaque, mintable on slot inserts mid-stream, and survive ordinal reshuffles. |
-| Client-side `CommandBatcher` (100ms window) | **No batcher.** The server is the calculator; the client is a renderer. | Once the client stops recalculating, there is nothing for a batcher to batch. Drag preview is local UI state in Zustand; drop is a single PATCH. |
-| `playAfter` strings on tracks (one relationship type) | **Five-primitive anchor vocabulary** — `absolute` / `relativeTo` / `simultaneousWith` / `atFraction` / `anchorChain` — with `layout: "overlay" \| "push"` and `origin: "llm-seed" \| "user-edit" \| "system-default"` provenance | `playAfter` can't represent the cases that broke v3 (sfx halfway through a voice; sfx that should push later voices; co-starting concurrent voices). Five primitives compose to all of them without escape hatches. |
-| `timelineState.version >= 2` flag on the project blob, in-place hybrid | **Mixer becomes its own version stream** at `ad:{id}:mixer:versions / :active / :v:{versionId}`, parallel to voices/music/sfx | Variants (Mandarin, dialog cast, pacing) are mixer versions, not parallel project blobs. The single-blob hybrid had no model for "same content, different arrangement." |
-| Batch migration script for legacy projects | **Lazy-on-read bootstrap** with a `withAdLock` primitive — first read of a legacy ad materializes `mixer:v1` in place, deletes the legacy `ad:{id}:mixer` blob, and never re-bootstraps | Most legacy ads are sales-pitch artifacts that never get reopened. Batch migration touches them all; lazy bootstrap touches zero unless someone needs to. |
+| Mixer-V3 proposal                                                      | What v3.5 actually shipped                                                                                                                                                                                                       | Why the change                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Semantic IDs (`voice-1`, `sfx-1`, `music-1`) baked into track IDs      | **Slot IDs** minted server-side per stream version, decoupled from any user-facing label, stable across regeneration via ordinal-match copy through `parentVersionId`                                                            | The "semantic" framing conflated identity (slot) with order (ordinal) and produced a brittle string format. Slot IDs are opaque, mintable on slot inserts mid-stream, and survive ordinal reshuffles.               |
+| Client-side `CommandBatcher` (100ms window)                            | **No batcher.** The server is the calculator; the client is a renderer.                                                                                                                                                          | Once the client stops recalculating, there is nothing for a batcher to batch. Drag preview is local UI state in Zustand; drop is a single PATCH.                                                                    |
+| `playAfter` strings on tracks (one relationship type)                  | **Five-primitive anchor vocabulary** — `absolute` / `relativeTo` / `simultaneousWith` / `atFraction` / `anchorChain` — with `layout: "overlay" \| "push"` and `origin: "llm-seed" \| "user-edit" \| "system-default"` provenance | `playAfter` can't represent the cases that broke v3 (sfx halfway through a voice; sfx that should push later voices; co-starting concurrent voices). Five primitives compose to all of them without escape hatches. |
+| `timelineState.version >= 2` flag on the project blob, in-place hybrid | **Mixer becomes its own version stream** at `ad:{id}:mixer:versions / :active / :v:{versionId}`, parallel to voices/music/sfx                                                                                                    | Variants (Mandarin, dialog cast, pacing) are mixer versions, not parallel project blobs. The single-blob hybrid had no model for "same content, different arrangement."                                             |
+| Batch migration script for legacy projects                             | **Lazy-on-read bootstrap** with a `withAdLock` primitive — first read of a legacy ad materializes `mixer:v1` in place, deletes the legacy `ad:{id}:mixer` blob, and never re-bootstraps                                          | Most legacy ads are sales-pitch artifacts that never get reopened. Batch migration touches them all; lazy bootstrap touches zero unless someone needs to.                                                           |
 
 What was kept verbatim:
+
 - The cascade diagnosis (audio loads → `setAudioDuration` → `calculateTimings` → re-render → `calculateTimings` → save callback → `calculateTimings` …) — fixed by stage 1.
 - The dependency-sort fix for mid-timeline sfx — implemented as Kahn topological sort + DFS cycle detection in the pure resolver.
 - The hybrid-persistence principle that legacy reads never break — implemented via the lazy-bootstrap path and the legacy-blob fallback in `useMixerData`.
 - The "pure timeline calculator" idea — fully implemented as `src/services/timelineResolver.ts`.
 
 What was rejected outright:
+
 - **Feature flag** (`ENABLE_MIXER_V3`). The proposal hedged on dual systems coexisting indefinitely. Once the resolver shipped, the legacy calculator was retired immediately — both systems running side-by-side is its own bug source.
 - **Phase 4 / Phase 5 deferred enhancements** treated as post-V3 stretch (drag-and-drop, undo/redo, multi-select, snapping, validation, grouping, templates, event sourcing). v3.5 ships drag and trim today; undo/redo is a stage-9-or-later item rather than "future enhancement."
 - **`generatedTracks` mirroring** for legacy-system reads. The legacy calculator is gone; mirroring would have kept it on life support.
@@ -833,19 +867,19 @@ What was rejected outright:
 
 The redesign shipped on the `mixer-version-stream` branch in nine stages. Stages 2 / 3 / 4 / 5 are independent foundation; 6 depends on all of them; 7 depends on 6; 8 depends on 6 + 7. Stage 1 went first as the prerequisite reactivity cure.
 
-| Stage | Title | Behavior shipped |
-|-------|-------|------------------|
-| 1 | Reactivity cure + duration backfill | Deleted `calculateTimings`, `setAudioDuration`, `audioDurations`, `saveCallback` from `mixerStore`. Rewrote the six `loadedmetadata` callsites in `MixerPanel` to be observers, not triggers. Backfilled `generatedDuration` on legacy voice versions so the resolver doesn't fall back to the word-count heuristic. Mandatory ~8ms micro-fades on every clip edge in `audio-mixer.ts`. |
-| 2 | Slot IDs + `parentVersionId` plumbing | Added `slotId` to `VoiceTrack`, `SoundFxPrompt.variants[]`, `MusicVersion`. `create_voice_draft` / `create_music_draft` / `create_sfx_draft` accept optional `parentVersionId`. `reconcileSlots()` ordinal-match copies slot IDs forward when track count is unchanged; mints fresh IDs when the LLM inserts/removes slots; emits a slot-reconciliation report so the mixer draft can flag orphaned anchors. |
-| 3 | Pure `TimelineResolver` | New `src/services/timelineResolver.ts` is a pure function `(tracks, anchors, pins, overrides, format) → { calculatedTracks, totalDuration, diagnostics }`. Kahn topological sort + DFS cycle detection over the anchor graph. Push-extension registry: when a `layout: "push"` clip resolves, downstream clips referencing the same source slot shift forward. Per-locale `autoSpeedupCap` (en/es/de 1.15, pl 1.12, ar/zh 1.08, ja/ko 1.10) drives the duration-squeeze release valve. Disclaimer-flagged voices are non-stretchable + force music to ≤ −30 dB during the disclaimer window. Fixture tests cover intro sfx, mid-timeline sfx with push, concurrent voices, cycle rejection, locale speedup caps, orphan handling. |
-| 4 | Unified anchor seeds at the LLM tool surface | `create_voice_draft` / `create_music_draft` / `create_sfx_draft` accept a normalized `anchor` field (the same five primitives, ordinal-addressed). Legacy `playAfter` / `overlap` / `isConcurrent` / `SoundFxPlacementIntent` inputs are auto-translated by stream-side seed translators; readers never see the legacy shape. |
-| 5 | `withAdLock` atomic primitive | New `src/lib/redis/adLock.ts` — Redis `SET NX EX` for acquisition, Lua CAS-delete for release. Used by every freeze endpoint to atomically swap `(stream active pointer + mixer draft pin)`, by stage-6 lazy bootstrap to prevent two-tab races, and by `/mixer/new-take` for freeze-fork-activate. |
-| 6 | Mixer version stream + lazy bootstrap | New Redis keys `ad:{id}:mixer:versions / :active / :v:{versionId} / :counter`. CRUD endpoints (`/mixer`, `/mixer/freeze`, `/mixer/{versionId}/activate`, `/mixer/new-take`, `/mixer/remove-stream`, `/mixer/rebuild`) all guarded by `withAdLock`. **No batch migration.** First read of a mixer-less ad runs `bootstrapLegacyMixer(adId)`: loads the ad's current voice/music/sfx active versions, derives `llm-seed` anchors via `anchorFromVoiceTrack` / `anchorFromSoundFxPrompt` / `anchorFromMusicVersion`, mints `mixer:v1` (frozen + active), deletes the legacy `ad:{id}:mixer` blob. Idempotent on second read; truly-empty ads skip bootstrap entirely. |
-| 7 | Resolver swap in `rebuildMixer` | `rebuilder.ts` becomes `load → resolve → write`: load the active mixer version + pinned stream versions, run the pure resolver, project to the response shape `MixerTrack[]`, write the resolver cache. Frozen mixer versions cache resolver output on the version blob; drafts resolve fresh on every read. `LegacyTimelineCalculator` retired. Cache-collapse bug fixed (slot-ID → `MixerTrack` map, not stream-type prefix match — see Bugfixes). |
-| 8a | Drag + drop with anchor materialization | `TimelineTrack` is draggable. `src/services/anchorFromDrop.ts` materializes the drop into one of the five primitives by proximity (near edge → `relativeTo`; within span → `simultaneousWith` or `atFraction`; past last clip → `absolute`; opt/alt → force `absolute`). Cycle detection via `existingRefs` walked at drop time. PATCH `/mixer` accepts `anchorUpdates: Record<SlotId, AnchorEntry \| null>` (null = re-derive seed). Origin stamped `user-edit`. |
-| 8b | Trim — voice head/tail, music tail, sfx tail | Pointer-down threshold 4 px to enter drag, 8 px edge zone to enter trim mode. Drag ribbon edges to write `ClipOverrides.trim = { start, end }`. Resolver clips playback window; `audio-mixer.ts` honors trim via `source.start(when, sourceOffset, playDuration)`; renderer applies mandatory micro-fades on trimmed edges. Live waveform crop matches committed window. |
-| 8c | Soft-elastic format horizon | Format duration drawn as a dashed guide; past it red shading; canvas extends to `max(totalDuration, formatDuration ?? 0, 1)` so a 12 s ad never shrinks the canvas under a 15 s format. Drag into the warning zone is allowed but visually flagged. |
-| 8d | Polish — kebab menu, takes selector, scrubbing, LUFS meter, mute/solo | Volume slider moved into per-track 3-dots kebab menu (right-click + external trigger). Click the dB readout to reset to 0. Mute (`M`) / solo (`S`) toggles in the same kebab — soloed clips get a yellow ring; muted (or implicitly muted because something else is soloed) ribbons dim to 35%; render path silences via `gainDb: -1000` sentinel that `audio-mixer.ts` interprets as hard mute. Mute/solo state lives ephemerally in `mixerStore` (`mutedTrackIds` / `soloedTrackIds` Sets), not persisted. Takes dropdown in the timeline header with "Start a new take" action. Click-to-seek + drag scrubbing on the timeline (bails on interactive elements). New `LoudnessMeter` component reads the preview audio element via Web Audio with K-weighting biquad approximation, rAF-driven update at 60 fps. Reset-to-seed in the kebab menu reverts a single anchor's `user-edit` back to its `llm-seed` provenance. |
+| Stage | Title                                                                 | Behavior shipped                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Reactivity cure + duration backfill                                   | Deleted `calculateTimings`, `setAudioDuration`, `audioDurations`, `saveCallback` from `mixerStore`. Rewrote the six `loadedmetadata` callsites in `MixerPanel` to be observers, not triggers. Backfilled `generatedDuration` on legacy voice versions so the resolver doesn't fall back to the word-count heuristic. Mandatory ~8ms micro-fades on every clip edge in `audio-mixer.ts`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 2     | Slot IDs + `parentVersionId` plumbing                                 | Added `slotId` to `VoiceTrack`, `SoundFxPrompt.variants[]`, `MusicVersion`. `create_voice_draft` / `create_music_draft` / `create_sfx_draft` accept optional `parentVersionId`. `reconcileSlots()` ordinal-match copies slot IDs forward when track count is unchanged; mints fresh IDs when the LLM inserts/removes slots; emits a slot-reconciliation report so the mixer draft can flag orphaned anchors.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 3     | Pure `TimelineResolver`                                               | New `src/services/timelineResolver.ts` is a pure function `(tracks, anchors, pins, overrides, format) → { calculatedTracks, totalDuration, diagnostics }`. Kahn topological sort + DFS cycle detection over the anchor graph. Push-extension registry: when a `layout: "push"` clip resolves, downstream clips referencing the same source slot shift forward. Per-locale `autoSpeedupCap` (en/es/de 1.15, pl 1.12, ar/zh 1.08, ja/ko 1.10) drives the duration-squeeze release valve. Disclaimer-flagged voices are non-stretchable + force music to ≤ −30 dB during the disclaimer window. Fixture tests cover intro sfx, mid-timeline sfx with push, concurrent voices, cycle rejection, locale speedup caps, orphan handling.                                                                                                                                                                                           |
+| 4     | Unified anchor seeds at the LLM tool surface                          | `create_voice_draft` / `create_music_draft` / `create_sfx_draft` accept a normalized `anchor` field (the same five primitives, ordinal-addressed). Legacy `playAfter` / `overlap` / `isConcurrent` / `SoundFxPlacementIntent` inputs are auto-translated by stream-side seed translators; readers never see the legacy shape.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 5     | `withAdLock` atomic primitive                                         | New `src/lib/redis/adLock.ts` — Redis `SET NX EX` for acquisition, Lua CAS-delete for release. Used by every freeze endpoint to atomically swap `(stream active pointer + mixer draft pin)`, by stage-6 lazy bootstrap to prevent two-tab races, and by `/mixer/new-take` for freeze-fork-activate.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 6     | Mixer version stream + lazy bootstrap                                 | New Redis keys `ad:{id}:mixer:versions / :active / :v:{versionId} / :counter`. CRUD endpoints (`/mixer`, `/mixer/freeze`, `/mixer/{versionId}/activate`, `/mixer/new-take`, `/mixer/remove-stream`, `/mixer/rebuild`) all guarded by `withAdLock`. **No batch migration.** First read of a mixer-less ad runs `bootstrapLegacyMixer(adId)`: loads the ad's current voice/music/sfx active versions, derives `llm-seed` anchors via `anchorFromVoiceTrack` / `anchorFromSoundFxPrompt` / `anchorFromMusicVersion`, mints `mixer:v1` (frozen + active), deletes the legacy `ad:{id}:mixer` blob. Idempotent on second read; truly-empty ads skip bootstrap entirely.                                                                                                                                                                                                                                                          |
+| 7     | Resolver swap in `rebuildMixer`                                       | `rebuilder.ts` becomes `load → resolve → write`: load the active mixer version + pinned stream versions, run the pure resolver, project to the response shape `MixerTrack[]`, write the resolver cache. Frozen mixer versions cache resolver output on the version blob; drafts resolve fresh on every read. `LegacyTimelineCalculator` retired. Cache-collapse bug fixed (slot-ID → `MixerTrack` map, not stream-type prefix match — see Bugfixes).                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 8a    | Drag + drop with anchor materialization                               | `TimelineTrack` is draggable. `src/services/anchorFromDrop.ts` materializes the drop into one of the five primitives by proximity (near edge → `relativeTo`; within span → `simultaneousWith` or `atFraction`; past last clip → `absolute`; opt/alt → force `absolute`). Cycle detection via `existingRefs` walked at drop time. PATCH `/mixer` accepts `anchorUpdates: Record<SlotId, AnchorEntry \| null>` (null = re-derive seed). Origin stamped `user-edit`.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 8b    | Trim — voice head/tail, music tail, sfx tail                          | Pointer-down threshold 4 px to enter drag, 8 px edge zone to enter trim mode. Drag ribbon edges to write `ClipOverrides.trim = { start, end }`. Resolver clips playback window; `audio-mixer.ts` honors trim via `source.start(when, sourceOffset, playDuration)`; renderer applies mandatory micro-fades on trimmed edges. Live waveform crop matches committed window.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 8c    | Soft-elastic format horizon                                           | Format duration drawn as a dashed guide; past it red shading; canvas extends to `max(totalDuration, formatDuration ?? 0, 1)` so a 12 s ad never shrinks the canvas under a 15 s format. Drag into the warning zone is allowed but visually flagged.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 8d    | Polish — kebab menu, takes selector, scrubbing, LUFS meter, mute/solo | Volume slider moved into per-track 3-dots kebab menu (right-click + external trigger). Click the dB readout to reset to 0. Mute (`M`) / solo (`S`) toggles in the same kebab — soloed clips get a yellow ring; muted (or implicitly muted because something else is soloed) ribbons dim to 35%; render path silences via `gainDb: -1000` sentinel that `audio-mixer.ts` interprets as hard mute. Mute/solo state lives ephemerally in `mixerStore` (`mutedTrackIds` / `soloedTrackIds` Sets), not persisted. Takes dropdown in the timeline header with "Start a new take" action. Click-to-seek + drag scrubbing on the timeline (bails on interactive elements). New `LoudnessMeter` component reads the preview audio element via Web Audio with K-weighting biquad approximation, rAF-driven update at 60 fps. Reset-to-seed in the kebab menu reverts a single anchor's `user-edit` back to its `llm-seed` provenance. |
 
 Stage 9 (variant UX + A/B preview slot, labeled forking) is held — see "Held for stage 9" below. The data model supports it today; only the UI is unbuilt. Mute / solo shipped in 8d (kebab menu, ephemeral state in `mixerStore`, render-time hard mute via `gainDb: -1000` sentinel).
 
@@ -865,19 +899,19 @@ ad:{adId}:mixer:v:{vid}      →  MixerVersion JSON blob
 ```ts
 interface MixerVersion {
   anchors: Record<SlotId, AnchorEntry>;
-  pins: MixerPins;                          // { voices, music, sfx } — VersionId per stream
+  pins: MixerPins; // { voices, music, sfx } — VersionId per stream
   overrides?: Record<SlotId, ClipOverrides>;
 
   createdAt: number;
-  createdBy: CreatedBy;                     // "llm" | "user" | "system"
-  status: VersionStatus;                    // "draft" | "frozen"
+  createdBy: CreatedBy; // "llm" | "user" | "system"
+  status: VersionStatus; // "draft" | "frozen"
 
-  parentVersionId?: VersionId;              // for forks (variants)
+  parentVersionId?: VersionId; // for forks (variants)
   requestText?: string;
-  label?: string;                           // user-supplied for variants
+  label?: string; // user-supplied for variants
 
-  cachedResolverOutput?: CachedResolverOutput;  // frozen versions only
-  mixedAudioUrl?: string;                       // last rendered preview blob URL
+  cachedResolverOutput?: CachedResolverOutput; // frozen versions only
+  mixedAudioUrl?: string; // last rendered preview blob URL
 }
 ```
 
@@ -885,16 +919,25 @@ interface MixerVersion {
 
 ```ts
 interface AnchorEntry {
-  anchor: Anchor;                       // discriminated union of 5 primitives
-  layout?: AnchorLayout;                // "overlay" (default) | "push"
-  origin: AnchorOrigin;                 // "llm-seed" | "user-edit" | "system-default"
+  anchor: Anchor; // discriminated union of 5 primitives
+  layout?: AnchorLayout; // "overlay" (default) | "push"
+  origin: AnchorOrigin; // "llm-seed" | "user-edit" | "system-default"
 }
 
 type Anchor =
   | { kind: "absolute"; t: number }
-  | { kind: "relativeTo"; slotId: SlotId; edge: "start" | "end"; offset?: number }
-  | { kind: "simultaneousWith"; slotId: SlotId;
-      alignment: "startAtStart" | "endAtEnd" | "centerAtCenter"; offset?: number }
+  | {
+      kind: "relativeTo";
+      slotId: SlotId;
+      edge: "start" | "end";
+      offset?: number;
+    }
+  | {
+      kind: "simultaneousWith";
+      slotId: SlotId;
+      alignment: "startAtStart" | "endAtEnd" | "centerAtCenter";
+      offset?: number;
+    }
   | { kind: "atFraction"; slotId: SlotId; fraction: number };
 ```
 
@@ -902,11 +945,11 @@ type Anchor =
 
 ```ts
 interface ClipOverrides {
-  trim?: { start: number; end: number };  // playback window, seconds from blob start/end
-  gainDb?: number;                        // static per-clip gain
-  fadeIn?: number;                        // over-and-above the mandatory micro-fade
+  trim?: { start: number; end: number }; // playback window, seconds from blob start/end
+  gainDb?: number; // static per-clip gain
+  fadeIn?: number; // over-and-above the mandatory micro-fade
   fadeOut?: number;
-  volume?: number;                        // dB trim around unity (-12..+6)
+  volume?: number; // dB trim around unity (-12..+6)
 }
 ```
 
@@ -914,15 +957,15 @@ The `volume` field name was kept for persisted-data readability across the v3 �
 
 Stream-version additions (additive, optional, every legacy version still decodes):
 
-| Type | Field | Purpose |
-|------|-------|---------|
-| `VoiceTrack` | `slotId?: SlotId` | Server-minted on first persistence; carried by ordinal-match copy on regeneration. |
-| `VoiceTrack` | `autoSpeedupCap?: number` | Per-locale ceiling for the resolver's duration-squeeze release valve. |
-| `VoiceVersion` | `integratedLufs?: Array<number \| null>` | Per-track measured LUFS; surfaced to the mixer for dB-domain volume math. |
-| `SoundFxPrompt.variants[]` | `slotId?: SlotId` | Same as voice. |
-| `SfxVersion` | `integratedLufs?: Array<number \| null>` | Per-variant. |
-| `MusicVersion` | `slotId?: SlotId` | Always one slot per music version; still server-minted. |
-| `MusicVersion` | `integratedLufs?: number` | Single value. |
+| Type                       | Field                                    | Purpose                                                                            |
+| -------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| `VoiceTrack`               | `slotId?: SlotId`                        | Server-minted on first persistence; carried by ordinal-match copy on regeneration. |
+| `VoiceTrack`               | `autoSpeedupCap?: number`                | Per-locale ceiling for the resolver's duration-squeeze release valve.              |
+| `VoiceVersion`             | `integratedLufs?: Array<number \| null>` | Per-track measured LUFS; surfaced to the mixer for dB-domain volume math.          |
+| `SoundFxPrompt.variants[]` | `slotId?: SlotId`                        | Same as voice.                                                                     |
+| `SfxVersion`               | `integratedLufs?: Array<number \| null>` | Per-variant.                                                                       |
+| `MusicVersion`             | `slotId?: SlotId`                        | Always one slot per music version; still server-minted.                            |
+| `MusicVersion`             | `integratedLufs?: number`                | Single value.                                                                      |
 
 `StreamType` was split:
 
@@ -1031,13 +1074,13 @@ The mixer surface is a single `MixerPanel` with these sub-components:
 
 Drag-and-drop materialization rules (`src/services/anchorFromDrop.ts`):
 
-| Drop location | Materialized anchor |
-|---------------|---------------------|
-| Within ~100 ms of a clip edge | `relativeTo(slotId, edge, offset)` |
+| Drop location                                    | Materialized anchor                           |
+| ------------------------------------------------ | --------------------------------------------- |
+| Within ~100 ms of a clip edge                    | `relativeTo(slotId, edge, offset)`            |
 | Within a clip's time span, near start/center/end | `simultaneousWith(slotId, alignment, offset)` |
-| Within a clip's time span, mid-region | `atFraction(slotId, f)` |
-| Past the last clip's end | `absolute(t)` |
-| With opt/alt held | `absolute(t)` (force) |
+| Within a clip's time span, mid-region            | `atFraction(slotId, f)`                       |
+| Past the last clip's end                         | `absolute(t)`                                 |
+| With opt/alt held                                | `absolute(t)` (force)                         |
 
 Cycle detection at drop time walks `existingRefs` (slot → ancestor slots) — if the proposed reference would close a loop, the drop is rejected with a UI shake.
 
@@ -1049,8 +1092,8 @@ Three integration points:
 
 ```ts
 const STEM_TARGET_LUFS = {
-  voice:   -16,
-  music:   -23,
+  voice: -16,
+  music: -23,
   soundfx: -20,
 } as const;
 ```
@@ -1110,42 +1153,43 @@ const normalizedBuffer = normalizeToSpotifySpec(renderedBuffer);
 
 ### Key files (mixer)
 
-| Area | File |
-|------|------|
-| **Mixer version types** | `src/types/versions.ts` — `MixerVersion`, `Anchor`, `AnchorEntry`, `AnchorOrigin`, `AnchorLayout`, `DurationPolicy`, `ClipOverrides`, `MixerPins`, `CachedResolverOutput`, `SlotId`, `ContentStreamType`/`StreamType` split |
-| **Pure resolver** | `src/services/timelineResolver.ts` (NEW) — Kahn topo sort, DFS cycle detection, push-extension, per-locale speedup caps, release-valve cascade |
-| **Anchor materialization** | `src/services/anchorFromDrop.ts` (NEW) — proximity rules, cycle detection via `existingRefs` |
-| **Mixer rebuilder** | `src/lib/mixer/rebuilder.ts` — `deriveMixerState`, `ensureMixerDraftWithCurrentPins`, `applyMixerPatch`, `writeResolverCache`, `cachedOutputMatches` |
-| **Lazy bootstrap** | `src/lib/mixer/bootstrap.ts` (NEW) — `bootstrapLegacyMixer`, slot-ID backfill, `anchorFromVoiceTrack` / `anchorFromSoundFxPrompt` / `anchorFromMusicVersion` translators |
-| **Atomic primitive** | `src/lib/redis/adLock.ts` (NEW) — `withAdLock` (Redis SET NX EX + Lua CAS-delete release) |
-| **Redis adapter** | `src/lib/redis/versions.ts` — `mixer` stream type, slot-ID helpers, mixer version CRUD |
-| **Slot reconciliation** | `src/lib/tools/implementations.ts` — `reconcileSlots`, `parentVersionId` plumbing in create-voice/music/sfx draft tools |
-| **Mixer state hook** | `src/hooks/useMixerData.ts` — SWR; routes by active mixer version |
-| **Mixer panel** | `src/components/MixerPanel.tsx` — stripped to UI-only state, format horizon, takes dropdown, LUFS meter, scrub, kebab interaction |
-| **Timeline track** | `src/components/TimelineTrack.tsx` — drag, trim, kebab menu, waveform, hover relationships |
-| **LUFS meter** | `src/components/LoudnessMeter.tsx` (NEW) — K-weighted Web Audio meter, peak hold |
-| **Mixer store** | `src/store/mixerStore.ts` — UI-only Zustand: selection, hover, drag preview, playback cursor |
-| **Audio render** | `src/utils/audio-mixer.ts` — stem normalization (`STEM_TARGET_LUFS`), `measureLufsLazy`, trim-aware `source.start(when, sourceOffset, playDuration)`, micro-fades, final BS.1770 pass |
-| **LUFS / true peak** | `src/utils/audio-processing.ts` — `calculateLUFS`, `calculateTruePeak`, `normalizeToSpotifySpec` |
-| **Mixer API surface** | `src/app/api/ads/[id]/mixer/route.ts` (PATCH for `anchorUpdates` / `trimUpdates` / `volumes` / `mixedAudioUrl`), `/mixer/freeze`, `/mixer/{versionId}/activate`, `/mixer/new-take`, `/mixer/remove-stream`, `/mixer/rebuild` |
+| Area                       | File                                                                                                                                                                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mixer version types**    | `src/types/versions.ts` — `MixerVersion`, `Anchor`, `AnchorEntry`, `AnchorOrigin`, `AnchorLayout`, `DurationPolicy`, `ClipOverrides`, `MixerPins`, `CachedResolverOutput`, `SlotId`, `ContentStreamType`/`StreamType` split  |
+| **Pure resolver**          | `src/services/timelineResolver.ts` (NEW) — Kahn topo sort, DFS cycle detection, push-extension, per-locale speedup caps, release-valve cascade                                                                               |
+| **Anchor materialization** | `src/services/anchorFromDrop.ts` (NEW) — proximity rules, cycle detection via `existingRefs`                                                                                                                                 |
+| **Mixer rebuilder**        | `src/lib/mixer/rebuilder.ts` — `deriveMixerState`, `ensureMixerDraftWithCurrentPins`, `applyMixerPatch`, `writeResolverCache`, `cachedOutputMatches`                                                                         |
+| **Lazy bootstrap**         | `src/lib/mixer/bootstrap.ts` (NEW) — `bootstrapLegacyMixer`, slot-ID backfill, `anchorFromVoiceTrack` / `anchorFromSoundFxPrompt` / `anchorFromMusicVersion` translators                                                     |
+| **Atomic primitive**       | `src/lib/redis/adLock.ts` (NEW) — `withAdLock` (Redis SET NX EX + Lua CAS-delete release)                                                                                                                                    |
+| **Redis adapter**          | `src/lib/redis/versions.ts` — `mixer` stream type, slot-ID helpers, mixer version CRUD                                                                                                                                       |
+| **Slot reconciliation**    | `src/lib/tools/implementations.ts` — `reconcileSlots`, `parentVersionId` plumbing in create-voice/music/sfx draft tools                                                                                                      |
+| **Mixer state hook**       | `src/hooks/useMixerData.ts` — SWR; routes by active mixer version                                                                                                                                                            |
+| **Mixer panel**            | `src/components/MixerPanel.tsx` — stripped to UI-only state, format horizon, takes dropdown, LUFS meter, scrub, kebab interaction                                                                                            |
+| **Timeline track**         | `src/components/TimelineTrack.tsx` — drag, trim, kebab menu, waveform, hover relationships                                                                                                                                   |
+| **LUFS meter**             | `src/components/LoudnessMeter.tsx` (NEW) — K-weighted Web Audio meter, peak hold                                                                                                                                             |
+| **Mixer store**            | `src/store/mixerStore.ts` — UI-only Zustand: selection, hover, drag preview, playback cursor                                                                                                                                 |
+| **Audio render**           | `src/utils/audio-mixer.ts` — stem normalization (`STEM_TARGET_LUFS`), `measureLufsLazy`, trim-aware `source.start(when, sourceOffset, playDuration)`, micro-fades, final BS.1770 pass                                        |
+| **LUFS / true peak**       | `src/utils/audio-processing.ts` — `calculateLUFS`, `calculateTruePeak`, `normalizeToSpotifySpec`                                                                                                                             |
+| **Mixer API surface**      | `src/app/api/ads/[id]/mixer/route.ts` (PATCH for `anchorUpdates` / `trimUpdates` / `volumes` / `mixedAudioUrl`), `/mixer/freeze`, `/mixer/{versionId}/activate`, `/mixer/new-take`, `/mixer/remove-stream`, `/mixer/rebuild` |
 
 Retired:
+
 - `src/services/legacyTimelineCalculator.ts` — fixed-phase calculator, removed in stage 7. (File still present in the working tree pending final cleanup; no live callers.)
 - `mixerStore.calculateTimings` / `setAudioDuration` / `audioDurations` / `saveCallback` — removed in stage 1.
 - Legacy `ad:{adId}:mixer` Redis blob — deleted lazily on bootstrap.
 
 ### Bugfixes (mixer)
 
-| Symptom | Root cause | Fix |
-|---------|------------|-----|
-| Resolver cache collapsed all slots of a stream type onto the first track of that type | `slotMatchesResolvedTrack` returned true for any track of a given stream type — every cached track inherited the first track's id | Slot-id → `MixerTrack` map for write; stricter `cachedOutputMatches` multiset check auto-invalidates legacy bad caches (commit `c33904c`) |
-| Trim drag didn't change audible playback or render output | `source.start(when)` was called without offset/duration arguments — Web Audio played the full untrimmed buffer | Pass `(when, sourceOffset, playDuration)` derived from `ClipOverrides.trim` |
-| Live waveform stretched across the original duration after trim | Waveform drew the full buffer regardless of trim window | Crop to committed trim window in `TimelineTrack` waveform path (commit `d8992ab`) |
-| Playhead drifted past the last track on long ads | Playback position used `audio.duration` as denominator instead of the canvas-extended `displayDuration` | Use `displayDuration = max(totalDuration, formatDuration ?? 0, 1)` |
-| Volume drawer kebab menu unresponsive after timeline scrub work | Timeline `pointerdown` capture stole the click event from the external 3-dots trigger | Bail on interactive elements via `closest("button, input, …, [data-no-timeline-scrub]")` |
-| Stage-6 bootstrap force-froze active stream drafts, stealing draft editability from freshly-generated ads | Bootstrap treated all unfrozen drafts as in-flight | Removed force-freeze; rely on `freezeExistingDraft` lazy-on-iteration pattern |
-| LUFS bar visually empty at −19.5 LUFS | `transition-[width] duration-75` made the fill chase rapidly-changing momentary values while the readout updated instantly | Removed CSS transition; rAF at 60 fps is smooth enough |
-| LUFS bar wouldn't visually update / numbers jittered | Dynamically-selected Tailwind classes (`bg-emerald-400` etc.) potentially purged in v4; readout text widths shifted layout | Inline RGB colors; fixed-width `w-[88px] text-right` readout column; minimum fill `max(6px, ${fillPct}%)` |
+| Symptom                                                                                                   | Root cause                                                                                                                        | Fix                                                                                                                                       |
+| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Resolver cache collapsed all slots of a stream type onto the first track of that type                     | `slotMatchesResolvedTrack` returned true for any track of a given stream type — every cached track inherited the first track's id | Slot-id → `MixerTrack` map for write; stricter `cachedOutputMatches` multiset check auto-invalidates legacy bad caches (commit `c33904c`) |
+| Trim drag didn't change audible playback or render output                                                 | `source.start(when)` was called without offset/duration arguments — Web Audio played the full untrimmed buffer                    | Pass `(when, sourceOffset, playDuration)` derived from `ClipOverrides.trim`                                                               |
+| Live waveform stretched across the original duration after trim                                           | Waveform drew the full buffer regardless of trim window                                                                           | Crop to committed trim window in `TimelineTrack` waveform path (commit `d8992ab`)                                                         |
+| Playhead drifted past the last track on long ads                                                          | Playback position used `audio.duration` as denominator instead of the canvas-extended `displayDuration`                           | Use `displayDuration = max(totalDuration, formatDuration ?? 0, 1)`                                                                        |
+| Volume drawer kebab menu unresponsive after timeline scrub work                                           | Timeline `pointerdown` capture stole the click event from the external 3-dots trigger                                             | Bail on interactive elements via `closest("button, input, …, [data-no-timeline-scrub]")`                                                  |
+| Stage-6 bootstrap force-froze active stream drafts, stealing draft editability from freshly-generated ads | Bootstrap treated all unfrozen drafts as in-flight                                                                                | Removed force-freeze; rely on `freezeExistingDraft` lazy-on-iteration pattern                                                             |
+| LUFS bar visually empty at −19.5 LUFS                                                                     | `transition-[width] duration-75` made the fill chase rapidly-changing momentary values while the readout updated instantly        | Removed CSS transition; rAF at 60 fps is smooth enough                                                                                    |
+| LUFS bar wouldn't visually update / numbers jittered                                                      | Dynamically-selected Tailwind classes (`bg-emerald-400` etc.) potentially purged in v4; readout text widths shifted layout        | Inline RGB colors; fixed-width `w-[88px] text-right` readout column; minimum fill `max(6px, ${fillPct}%)`                                 |
 
 ### Held for stage 9 (next step)
 
@@ -1165,24 +1209,24 @@ Retired:
 
 ## Bugfixes worth recording
 
-| Symptom | Root cause | Fix |
-|---------|------------|-----|
-| `Sara – Premium Humanlike Arabic Voice` cast for French dialog | Voice description not in `search_voices` results — agent had no signal to discriminate | `getVoicesForProvider` now calls `enrichWithDescriptions` (Neon `voice_descriptions` join). `description` field added to `SearchVoicesResult` shape. Agent prompt explicitly tells it to read name + description before casting. |
-| `Belma` defaulting in every language search | Multilingual voices registered for every language in `verified_languages`, gravitating to top of every shuffled pool | `stableSortByMultilingual` after the seeded shuffle pushes `capabilities.isMultilingual` voices below natives. |
-| Music too short for over-budget script (20s ad → 23s voices, 20s music) | `createMusicDraft` honored LLM-supplied `duration` verbatim | Hard floor enforced: `effectiveDuration = max(duration, briefDuration + 10s, 30s)`. LLM duration becomes a ceiling. |
-| Brief PATCH 404 spam during fresh-ad flow | Endpoint required ad row to exist; client autosaved on each keystroke | PATCH made idempotent via `ensureAdExists` — lazy-creates the ad row on first save. Pre-Generate brief content now persists from keystroke 1. |
-| `!Blocked` Salesforce accounts polluting picker | Sales team uses `!Blocked …` name prefix for sanctions / do-not-contact | SOQL `NOT LIKE '!Blocked%'` + post-filter regex `/^\s*!\s*blocked\b/i`. |
-| Spotify-only picker false negatives on global brands (Red Bull, Heineken) | Brand exists in SF but not yet tagged `clientPlatforms ∋ "spotify"` in alaric | Auto-fallback: when Spotify-filtered returns zero, retry unfiltered inline. Inline notice "No Spotify match — showing all Salesforce accounts". |
-| Voices over-searched + agent never committed drafts | Tool description `definitions.ts:153-154` still said "include [emotional tags] inline" while pass-1 prompt said don't | Architecture-strategist diagnosis. Tool description rewritten to "clean prose, no inline bracket tags". |
-| Failing French dialog with `[mood][mood]` opening-stack-only | Tag placement was the lowest-priority concern the agent dropped when overloaded | Two-pass split (Stages K / L / M / N). |
+| Symptom                                                                   | Root cause                                                                                                            | Fix                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Sara – Premium Humanlike Arabic Voice` cast for French dialog            | Voice description not in `search_voices` results — agent had no signal to discriminate                                | `getVoicesForProvider` now calls `enrichWithDescriptions` (Neon `voice_descriptions` join). `description` field added to `SearchVoicesResult` shape. Agent prompt explicitly tells it to read name + description before casting. |
+| `Belma` defaulting in every language search                               | Multilingual voices registered for every language in `verified_languages`, gravitating to top of every shuffled pool  | `stableSortByMultilingual` after the seeded shuffle pushes `capabilities.isMultilingual` voices below natives.                                                                                                                   |
+| Music too short for over-budget script (20s ad → 23s voices, 20s music)   | `createMusicDraft` honored LLM-supplied `duration` verbatim                                                           | Hard floor enforced: `effectiveDuration = max(duration, briefDuration + 10s, 30s)`. LLM duration becomes a ceiling.                                                                                                              |
+| Brief PATCH 404 spam during fresh-ad flow                                 | Endpoint required ad row to exist; client autosaved on each keystroke                                                 | PATCH made idempotent via `ensureAdExists` — lazy-creates the ad row on first save. Pre-Generate brief content now persists from keystroke 1.                                                                                    |
+| `!Blocked` Salesforce accounts polluting picker                           | Sales team uses `!Blocked …` name prefix for sanctions / do-not-contact                                               | SOQL `NOT LIKE '!Blocked%'` + post-filter regex `/^\s*!\s*blocked\b/i`.                                                                                                                                                          |
+| Spotify-only picker false negatives on global brands (Red Bull, Heineken) | Brand exists in SF but not yet tagged `clientPlatforms ∋ "spotify"` in alaric                                         | Auto-fallback: when Spotify-filtered returns zero, retry unfiltered inline. Inline notice "No Spotify match — showing all Salesforce accounts".                                                                                  |
+| Voices over-searched + agent never committed drafts                       | Tool description `definitions.ts:153-154` still said "include [emotional tags] inline" while pass-1 prompt said don't | Architecture-strategist diagnosis. Tool description rewritten to "clean prose, no inline bracket tags".                                                                                                                          |
+| Failing French dialog with `[mood][mood]` opening-stack-only              | Tag placement was the lowest-priority concern the agent dropped when overloaded                                       | Two-pass split (Stages K / L / M / N).                                                                                                                                                                                           |
 
 ---
 
 ## Resolved decisions worth carrying forward
 
-- **No black-box enrichment.** User explicit framing: *"i don't like the blackbox stuff."* Anything the agent will see at generation time should be visible to the user before clicking Generate, OR derive from explicit user input. Codified in `feedback_no_black_box_enrichment` memory.
+- **No black-box enrichment.** User explicit framing: _"i don't like the blackbox stuff."_ Anything the agent will see at generation time should be visible to the user before clicking Generate, OR derive from explicit user input. Codified in `feedback_no_black_box_enrichment` memory.
 - **No emojis in rendered UI.** Use heroicons or text-only. Code comments / planning docs / agent prompts are fine — emoji ban is a UI-rendering rule. Codified in `feedback_no_emojis_in_ui` memory.
-- **Cost-unbounded alaric reads.** No token-budget cost-bounding when projecting alaric reports. Bring everything; GPT-5.5 prompt caching handles the repeat-seeing-of-large-blocks efficiently. Per user direction in v4: *"why is alaric cost bound? bring everything from a rich alaric profile."*
+- **Cost-unbounded alaric reads.** No token-budget cost-bounding when projecting alaric reports. Bring everything; GPT-5.5 prompt caching handles the repeat-seeing-of-large-blocks efficiently. Per user direction in v4: _"why is alaric cost bound? bring everything from a rich alaric profile."_
 - **Music duration floor at brief+10s.** LLM is treated as a ceiling, not the source of truth — over-budget scripts are common and music should always cover.
 - **Multilingual voices always exist; rank natives first.** Don't filter multilinguals out (they're useful when no native exists), just deprioritize.
 
@@ -1190,43 +1234,43 @@ Retired:
 
 ## Key files (delta from v3-1)
 
-| Area | New / Changed |
-|------|---------------|
-| **Brand identity** | `src/types/index.ts` — `BrandRef`, `ProjectBrief` extensions, `selectedTone` + `voiceInstructions` post-merge, `ToneOfVoiceTag` REMOVED, `brandVoice` + `enrichWithWebSearch` `@deprecated` |
-| **Brief panel V4** | `src/components/BriefPanelV4.tsx` — orchestrator (replaces deleted `BriefPanelV3.tsx`); 3-topic shells in `src/components/brief-topics/{BrandTopic,CreativeTopic,LanguageTopic}.tsx`; subeditors in `src/components/brief-topics/subeditors/*.tsx` |
-| **Brief panel base** | `src/components/BriefPanelBase.tsx` — Alexandru's monolithic form, retained for `DuplicateAdPopup` |
-| **alaric client** | `src/lib/alaric-client.ts` — HMAC signer, type mirrors (BrandDossier, SfClientBundle, AlaricFetchResult, MarketRow, MarketLanguage); `searchSfAccounts` market filter; `getMarkets` |
-| **Brief enrichment** | `src/lib/brief-enrichment.ts` — prefetchBriefEnrichments, renderEnrichmentSections, renderBrandDossier, URL type detection |
-| **Brand context** | `src/app/api/brand-context/route.ts` (NEW) — discriminated `kind`: `sf-account` / `search` / `greenfield` / `spotify-ad-manager`. Replaces deleted `/api/sf-accounts/search` + `/api/brands/recent`. |
-| **Markets proxy** | `src/app/api/markets/route.ts` (NEW) — `getMarkets` proxy with `?showAll=true` escape hatch |
+| Area                       | New / Changed                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Brand identity**         | `src/types/index.ts` — `BrandRef`, `ProjectBrief` extensions, `selectedTone` + `voiceInstructions` post-merge, `ToneOfVoiceTag` REMOVED, `brandVoice` + `enrichWithWebSearch` `@deprecated`                                                                                                                                                                        |
+| **Brief panel V4**         | `src/components/BriefPanelV4.tsx` — orchestrator (replaces deleted `BriefPanelV3.tsx`); 3-topic shells in `src/components/brief-topics/{BrandTopic,CreativeTopic,LanguageTopic}.tsx`; subeditors in `src/components/brief-topics/subeditors/*.tsx`                                                                                                                 |
+| **Brief panel base**       | `src/components/BriefPanelBase.tsx` — Alexandru's monolithic form, retained for `DuplicateAdPopup`                                                                                                                                                                                                                                                                 |
+| **alaric client**          | `src/lib/alaric-client.ts` — HMAC signer, type mirrors (BrandDossier, SfClientBundle, AlaricFetchResult, MarketRow, MarketLanguage); `searchSfAccounts` market filter; `getMarkets`                                                                                                                                                                                |
+| **Brief enrichment**       | `src/lib/brief-enrichment.ts` — prefetchBriefEnrichments, renderEnrichmentSections, renderBrandDossier, URL type detection                                                                                                                                                                                                                                         |
+| **Brand context**          | `src/app/api/brand-context/route.ts` (NEW) — discriminated `kind`: `sf-account` / `search` / `greenfield` / `spotify-ad-manager`. Replaces deleted `/api/sf-accounts/search` + `/api/brands/recent`.                                                                                                                                                               |
+| **Markets proxy**          | `src/app/api/markets/route.ts` (NEW) — `getMarkets` proxy with `?showAll=true` escape hatch                                                                                                                                                                                                                                                                        |
 | **Tone-of-voice (Sergiu)** | `src/services/suggestedTonesService.ts`, `src/app/api/tone-of-voice/route.ts`, `src/app/api/admin/tone-of-voice/**`, `src/app/admin/tone-of-voice/**`, `src/components/admin/{ToneOfVoiceForm,ToneOfVoiceList}.tsx`, `src/components/ui/{ToneSelector,Switch,ConfirmDialog}.tsx`, `src/hooks/useToneOfVoice.ts`, `drizzle/migrations/0002_add_suggested_tones.sql` |
-| **Ad duplication** | `src/app/api/ads/[id]/duplicate/route.ts` (Alexandru, rewritten for v3.5 mixer streams), `src/components/DuplicateAdPopup.tsx` |
-| **Brief PATCH** | `src/app/api/ads/[id]/brief/route.ts` — idempotent lazy-create via ensureAdExists |
-| **Generate routes** | `src/app/api/ai/generate/route.ts` + `generate-stream/route.ts` — prefetch + dossier injection, web_search path removed, `brandVoice` + `toneOfVoice` plumbing dropped, `voiceInstructions` threading kept |
-| **Tag weaver** | `src/lib/tools/validation/tag-weaver.ts` (NEW) — per-track ElevenLabs tag insertion |
-| **Tag lint** | `src/lib/tools/validation/voice-tag-lint.ts` (NEW) — three mechanical rules + telemetry |
-| **Accent policy** | `src/lib/tools/validation/accent-policy.ts` (NEW) — resolveAccentForLint + canonical [strong X accent] form |
-| **Voice catalogue** | `src/services/voiceCatalogueService.ts` — enrichWithDescriptions called in getVoicesForProvider |
-| **search_voices** | `src/lib/tools/implementations.ts` — multilingual deprioritization, auto-broaden on narrow filter, description in result shape |
-| **Music duration** | `src/lib/tools/implementations.ts` — brief+10s floor in createMusicDraftLocked |
-| **ElevenLabs prompt** | `src/lib/knowledge/modules/elevenlabs-voice.ts` — pass-1 simplified, pass-2 hidden from agent |
-| **Knowledge builder** | `src/lib/knowledge/builder.ts` — webSearchDirective stripped, search_voices guidance tightened |
-| **OpenAI adapter** | `src/lib/tool-calling/adapters/OpenAIAdapter.ts` — hosted web_search path removed |
-| **Agent executor** | `src/lib/tool-calling/AgentExecutor.ts` — webSearchBudget removed, max-iterations diagnostic added |
-| **Tool definitions** | `src/lib/tools/definitions.ts` — text param: "clean prose, no inline bracket tags" |
-| **Versions** | `src/lib/redis/versions.ts` — writeTagLintTelemetry; enrichment-cache helpers REMOVED; legacy `getMixerState`/`updateMixerState` REMOVED; `getActiveVersionData` uses `VersionFor<T>` for mixer stream support |
-| **Auth** | `src/auth.config.ts` (NEW) — Edge-safe split; `src/auth.ts` extends with Drizzle + Resend; `src/middleware.ts` uses Edge-safe config, returns 401 JSON for `/api/*` |
+| **Ad duplication**         | `src/app/api/ads/[id]/duplicate/route.ts` (Alexandru, rewritten for v3.5 mixer streams), `src/components/DuplicateAdPopup.tsx`                                                                                                                                                                                                                                     |
+| **Brief PATCH**            | `src/app/api/ads/[id]/brief/route.ts` — idempotent lazy-create via ensureAdExists                                                                                                                                                                                                                                                                                  |
+| **Generate routes**        | `src/app/api/ai/generate/route.ts` + `generate-stream/route.ts` — prefetch + dossier injection, web_search path removed, `brandVoice` + `toneOfVoice` plumbing dropped, `voiceInstructions` threading kept                                                                                                                                                         |
+| **Tag weaver**             | `src/lib/tools/validation/tag-weaver.ts` (NEW) — per-track ElevenLabs tag insertion                                                                                                                                                                                                                                                                                |
+| **Tag lint**               | `src/lib/tools/validation/voice-tag-lint.ts` (NEW) — three mechanical rules + telemetry                                                                                                                                                                                                                                                                            |
+| **Accent policy**          | `src/lib/tools/validation/accent-policy.ts` (NEW) — resolveAccentForLint + canonical [strong X accent] form                                                                                                                                                                                                                                                        |
+| **Voice catalogue**        | `src/services/voiceCatalogueService.ts` — enrichWithDescriptions called in getVoicesForProvider                                                                                                                                                                                                                                                                    |
+| **search_voices**          | `src/lib/tools/implementations.ts` — multilingual deprioritization, auto-broaden on narrow filter, description in result shape                                                                                                                                                                                                                                     |
+| **Music duration**         | `src/lib/tools/implementations.ts` — brief+10s floor in createMusicDraftLocked                                                                                                                                                                                                                                                                                     |
+| **ElevenLabs prompt**      | `src/lib/knowledge/modules/elevenlabs-voice.ts` — pass-1 simplified, pass-2 hidden from agent                                                                                                                                                                                                                                                                      |
+| **Knowledge builder**      | `src/lib/knowledge/builder.ts` — webSearchDirective stripped, search_voices guidance tightened                                                                                                                                                                                                                                                                     |
+| **OpenAI adapter**         | `src/lib/tool-calling/adapters/OpenAIAdapter.ts` — hosted web_search path removed                                                                                                                                                                                                                                                                                  |
+| **Agent executor**         | `src/lib/tool-calling/AgentExecutor.ts` — webSearchBudget removed, max-iterations diagnostic added                                                                                                                                                                                                                                                                 |
+| **Tool definitions**       | `src/lib/tools/definitions.ts` — text param: "clean prose, no inline bracket tags"                                                                                                                                                                                                                                                                                 |
+| **Versions**               | `src/lib/redis/versions.ts` — writeTagLintTelemetry; enrichment-cache helpers REMOVED; legacy `getMixerState`/`updateMixerState` REMOVED; `getActiveVersionData` uses `VersionFor<T>` for mixer stream support                                                                                                                                                     |
+| **Auth**                   | `src/auth.config.ts` (NEW) — Edge-safe split; `src/auth.ts` extends with Drizzle + Resend; `src/middleware.ts` uses Edge-safe config, returns 401 JSON for `/api/*`                                                                                                                                                                                                |
 
 **alaric-side (sister project) — modified:**
 
-| Area | Changes |
-|------|---------|
-| `src/lib/aca-auth.ts` | HMAC verification middleware, x-aleph-* canonical headers, consumer_id binding |
-| `src/lib/salesforce/account-lookup.ts` | `searchSfAccountsByName` (Spotify-platform filter, !Blocked exclusion), `getCompanyFromSalesforce` (BrandDossier projection from all current intelligence_reports rows + companies.signals + canonical industry taxonomy join) |
-| `src/app/api/aca/fetch-content/route.ts` | Tiered fetch passthrough |
-| `src/app/api/aca/sf-search/route.ts` | clientPlatforms query param |
-| `src/app/api/aca/sf-client/route.ts` | Bundled response (passes BrandDossier through) |
-| `src/app/api/aca/enrich-company-async/route.ts` | Fire-and-forget enrichment trigger with staleness guard |
+| Area                                            | Changes                                                                                                                                                                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/lib/aca-auth.ts`                           | HMAC verification middleware, x-aleph-\* canonical headers, consumer_id binding                                                                                                                                                |
+| `src/lib/salesforce/account-lookup.ts`          | `searchSfAccountsByName` (Spotify-platform filter, !Blocked exclusion), `getCompanyFromSalesforce` (BrandDossier projection from all current intelligence_reports rows + companies.signals + canonical industry taxonomy join) |
+| `src/app/api/aca/fetch-content/route.ts`        | Tiered fetch passthrough                                                                                                                                                                                                       |
+| `src/app/api/aca/sf-search/route.ts`            | clientPlatforms query param                                                                                                                                                                                                    |
+| `src/app/api/aca/sf-client/route.ts`            | Bundled response (passes BrandDossier through)                                                                                                                                                                                 |
+| `src/app/api/aca/enrich-company-async/route.ts` | Fire-and-forget enrichment trigger with staleness guard                                                                                                                                                                        |
 
 ---
 
@@ -1240,6 +1284,7 @@ Retired:
 - Cancel = client-side dismissal; alaric job continues regardless. Idempotency via `getActiveEnrichmentJob` guard.
 
 **Held also:**
+
 - "Look up brand context" web-search button on standalone-brand empty state (re-introduces web search but only when alaric can't help, explicit user click).
 - TikTok / YouTube ad creative thumbnail modal (textual VLM analysis already lands in dossier; per-thumbnail click-through is rep-demand-gated).
 - Stage F: transcript-level retrieval (corpus, not schema). Held until we measure whether the schema layer (current dossier) carries the load.

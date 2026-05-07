@@ -619,7 +619,7 @@ export const ACCENT_REGISTRY: Record<string, AccentDefinition[]> = {
  * Get available accents for a normalized language code
  */
 export function getAccentsForLanguage(
-  language: Language
+  language: Language,
 ): { code: string; displayName: string }[] {
   // For normalized language codes, direct lookup
   const accents = ACCENT_REGISTRY[language];
@@ -675,7 +675,7 @@ export function getDefaultAccent(language: Language): string {
  */
 export function normalizeAccent(
   providerAccent: string | undefined,
-  originalLanguageCode?: string
+  originalLanguageCode?: string,
 ): string {
   if (!providerAccent) return "neutral";
 
@@ -1006,7 +1006,7 @@ export function normalizeAccent(
  */
 export function isValidAccentForLanguage(
   language: Language,
-  accent: string
+  accent: string,
 ): boolean {
   const availableAccents = ACCENT_REGISTRY[language] || [];
   return (

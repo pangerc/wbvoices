@@ -25,7 +25,7 @@ export interface TrackManagerState {
   statusMessage: string;
   musicPrompt: string;
   soundFxPrompt: SoundFxPrompt | null;
-  
+
   // Actions
   setTracks: (tracks: Track[] | ((prev: Track[]) => Track[])) => void;
   setVoiceTracks: (tracks: VoiceTrack[]) => void;
@@ -37,7 +37,7 @@ export interface TrackManagerState {
   setIsGenerating: (generating: boolean) => void;
   setIsGeneratingMusic: (generating: boolean) => void;
   setIsGeneratingSoundFx: (generating: boolean) => void;
-  
+
   // Reset functions
   resetVoiceTracks: () => void;
   resetMusicTracks: () => void;
@@ -55,7 +55,9 @@ export function useTrackManager(): TrackManagerState {
   const [isGeneratingSoundFx, setIsGeneratingSoundFx] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [musicPrompt, setMusicPrompt] = useState("");
-  const [soundFxPrompt, setSoundFxPrompt] = useState<SoundFxPrompt | null>(null);
+  const [soundFxPrompt, setSoundFxPrompt] = useState<SoundFxPrompt | null>(
+    null,
+  );
 
   const updateVoiceTrack = (index: number, updates: Partial<VoiceTrack>) => {
     const newTracks = [...voiceTracks];

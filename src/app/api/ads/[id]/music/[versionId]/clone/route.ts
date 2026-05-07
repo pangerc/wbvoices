@@ -24,13 +24,13 @@ export const runtime = "nodejs";
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; versionId: string }> }
+  { params }: { params: Promise<{ id: string; versionId: string }> },
 ) {
   try {
     const { id: adId, versionId: sourceVersionId } = await params;
 
     console.log(
-      `📦 POST /api/ads/${adId}/music/${sourceVersionId}/clone - Cloning music version`
+      `📦 POST /api/ads/${adId}/music/${sourceVersionId}/clone - Cloning music version`,
     );
 
     // Clone the version
@@ -44,7 +44,7 @@ export async function POST(
         sourceId: sourceVersionId,
         status: "draft",
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("❌ Failed to clone music version:", error);
@@ -53,7 +53,7 @@ export async function POST(
         error: "Failed to clone version",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

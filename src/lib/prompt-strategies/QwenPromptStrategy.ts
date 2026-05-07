@@ -8,7 +8,6 @@ import { CampaignFormat } from "@/types";
 export class QwenPromptStrategy extends BasePromptStrategy {
   readonly provider = "qwen" as const;
 
-   
   buildStyleInstructions(_context: PromptContext): string {
     // No special style instructions - direct voice control
     return "";

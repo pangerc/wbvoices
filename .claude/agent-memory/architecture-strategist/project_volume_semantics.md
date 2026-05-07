@@ -9,6 +9,7 @@ Volume in `MixerVersion.overrides[slotId].volume` is moving from linear 0..1 mul
 **Why:** Producers found 0..1 sliders "gimmicky" because hardcoded type defaults (1.0/0.25/0.7) baked stem loudness into the multiplier. Critically, stage-9 variant forks (e.g. Mandarin from English) need volume to port-forward across pinned-voice-version changes — only dB-against-normalized-stem has that property. 0..1 multipliers encode the loudness of one specific stem and break across forks.
 
 **How to apply:**
+
 - Schema: stem version records (VoiceVersion/MusicVersion/SfxVersion) store `integratedLufs` (the raw measurement, not the gain) so target LUFS can be retuned later without re-measuring.
 - Computation site: server-side at stem generation, on the URL-intercept → Vercel Blob persistence path. Not client-side at mix time (would re-run ~100ms per stem on every preview, multiplied for stage-9 A/B compare).
 - Mix render: reads `integratedLufs`, computes gain to per-type target, applies user dB trim as `Math.pow(10, dB/20)`. Final BS.1770 pass at -16 LUFS stays as safety net.

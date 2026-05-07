@@ -45,21 +45,34 @@ CRITICAL: In Pronunciation field, specify: "${accent}${regionContext} accent; cl
 - Natural rhythm with softer consonants characteristic of Egyptian speech
 - Articulate emphatic consonants clearly (ص، ض، ط، ظ)
 - Friendly, conversational tone typical of Egyptian media`;
-      } else if (accentLower.includes("gulf") || accentLower.includes("saudi") || accentLower.includes("kuwaiti") || accentLower.includes("emirati")) {
+      } else if (
+        accentLower.includes("gulf") ||
+        accentLower.includes("saudi") ||
+        accentLower.includes("kuwaiti") ||
+        accentLower.includes("emirati")
+      ) {
         arabicGuidance = `\n\nARABIC PRONUNCIATION GUIDANCE FOR ${accent}${regionContext}:
 CRITICAL: In Pronunciation field, specify: "${accent}${regionContext} accent; clear, articulate; formal delivery"
 - Use formal Gulf Arabic pronunciation with Standard Arabic influences
 - Strong, precise consonant articulation typical of Gulf dialects
 - Maintain dignified, authoritative tone
 - Clear emphasis on emphatic consonants (ص، ض، ط، ظ)`;
-      } else if (accentLower.includes("levantine") || accentLower.includes("jordanian") || accentLower.includes("syrian") || accentLower.includes("lebanese")) {
+      } else if (
+        accentLower.includes("levantine") ||
+        accentLower.includes("jordanian") ||
+        accentLower.includes("syrian") ||
+        accentLower.includes("lebanese")
+      ) {
         arabicGuidance = `\n\nARABIC PRONUNCIATION GUIDANCE FOR ${accent}${regionContext}:
 CRITICAL: In Pronunciation field, specify: "${accent}${regionContext} accent; clear, articulate; natural delivery"
 - Use Levantine dialect with softer consonants and melodic intonation
 - Natural, conversational rhythm characteristic of Levantine speech
 - Gentle articulation while maintaining clarity
 - Warm, approachable tone`;
-      } else if (accentLower.includes("moroccan") || accentLower.includes("maghrebi")) {
+      } else if (
+        accentLower.includes("moroccan") ||
+        accentLower.includes("maghrebi")
+      ) {
         arabicGuidance = `\n\nARABIC PRONUNCIATION GUIDANCE FOR ${accent}${regionContext}:
 CRITICAL: In Pronunciation field, specify: "${accent}${regionContext} accent; clear, articulate; distinctive delivery"
 - Use Maghrebi Arabic pronunciation with French influences where appropriate

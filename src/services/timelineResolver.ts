@@ -205,7 +205,7 @@ export function resolveTimeline(input: ResolverInput): ResolvedTimeline {
         }
       } else {
         console.warn(
-          `[timelineResolver] layout:"push" is only supported on relativeTo anchors; ignored on ${entry.anchor.kind} for slot ${slotId}`
+          `[timelineResolver] layout:"push" is only supported on relativeTo anchors; ignored on ${entry.anchor.kind} for slot ${slotId}`,
         );
       }
     }
@@ -229,7 +229,7 @@ export function resolveTimeline(input: ResolverInput): ResolvedTimeline {
 
   const totalDuration = tracks.reduce(
     (max, t) => Math.max(max, t.startTime + t.duration),
-    0
+    0,
   );
 
   if (formatDuration && totalDuration > formatDuration) {
@@ -295,8 +295,8 @@ function referencedEdge(anchor: Anchor): "start" | "end" | null {
     return anchor.alignment === "startAtStart"
       ? "start"
       : anchor.alignment === "endAtEnd"
-      ? "end"
-      : "start"; // centerAtCenter anchors neither edge explicitly
+        ? "end"
+        : "start"; // centerAtCenter anchors neither edge explicitly
   }
   if (anchor.kind === "atFraction") return "start"; // fraction lives inside the slot
   return null;
@@ -311,7 +311,7 @@ function edgePositionOf(
   slotId: SlotId,
   edge: "start" | "end",
   state: ResolutionState,
-  slotById: Map<SlotId, SlotState>
+  slotById: Map<SlotId, SlotState>,
 ): number {
   const resolved = state.resolved.get(slotId);
   if (resolved) return edge === "start" ? resolved.startTime : resolved.endTime;
@@ -328,7 +328,7 @@ function resolveAnchor(
   anchor: Anchor,
   thisSlot: SlotState,
   state: ResolutionState,
-  slotById: Map<SlotId, SlotState>
+  slotById: Map<SlotId, SlotState>,
 ): AnchorResolution {
   if (anchor.kind === "absolute") {
     return { ok: true, startTime: Math.max(0, anchor.t) };
@@ -351,7 +351,8 @@ function resolveAnchor(
   if (anchor.kind === "relativeTo") {
     const basePosition =
       anchor.edge === "start" ? refResolved.startTime : refResolved.endTime;
-    const pushExt = state.pushExtension.get(`${anchor.slotId}@${anchor.edge}`) ?? 0;
+    const pushExt =
+      state.pushExtension.get(`${anchor.slotId}@${anchor.edge}`) ?? 0;
     const startTime = basePosition + pushExt + (anchor.offset ?? 0);
     return { ok: true, startTime: Math.max(0, startTime) };
   }
@@ -368,8 +369,7 @@ function resolveAnchor(
         startTime = refResolved.endTime - thisDuration;
         break;
       case "centerAtCenter":
-        startTime =
-          refResolved.startTime + (refDuration - thisDuration) / 2;
+        startTime = refResolved.startTime + (refDuration - thisDuration) / 2;
         break;
     }
     startTime += anchor.offset ?? 0;
@@ -392,7 +392,7 @@ function resolveAnchor(
 function topologicalOrder(
   slots: SlotState[],
   anchors: Record<SlotId, AnchorEntry>,
-  inCycle: Set<SlotId>
+  inCycle: Set<SlotId>,
 ): SlotId[] {
   const slotIds = slots.map((s) => s.slotId);
   const inDegree = new Map<SlotId, number>();
@@ -440,7 +440,7 @@ function topologicalOrder(
  */
 function detectCycles(
   slots: SlotState[],
-  anchors: Record<SlotId, AnchorEntry>
+  anchors: Record<SlotId, AnchorEntry>,
 ): SlotId[][] {
   // DFS with white/gray/black coloring.
   const color = new Map<SlotId, 0 | 1 | 2>(); // 0 white, 1 gray, 2 black

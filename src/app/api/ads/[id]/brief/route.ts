@@ -22,7 +22,7 @@ export const runtime = "nodejs";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -45,7 +45,10 @@ export async function GET(
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     console.error("❌ Failed to load brief:", error);
     return NextResponse.json(
@@ -53,7 +56,7 @@ export async function GET(
         error: "Failed to load brief",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -71,7 +74,7 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -81,10 +84,7 @@ export async function PATCH(
     const { brief } = body as { brief: ProjectBrief };
 
     if (!brief) {
-      return NextResponse.json(
-        { error: "brief is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "brief is required" }, { status: 400 });
     }
 
     // Idempotent: if the ad row doesn't exist, create it on this PATCH.
@@ -108,7 +108,10 @@ export async function PATCH(
     return NextResponse.json({ success: true, brief });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     console.error("❌ Failed to update brief:", error);
     return NextResponse.json(
@@ -116,7 +119,7 @@ export async function PATCH(
         error: "Failed to update brief",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

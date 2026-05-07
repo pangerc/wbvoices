@@ -32,7 +32,7 @@ export interface AgentToolContext {
  */
 export async function executeToolCall(
   call: ToolCall,
-  agentContext?: AgentToolContext
+  agentContext?: AgentToolContext,
 ): Promise<ToolResult> {
   const { id, function: func } = call;
   const { name, arguments: argsStr } = func;
@@ -96,7 +96,8 @@ export async function executeToolCall(
       content: JSON.stringify(result),
     };
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     return {
       tool_call_id: id,
       content: JSON.stringify({
@@ -113,7 +114,7 @@ export async function executeToolCall(
  */
 export async function executeToolCalls(
   calls: ToolCall[],
-  agentContext?: AgentToolContext
+  agentContext?: AgentToolContext,
 ): Promise<ToolResult[]> {
   return Promise.all(calls.map((call) => executeToolCall(call, agentContext)));
 }

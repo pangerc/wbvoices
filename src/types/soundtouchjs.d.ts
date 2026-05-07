@@ -1,12 +1,12 @@
-declare module 'soundtouchjs' {
+declare module "soundtouchjs" {
   /**
    * Main SoundTouch processing engine
    * Controls tempo, pitch, and rate transformations
    */
   export class SoundTouch {
-    tempo: number;  // Speed control (1.0 = normal, >1.0 = faster, <1.0 = slower)
-    pitch: number;  // Pitch control (1.0 = normal, >1.0 = higher, <1.0 = lower)
-    rate: number;   // Combined tempo+pitch (1.0 = normal)
+    tempo: number; // Speed control (1.0 = normal, >1.0 = faster, <1.0 = slower)
+    pitch: number; // Pitch control (1.0 = normal, >1.0 = higher, <1.0 = lower)
+    rate: number; // Combined tempo+pitch (1.0 = normal)
     constructor();
   }
 
@@ -26,7 +26,11 @@ declare module 'soundtouchjs' {
    * Uses frame-based extraction (1 frame = 1 sample per channel)
    */
   export class SimpleFilter {
-    constructor(sourceSound: WebAudioBufferSource, pipe: SoundTouch, callback?: () => void);
+    constructor(
+      sourceSound: WebAudioBufferSource,
+      pipe: SoundTouch,
+      callback?: () => void,
+    );
     extract(target: Float32Array, numFrames: number): number;
     clear(): void;
     position: number;
@@ -38,7 +42,12 @@ declare module 'soundtouchjs' {
    * Integrates SoundTouch with audio graph nodes
    */
   export class PitchShifter {
-    constructor(context: AudioContext, buffer: AudioBuffer, bufferSize: number, onEnd?: () => void);
+    constructor(
+      context: AudioContext,
+      buffer: AudioBuffer,
+      bufferSize: number,
+      onEnd?: () => void,
+    );
     tempo: number;
     pitch: number;
     pitchSemitones: number;

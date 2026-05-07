@@ -37,10 +37,7 @@ export function SplitGenerateButton({
   const generatingText = autoMode ? "Auto Generating..." : "Generating...";
 
   return (
-    <div
-      ref={containerRef}
-      className="relative flex items-center gap-1"
-    >
+    <div ref={containerRef} className="relative flex items-center gap-1">
       {/* Main generate button - organic curve on right */}
       <button
         onClick={handleAutoGenerate}

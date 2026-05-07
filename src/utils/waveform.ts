@@ -37,7 +37,7 @@ function getDecoderCtx(): OfflineAudioContext {
  */
 export function loadWaveformPeaks(
   url: string,
-  buckets: number
+  buckets: number,
 ): Promise<number[]> {
   const cacheKey = `${url}@${buckets}`;
   const existing = peaksCache.get(cacheKey);

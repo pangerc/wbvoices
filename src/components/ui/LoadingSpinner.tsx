@@ -16,7 +16,10 @@ const SIZE_CLASSES = {
   xl: "w-12 h-12",
 };
 
-export function LoadingSpinner({ className, size = "md" }: LoadingSpinnerProps) {
+export function LoadingSpinner({
+  className,
+  size = "md",
+}: LoadingSpinnerProps) {
   const sizeClass = SIZE_CLASSES[size];
 
   return (

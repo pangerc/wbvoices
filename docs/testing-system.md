@@ -10,6 +10,7 @@
 ## Why Testing Now?
 
 The application reached sufficient maturity after completing Phase 1 of the Version Streams architecture:
+
 - 15 API endpoints implemented
 - Complex business logic (version management, mixer rebuild)
 - No existing test coverage
@@ -26,6 +27,7 @@ Previously, all testing was manual (curl commands). This was unsustainable.
 Despite Jest being the traditional choice with built-in Next.js integration (`next/jest`), we chose **Vitest**:
 
 **Vitest Advantages:**
+
 - ✅ Officially supported by Next.js (documented in Next.js 15 guides)
 - ✅ **4x faster** than Jest (355ms vs ~1.5s for 55 tests)
 - ✅ Native TypeScript support (zero config pain)
@@ -34,17 +36,20 @@ Despite Jest being the traditional choice with built-in Next.js integration (`ne
 - ✅ Better DX with superior error messages
 
 **Trade-offs:**
+
 - ❌ No `next/vitest` helper (manual config required)
 - ❌ Slightly less mature ecosystem
 - ✅ But faster, cleaner, and officially blessed by Next.js team
 
 **Limitations (applies to BOTH Jest and Vitest):**
+
 - Cannot test async React Server Components
 - For those, use Playwright/Cypress for E2E tests
 
 ### Environment: Node (not jsdom)
 
 We use `environment: "node"` because:
+
 - All Phase 1 code is server-side (API routes, Redis, business logic)
 - No React components tested yet (Phase 2)
 - jsdom has ESM compatibility issues with current tooling
@@ -57,16 +62,19 @@ We use `environment: "node"` because:
 ### Dependencies
 
 **Core Testing:**
+
 - `vitest` - Test runner
 - `@vitejs/plugin-react` - React support (for future UI tests)
 - `vite-tsconfig-paths` - Path alias resolution (@/ imports)
 
 **Test Utilities:**
+
 - `@testing-library/react` - Component testing (Phase 2)
 - `@testing-library/dom` - DOM utilities
 - `@testing-library/user-event` - User interaction simulation
 
 **Mocking:**
+
 - `msw@2` - Mock Service Worker (API mocking)
 - `ioredis-mock` - In-memory Redis
 - `@types/ioredis-mock` - Type definitions for ioredis-mock
@@ -110,6 +118,7 @@ src/
 ### Configuration
 
 **`vitest.config.mts`:**
+
 - Node environment
 - Global test utilities (`vi`, `expect`, etc.)
 - Path aliases (@/ → src/)
@@ -117,13 +126,14 @@ src/
 - Setup file: `src/test/setup.ts`
 
 **`package.json` scripts:**
+
 ```json
 {
-  "test": "vitest",              // Watch mode
-  "test:run": "vitest run",      // CI mode (run once)
-  "test:ui": "vitest --ui",      // Visual UI
+  "test": "vitest", // Watch mode
+  "test:run": "vitest run", // CI mode (run once)
+  "test:ui": "vitest --ui", // Visual UI
   "test:coverage": "vitest run --coverage",
-  "test:watch": "vitest watch"   // Explicit watch
+  "test:watch": "vitest watch" // Explicit watch
 }
 ```
 
@@ -132,9 +142,11 @@ src/
 ## Test Coverage (55 tests)
 
 ### 1. Version Management (30 tests)
+
 **File:** `src/lib/redis/__tests__/versions.test.ts`
 
 **Covers:**
+
 - ✅ Redis key builders (AD_KEYS)
 - ✅ Version creation with auto-increment IDs (v1, v2, v3)
 - ✅ Version retrieval (single, list, all with data)
@@ -146,6 +158,7 @@ src/
 - ✅ Independent version sequences per stream
 
 **Example test:**
+
 ```typescript
 it("should auto-increment version IDs", async () => {
   const v1 = await createVersion(mockAdId, "voices", mockVoiceVersionDraft);
@@ -159,9 +172,11 @@ it("should auto-increment version IDs", async () => {
 ```
 
 ### 2. Mixer Rebuild Logic (17 tests)
+
 **File:** `src/lib/mixer/__tests__/rebuilder.test.ts`
 
 **Covers:**
+
 - ✅ Union of all three streams (voices + music + sfx)
 - ✅ Partial activation scenarios (voices only, music only, etc.)
 - ✅ Empty mixer handling (no active versions)
@@ -173,6 +188,7 @@ it("should auto-increment version IDs", async () => {
 - ✅ Track metadata preservation
 
 **Example test:**
+
 ```typescript
 it("should build mixer with voice, music, and sfx tracks", async () => {
   // Create and activate versions...
@@ -189,9 +205,11 @@ it("should build mixer with voice, music, and sfx tracks", async () => {
 Tests that verify exact timeline calculations may break when `LegacyTimelineCalculator` is replaced or mixer becomes editable.
 
 ### 3. API Integration (8 tests)
+
 **File:** `src/app/api/ads/[id]/mixer/rebuild/__tests__/route.test.ts`
 
 **Covers:**
+
 - ✅ POST /api/ads/[id]/mixer/rebuild success
 - ✅ Empty mixer handling
 - ✅ Response structure validation
@@ -201,12 +219,16 @@ Tests that verify exact timeline calculations may break when `LegacyTimelineCalc
 - ✅ Redis persistence verification
 
 **Example test:**
+
 ```typescript
 it("should rebuild mixer successfully with active versions", async () => {
   // Setup versions...
-  const request = new Request("http://localhost:3003/api/ads/test/mixer/rebuild", {
-    method: "POST",
-  });
+  const request = new Request(
+    "http://localhost:3003/api/ads/test/mixer/rebuild",
+    {
+      method: "POST",
+    },
+  );
   const params = Promise.resolve({ id: mockAdId });
 
   const response = await POST(request, { params });
@@ -358,6 +380,7 @@ it("should use fixtures", async () => {
 ```
 
 **Type Safety Notes:**
+
 - **Language codes:** Use normalized base codes (`"en"`, `"es"`, `"de"`) not region-specific codes (`"en-US"`, `"es-MX"`). The `Language` type from `@/utils/language` only accepts normalized codes.
 - **MusicPrompts structure:** Must include all three provider fields (`loudly`, `mubert`, `elevenlabs`) as strings, not generic fields like `genre` or `mood`.
 - **Voice properties:** Only include properties defined in the `Voice` type. Provider-specific fields like `model` don't belong in the base Voice object.
@@ -412,6 +435,7 @@ await mockRedis.flushall(); // Clear all data
 ### Tests Likely to Break During Refactoring
 
 **Timeline Calculation Tests:**
+
 - Any test asserting exact `calculatedTracks` structure
 - Tests checking `totalDuration` values
 - Tests verifying `startTime` positions
@@ -419,6 +443,7 @@ await mockRedis.flushall(); // Clear all data
 **Why:** `LegacyTimelineCalculator` is planned for replacement. Mixer will become editable.
 
 **Safe to Keep:**
+
 - Tests verifying tracks EXIST (not exact timing)
 - Tests checking track types and metadata
 - Tests ensuring mixer state persists
@@ -426,6 +451,7 @@ await mockRedis.flushall(); // Clear all data
 ### Tests Safe from Refactoring
 
 **Core Infrastructure:**
+
 - Version CRUD operations
 - Active version pointers
 - Ad metadata management
@@ -437,12 +463,14 @@ await mockRedis.flushall(); // Clear all data
 ### When to Add Tests
 
 **Always test:**
+
 - New API endpoints
 - New business logic functions
 - Complex algorithms
 - Data transformations
 
 **Consider skipping:**
+
 - Simple getters/setters
 - Pure UI components (test with E2E instead)
 - Temporary/experimental features
@@ -462,6 +490,7 @@ await mockRedis.flushall(); // Clear all data
 ### Phase 2: UI Component Testing
 
 When building VersionAccordion and other React components:
+
 1. Switch to `jsdom` environment for those test files
 2. Use `@testing-library/react` for component tests
 3. Test user interactions, not implementation
@@ -469,6 +498,7 @@ When building VersionAccordion and other React components:
 ### Phase 3: E2E Testing
 
 For full user flows and async Server Components:
+
 1. Add Playwright
 2. Test critical paths (create ad → generate → mix → export)
 3. Test error recovery flows
@@ -479,6 +509,7 @@ For full user flows and async Server Components:
 **Goal:** 60-70% by Phase 3
 
 **Priority areas:**
+
 - Remaining API endpoints (12 routes)
 - Provider integrations (with mocks)
 - Error handling paths

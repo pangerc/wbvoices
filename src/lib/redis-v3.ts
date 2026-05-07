@@ -18,7 +18,7 @@ export function getRedisV3(): Redis {
     if (!url || !token) {
       throw new Error(
         "V3_KV_REST_API_URL and V3_KV_REST_API_TOKEN are required for Version Streams. " +
-        "Please set them in your .env file."
+          "Please set them in your .env file.",
       );
     }
 

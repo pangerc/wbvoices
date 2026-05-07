@@ -66,7 +66,7 @@ export async function weaveTagsForElevenlabsTrack(
   text: string,
   voice: Voice,
   context: KnowledgeContext | undefined,
-  opts: TagWeaverOptions = {}
+  opts: TagWeaverOptions = {},
 ): Promise<TagWeaverResult> {
   const start = Date.now();
   const trimmed = text.trim();
@@ -127,7 +127,7 @@ function buildPrompt(
   line: string,
   voice: Voice,
   context: KnowledgeContext | undefined,
-  lintFeedback?: string
+  lintFeedback?: string,
 ): string {
   const accent = resolveAccentForLint(voice.accent);
   const accentTag = accent ? `[strong ${accent} accent]` : null;
@@ -144,7 +144,8 @@ function buildPrompt(
 
   const briefParts: string[] = [];
   if (context?.pacing) briefParts.push(`pacing=${context.pacing}`);
-  if (context?.campaignFormat) briefParts.push(`format=${context.campaignFormat}`);
+  if (context?.campaignFormat)
+    briefParts.push(`format=${context.campaignFormat}`);
   const briefLine = briefParts.length ? briefParts.join(", ") : "—";
 
   const fastRule =
@@ -184,9 +185,7 @@ ${fastRule}
 Return ONLY the tagged version of the line. No explanation, no quotes, no JSON wrapper.${retryNote}`;
 }
 
-type ResponsesCreateResult = Awaited<
-  ReturnType<OpenAI["responses"]["create"]>
->;
+type ResponsesCreateResult = Awaited<ReturnType<OpenAI["responses"]["create"]>>;
 
 function extractText(response: unknown): string {
   if (!response || typeof response !== "object") return "";
@@ -232,7 +231,10 @@ function sanitize(raw: string): string {
 
 function preservesScriptText(original: string, tagged: string): boolean {
   const strip = (s: string) =>
-    s.replace(/\[[^\]]*\]/g, "").replace(/\s+/g, " ").trim();
+    s
+      .replace(/\[[^\]]*\]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
   const o = strip(original);
   const t = strip(tagged);
   if (!o) return true;

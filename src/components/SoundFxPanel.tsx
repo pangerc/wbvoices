@@ -80,7 +80,7 @@ export function SoundFxPanel({
   onAddPrompt,
   adDuration, // We keep this for API compatibility, but use a fixed default duration for sound effects
   resetForm,
-   
+
   voiceTrackCount: _voiceTrackCount = 0, // Kept for API compatibility, not currently used
   voiceTrackPreviews = [],
   onPlayPrompt,
@@ -114,7 +114,7 @@ export function SoundFxPanel({
   const handleGenerate = () => {
     console.log(`Generating ${soundFxPrompts.length} sound effects`);
     // Check if at least one prompt has valid description
-    const hasValidPrompt = soundFxPrompts.some(p => p.description?.trim());
+    const hasValidPrompt = soundFxPrompts.some((p) => p.description?.trim());
     if (hasValidPrompt && !isGenerating) {
       onGenerate();
     } else {
@@ -123,10 +123,13 @@ export function SoundFxPanel({
   };
 
   // Helper to convert placement intent to string option for listbox
-  const placementIntentToOption = (placement?: SoundFxPlacementIntent): string => {
+  const placementIntentToOption = (
+    placement?: SoundFxPlacementIntent,
+  ): string => {
     if (!placement) return "end";
     // Both "start" and "beforeVoices" map to the "start" UI option (sequential intro)
-    if (placement.type === "start" || placement.type === "beforeVoices") return "start";
+    if (placement.type === "start" || placement.type === "beforeVoices")
+      return "start";
     if (placement.type === "withFirstVoice") return "withFirstVoice";
     if (placement.type === "afterVoice" && placement.index !== undefined) {
       return `afterVoice-${placement.index}`;
@@ -153,7 +156,9 @@ export function SoundFxPanel({
               </h3>
               <div className="flex items-center gap-1">
                 {onPlayPrompt && (
-                  <Tooltip content={generatedUrls[index] ? "Play" : "Generate & play"}>
+                  <Tooltip
+                    content={generatedUrls[index] ? "Play" : "Generate & play"}
+                  >
                     <button
                       onClick={() => onPlayPrompt(index)}
                       disabled={isGenerating || !prompt.description?.trim()}
@@ -212,8 +217,14 @@ export function SoundFxPanel({
                     });
                   }}
                   options={[
-                    { value: "start", label: "At beginning (before all voices)" },
-                    { value: "withFirstVoice", label: "With first voice (overlapping)" },
+                    {
+                      value: "start",
+                      label: "At beginning (before all voices)",
+                    },
+                    {
+                      value: "withFirstVoice",
+                      label: "With first voice (overlapping)",
+                    },
                     ...(voiceTrackPreviews && voiceTrackPreviews.length > 0
                       ? voiceTrackPreviews.map((preview, voiceIndex) => ({
                           value: `afterVoice-${voiceIndex}`,
@@ -257,7 +268,9 @@ export function SoundFxPanel({
                 <GlassySlider
                   label={null}
                   value={prompt.duration || DEFAULT_SOUND_FX_DURATION}
-                  onChange={(value) => onUpdatePrompt(index, { duration: value })}
+                  onChange={(value) =>
+                    onUpdatePrompt(index, { duration: value })
+                  }
                   min={0.5}
                   max={sliderMax}
                   step={0.5}

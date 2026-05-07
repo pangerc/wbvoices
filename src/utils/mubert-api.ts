@@ -8,7 +8,7 @@ interface ErrorWithDetails extends Error {
 export async function generateMusicWithMubert(
   prompt: string,
   duration: number,
-  projectId?: string
+  projectId?: string,
 ): Promise<MusicTrack> {
   console.log(`Generating music with Mubert: "${prompt}" (${duration}s)`);
 
@@ -27,10 +27,14 @@ export async function generateMusicWithMubert(
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: response.statusText }));
       console.error("Mubert API error:", errorData);
-      const error = new Error(errorData.error || `Mubert API error: ${response.status}`) as ErrorWithDetails;
-      error.details = errorData.errorDetails;  // Attach structured details (character limit, etc.)
+      const error = new Error(
+        errorData.error || `Mubert API error: ${response.status}`,
+      ) as ErrorWithDetails;
+      error.details = errorData.errorDetails; // Attach structured details (character limit, etc.)
       throw error;
     }
 
@@ -51,7 +55,7 @@ export async function generateMusicWithMubert(
     // If still processing, poll for completion (like Loudly)
     if (data.status === "processing" && data.id) {
       console.log(
-        `Mubert track created with ID: ${data.id}, polling for completion...`
+        `Mubert track created with ID: ${data.id}, polling for completion...`,
       );
 
       const maxAttempts = 60; // 5 minutes
@@ -59,7 +63,7 @@ export async function generateMusicWithMubert(
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         console.log(
-          `Checking Mubert status (attempt ${attempt + 1}/${maxAttempts})...`
+          `Checking Mubert status (attempt ${attempt + 1}/${maxAttempts})...`,
         );
 
         try {
@@ -69,14 +73,14 @@ export async function generateMusicWithMubert(
           }
 
           const statusResponse = await fetch(
-            `/api/music/mubert/status?id=${data.id}&customer_id=${data.customer_id}&access_token=${data.access_token}`
+            `/api/music/mubert/status?id=${data.id}&customer_id=${data.customer_id}&access_token=${data.access_token}`,
           );
 
           if (!statusResponse.ok) {
             const errorText = await statusResponse.text();
             console.error(
               `Status check error (attempt ${attempt + 1}):`,
-              errorText
+              errorText,
             );
             continue;
           }
@@ -125,7 +129,7 @@ export async function generateMusicWithMubert(
         } catch (error) {
           console.error(
             `Error checking status (attempt ${attempt + 1}):`,
-            error
+            error,
           );
         }
       }
@@ -139,7 +143,7 @@ export async function generateMusicWithMubert(
     const wrappedError = new Error(
       error instanceof Error
         ? `Mubert music generation failed: ${error.message}`
-        : "Unknown error generating music with Mubert"
+        : "Unknown error generating music with Mubert",
     ) as ErrorWithDetails;
     // Preserve details from original error (character limit, validation errors, etc.)
     const originalError = error as ErrorWithDetails;

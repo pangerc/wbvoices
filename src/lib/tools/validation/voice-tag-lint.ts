@@ -84,9 +84,7 @@ export function lintVoiceTracks(tracks: LintableTrack[]): LintResult {
     let accentPresent = false;
     if (enforcedAccent && accentTag) {
       const expected = accentTag.toLowerCase();
-      accentPresent = opening.tags.some(
-        (t) => t.toLowerCase() === expected
-      );
+      accentPresent = opening.tags.some((t) => t.toLowerCase() === expected);
       if (!accentPresent) {
         trackViolations.push({
           trackIndex,
@@ -222,5 +220,7 @@ function findMalformedTags(text: string): string[] {
  */
 export function buildWeaverRetryFeedback(violations: LintViolation[]): string {
   if (!violations.length) return "";
-  return violations.map((v) => `- ${v.message}${v.hint ? " " + v.hint : ""}`).join("\n");
+  return violations
+    .map((v) => `- ${v.message}${v.hint ? " " + v.hint : ""}`)
+    .join("\n");
 }

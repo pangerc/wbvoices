@@ -18,26 +18,28 @@
 // Implemented in: /src/utils/providerSelection.ts
 
 // Chinese language hierarchy:
-if (language === 'zh') {
-  if (qwen >= minVoices) return 'qwen';
-  if (bytedance >= minVoices) return 'bytedance';
-  if (elevenlabs >= minVoices) return 'elevenlabs';
-  return 'openai';
+if (language === "zh") {
+  if (qwen >= minVoices) return "qwen";
+  if (bytedance >= minVoices) return "bytedance";
+  if (elevenlabs >= minVoices) return "elevenlabs";
+  return "openai";
 }
 
 // Other languages:
-if (elevenlabs >= minVoices) return 'elevenlabs';
-return 'openai'; // Always has voices
+if (elevenlabs >= minVoices) return "elevenlabs";
+return "openai"; // Always has voices
 ```
 
 ### Cache Management
 
 **Rebuild cache** (admin only):
+
 ```bash
 curl -X POST http://localhost:3000/api/admin/voice-cache
 ```
 
 **Check cache stats**:
+
 ```bash
 curl http://localhost:3000/api/voice-catalogue?operation=stats
 ```
@@ -67,23 +69,28 @@ export type Provider =
 **File**: `/src/lib/providers/NewProviderVoiceProvider.ts`
 
 ```typescript
-import { BaseAudioProvider, ValidationResult, AuthCredentials, ProviderResponse } from './BaseAudioProvider';
-import { uploadVoiceToBlob } from '@/utils/blob-storage';
-import { NextResponse } from 'next/server';
+import {
+  BaseAudioProvider,
+  ValidationResult,
+  AuthCredentials,
+  ProviderResponse,
+} from "./BaseAudioProvider";
+import { uploadVoiceToBlob } from "@/utils/blob-storage";
+import { NextResponse } from "next/server";
 
 export class NewProviderVoiceProvider extends BaseAudioProvider {
-  readonly providerName = 'newprovider';
-  readonly providerType = 'voice' as const;
+  readonly providerName = "newprovider";
+  readonly providerType = "voice" as const;
 
   validateParams(body: Record<string, unknown>): ValidationResult {
     const { text, voiceId } = body;
 
-    if (!text || typeof text !== 'string') {
-      return { isValid: false, error: 'Text is required' };
+    if (!text || typeof text !== "string") {
+      return { isValid: false, error: "Text is required" };
     }
 
-    if (!voiceId || typeof voiceId !== 'string') {
-      return { isValid: false, error: 'Voice ID is required' };
+    if (!voiceId || typeof voiceId !== "string") {
+      return { isValid: false, error: "Voice ID is required" };
     }
 
     return { isValid: true };
@@ -103,7 +110,10 @@ export class NewProviderVoiceProvider extends BaseAudioProvider {
     return { apiKey };
   }
 
-  async makeRequest(params: Record<string, unknown>, credentials: AuthCredentials): Promise<ProviderResponse> {
+  async makeRequest(
+    params: Record<string, unknown>,
+    credentials: AuthCredentials,
+  ): Promise<ProviderResponse> {
     const { text, voiceId, projectId } = params;
     const { apiKey } = credentials;
 
@@ -113,14 +123,14 @@ export class NewProviderVoiceProvider extends BaseAudioProvider {
       {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           text,
           voice_id: voiceId,
         }),
-      }
+      },
     );
 
     if (!response.ok) {
@@ -133,14 +143,14 @@ export class NewProviderVoiceProvider extends BaseAudioProvider {
 
     // Get audio data
     const audioData = await response.arrayBuffer();
-    const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
+    const audioBlob = new Blob([audioData], { type: "audio/mpeg" });
 
     // Upload to Vercel Blob
     const { url } = await uploadVoiceToBlob(
       audioBlob,
       text as string,
-      'newprovider',
-      projectId as string
+      "newprovider",
+      projectId as string,
     );
 
     return {
@@ -156,13 +166,13 @@ export class NewProviderVoiceProvider extends BaseAudioProvider {
 **File**: `/src/lib/providers/index.ts`
 
 ```typescript
-import { NewProviderVoiceProvider } from './NewProviderVoiceProvider';
+import { NewProviderVoiceProvider } from "./NewProviderVoiceProvider";
 
 // Register provider
-AudioProviderFactory.register('voice', 'newprovider', NewProviderVoiceProvider);
+AudioProviderFactory.register("voice", "newprovider", NewProviderVoiceProvider);
 
 // Export
-export { NewProviderVoiceProvider } from './NewProviderVoiceProvider';
+export { NewProviderVoiceProvider } from "./NewProviderVoiceProvider";
 ```
 
 #### 4. Create API Route
@@ -177,7 +187,7 @@ import { NextRequest } from "next/server";
 import { createProvider } from "@/lib/providers";
 
 export async function POST(req: NextRequest) {
-  const provider = createProvider('voice', 'newprovider');
+  const provider = createProvider("voice", "newprovider");
   return provider.handleRequest(req);
 }
 ```
@@ -192,7 +202,7 @@ Add provider to cache building:
 // Fetch NewProvider voices
 try {
   const response = await fetch(
-    `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/voice/list?provider=newprovider`
+    `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/voice/list?provider=newprovider`,
   );
   if (response.ok) {
     const data = await response.json();
@@ -200,7 +210,10 @@ try {
 
     for (const voice of newproviderVoices as ProviderVoice[]) {
       const normalizedLanguage = normalizeLanguageCode(voice.language || "en");
-      const normalizedAccent = normalizeAccent(voice.accent, normalizedLanguage);
+      const normalizedAccent = normalizeAccent(
+        voice.accent,
+        normalizedLanguage,
+      );
 
       voices.push({
         id: voice.id,
@@ -208,8 +221,10 @@ try {
         catalogueId: `voice:newprovider:${voice.id}`,
         name: voice.name,
         displayName: `${voice.name} (NewProvider)`,
-        gender: voice.gender === "male" || voice.gender === "female"
-          ? voice.gender : "neutral",
+        gender:
+          voice.gender === "male" || voice.gender === "female"
+            ? voice.gender
+            : "neutral",
         language: normalizedLanguage as Language,
         accent: normalizedAccent,
         region: getRegionForAccent(normalizedAccent, normalizedLanguage),
@@ -247,6 +262,7 @@ export type VoiceCounts = {
 **File**: `/src/services/voiceCatalogueService.ts`
 
 Update all VoiceCounts initializations:
+
 ```typescript
 const totals: VoiceCounts = {
   elevenlabs: 0,
@@ -255,7 +271,7 @@ const totals: VoiceCounts = {
   qwen: 0,
   bytedance: 0,
   newprovider: 0, // Add here
-  any: 0
+  any: 0,
 };
 ```
 
@@ -264,9 +280,10 @@ const totals: VoiceCounts = {
 **File**: `/src/utils/providerSelection.ts`
 
 Add to selection logic if needed:
+
 ```typescript
 // If newprovider should be prioritized for certain languages
-if (language === 'special' && voiceCounts.newprovider >= minVoices) {
+if (language === "special" && voiceCounts.newprovider >= minVoices) {
   return "newprovider";
 }
 ```
@@ -279,8 +296,14 @@ if (language === 'special' && voiceCounts.newprovider >= minVoices) {
 export async function uploadVoiceToBlob(
   audioBlob: Blob,
   voiceId: string,
-  provider: 'elevenlabs' | 'lovo' | 'openai' | 'qwen' | 'bytedance' | 'newprovider',
-  projectId?: string
+  provider:
+    | "elevenlabs"
+    | "lovo"
+    | "openai"
+    | "qwen"
+    | "bytedance"
+    | "newprovider",
+  projectId?: string,
 ): Promise<{ url: string; downloadUrl: string }> {
   // ...
 }
@@ -313,6 +336,7 @@ curl -X POST http://localhost:3000/api/voice/newprovider-v2 \
 ## Provider-Specific Considerations
 
 ### ElevenLabs
+
 - **Multilingual voices**: Create multiple entries per `verified_languages`
 - **Voice IDs**: Format `{voice_id}-{language}` for multilingual
 - **API**: Requires `xi-api-key` header
@@ -330,21 +354,25 @@ These settings are applied to all presets in `ElevenLabsVoiceProvider.ts`.
 **Why not use `seed`?** The ElevenLabs `seed` parameter only provides **reproducibility** (same text + same seed = identical output), not cross-line consistency. Different text will still produce natural variation regardless of seed. The `similarity_boost` and `use_speaker_boost` parameters actually target voice identity consistency.
 
 **Trade-offs:**
+
 - `use_speaker_boost: true` adds slight latency per request
 - Very high similarity may slightly reduce emotional range (mitigated by keeping stability at expressive levels)
 
 ### OpenAI
+
 - **Always included**: Bypass region filtering for global coverage
 - **Accent**: Always "neutral" (synthetic)
 - **Voice IDs**: Simple format (e.g., "alloy", "echo")
 - **Pacing**: Support "default", "slow" via `speed` parameter
 
 ### Qwen (Chinese Specialist)
+
 - **Language**: Only Chinese (zh)
 - **Priority**: First choice for Chinese content
 - **API**: Alibaba Cloud authentication
 
 ### ByteDance (Cantonese Specialist)
+
 - **Languages**: Chinese variants + Japanese
 - **Authentication**: Custom headers (not Bearer tokens)
   - `X-Api-App-Id`
@@ -355,6 +383,7 @@ These settings are applied to all presets in `ElevenLabsVoiceProvider.ts`.
 - **Edge Runtime**: Use Web Crypto API (no Node.js `crypto`)
 
 ### Lahajati (Arabic Specialist)
+
 - **Languages**: Arabic with 116 dialect variants
 - **Priority**: Primary choice for Arabic content
 - **Dialects**: Dynamically fetched from Lahajati API during cache refresh
@@ -398,7 +427,7 @@ Some ElevenLabs voices support multiple languages via `verified_languages`:
 const voices = data.voices.flatMap((voice: ElevenLabsVoice): Voice[] => {
   if (voice.verified_languages && voice.verified_languages.length > 0) {
     return voice.verified_languages
-      .filter((lang) => typeof lang === 'string' && lang) // Type safety!
+      .filter((lang) => typeof lang === "string" && lang) // Type safety!
       .map((langString) => ({
         id: `${voice.voice_id}-${langString}`,
         name: voice.name,
@@ -409,7 +438,11 @@ const voices = data.voices.flatMap((voice: ElevenLabsVoice): Voice[] => {
   }
 
   // Fallback for voices without verified_languages
-  return [{ /* single voice */ }];
+  return [
+    {
+      /* single voice */
+    },
+  ];
 });
 ```
 
@@ -422,31 +455,31 @@ const voices = data.voices.flatMap((voice: ElevenLabsVoice): Voice[] => {
 ```typescript
 export const normalizeAccent = (
   rawAccent: string | undefined,
-  language: string
+  language: string,
 ): string => {
-  if (!rawAccent) return 'neutral';
+  if (!rawAccent) return "neutral";
 
   const accentLower = rawAccent.toLowerCase().trim();
 
   // Language-specific mappings
   const mappings: Record<string, Record<string, string>> = {
     es: {
-      'mexican': 'mexican',
-      'castilian': 'castilian',
-      'argentinian': 'argentinian',
+      mexican: "mexican",
+      castilian: "castilian",
+      argentinian: "argentinian",
     },
     zh: {
-      'cantonese': 'cantonese',
-      'mandarin': 'mandarin',
+      cantonese: "cantonese",
+      mandarin: "mandarin",
     },
     pl: {
-      'polish': 'polish',
-      'mazovian': 'polish',
-      'warsaw': 'polish',
+      polish: "polish",
+      mazovian: "polish",
+      warsaw: "polish",
     },
   };
 
-  return mappings[language]?.[accentLower] || 'neutral';
+  return mappings[language]?.[accentLower] || "neutral";
 };
 ```
 
@@ -455,22 +488,22 @@ export const normalizeAccent = (
 ```typescript
 export const accentRegions: Record<string, string> = {
   // Chinese
-  cantonese: 'hong_kong',
-  mandarin: 'china',
+  cantonese: "hong_kong",
+  mandarin: "china",
 
   // Spanish
-  mexican: 'latin_america',
-  castilian: 'spain',
+  mexican: "latin_america",
+  castilian: "spain",
 
   // Polish
-  polish: 'poland',
+  polish: "poland",
 
   // Default
-  neutral: 'all',
+  neutral: "all",
 };
 
 export function getRegionForAccent(accent: string, language: string): string {
-  return accentRegions[accent] || 'all';
+  return accentRegions[accent] || "all";
 }
 ```
 
@@ -484,10 +517,10 @@ Always filter voices server-side for consistency:
 // Client code
 const response = await fetch(
   `/api/voice-catalogue?operation=filtered-voices` +
-  `&language=${language}` +
-  `&region=${region}` +
-  `&campaignFormat=${campaignFormat}` +
-  `&exclude=lovo`
+    `&language=${language}` +
+    `&region=${region}` +
+    `&campaignFormat=${campaignFormat}` +
+    `&exclude=lovo`,
 );
 
 const { voices, count, selectedProvider } = await response.json();
@@ -502,7 +535,7 @@ Bypass state management for faster restoration:
 const restoredVoices = await loadVoicesFromIds(project.voiceIds);
 
 voiceManager.setCurrentVoices(restoredVoices, {
-  bypassStateUpdate: true // Skip unnecessary re-renders
+  bypassStateUpdate: true, // Skip unnecessary re-renders
 });
 ```
 
@@ -516,11 +549,12 @@ useEffect(() => {
   if (!selectedLanguage) return;
 
   const updateCounts = async () => {
-    const url = `/api/voice-catalogue?operation=region-counts` +
+    const url =
+      `/api/voice-catalogue?operation=region-counts` +
       `&language=${selectedLanguage}` +
       `&region=${selectedRegion}`;
 
-    const counts = await fetch(url).then(r => r.json());
+    const counts = await fetch(url).then((r) => r.json());
     setProviderCounts(counts);
   };
 
@@ -555,6 +589,7 @@ if (typeof locale !== 'string' || !locale) {
 **Cause**: Incorrect header format
 
 **Fix**: Use exact headers from documentation
+
 ```typescript
 {
   'X-Api-App-Id': appId,
@@ -571,6 +606,7 @@ if (typeof locale !== 'string' || !locale) {
 **Cause**: Field name mismatch in request body
 
 **Fix**: Use exact field names
+
 ```typescript
 {
   app: {
@@ -592,10 +628,11 @@ if (typeof locale !== 'string' || !locale) {
 **Cause**: Different APIs returning inconsistent results
 
 **Fix**: Ensure both use same server-side filtering
+
 ```typescript
 // Both should call filtered-voices operation
 const counts = await fetch(
-  `/api/voice-catalogue?operation=filtered-voices&...`
+  `/api/voice-catalogue?operation=filtered-voices&...`,
 );
 ```
 
@@ -604,6 +641,7 @@ const counts = await fetch(
 **Symptom**: New voices not appearing after provider update
 
 **Solution**:
+
 ```bash
 # Force rebuild cache
 curl -X POST http://localhost:3000/api/admin/voice-cache
@@ -619,10 +657,11 @@ curl http://localhost:3000/api/voice-catalogue?operation=stats
 **Cause**: Using Node.js `crypto` in Edge Runtime
 
 **Fix**: Use Web Crypto API or switch to Node.js runtime
+
 ```typescript
 // Remove Edge runtime if needed
 // export const runtime = "edge";
 
 // Or use Web Crypto
-const hash = await crypto.subtle.digest('SHA-256', data);
+const hash = await crypto.subtle.digest("SHA-256", data);
 ```

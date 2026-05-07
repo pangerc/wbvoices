@@ -19,7 +19,7 @@ export const runtime = "nodejs";
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { email, role } = await requireAuth();
@@ -49,7 +49,10 @@ export async function PATCH(
     return NextResponse.json({ success: true, adId, name: metadata.name });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     console.error("❌ Error updating ad:", error);
     return NextResponse.json(
@@ -57,7 +60,7 @@ export async function PATCH(
         error: "Failed to update ad",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -70,7 +73,7 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { email, role } = await requireAuth();
@@ -89,7 +92,10 @@ export async function DELETE(
     return NextResponse.json({ success: true, adId });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     console.error("❌ Error deleting ad:", error);
     return NextResponse.json(
@@ -97,7 +103,7 @@ export async function DELETE(
         error: "Failed to delete ad",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

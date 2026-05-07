@@ -34,7 +34,7 @@ describe("withAdLock", () => {
     await expect(
       withAdLock("ad-1", async () => {
         throw new Error("boom");
-      })
+      }),
     ).rejects.toThrow("boom");
     // Successor acquires without delay
     const result = await withAdLock("ad-1", async () => "after-error", {
@@ -101,7 +101,7 @@ describe("withAdLock", () => {
       withAdLock("ad-1", async () => "never-runs", {
         timeoutMs: 150,
         retryMs: 20,
-      })
+      }),
     ).rejects.toBeInstanceOf(AdLockTimeoutError);
   });
 
@@ -139,7 +139,7 @@ describe("withAdLock", () => {
           await new Promise((r) => setTimeout(r, FIRST_OP_MS));
           return "first";
         },
-        { ttlSec: TTL_SEC, timeoutMs: 4000, retryMs: 20 }
+        { ttlSec: TTL_SEC, timeoutMs: 4000, retryMs: 20 },
       ).then((v) => {
         aReleased = true;
         return v;
@@ -159,7 +159,7 @@ describe("withAdLock", () => {
           ]);
           return "second";
         },
-        { ttlSec: 5, timeoutMs: 4000, retryMs: 20 }
+        { ttlSec: 5, timeoutMs: 4000, retryMs: 20 },
       );
 
       await firstDone;

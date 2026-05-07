@@ -15,10 +15,7 @@ import {
   mockVoiceTrack,
   mockVoiceVersionFrozen,
 } from "@/test/fixtures/versions";
-import type {
-  MixerVersion,
-  VoiceVersion,
-} from "@/types/versions";
+import type { MixerVersion, VoiceVersion } from "@/types/versions";
 import type { ProjectBrief } from "@/types";
 
 let mockRedis: ReturnType<typeof createMockRedis>;
@@ -71,7 +68,11 @@ describe("rebuilder + resolveTimeline integration", () => {
       anchors: {
         s0: { anchor: { kind: "absolute", t: 0 }, origin: "llm-seed" },
         s1: {
-          anchor: { kind: "simultaneousWith", slotId: "s0", alignment: "startAtStart" },
+          anchor: {
+            kind: "simultaneousWith",
+            slotId: "s0",
+            alignment: "startAtStart",
+          },
           origin: "llm-seed",
         },
       },
@@ -85,8 +86,12 @@ describe("rebuilder + resolveTimeline integration", () => {
 
     const state = await getMixerState(mockAdId);
     expect(state).not.toBeNull();
-    const s0Track = state!.calculatedTracks.find((ct) => ct.id === "voice-v1-0")!;
-    const s1Track = state!.calculatedTracks.find((ct) => ct.id === "voice-v1-1")!;
+    const s0Track = state!.calculatedTracks.find(
+      (ct) => ct.id === "voice-v1-0",
+    )!;
+    const s1Track = state!.calculatedTracks.find(
+      (ct) => ct.id === "voice-v1-1",
+    )!;
 
     expect(s0Track.startTime).toBe(0);
     expect(s1Track.startTime).toBe(0); // start-at-start alignment
@@ -117,7 +122,9 @@ describe("rebuilder + resolveTimeline integration", () => {
     await setActiveVersion(mockAdId, "voices", "v1");
 
     const mixer: MixerVersion = {
-      anchors: { s0: { anchor: { kind: "absolute", t: 0 }, origin: "llm-seed" } },
+      anchors: {
+        s0: { anchor: { kind: "absolute", t: 0 }, origin: "llm-seed" },
+      },
       pins: { voices: "v1", music: null, sfx: null },
       createdAt: Date.now(),
       createdBy: "llm",
@@ -140,7 +147,9 @@ describe("rebuilder + resolveTimeline integration", () => {
     await setActiveVersion(mockAdId, "voices", "v1");
 
     const mixer: MixerVersion = {
-      anchors: { s0: { anchor: { kind: "absolute", t: 0 }, origin: "llm-seed" } },
+      anchors: {
+        s0: { anchor: { kind: "absolute", t: 0 }, origin: "llm-seed" },
+      },
       pins: { voices: "v1", music: null, sfx: null },
       createdAt: Date.now(),
       createdBy: "llm",
@@ -174,7 +183,9 @@ describe("rebuilder + resolveTimeline integration", () => {
     await setActiveVersion(mockAdId, "voices", "v1");
 
     const mixer: MixerVersion = {
-      anchors: { s0: { anchor: { kind: "absolute", t: 0 }, origin: "llm-seed" } },
+      anchors: {
+        s0: { anchor: { kind: "absolute", t: 0 }, origin: "llm-seed" },
+      },
       pins: { voices: "v1", music: null, sfx: null },
       createdAt: Date.now(),
       createdBy: "llm",

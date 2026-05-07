@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
-import { voiceDescriptionService } from '@/services/voiceDescriptionService';
-import descriptions from '@/../data/voice-descriptions.json';
+import { NextResponse } from "next/server";
+import { voiceDescriptionService } from "@/services/voiceDescriptionService";
+import descriptions from "@/../data/voice-descriptions.json";
 
 /**
  * Admin API for importing voice descriptions from scraped data
@@ -23,7 +23,7 @@ export async function POST() {
     }));
 
     // Perform batch upsert
-    await voiceDescriptionService.batchUpsert(batch, 'scraped_elevenlabs_2024');
+    await voiceDescriptionService.batchUpsert(batch, "scraped_elevenlabs_2024");
 
     // Get updated stats
     const stats = await voiceDescriptionService.getStats();
@@ -40,12 +40,15 @@ export async function POST() {
       },
     });
   } catch (error) {
-    console.error('❌ Import failed:', error);
+    console.error("❌ Import failed:", error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Failed to import descriptions',
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to import descriptions",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

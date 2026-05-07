@@ -144,6 +144,5 @@ Skip fields that don't add signal. A two-line instruction that names the charact
 2. Each track is independent — no references to "other speaker" or "dialogue flow"; the model generating audio doesn't see the full ad.
 3. Script text is plain text only.
 4. Describe THIS track's delivery, not the brand or the campaign concept.${arabicGuidance}${accentGuidance}`;
-
   },
 };

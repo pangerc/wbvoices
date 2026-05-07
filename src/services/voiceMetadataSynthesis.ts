@@ -89,13 +89,25 @@ const USE_CASE_MAP: Record<string, UseCaseTag> = {
 // description text. Multiple matches for a single axis — first one wins.
 // Kept intentionally narrow; over-mapping creates false positives.
 const ENERGY_KEYWORDS: Array<[RegExp, EnergyLevel]> = [
-  [/\b(punchy|energetic|dynamic|high[- ]energy|excited|lively|upbeat|vibrant|bold)\b/, "punchy"],
-  [/\b(calm|soothing|gentle|soft|relaxed|mellow|quiet|subdued|tranquil)\b/, "calm"],
+  [
+    /\b(punchy|energetic|dynamic|high[- ]energy|excited|lively|upbeat|vibrant|bold)\b/,
+    "punchy",
+  ],
+  [
+    /\b(calm|soothing|gentle|soft|relaxed|mellow|quiet|subdued|tranquil)\b/,
+    "calm",
+  ],
 ];
 
 const WARMTH_KEYWORDS: Array<[RegExp, WarmthLevel]> = [
-  [/\b(warm|friendly|welcoming|inviting|intimate|approachable|empathetic|caring)\b/, "warm"],
-  [/\b(clinical|neutral-sounding|detached|authoritative|formal|stern|cold|dry)\b/, "clinical"],
+  [
+    /\b(warm|friendly|welcoming|inviting|intimate|approachable|empathetic|caring)\b/,
+    "warm",
+  ],
+  [
+    /\b(clinical|neutral-sounding|detached|authoritative|formal|stern|cold|dry)\b/,
+    "clinical",
+  ],
 ];
 
 const PACE_KEYWORDS: Array<[RegExp, PaceTendency]> = [
@@ -105,7 +117,7 @@ const PACE_KEYWORDS: Array<[RegExp, PaceTendency]> = [
 
 function firstMatch<T>(
   text: string,
-  rules: ReadonlyArray<readonly [RegExp, T]>
+  rules: ReadonlyArray<readonly [RegExp, T]>,
 ): T | undefined {
   for (const [re, val] of rules) {
     if (re.test(text)) return val;
@@ -127,21 +139,29 @@ function detectDialectRegister(v: UnifiedVoice): DialectRegister | undefined {
   if (!a) return undefined;
   if (/modern|standard|msa/.test(a)) return "msa";
   if (/egypt|cairo|alexandr/.test(a)) return "egyptian";
-  if (/saudi|kuwait|emirat|qatar|oman|bahrain|khaleeji|gulf/.test(a)) return "khaleeji";
+  if (/saudi|kuwait|emirat|qatar|oman|bahrain|khaleeji|gulf/.test(a))
+    return "khaleeji";
   if (/lebanes|syrian|jordan|palestin|levantine/.test(a)) return "levantine";
   if (/morocc|tunis|algeri|libyan|maghreb/.test(a)) return "maghrebi";
   return undefined;
 }
 
-function buildCastingNote(v: UnifiedVoice, m: Partial<SynthesizedMetadata>): string {
+function buildCastingNote(
+  v: UnifiedVoice,
+  m: Partial<SynthesizedMetadata>,
+): string {
   const parts: string[] = [];
 
   const ageLabel =
-    m.age_bracket === "young_adult" ? "young adult"
-    : m.age_bracket === "adult" ? "adult"
-    : m.age_bracket === "mid_adult" ? "mid-30s/40s"
-    : m.age_bracket === "mature" ? "mature"
-    : undefined;
+    m.age_bracket === "young_adult"
+      ? "young adult"
+      : m.age_bracket === "adult"
+        ? "adult"
+        : m.age_bracket === "mid_adult"
+          ? "mid-30s/40s"
+          : m.age_bracket === "mature"
+            ? "mature"
+            : undefined;
 
   if (ageLabel) parts.push(ageLabel);
   if (v.gender && v.gender !== "neutral") parts.push(v.gender);
@@ -163,10 +183,13 @@ function buildCastingNote(v: UnifiedVoice, m: Partial<SynthesizedMetadata>): str
 
   if (m.use_case) {
     parts.push(
-      m.use_case === "advertising" ? "ad reads"
-      : m.use_case === "narration" ? "narration"
-      : m.use_case === "conversational" ? "conversational"
-      : "trailer"
+      m.use_case === "advertising"
+        ? "ad reads"
+        : m.use_case === "narration"
+          ? "narration"
+          : m.use_case === "conversational"
+            ? "conversational"
+            : "trailer",
     );
   }
 
@@ -188,10 +211,7 @@ function buildCastingNote(v: UnifiedVoice, m: Partial<SynthesizedMetadata>): str
  * Synthesis should treat these as "missing" so filters don't systematically
  * include/exclude the entire provider on a single axis.
  */
-function isBoilerplateText(
-  v: UnifiedVoice,
-  text: string | undefined
-): boolean {
+function isBoilerplateText(v: UnifiedVoice, text: string | undefined): boolean {
   if (!text) return true;
   const t = text.trim().toLowerCase();
   if (!t) return true;
@@ -209,10 +229,11 @@ export function synthesizeMetadata(v: UnifiedVoice): SynthesizedMetadata {
   // — treating it as real data would make `use_case: narration` filters
   // systematically exclude the entire Lahajati catalogue. Skip the mapping.
   const useKey = (v.useCase || "").toLowerCase().trim();
-  const use_case =
-    v.provider === "lahajati" ? undefined : USE_CASE_MAP[useKey];
+  const use_case = v.provider === "lahajati" ? undefined : USE_CASE_MAP[useKey];
 
-  const personality = isBoilerplateText(v, v.personality) ? "" : v.personality || "";
+  const personality = isBoilerplateText(v, v.personality)
+    ? ""
+    : v.personality || "";
   const text = `${personality} ${v.useCase || ""}`.toLowerCase();
   const energy = firstMatch(text, ENERGY_KEYWORDS);
   const warmth = firstMatch(text, WARMTH_KEYWORDS);
@@ -254,7 +275,7 @@ export interface SynthesizedFilters {
  */
 export function voiceMatchesFilters(
   metadata: SynthesizedMetadata,
-  filters: SynthesizedFilters
+  filters: SynthesizedFilters,
 ): boolean {
   for (const axis of Object.keys(filters) as Array<keyof SynthesizedFilters>) {
     const want = filters[axis];

@@ -2,10 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createMix, TrackTiming } from "@/utils/audio-mixer";
 import { useMixerStore, MixerTrack } from "@/store/mixerStore";
 import { useMixerData } from "@/hooks/useMixerData";
-import {
-  TimelineTrack,
-  TimelineTrackData,
-} from "@/components/TimelineTrack";
+import { TimelineTrack, TimelineTrackData } from "@/components/TimelineTrack";
 import { ResetButton } from "@/components/ui/ResetButton";
 import { PlayButton } from "@/components/ui/PlayButton";
 import { LoudnessMeter } from "@/components/LoudnessMeter";
@@ -78,7 +75,7 @@ export function MixerPanel({
   } = useMixerStore();
   const mixerActiveVersionId = useMixerStore((s) => s.mixerActiveVersionId);
   const mixerActiveVersionStatus = useMixerStore(
-    (s) => s.mixerActiveVersionStatus
+    (s) => s.mixerActiveVersionStatus,
   );
   const mixerVersions = useMixerStore((s) => s.mixerVersions);
   const mutedTrackIds = useMixerStore((s) => s.mutedTrackIds);
@@ -98,13 +95,13 @@ export function MixerPanel({
       trackId: string,
       dropSeconds: number,
       forceAbsolute: boolean,
-      allowPastFormat: boolean
+      allowPastFormat: boolean,
     ) => {
       const draggedTrack = tracks.find((t) => t.id === trackId);
       const draggedSlotId = draggedTrack?.slotId;
       if (!draggedSlotId) {
         console.warn(
-          `[mixer-drop] track ${trackId} has no slotId; cannot persist anchor`
+          `[mixer-drop] track ${trackId} has no slotId; cannot persist anchor`,
         );
         return;
       }
@@ -147,7 +144,7 @@ export function MixerPanel({
       const updated = await patchAnchors({ [draggedSlotId]: anchor });
       if (updated) hydrateFromMixer(updated);
     },
-    [tracks, calculatedTracks, formatDuration, patchAnchors, hydrateFromMixer]
+    [tracks, calculatedTracks, formatDuration, patchAnchors, hydrateFromMixer],
   );
 
   /**
@@ -181,7 +178,7 @@ export function MixerPanel({
       if (updated) hydrateFromMixer(updated);
       setIsTakesMenuOpen(false);
     },
-    [activateMixerVersion, hydrateFromMixer, mixerActiveVersionId]
+    [activateMixerVersion, hydrateFromMixer, mixerActiveVersionId],
   );
 
   /**
@@ -191,10 +188,7 @@ export function MixerPanel({
    * the reposition drop path).
    */
   const handleTrackTrim = useCallback(
-    async (
-      trackId: string,
-      newTrim: { start: number; end: number } | null
-    ) => {
+    async (trackId: string, newTrim: { start: number; end: number } | null) => {
       const trimmedTrack = tracks.find((t) => t.id === trackId);
       const slotId = trimmedTrack?.slotId;
       if (!slotId) {
@@ -204,7 +198,7 @@ export function MixerPanel({
       const updated = await patchTrim({ [slotId]: newTrim });
       if (updated) hydrateFromMixer(updated);
     },
-    [tracks, patchTrim, hydrateFromMixer]
+    [tracks, patchTrim, hydrateFromMixer],
   );
 
   /**
@@ -224,7 +218,7 @@ export function MixerPanel({
       const updated = await patchAnchors({ [slotId]: null });
       if (updated) hydrateFromMixer(updated);
     },
-    [tracks, patchAnchors, hydrateFromMixer]
+    [tracks, patchAnchors, hydrateFromMixer],
   );
 
   /**
@@ -256,7 +250,7 @@ export function MixerPanel({
       const x = clientX - rect.left;
       const seconds = Math.max(
         0,
-        Math.min(displayDuration, (x / rect.width) * displayDuration)
+        Math.min(displayDuration, (x / rect.width) * displayDuration),
       );
       const percent = (seconds / displayDuration) * 100;
       const audio = playbackAudioRef.current;
@@ -265,7 +259,7 @@ export function MixerPanel({
       }
       setPlaybackPosition(percent);
     },
-    [displayDuration]
+    [displayDuration],
   );
 
   const handleTimelinePointerDown = useCallback(
@@ -282,7 +276,7 @@ export function MixerPanel({
       // data-no-timeline-scrub.
       if (
         target.closest(
-          "button, input, select, textarea, a, [role='button'], [role='menuitem'], [data-no-timeline-scrub]"
+          "button, input, select, textarea, a, [role='button'], [role='menuitem'], [data-no-timeline-scrub]",
         )
       ) {
         return;
@@ -291,7 +285,7 @@ export function MixerPanel({
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       seekToPointerX(e.clientX, e.currentTarget.getBoundingClientRect());
     },
-    [seekToPointerX]
+    [seekToPointerX],
   );
 
   const handleTimelinePointerMove = useCallback(
@@ -300,7 +294,7 @@ export function MixerPanel({
       if (!session || session.pointerId !== e.pointerId) return;
       seekToPointerX(e.clientX, e.currentTarget.getBoundingClientRect());
     },
-    [seekToPointerX]
+    [seekToPointerX],
   );
 
   const handleTimelinePointerUp = useCallback(
@@ -314,7 +308,7 @@ export function MixerPanel({
         // pointer already released — ignore
       }
     },
-    []
+    [],
   );
 
   // Hydrate Zustand store from SWR data (Redis is source of truth).
@@ -327,7 +321,7 @@ export function MixerPanel({
     const currentTrackUrls = new Map(tracks.map((t) => [t.id, t.url]));
 
     const hasUrlChanges = mixerSWR.tracks.some(
-      (swrTrack) => currentTrackUrls.get(swrTrack.id) !== swrTrack.url
+      (swrTrack) => currentTrackUrls.get(swrTrack.id) !== swrTrack.url,
     );
     const hasPositionChanges = mixerSWR.calculatedTracks?.some((swrCalc) => {
       const local = calculatedTracks.find((c) => c.id === swrCalc.id);
@@ -367,7 +361,7 @@ export function MixerPanel({
   const hoverRoleFor = (
     trackId: string,
     trackSlotId?: string,
-    anchorRef?: string
+    anchorRef?: string,
   ) => ({
     isHovered: trackId === hoveredTrackId,
     isHoverTarget: !!hoveredRefSlotId && trackSlotId === hoveredRefSlotId,
@@ -541,21 +535,27 @@ export function MixerPanel({
   }, [tracks, audioErrors]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Helper function to upload mixed audio and save to V3 Redis
-  const uploadAndUpdateProject = async (blob: Blob, localPreviewUrl: string) => {
+  const uploadAndUpdateProject = async (
+    blob: Blob,
+    localPreviewUrl: string,
+  ) => {
     if (!adId) {
-      console.warn('No ad ID available for mixed audio upload');
+      console.warn("No ad ID available for mixed audio upload");
       return { permanentUrl: localPreviewUrl, downloadUrl: localPreviewUrl };
     }
 
     try {
-      console.log('📤 Uploading mixed audio to Vercel blob storage...');
-      const { url: permanentUrl, downloadUrl } = await uploadMixedAudioToBlob(blob, adId);
-      console.log('✅ Mixed audio uploaded to blob:', permanentUrl);
-      console.log('✅ Download URL generated:', downloadUrl);
+      console.log("📤 Uploading mixed audio to Vercel blob storage...");
+      const { url: permanentUrl, downloadUrl } = await uploadMixedAudioToBlob(
+        blob,
+        adId,
+      );
+      console.log("✅ Mixed audio uploaded to blob:", permanentUrl);
+      console.log("✅ Download URL generated:", downloadUrl);
 
       // Save mixer state to V3 Redis
       const mixerUpdate = {
-        tracks: calculatedTracks.map(track => ({
+        tracks: calculatedTracks.map((track) => ({
           id: track.id,
           url: track.url,
           label: track.label,
@@ -571,26 +571,26 @@ export function MixerPanel({
       };
 
       const response = await fetch(`/api/ads/${adId}/mixer`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mixerUpdate),
       });
 
-      if (response.status === 401 && typeof window !== 'undefined') {
+      if (response.status === 401 && typeof window !== "undefined") {
         const callbackUrl = encodeURIComponent(window.location.href);
         window.location.href = `/auth/signin?callbackUrl=${callbackUrl}`;
         return { permanentUrl: localPreviewUrl, downloadUrl: localPreviewUrl };
       }
 
       if (!response.ok) {
-        console.error('❌ Failed to save mixer state to V3 Redis');
+        console.error("❌ Failed to save mixer state to V3 Redis");
       } else {
-        console.log('✅ Mixer state saved to V3 Redis');
+        console.log("✅ Mixer state saved to V3 Redis");
       }
 
       return { permanentUrl, downloadUrl };
     } catch (error) {
-      console.error('❌ Failed to upload mixed audio:', error);
+      console.error("❌ Failed to upload mixed audio:", error);
       // Return the local preview URL as fallback
       return { permanentUrl: localPreviewUrl, downloadUrl: localPreviewUrl };
     }
@@ -612,19 +612,31 @@ export function MixerPanel({
   };
 
   // Shared helper to create and upload mix
-  const createAndUploadMix = async (): Promise<{ permanentUrl: string; downloadUrl: string } | null> => {
+  const createAndUploadMix = async (): Promise<{
+    permanentUrl: string;
+    downloadUrl: string;
+  } | null> => {
     try {
       setIsExporting(true);
 
       // Prepare valid URLs for tracks
       const voiceUrls = voiceTracks
-        .filter((t) => t.url && (t.url.startsWith("blob:") || t.url.startsWith("http")))
+        .filter(
+          (t) =>
+            t.url && (t.url.startsWith("blob:") || t.url.startsWith("http")),
+        )
         .map((t) => t.url);
 
-      const musicUrl = musicTracks.length > 0 && musicTracks[0].url ? musicTracks[0].url : null;
+      const musicUrl =
+        musicTracks.length > 0 && musicTracks[0].url
+          ? musicTracks[0].url
+          : null;
 
       const soundFxUrls = soundFxTracks
-        .filter((t) => t.url && (t.url.startsWith("blob:") || t.url.startsWith("http")))
+        .filter(
+          (t) =>
+            t.url && (t.url.startsWith("blob:") || t.url.startsWith("http")),
+        )
         .map((t) => t.url);
 
       console.log("Creating mix with sources:", {
@@ -656,15 +668,23 @@ export function MixerPanel({
 
       // Sort timing info by start time
       timingInfo.sort((a, b) => a.startTime - b.startTime);
-      console.log("Sorted timing info for mixer:", timingInfo.map((t) => ({
-        id: t.id,
-        type: t.type,
-        startTime: t.startTime,
-        duration: t.duration,
-      })));
+      console.log(
+        "Sorted timing info for mixer:",
+        timingInfo.map((t) => ({
+          id: t.id,
+          type: t.type,
+          startTime: t.startTime,
+          duration: t.duration,
+        })),
+      );
 
       // Create the mix
-      const { blob } = await createMix(voiceUrls, musicUrl, soundFxUrls, timingInfo);
+      const { blob } = await createMix(
+        voiceUrls,
+        musicUrl,
+        soundFxUrls,
+        timingInfo,
+      );
       const localPreviewUrl = URL.createObjectURL(blob);
       console.log("Mixed audio blob created:", localPreviewUrl);
 
@@ -690,7 +710,9 @@ export function MixerPanel({
     } catch (error) {
       console.error("Failed to create/upload mix:", error);
       setIsUploadingMix(false);
-      setUploadError(error instanceof Error ? error.message : "Failed to create mix");
+      setUploadError(
+        error instanceof Error ? error.message : "Failed to create mix",
+      );
       return null;
     } finally {
       setIsExporting(false);
@@ -702,14 +724,20 @@ export function MixerPanel({
       setIsExporting(true);
 
       // Check if we have a valid preview URL to reuse
-      const hasValidPreview = previewUrl && previewUrl.startsWith("http") && !previewUrl.startsWith("blob:");
+      const hasValidPreview =
+        previewUrl &&
+        previewUrl.startsWith("http") &&
+        !previewUrl.startsWith("blob:");
 
       let downloadUrl: string;
 
       if (hasValidPreview) {
         console.log("Reusing existing preview URL for export:", previewUrl);
         // Use the existing preview's download URL
-        downloadUrl = previewUrl.replace(/\/[^/]+$/, (match) => `${match}?download=1`);
+        downloadUrl = previewUrl.replace(
+          /\/[^/]+$/,
+          (match) => `${match}?download=1`,
+        );
       } else {
         console.log("No valid preview - creating and uploading mix...");
         const result = await createAndUploadMix();
@@ -729,13 +757,15 @@ export function MixerPanel({
       // Create download link
       const a = document.createElement("a");
       a.href = downloadUrl;
-      a.style.display = 'none';
+      a.style.display = "none";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
 
       console.log(`✅ Audio exported successfully`);
-      console.log(`📊 Audio specs: 44.1kHz, 16-bit, Stereo WAV, -16 LUFS, -2.0 dBTP peak limit`);
+      console.log(
+        `📊 Audio specs: 44.1kHz, 16-bit, Stereo WAV, -16 LUFS, -2.0 dBTP peak limit`,
+      );
     } catch (error) {
       console.error("Failed to export mix:", error);
       setUploadError(error instanceof Error ? error.message : "Export failed");
@@ -743,7 +773,6 @@ export function MixerPanel({
       setIsExporting(false);
     }
   };
-
 
   // Add state for playback
   const [isPlaying, setIsPlaying] = useState(false);
@@ -767,7 +796,7 @@ export function MixerPanel({
       const voiceUrls = voiceTracks
         .filter(
           (t) =>
-            t.url && (t.url.startsWith("blob:") || t.url.startsWith("http"))
+            t.url && (t.url.startsWith("blob:") || t.url.startsWith("http")),
         )
         .map((t) => t.url);
 
@@ -779,7 +808,7 @@ export function MixerPanel({
       const soundFxUrls = soundFxTracks
         .filter(
           (t) =>
-            t.url && (t.url.startsWith("blob:") || t.url.startsWith("http"))
+            t.url && (t.url.startsWith("blob:") || t.url.startsWith("http")),
         )
         .map((t) => t.url);
 
@@ -823,7 +852,7 @@ export function MixerPanel({
           type: t.type,
           startTime: t.startTime,
           duration: t.duration,
-        }))
+        })),
       );
 
       // Create the mixed audio
@@ -832,7 +861,7 @@ export function MixerPanel({
         voiceUrls,
         musicUrl,
         soundFxUrls,
-        timingInfo
+        timingInfo,
       );
 
       const localPreviewUrl = URL.createObjectURL(blob);
@@ -850,21 +879,27 @@ export function MixerPanel({
         setUploadError("Upload timeout. Please try again.");
       }, 30000);
 
-      uploadAndUpdateProject(blob, localPreviewUrl).then(({ permanentUrl }) => {
-        clearTimeout(uploadTimeout);
-        console.log("✅ Permanent URL saved to Redis:", permanentUrl);
-        // Store permanent URL for PreviewPanel and future sessions
-        setPreviewUrl(permanentUrl);
-        setIsPreviewValid(true);
-        setUploadError(null);
-        setIsUploadingMix(false);
-      }).catch(error => {
-        clearTimeout(uploadTimeout);
-        console.error("❌ Background upload failed:", error);
-        setIsUploadingMix(false);
-        setIsPreviewValid(false); // ✅ Mark preview as invalid on upload failure
-        setUploadError(error instanceof Error ? error.message : "Upload failed. Please try again.");
-      });
+      uploadAndUpdateProject(blob, localPreviewUrl)
+        .then(({ permanentUrl }) => {
+          clearTimeout(uploadTimeout);
+          console.log("✅ Permanent URL saved to Redis:", permanentUrl);
+          // Store permanent URL for PreviewPanel and future sessions
+          setPreviewUrl(permanentUrl);
+          setIsPreviewValid(true);
+          setUploadError(null);
+          setIsUploadingMix(false);
+        })
+        .catch((error) => {
+          clearTimeout(uploadTimeout);
+          console.error("❌ Background upload failed:", error);
+          setIsUploadingMix(false);
+          setIsPreviewValid(false); // ✅ Mark preview as invalid on upload failure
+          setUploadError(
+            error instanceof Error
+              ? error.message
+              : "Upload failed. Please try again.",
+          );
+        });
 
       // Set up the playback audio element with LOCAL blob URL (immediate playback)
       if (!playbackAudioRef.current) {
@@ -967,7 +1002,7 @@ export function MixerPanel({
       const audio = playbackAudioRef.current;
       if (!audio) {
         console.error(
-          "Audio element still not available after preview generation"
+          "Audio element still not available after preview generation",
         );
         return;
       }
@@ -1020,13 +1055,10 @@ export function MixerPanel({
       // timeline extends to 30s; using audio.duration here would make the
       // playhead reach 100% (= right edge of the timeline) at the audio's
       // end, visibly drifting past the last clip throughout playback.
-      if (
-        displayDuration > 0 &&
-        !isNaN(audio.currentTime)
-      ) {
+      if (displayDuration > 0 && !isNaN(audio.currentTime)) {
         const position = Math.min(
           100,
-          (audio.currentTime / displayDuration) * 100
+          (audio.currentTime / displayDuration) * 100,
         );
         setPlaybackPosition(position);
       }
@@ -1135,8 +1167,7 @@ export function MixerPanel({
   // Adjust markers to make sure they go to exactly the display duration.
   const getTotalMarkers = () => {
     return (
-      Math.ceil(displayDuration) +
-      (Number.isInteger(displayDuration) ? 1 : 0)
+      Math.ceil(displayDuration) + (Number.isInteger(displayDuration) ? 1 : 0)
     );
   };
 
@@ -1229,13 +1260,13 @@ export function MixerPanel({
   useEffect(() => {
     if (calculatedTracks.length > 0) {
       const voiceCalcTracks = calculatedTracks.filter(
-        (t) => t.type === "voice"
+        (t) => t.type === "voice",
       );
       const musicCalcTracks = calculatedTracks.filter(
-        (t) => t.type === "music"
+        (t) => t.type === "music",
       );
       const soundFxCalcTracks = calculatedTracks.filter(
-        (t) => t.type === "soundfx"
+        (t) => t.type === "soundfx",
       );
 
       console.log("Calculated tracks analysis:", {
@@ -1278,7 +1309,8 @@ export function MixerPanel({
             Make It All Come Together
           </h1>
           <h2 className="font-medium mb-12">
-            Preview and export your fully produced audio ad. Ready when you are.{" "}
+            Preview and export your fully produced audio ad. Ready when you
+            are.{" "}
           </h2>
         </div>
         {/* Reset button */}
@@ -1372,7 +1404,7 @@ export function MixerPanel({
                             .map((v) => {
                               const isActive = v.id === mixerActiveVersionId;
                               const created = new Date(
-                                v.createdAt
+                                v.createdAt,
                               ).toLocaleString(undefined, {
                                 month: "short",
                                 day: "numeric",
@@ -1531,7 +1563,11 @@ export function MixerPanel({
                     isImplicitlyMuted={
                       anyTrackSoloed && !soloedTrackIds.has(track.id)
                     }
-                    {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
+                    {...hoverRoleFor(
+                      track.id,
+                      track.slotId,
+                      track.anchorRefSlotId,
+                    )}
                   />
                 ))}
 
@@ -1566,7 +1602,11 @@ export function MixerPanel({
                     isImplicitlyMuted={
                       anyTrackSoloed && !soloedTrackIds.has(track.id)
                     }
-                    {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
+                    {...hoverRoleFor(
+                      track.id,
+                      track.slotId,
+                      track.anchorRefSlotId,
+                    )}
                   />
                 ))}
 
@@ -1601,7 +1641,11 @@ export function MixerPanel({
                     isImplicitlyMuted={
                       anyTrackSoloed && !soloedTrackIds.has(track.id)
                     }
-                    {...hoverRoleFor(track.id, track.slotId, track.anchorRefSlotId)}
+                    {...hoverRoleFor(
+                      track.id,
+                      track.slotId,
+                      track.anchorRefSlotId,
+                    )}
                   />
                 ))}
             </div>
@@ -1636,8 +1680,8 @@ export function MixerPanel({
         {isPlaying
           ? "Playing: " + Math.round(playbackPosition) + "%"
           : previewUrl
-          ? "Ready to play"
-          : "No preview generated"}
+            ? "Ready to play"
+            : "No preview generated"}
       </div>
     </div>
   );
