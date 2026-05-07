@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Ad } from "./HistoryDrawer";
 import {
+  BrandRef,
   CampaignFormat,
   Language,
   Pacing,
@@ -10,6 +11,7 @@ import {
 import { BriefPanelBase } from "./BriefPanelBase";
 import { useToneOfVoice } from "@/hooks/useToneOfVoice";
 import { useRouter } from "next/navigation";
+import { BrandDossier, MarketRow } from "@/lib/alaric-client";
 
 export type CreateAd = {
   name: string;
@@ -25,47 +27,110 @@ export type DuplicateAdPopupProps = {
 export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
   const router = useRouter();
 
+  // Track which sf account id we last fetched the dossier for. Avoids
+  // refetching when state churns from other field edits.
+  const lastFetchedSfIdRef = useRef<string | null>(null);
+
   const [name, setName] = useState<string>(`Copy of ${ad.meta.name}`);
 
-  // Form state - initialized from initialBrief if provided
-  const [clientDescription, setClientDescription] = useState(
-    ad.meta.brief.clientDescription || "",
-  );
-  const [creativeBrief, setCreativeBrief] = useState(
-    ad.meta.brief.creativeBrief || "",
-  );
-  const [campaignFormat, setCampaignFormat] = useState<CampaignFormat>(
-    ad.meta.brief.campaignFormat || "ad_read",
-  );
-  const [adDuration, setAdDuration] = useState(ad.meta.brief.adDuration || 30);
-  const [selectedCTA, setSelectedCTA] = useState<string | null>(
-    ad.meta.brief.selectedCTA || null,
-  );
-  const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(
-    ad.meta.brief.selectedPacing || null,
-  );
-  const [selectedTone, setSelectedTone] = useState<string | null>(
-    ad.meta.brief.selectedTone || null,
-  );
-  const [voiceInstructions, setVoiceInstructions] = useState<string>(
-    ad.meta.brief.voiceInstructions || "",
-  );
+  const { toneOptions, toneInstructions } = useToneOfVoice();
 
-  // Voice selection state (local - replaces voiceManager)
-  const [selectedLanguage, setSelectedLanguage] = useState<Language>(
-    ad.meta.brief.selectedLanguage || "en",
-  );
+  const [brand, setBrand] = useState<BrandRef | null>(() => {
+    if (ad.meta.brief?.brand) return ad.meta.brief.brand;
+    if (ad.meta.brief?.salesforceAccountId) {
+      return {
+        name: "",
+        salesforceAccountId: ad.meta.brief.salesforceAccountId,
+        salesforceAccountSnapshot: null,
+      };
+    }
+    return null;
+  });
+
   const [selectedRegion, setSelectedRegion] = useState<string | null>(
-    ad.meta.brief.selectedRegion || null,
-  );
-  const [selectedAccent, setSelectedAccent] = useState<string>(
-    ad.meta.brief.selectedAccent || "neutral",
-  );
-  const [selectedProvider, setSelectedProvider] = useState<Provider>(
-    ad.meta.brief.selectedProvider || "any",
+    ad.meta.brief?.selectedRegion || null,
   );
 
-  // const { dbToneOptions, dbToneInstructions } = useToneOfVoice();
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(
+    ad.meta.brief?.selectedLanguage || "en",
+  );
+
+  const handleMarketChanged = useCallback(
+    (alpha2: string | null, market: MarketRow | null) => {
+      setSelectedRegion(alpha2);
+      // Default language from market.language.code IFF the user hasn't
+      // already chosen a language (don't clobber). The "default" check is
+      // the current `selectedLanguage` matching its initial "en" default.
+      if (market && selectedLanguage === "en" && market.language.code) {
+        setSelectedLanguage(market.language.code as Language);
+      }
+    },
+    [selectedLanguage],
+  );
+
+  const [dossier, setDossier] = useState<BrandDossier | null>(null);
+  const [isLoadingDossier, setIsLoadingDossier] = useState(false);
+  const [enrichmentSummary, setEnrichmentSummary] = useState<
+    { slotCount: number; lastEnrichedAt?: number } | undefined
+  >(undefined);
+
+  const [creativeBrief, setCreativeBrief] = useState(
+    ad.meta.brief?.creativeBrief || "",
+  );
+
+  const [creativeAngle, setCreativeAngle] = useState(
+    ad.meta.brief?.creativeAngle || "",
+  );
+
+  const [selectedTone, setSelectedTone] = useState<string | null>(
+    ad.meta.brief?.selectedTone || null,
+  );
+
+  const [voiceInstructions, setVoiceInstructions] = useState<string>(
+    ad.meta.brief?.voiceInstructions || "",
+  );
+
+  const [campaignFormat, setCampaignFormat] = useState<CampaignFormat>(
+    ad.meta.brief?.campaignFormat || "ad_read",
+  );
+
+  const [selectedPacing, setSelectedPacing] = useState<Pacing | null>(
+    ad.meta.brief?.selectedPacing ?? "fast",
+  );
+
+  const [selectedCTA, setSelectedCTA] = useState<string | null>(
+    ad.meta.brief?.selectedCTA || null,
+  );
+
+  const [adDuration, setAdDuration] = useState(ad.meta.brief?.adDuration || 30);
+
+  const [selectedProvider, setSelectedProvider] = useState<Provider>(
+    ad.meta.brief?.selectedProvider || "any",
+  );
+
+  const [voiceCounts, setVoiceCounts] = useState<Record<Provider, number>>({
+    elevenlabs: 0,
+    lovo: 0,
+    openai: 0,
+    qwen: 0,
+    bytedance: 0,
+    lahajati: 0,
+    any: 0,
+  });
+
+  const [referenceUrlsText, setReferenceUrlsText] = useState(
+    (ad.meta.brief?.referenceUrls || []).join("\n"),
+  );
+  const [forbiddenWords, setForbiddenWords] = useState(
+    ad.meta.brief?.forbiddenWords || "",
+  );
+  const [providedScript, setProvidedScript] = useState(
+    ad.meta.brief?.providedScript || "",
+  );
+
+  const [selectedAccent, setSelectedAccent] = useState<string>(
+    ad.meta.brief?.selectedAccent || "neutral",
+  );
 
   const [error, setError] = useState<string | null>(null);
 
@@ -78,16 +143,39 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
       const newAd: CreateAd = {
         name,
         brief: {
-          clientDescription,
+          // clientDescription is required on the type but v4 has no UI for
+          // it — derive from brand name so legacy readers don't blow up.
+          // The LLM also reads creativeBrief which carries the actual content.
+          clientDescription: brand?.name || "",
           creativeBrief,
           campaignFormat,
-          selectedLanguage,
-          selectedProvider,
-          selectedRegion,
           adDuration,
+          selectedCTA: selectedCTA || null,
+          selectedPacing: selectedPacing || null,
+          selectedTone: selectedTone || null,
+          voiceInstructions: voiceInstructions.trim() || null,
+          selectedLanguage,
+          selectedRegion: selectedRegion || null,
           selectedAccent,
-          selectedCTA,
-          selectedPacing,
+          selectedProvider,
+          ...(parsedReferenceUrls.length
+            ? { referenceUrls: parsedReferenceUrls }
+            : {}),
+          ...(forbiddenWords.trim()
+            ? { forbiddenWords: forbiddenWords.trim() }
+            : {}),
+          ...(providedScript.trim()
+            ? { providedScript: providedScript.trim() }
+            : {}),
+          ...(creativeAngle.trim()
+            ? { creativeAngle: creativeAngle.trim() }
+            : {}),
+          ...(brand?.salesforceAccountId
+            ? { salesforceAccountId: brand.salesforceAccountId }
+            : {}),
+          ...(brand ? { brand } : {}),
+          // Preserve legacy brandVoice on round-trip so display stays stable.
+          ...(legacyBrandVoice ? { brandVoice: legacyBrandVoice } : {}),
         },
       };
 
@@ -126,8 +214,68 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
     }
   };
 
+  useEffect(() => {
+    const sfId = brand?.salesforceAccountId ?? null;
+
+    if (!sfId) {
+      setDossier(null);
+      setEnrichmentSummary(undefined);
+      lastFetchedSfIdRef.current = null;
+      return;
+    }
+
+    if (lastFetchedSfIdRef.current === sfId) return;
+    lastFetchedSfIdRef.current = sfId;
+
+    const controller = new AbortController();
+    setIsLoadingDossier(true);
+    fetch("/api/brand-context", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "sf-account",
+        accountId: sfId,
+        ...(selectedRegion ? { marketAlpha2: selectedRegion } : {}),
+      }),
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) {
+          setDossier(null);
+          setEnrichmentSummary(undefined);
+          return;
+        }
+        setDossier(data.dossier ?? null);
+        setEnrichmentSummary(data.enrichmentSummary);
+      })
+      .catch((err) => {
+        if (err instanceof Error && err.name !== "AbortError") {
+          console.warn("[BriefPanelV4] dossier fetch failed:", err);
+          setDossier(null);
+          setEnrichmentSummary(undefined);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoadingDossier(false);
+      });
+    return () => controller.abort();
+  }, [brand?.salesforceAccountId, selectedRegion]);
+
+  const [dialogReady, setDialogReady] = useState(true);
+  const handleLanguageOptionsResolved = useCallback(
+    (resolved: {
+      voiceCounts: Record<Provider, number>;
+      dialogReady: boolean;
+    }) => {
+      setVoiceCounts(resolved.voiceCounts);
+      setDialogReady(resolved.dialogReady);
+    },
+    [],
+  );
+
   const isNotChanged = useMemo(() => {
-    if (ad.meta.brief.clientDescription !== clientDescription) {
+    if (ad.meta.brief.brand?.name !== brand?.name) {
       return false;
     }
 
@@ -190,7 +338,7 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
     return true;
   }, [
     ad,
-    clientDescription,
+    brand,
     creativeBrief,
     campaignFormat,
     adDuration,
@@ -207,6 +355,26 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
   const onClickBackdrop = () => {
     if (!isDuplicating) onClose();
   };
+
+  // Legacy `brandVoice` text from pre-v4 briefs — surfaced read-only.
+  const legacyBrandVoice = ad.meta.brief?.brandVoice ?? null;
+
+  const parsedReferenceUrls = useMemo(
+    () =>
+      referenceUrlsText
+        .split(/\n+/)
+        .map((u) => u.trim())
+        .filter((u) => u.length > 0),
+    [referenceUrlsText],
+  );
+
+  const showAngleNudge =
+    !creativeAngle.trim() &&
+    !!(
+      brand?.salesforceAccountId ||
+      brand?.name ||
+      parsedReferenceUrls.length > 0
+    );
 
   return (
     <>
@@ -238,36 +406,53 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
             />
           </div>
           <div>
-            {/* <BriefPanelBase
-              disabled={isDuplicating}
-              clientDescription={clientDescription}
-              onClientDescriptionChanged={setClientDescription}
-              creativeBrief={creativeBrief}
-              onCreativeBriefChanged={setCreativeBrief}
-              language={selectedLanguage}
-              onLanguageChanged={setSelectedLanguage}
-              campaignFormat={campaignFormat}
-              onCampaignFormatChanged={setCampaignFormat}
+            <BriefPanelBase
+              brand={brand}
+              onBrandChanged={setBrand}
               region={selectedRegion}
               onRegionChanged={setSelectedRegion}
-              provider={selectedProvider}
-              onProviderChanged={setSelectedProvider}
-              accent={selectedAccent}
-              onAccentChanged={setSelectedAccent}
-              cta={selectedCTA}
-              onCTAChanged={setSelectedCTA}
-              pacing={selectedPacing}
-              onPacingChanged={setSelectedPacing}
-              toneOfVoice={selectedTone}
-              onToneOfVoiceChanged={setSelectedTone}
-              toneOfVoiceOptions={dbToneOptions}
-              toneOfVoiceList={dbToneInstructions}
+              onMarketChanged={handleMarketChanged}
+              dossier={dossier}
+              isLoadingDossier={isLoadingDossier}
+              enrichmentSummary={enrichmentSummary}
+              legacyBrandVoice={legacyBrandVoice}
+              isGenerating={false}
+              creativeBrief={creativeBrief}
+              onCreativeBriefChanged={setCreativeBrief}
+              creativeAngle={creativeAngle}
+              onCreativeAngleChanged={setCreativeAngle}
+              tone={selectedTone}
+              onToneChanged={setSelectedTone}
+              toneOptions={toneOptions}
+              toneInstructions={toneInstructions}
               voiceInstructions={voiceInstructions}
               onVoiceInstructionsChanged={setVoiceInstructions}
+              campaignFormat={campaignFormat}
+              onCampaignFormatChanged={setCampaignFormat}
+              pacing={selectedPacing}
+              onPacingChanged={setSelectedPacing}
+              cta={selectedCTA}
+              onCTAChanged={setSelectedCTA}
               adDuration={adDuration}
               onAdDurationChanged={setAdDuration}
+              provider={selectedProvider}
+              onProviderChanged={setSelectedProvider}
+              voiceCounts={voiceCounts}
+              dialogReady={dialogReady}
+              referenceUrlsText={referenceUrlsText}
+              onReferenceUrlsTextChanged={setReferenceUrlsText}
+              forbiddenWords={forbiddenWords}
+              onForbiddenWordsChanged={setForbiddenWords}
+              providedScript={providedScript}
+              onProvidedScriptChanged={setProvidedScript}
+              showAngleNudge={showAngleNudge}
+              language={selectedLanguage}
+              onLanguageChanged={setSelectedLanguage}
+              accent={selectedAccent}
+              onAccentChanged={setSelectedAccent}
+              onLanguageOptionsResolved={handleLanguageOptionsResolved}
               error={error}
-            /> */}
+            />
           </div>
           <div className="flex justify-between">
             <button
