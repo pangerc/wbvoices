@@ -218,8 +218,7 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
       <div className="fixed container overflow-y-auto z-60 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
         <div className="bg-zinc-900/50 rounded-md p-5 flex flex-col gap-4">
           <div>
-            Duplicate ad <strong>"{ad.meta.name}"</strong>?{" "}
-            {isNotChanged ? "is-not" : "it-is"}
+            Duplicate ad <strong>"{ad.meta.name}"</strong>?
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
