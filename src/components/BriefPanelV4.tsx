@@ -40,51 +40,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BriefPanelBase } from "./BriefPanelBase";
 import type { ToneOption } from "./ui/ToneSelector";
 
-const FALLBACK_TONE_OPTIONS: ToneOption[] = [
-  {
-    value: "Professional",
-    title: "Professional",
-    description:
-      "Polished, measured, and trustworthy — for brands that want to sound like experts.",
-  },
-  {
-    value: "Energetic",
-    title: "Energetic",
-    description:
-      "High-octane and enthusiastic — perfect for time-sensitive offers and exciting launches.",
-  },
-  {
-    value: "Warm",
-    title: "Warm",
-    description:
-      "Soft, inviting, and sincere — like a friendly recommendation from someone you trust.",
-  },
-  {
-    value: "Authoritative",
-    title: "Authoritative",
-    description:
-      "Confident, deep, and commanding — for brands that speak from a position of expertise.",
-  },
-  {
-    value: "Sarcastic",
-    title: "Sarcastic",
-    description:
-      "Dry and tongue-in-cheek — for irreverent brands that aren’t afraid to wink at their audience.",
-  },
-];
-
-const FALLBACK_TONE_INSTRUCTIONS: Record<string, string> = {
-  Professional:
-    "Deliver with a polished, measured cadence. Keep the timbre authoritative yet warm. Crisp consonants and confident pacing — every word sounds intentional. Avoid vocal fry and filler tones.",
-  Energetic:
-    "Bring high energy and enthusiasm. Brisk pacing with upward inflections. Use vocal brightness and a smile-in-voice to signal urgency and excitement. Punch key phrases to drive momentum.",
-  Warm: "Soft, inviting timbre. Slightly slower pace with relaxed breathing and gentle phrasing. Convey sincerity and closeness — as if speaking to a friend. Let key emotional beats breathe.",
-  Authoritative:
-    "Deep, confident delivery. Steady pace and minimal pitch variance. Emphasise key claims with sustained pitch and crisp diction. Project expertise and certainty throughout.",
-  Sarcastic:
-    "Dry, slightly exaggerated inflection. Subtle pauses before punchlines. Pitch irony through vocal raise on key words. Keep the wink obvious to the listener but never broad.",
-};
-
 // ============================================================
 // SSE event types — preserved verbatim from V3 so onStreamUpdate
 // callers (ad/[id]/page.tsx) don't need to change.
@@ -344,13 +299,7 @@ export function BriefPanelV4({
 
   // Tone presets from /api/tone-of-voice (admin-managed) — fall back to
   // built-in presets when the fetch fails.
-  const { dbToneOptions, dbToneInstructions } = useToneOfVoice();
-  const toneOptions =
-    dbToneOptions.length > 0 ? dbToneOptions : FALLBACK_TONE_OPTIONS;
-  const toneInstructions =
-    Object.keys(dbToneInstructions).length > 0
-      ? dbToneInstructions
-      : FALLBACK_TONE_INSTRUCTIONS;
+  const { toneOptions, toneInstructions } = useToneOfVoice();
 
   // ============================================================
   // Brand picker callback — sets brand AND triggers market default

@@ -65,7 +65,7 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
     ad.meta.brief.selectedProvider || "any",
   );
 
-  const { dbToneOptions, dbToneInstructions } = useToneOfVoice();
+  // const { dbToneOptions, dbToneInstructions } = useToneOfVoice();
 
   const [error, setError] = useState<string | null>(null);
 
