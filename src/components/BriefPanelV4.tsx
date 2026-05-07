@@ -788,9 +788,10 @@ export function BriefPanelV4({
 
       <BriefPanelBase
         brand={brand}
-        onBrandChanged={setBrand}
+        onBrandChanged={handleBrandChanged}
         region={selectedRegion}
         onRegionChanged={setSelectedRegion}
+        onMarketChanged={handleMarketChanged}
         dossier={dossier}
         isLoadingDossier={isLoadingDossier}
         enrichmentSummary={enrichmentSummary}
