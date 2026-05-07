@@ -1,4 +1,4 @@
-import { BrandDossier } from "@/lib/alaric-client";
+import { BrandDossier, MarketRow } from "@/lib/alaric-client";
 import { BrandRef, CampaignFormat, Language, Pacing, Provider } from "@/types";
 import { BrandTopic } from "./brief-topics/BrandTopic";
 import { CreativeTopic } from "./brief-topics/CreativeTopic";
@@ -12,6 +12,7 @@ export type BriefPanelBaseProps = {
 
   region: string | null;
   onRegionChanged: (next: string | null) => void;
+  onMarketChanged: (alpha2: string | null, market: MarketRow | null) => void;
 
   dossier: BrandDossier | null;
   isLoadingDossier: boolean;
@@ -85,6 +86,7 @@ export const BriefPanelBase = ({
   onBrandChanged,
   region,
   onRegionChanged,
+  onMarketChanged,
   dossier,
   isLoadingDossier,
   enrichmentSummary,
@@ -132,7 +134,7 @@ export const BriefPanelBase = ({
         brand={brand}
         onBrandChanged={onBrandChanged}
         marketAlpha2={region}
-        onMarketChanged={onRegionChanged}
+        onMarketChanged={onMarketChanged}
         dossier={dossier}
         isLoadingDossier={isLoadingDossier}
         enrichmentSummary={enrichmentSummary}
