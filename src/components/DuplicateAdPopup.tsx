@@ -239,7 +239,7 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
             />
           </div>
           <div>
-            <BriefPanelBase
+            {/* <BriefPanelBase
               disabled={isDuplicating}
               clientDescription={clientDescription}
               onClientDescriptionChanged={setClientDescription}
@@ -268,7 +268,7 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
               adDuration={adDuration}
               onAdDurationChanged={setAdDuration}
               error={error}
-            />
+            /> */}
           </div>
           <div className="flex justify-between">
             <button
