@@ -8,13 +8,28 @@ import {
 } from "@heroicons/react/24/outline";
 import type { CreativeTemplate } from "@/hooks/useCreativeTemplates";
 
-interface CreativeTemplateGalleryProps {
+type CreativeTemplateGalleryProps = {
   value: string | null;
   onChange: (id: string | null) => void;
   templates: CreativeTemplate[];
   loading?: boolean;
   disabled?: boolean;
-}
+};
+
+type TemplateCardProps = {
+  title: string;
+  description: string;
+  category?: string;
+  isSelected: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+};
+
+type ShowMoreTileProps = {
+  hiddenCount: number;
+  onClick: () => void;
+  disabled?: boolean;
+};
 
 // 5 + the "Show more" tile = 6 cells = 2 rows on the 3-col grid. Don't
 // raise without redoing the layout math.
@@ -164,15 +179,7 @@ export function CreativeTemplateGallery({
   );
 }
 
-function ShowMoreTile({
-  hiddenCount,
-  onClick,
-  disabled,
-}: {
-  hiddenCount: number;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
+function ShowMoreTile({ hiddenCount, onClick, disabled }: ShowMoreTileProps) {
   return (
     <button
       type="button"
@@ -196,14 +203,7 @@ function TemplateCard({
   isSelected,
   onClick,
   disabled,
-}: {
-  title: string;
-  description: string;
-  category?: string;
-  isSelected: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
+}: TemplateCardProps) {
   return (
     <button
       type="button"
