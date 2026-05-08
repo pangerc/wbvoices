@@ -43,14 +43,13 @@ export const authConfig = {
         GUEST_EMAILS.includes(email)
       );
     },
-    // Edge-safe session callback. Mirrors the Node-side callback in
-    // `src/auth.ts` so middleware sees `session.user.role` after JWT
-    // decode. Without this, middleware reads `req.auth.user?.role` as
-    // undefined and the `/admin/*` gate redirects every authenticated
-    // user — admin or not — back to `/`.
+    // Projects token.role onto session.user.role. Defined here (Edge-safe)
+    // so middleware sees the role claim — without this, NextAuth's default
+    // session shape drops custom JWT fields and admin gates redirect even
+    // for users whose JWT carries role: "admin".
     async session({ session, token }) {
-      if (session.user && typeof token.role === "string") {
-        session.user.role = token.role;
+      if (session.user) {
+        session.user.role = token.role as string | undefined;
       }
       return session;
     },
