@@ -12,6 +12,7 @@ import { BriefPanelBase } from "./BriefPanelBase";
 import { useToneOfVoice } from "@/hooks/useToneOfVoice";
 import { useRouter } from "next/navigation";
 import { BrandDossier, MarketRow } from "@/lib/alaric-client";
+import { useAdBriefNotChanged } from "@/hooks/ad-brief-not-changed";
 
 export type CreateAd = {
   name: string;
@@ -136,47 +137,89 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
 
   const [isDuplicating, setDuplicating] = useState(false);
 
+  // Legacy `brandVoice` text from pre-v4 briefs — surfaced read-only.
+  const legacyBrandVoice = ad.meta.brief?.brandVoice ?? null;
+
+  const parsedReferenceUrls = useMemo(
+    () =>
+      referenceUrlsText
+        .split(/\n+/)
+        .map((u) => u.trim())
+        .filter((u) => u.length > 0),
+    [referenceUrlsText],
+  );
+
+  const showAngleNudge =
+    !creativeAngle.trim() &&
+    !!(
+      brand?.salesforceAccountId ||
+      brand?.name ||
+      parsedReferenceUrls.length > 0
+    );
+
+  const brief = useMemo(
+    () => ({
+      // clientDescription is required on the type but v4 has no UI for
+      // it — derive from brand name so legacy readers don't blow up.
+      // The LLM also reads creativeBrief which carries the actual content.
+      clientDescription: brand?.name || "",
+      creativeBrief,
+      campaignFormat,
+      adDuration,
+      selectedCTA: selectedCTA || null,
+      selectedPacing: selectedPacing || null,
+      selectedTone: selectedTone || null,
+      voiceInstructions: voiceInstructions.trim() || null,
+      selectedLanguage,
+      selectedRegion: selectedRegion || null,
+      selectedAccent,
+      selectedProvider,
+      ...(parsedReferenceUrls.length
+        ? { referenceUrls: parsedReferenceUrls }
+        : {}),
+      ...(forbiddenWords.trim()
+        ? { forbiddenWords: forbiddenWords.trim() }
+        : {}),
+      ...(providedScript.trim()
+        ? { providedScript: providedScript.trim() }
+        : {}),
+      ...(creativeAngle.trim() ? { creativeAngle: creativeAngle.trim() } : {}),
+      ...(brand?.salesforceAccountId
+        ? { salesforceAccountId: brand.salesforceAccountId }
+        : {}),
+      ...(brand ? { brand } : {}),
+      // Preserve legacy brandVoice on round-trip so display stays stable.
+      ...(legacyBrandVoice ? { brandVoice: legacyBrandVoice } : {}),
+    }),
+    [
+      brand,
+      creativeBrief,
+      campaignFormat,
+      adDuration,
+      selectedCTA,
+      selectedPacing,
+      selectedTone,
+      voiceInstructions,
+      selectedLanguage,
+      selectedRegion,
+      selectedAccent,
+      selectedProvider,
+      parsedReferenceUrls,
+      forbiddenWords,
+      providedScript,
+      creativeAngle,
+    ],
+  );
+
+  const isNotChanged = useAdBriefNotChanged(ad.meta.brief, brief);
+
   const onDuplicate = async (ad: Ad, triggerGeneration: boolean) => {
     try {
       setDuplicating(true);
 
       const newAd: CreateAd = {
         name,
-        brief: {
-          // clientDescription is required on the type but v4 has no UI for
-          // it — derive from brand name so legacy readers don't blow up.
-          // The LLM also reads creativeBrief which carries the actual content.
-          clientDescription: brand?.name || "",
-          creativeBrief,
-          campaignFormat,
-          adDuration,
-          selectedCTA: selectedCTA || null,
-          selectedPacing: selectedPacing || null,
-          selectedTone: selectedTone || null,
-          voiceInstructions: voiceInstructions.trim() || null,
-          selectedLanguage,
-          selectedRegion: selectedRegion || null,
-          selectedAccent,
-          selectedProvider,
-          ...(parsedReferenceUrls.length
-            ? { referenceUrls: parsedReferenceUrls }
-            : {}),
-          ...(forbiddenWords.trim()
-            ? { forbiddenWords: forbiddenWords.trim() }
-            : {}),
-          ...(providedScript.trim()
-            ? { providedScript: providedScript.trim() }
-            : {}),
-          ...(creativeAngle.trim()
-            ? { creativeAngle: creativeAngle.trim() }
-            : {}),
-          ...(brand?.salesforceAccountId
-            ? { salesforceAccountId: brand.salesforceAccountId }
-            : {}),
-          ...(brand ? { brand } : {}),
-          // Preserve legacy brandVoice on round-trip so display stays stable.
-          ...(legacyBrandVoice ? { brandVoice: legacyBrandVoice } : {}),
-        },
+        brief,
       };
 
       const res = await fetch(`/api/ads/${ad.adId}/duplicate`, {
@@ -274,107 +317,9 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
     [],
   );
 
-  const isNotChanged = useMemo(() => {
-    if (ad.meta.brief.brand?.name !== brand?.name) {
-      return false;
-    }
-
-    if (ad.meta.brief.creativeBrief !== creativeBrief) {
-      return false;
-    }
-
-    if (ad.meta.brief.campaignFormat !== campaignFormat) {
-      return false;
-    }
-
-    if (ad.meta.brief.adDuration !== adDuration) {
-      return false;
-    }
-
-    if (ad.meta.brief.selectedCTA !== selectedCTA) {
-      return false;
-    }
-
-    if (ad.meta.brief.selectedPacing !== selectedPacing) {
-      return false;
-    }
-
-    if (ad.meta.brief.selectedTone !== selectedTone) {
-      return false;
-    }
-
-    if (
-      ad.meta.brief.voiceInstructions !== voiceInstructions &&
-      ad.meta.brief.voiceInstructions !== null &&
-      voiceInstructions !== "" &&
-      ad.meta.brief.voiceInstructions !== "" &&
-      voiceInstructions !== null
-    ) {
-      return false;
-    }
-
-    if (ad.meta.brief.selectedLanguage !== selectedLanguage) {
-      return false;
-    }
-
-    if (
-      ad.meta.brief.selectedRegion !== selectedRegion &&
-      ad.meta.brief.selectedRegion !== null &&
-      selectedRegion !== "all" &&
-      ad.meta.brief.selectedRegion !== "all" &&
-      selectedRegion !== null
-    ) {
-      return false;
-    }
-
-    if (ad.meta.brief.selectedAccent !== selectedAccent) {
-      return false;
-    }
-
-    if (ad.meta.brief.selectedProvider !== selectedProvider) {
-      return false;
-    }
-
-    return true;
-  }, [
-    ad,
-    brand,
-    creativeBrief,
-    campaignFormat,
-    adDuration,
-    selectedCTA,
-    selectedPacing,
-    selectedTone,
-    voiceInstructions,
-    selectedLanguage,
-    selectedRegion,
-    selectedAccent,
-    selectedProvider,
-  ]);
-
   const onClickBackdrop = () => {
     if (!isDuplicating) onClose();
   };
-
-  // Legacy `brandVoice` text from pre-v4 briefs — surfaced read-only.
-  const legacyBrandVoice = ad.meta.brief?.brandVoice ?? null;
-
-  const parsedReferenceUrls = useMemo(
-    () =>
-      referenceUrlsText
-        .split(/\n+/)
-        .map((u) => u.trim())
-        .filter((u) => u.length > 0),
-    [referenceUrlsText],
-  );
-
-  const showAngleNudge =
-    !creativeAngle.trim() &&
-    !!(
-      brand?.salesforceAccountId ||
-      brand?.name ||
-      parsedReferenceUrls.length > 0
-    );
 
   return (
     <>
