@@ -65,7 +65,7 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
     ad.meta.brief.selectedProvider || "any",
   );
 
-  const { dbToneOptions, dbToneInstructions } = useToneOfVoice();
+  // const { dbToneOptions, dbToneInstructions } = useToneOfVoice();
 
   const [error, setError] = useState<string | null>(null);
 
@@ -218,8 +218,7 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
       <div className="fixed container overflow-y-auto z-60 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
         <div className="bg-zinc-900/50 rounded-md p-5 flex flex-col gap-4">
           <div>
-            Duplicate ad <strong>"{ad.meta.name}"</strong>?{" "}
-            {isNotChanged ? "is-not" : "it-is"}
+            Duplicate ad <strong>"{ad.meta.name}"</strong>?
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -239,7 +238,7 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
             />
           </div>
           <div>
-            <BriefPanelBase
+            {/* <BriefPanelBase
               disabled={isDuplicating}
               clientDescription={clientDescription}
               onClientDescriptionChanged={setClientDescription}
@@ -268,7 +267,7 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
               adDuration={adDuration}
               onAdDurationChanged={setAdDuration}
               error={error}
-            />
+            /> */}
           </div>
           <div className="flex justify-between">
             <button

@@ -25,13 +25,9 @@
  * complexity for the field count we have. Auto-save still debounces.
  */
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useToneOfVoice } from "@/hooks/useToneOfVoice";
+import type { BrandDossier, MarketRow } from "@/lib/alaric-client";
+import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import type {
   BrandRef,
   CampaignFormat,
@@ -40,61 +36,9 @@ import type {
   Provider,
 } from "@/types";
 import type { Language } from "@/utils/language";
-import type { BrandDossier, MarketRow } from "@/lib/alaric-client";
-import { useToneOfVoice } from "@/hooks/useToneOfVoice";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCreativeTemplates } from "@/hooks/useCreativeTemplates";
-import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
-import type { ToneOption } from "./ui/ToneSelector";
-import { CreativeTemplateGallery } from "./ui/CreativeTemplateGallery";
-import { BrandTopic } from "./brief-topics/BrandTopic";
-import { CreativeTopic } from "./brief-topics/CreativeTopic";
-import { LanguageTopic } from "./brief-topics/LanguageTopic";
-
-const FALLBACK_TONE_OPTIONS: ToneOption[] = [
-  {
-    value: "Professional",
-    title: "Professional",
-    description:
-      "Polished, measured, and trustworthy — for brands that want to sound like experts.",
-  },
-  {
-    value: "Energetic",
-    title: "Energetic",
-    description:
-      "High-octane and enthusiastic — perfect for time-sensitive offers and exciting launches.",
-  },
-  {
-    value: "Warm",
-    title: "Warm",
-    description:
-      "Soft, inviting, and sincere — like a friendly recommendation from someone you trust.",
-  },
-  {
-    value: "Authoritative",
-    title: "Authoritative",
-    description:
-      "Confident, deep, and commanding — for brands that speak from a position of expertise.",
-  },
-  {
-    value: "Sarcastic",
-    title: "Sarcastic",
-    description:
-      "Dry and tongue-in-cheek — for irreverent brands that aren’t afraid to wink at their audience.",
-  },
-];
-
-const FALLBACK_TONE_INSTRUCTIONS: Record<string, string> = {
-  Professional:
-    "Deliver with a polished, measured cadence. Keep the timbre authoritative yet warm. Crisp consonants and confident pacing — every word sounds intentional. Avoid vocal fry and filler tones.",
-  Energetic:
-    "Bring high energy and enthusiasm. Brisk pacing with upward inflections. Use vocal brightness and a smile-in-voice to signal urgency and excitement. Punch key phrases to drive momentum.",
-  Warm:
-    "Soft, inviting timbre. Slightly slower pace with relaxed breathing and gentle phrasing. Convey sincerity and closeness — as if speaking to a friend. Let key emotional beats breathe.",
-  Authoritative:
-    "Deep, confident delivery. Steady pace and minimal pitch variance. Emphasise key claims with sustained pitch and crisp diction. Project expertise and certainty throughout.",
-  Sarcastic:
-    "Dry, slightly exaggerated inflection. Subtle pauses before punchlines. Pitch irony through vocal raise on key words. Keep the wink obvious to the listener but never broad.",
-};
+import { BriefPanelBase } from "./BriefPanelBase";
 
 // ============================================================
 // SSE event types — preserved verbatim from V3 so onStreamUpdate
@@ -352,17 +296,15 @@ export function BriefPanelV4({
 
   const showAngleNudge =
     !creativeAngle.trim() &&
-    !!(brand?.salesforceAccountId || brand?.name || parsedReferenceUrls.length > 0);
+    !!(
+      brand?.salesforceAccountId ||
+      brand?.name ||
+      parsedReferenceUrls.length > 0
+    );
 
   // Tone presets from /api/tone-of-voice (admin-managed) — fall back to
   // built-in presets when the fetch fails.
-  const { dbToneOptions, dbToneInstructions } = useToneOfVoice();
-  const toneOptions =
-    dbToneOptions.length > 0 ? dbToneOptions : FALLBACK_TONE_OPTIONS;
-  const toneInstructions =
-    Object.keys(dbToneInstructions).length > 0
-      ? dbToneInstructions
-      : FALLBACK_TONE_INSTRUCTIONS;
+  const { toneOptions, toneInstructions } = useToneOfVoice();
 
   const { templates: creativeTemplates, isLoading: creativeTemplatesLoading } =
     useCreativeTemplates();
@@ -430,7 +372,10 @@ export function BriefPanelV4({
   });
   const [dialogReady, setDialogReady] = useState(true);
   const handleLanguageOptionsResolved = useCallback(
-    (resolved: { voiceCounts: Record<Provider, number>; dialogReady: boolean }) => {
+    (resolved: {
+      voiceCounts: Record<Provider, number>;
+      dialogReady: boolean;
+    }) => {
       setVoiceCounts(resolved.voiceCounts);
       setDialogReady(resolved.dialogReady);
     },
@@ -465,9 +410,15 @@ export function BriefPanelV4({
         ...(parsedReferenceUrls.length
           ? { referenceUrls: parsedReferenceUrls }
           : {}),
-        ...(forbiddenWords.trim() ? { forbiddenWords: forbiddenWords.trim() } : {}),
-        ...(providedScript.trim() ? { providedScript: providedScript.trim() } : {}),
-        ...(creativeAngle.trim() ? { creativeAngle: creativeAngle.trim() } : {}),
+        ...(forbiddenWords.trim()
+          ? { forbiddenWords: forbiddenWords.trim() }
+          : {}),
+        ...(providedScript.trim()
+          ? { providedScript: providedScript.trim() }
+          : {}),
+        ...(creativeAngle.trim()
+          ? { creativeAngle: creativeAngle.trim() }
+          : {}),
         ...(brand?.salesforceAccountId
           ? { salesforceAccountId: brand.salesforceAccountId }
           : {}),
@@ -610,7 +561,12 @@ export function BriefPanelV4({
           versionId: string;
         };
         setGeneratingVoice(true, index, versionId);
-        onStreamUpdate?.({ stream: "voices", status: "generating", index, total });
+        onStreamUpdate?.({
+          stream: "voices",
+          status: "generating",
+          index,
+          total,
+        });
         break;
       }
       case "voice-ready": {
@@ -625,7 +581,12 @@ export function BriefPanelV4({
           error: string;
         };
         setGeneratingVoice(false);
-        onStreamUpdate?.({ stream: "voices", status: "failed", index, error: errMsg });
+        onStreamUpdate?.({
+          stream: "voices",
+          status: "failed",
+          index,
+          error: errMsg,
+        });
         break;
       }
       case "music-generating":
@@ -660,7 +621,12 @@ export function BriefPanelV4({
           index: number;
           error: string;
         };
-        onStreamUpdate?.({ stream: "sfx", status: "failed", index, error: errMsg });
+        onStreamUpdate?.({
+          stream: "sfx",
+          status: "failed",
+          index,
+          error: errMsg,
+        });
         break;
       }
       case "complete": {
@@ -717,9 +683,15 @@ export function BriefPanelV4({
         ...(parsedReferenceUrls.length
           ? { referenceUrls: parsedReferenceUrls }
           : {}),
-        ...(forbiddenWords.trim() ? { forbiddenWords: forbiddenWords.trim() } : {}),
-        ...(providedScript.trim() ? { providedScript: providedScript.trim() } : {}),
-        ...(creativeAngle.trim() ? { creativeAngle: creativeAngle.trim() } : {}),
+        ...(forbiddenWords.trim()
+          ? { forbiddenWords: forbiddenWords.trim() }
+          : {}),
+        ...(providedScript.trim()
+          ? { providedScript: providedScript.trim() }
+          : {}),
+        ...(creativeAngle.trim()
+          ? { creativeAngle: creativeAngle.trim() }
+          : {}),
         ...(brand?.salesforceAccountId
           ? { salesforceAccountId: brand.salesforceAccountId }
           : {}),
@@ -787,7 +759,8 @@ export function BriefPanelV4({
         <div>
           <h1 className="text-4xl font-black mb-2">Create Your Campaign</h1>
           <p className="text-gray-400">
-            Brand &amp; market, then creative direction, then voice technicalities.
+            Brand &amp; market, then creative direction, then voice
+            technicalities.
           </p>
         </div>
         <button
@@ -799,80 +772,57 @@ export function BriefPanelV4({
         </button>
       </div>
 
-      <div className="space-y-12">
-        <BrandTopic
-          brand={brand}
-          onBrandChanged={handleBrandChanged}
-          marketAlpha2={selectedRegion}
-          onMarketChanged={handleMarketChanged}
-          dossier={dossier}
-          isLoadingDossier={isLoadingDossier}
-          enrichmentSummary={enrichmentSummary}
-          legacyBrandVoice={legacyBrandVoice}
-          disabled={isGenerating}
-        />
-
-        <CreativeTemplateGallery
-          value={selectedTemplateId}
-          onChange={handleTemplateChanged}
-          templates={creativeTemplates}
-          loading={creativeTemplatesLoading}
-          disabled={isGenerating}
-        />
-
-        <CreativeTopic
-          creativeBrief={creativeBrief}
-          onCreativeBriefChanged={setCreativeBrief}
-          creativeAngle={creativeAngle}
-          onCreativeAngleChanged={setCreativeAngle}
-          selectedTone={selectedTone}
-          onSelectedToneChanged={setSelectedTone}
-          voiceInstructions={voiceInstructions}
-          onVoiceInstructionsChanged={setVoiceInstructions}
-          toneOptions={toneOptions}
-          toneInstructions={toneInstructions}
-          campaignFormat={campaignFormat}
-          onCampaignFormatChanged={setCampaignFormat}
-          selectedPacing={selectedPacing}
-          onSelectedPacingChanged={setSelectedPacing}
-          selectedCTA={selectedCTA}
-          onSelectedCTAChanged={setSelectedCTA}
-          adDuration={adDuration}
-          onAdDurationChanged={setAdDuration}
-          selectedProvider={selectedProvider}
-          onSelectedProviderChanged={setSelectedProvider}
-          voiceCounts={voiceCounts}
-          dialogReady={dialogReady}
-          referenceUrlsText={referenceUrlsText}
-          onReferenceUrlsChanged={setReferenceUrlsText}
-          forbiddenWords={forbiddenWords}
-          onForbiddenWordsChanged={setForbiddenWords}
-          providedScript={providedScript}
-          onProvidedScriptChanged={setProvidedScript}
-          showAngleNudge={showAngleNudge}
-          disabled={isGenerating}
-        />
-
-        <LanguageTopic
-          selectedLanguage={selectedLanguage}
-          onSelectedLanguageChanged={setSelectedLanguage}
-          campaignFormat={campaignFormat}
-          selectedRegion={selectedRegion}
-          onSelectedRegionChanged={setSelectedRegion}
-          selectedAccent={selectedAccent}
-          onSelectedAccentChanged={setSelectedAccent}
-          selectedProvider={selectedProvider}
-          onSelectedProviderChanged={setSelectedProvider}
-          onLanguageOptionsResolved={handleLanguageOptionsResolved}
-          disabled={isGenerating}
-        />
-
-        {error && (
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-            <p className="text-red-400 text-sm">{error}</p>
-          </div>
-        )}
-      </div>
+      <BriefPanelBase
+        brand={brand}
+        onBrandChanged={handleBrandChanged}
+        region={selectedRegion}
+        onRegionChanged={setSelectedRegion}
+        onMarketChanged={handleMarketChanged}
+        dossier={dossier}
+        isLoadingDossier={isLoadingDossier}
+        enrichmentSummary={enrichmentSummary}
+        legacyBrandVoice={legacyBrandVoice}
+        isGenerating={isGenerating}
+        creativeBrief={creativeBrief}
+        onCreativeBriefChanged={setCreativeBrief}
+        creativeAngle={creativeAngle}
+        onCreativeAngleChanged={setCreativeAngle}
+        tone={selectedTone}
+        onToneChanged={setSelectedTone}
+        toneOptions={toneOptions}
+        toneInstructions={toneInstructions}
+        voiceInstructions={voiceInstructions}
+        onVoiceInstructionsChanged={setVoiceInstructions}
+        campaignFormat={campaignFormat}
+        onCampaignFormatChanged={setCampaignFormat}
+        pacing={selectedPacing}
+        onPacingChanged={setSelectedPacing}
+        cta={selectedCTA}
+        onCTAChanged={setSelectedCTA}
+        adDuration={adDuration}
+        onAdDurationChanged={setAdDuration}
+        provider={selectedProvider}
+        onProviderChanged={setSelectedProvider}
+        voiceCounts={voiceCounts}
+        dialogReady={dialogReady}
+        referenceUrlsText={referenceUrlsText}
+        onReferenceUrlsTextChanged={setReferenceUrlsText}
+        forbiddenWords={forbiddenWords}
+        onForbiddenWordsChanged={setForbiddenWords}
+        providedScript={providedScript}
+        onProvidedScriptChanged={setProvidedScript}
+        showAngleNudge={showAngleNudge}
+        language={selectedLanguage}
+        onLanguageChanged={setSelectedLanguage}
+        accent={selectedAccent}
+        onAccentChanged={setSelectedAccent}
+        onLanguageOptionsResolved={handleLanguageOptionsResolved}
+        error={error}
+        selectedTemplateId={selectedTemplateId}
+        onTemplateChanged={handleTemplateChanged}
+        creativeTemplates={creativeTemplates}
+        creativeTemplatesLoading={creativeTemplatesLoading}
+      />
     </div>
   );
 }
