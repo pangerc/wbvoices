@@ -100,6 +100,37 @@ export const suggestedTones = pgTable(
   })
 );
 
+// Distinct from `suggested_tones`: tones drive TTS delivery (how voices
+// speak), templates drive the system prompt (what kind of ad to make).
+// Don't merge.
+export const instructionTemplates = pgTable(
+  "instruction_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    category: text("category").notNull().default("general"),
+    systemInstructions: text("system_instructions").notNull(),
+    exampleOutput: text("example_output"),
+    defaultPacing: text("default_pacing"),
+    defaultCta: text("default_cta"),
+    defaultDurationSeconds: integer("default_duration_seconds"),
+    // Music has no brief UI field; this column is the only path it reaches
+    // the prompt.
+    defaultMusicStyle: text("default_music_style"),
+    // Admin notes — never sent to the LLM.
+    bestPractice: text("best_practice"),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    isActiveIdx: index("instruction_templates_is_active_idx").on(table.isActive),
+    categoryIdx: index("instruction_templates_category_idx").on(table.category),
+  })
+);
+
 // ============ Auth.js (NextAuth v5) adapter tables ============
 
 /**
@@ -159,3 +190,5 @@ export type InsertVoiceBlacklist = typeof voiceBlacklist.$inferInsert;
 export type InsertVoiceDescription = typeof voiceDescriptions.$inferInsert;
 export type SuggestedTone = typeof suggestedTones.$inferSelect;
 export type InsertSuggestedTone = typeof suggestedTones.$inferInsert;
+export type InstructionTemplate = typeof instructionTemplates.$inferSelect;
+export type InsertInstructionTemplate = typeof instructionTemplates.$inferInsert;

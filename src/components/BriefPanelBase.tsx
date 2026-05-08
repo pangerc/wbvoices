@@ -1,8 +1,10 @@
+import type { CreativeTemplate } from "@/hooks/useCreativeTemplates";
 import { BrandDossier, MarketRow } from "@/lib/alaric-client";
 import { BrandRef, CampaignFormat, Language, Pacing, Provider } from "@/types";
 import { BrandTopic } from "./brief-topics/BrandTopic";
 import { CreativeTopic } from "./brief-topics/CreativeTopic";
 import { LanguageTopic } from "./brief-topics/LanguageTopic";
+import { CreativeTemplateGallery } from "./ui/CreativeTemplateGallery";
 import { ToneOption } from "./ui";
 
 export type BriefPanelBaseProps = {
@@ -79,6 +81,13 @@ export type BriefPanelBaseProps = {
   }) => void;
 
   error: string | null;
+
+  // Creative template gallery — owner of state lives upstream so the
+  // duplicate-ad flow can opt out by simply not threading these in.
+  selectedTemplateId?: string | null;
+  onTemplateChanged?: (id: string | null) => void;
+  creativeTemplates?: CreativeTemplate[];
+  creativeTemplatesLoading?: boolean;
 };
 
 export const BriefPanelBase = ({
@@ -127,7 +136,15 @@ export const BriefPanelBase = ({
   onAccentChanged,
   onLanguageOptionsResolved,
   error,
+  selectedTemplateId,
+  onTemplateChanged,
+  creativeTemplates,
+  creativeTemplatesLoading,
 }: BriefPanelBaseProps) => {
+  // Render the gallery only when the caller wired both halves. Keeps the
+  // duplicate-ad reuse path opt-in.
+  const showGallery =
+    onTemplateChanged !== undefined && creativeTemplates !== undefined;
   return (
     <div className="space-y-12">
       <BrandTopic
@@ -141,6 +158,16 @@ export const BriefPanelBase = ({
         legacyBrandVoice={legacyBrandVoice}
         disabled={isGenerating}
       />
+
+      {showGallery && (
+        <CreativeTemplateGallery
+          value={selectedTemplateId ?? null}
+          onChange={onTemplateChanged}
+          templates={creativeTemplates}
+          loading={creativeTemplatesLoading}
+          disabled={isGenerating}
+        />
+      )}
 
       <CreativeTopic
         creativeBrief={creativeBrief}

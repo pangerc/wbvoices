@@ -224,6 +224,10 @@ export type ProjectBrief = {
   // preset id is UI state.
   selectedTone?: string | null;
   voiceInstructions?: string | null;
+
+  // Only the id is persisted; resolution to systemInstructions happens
+  // server-side at generation time.
+  selectedTemplateId?: string | null;
 };
 
 /**

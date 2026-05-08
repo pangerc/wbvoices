@@ -30,6 +30,11 @@ export interface KnowledgeContext {
   // ProjectBrief through buildUserMessage into per-provider modules so
   // they can adapt guidance.
   hasProvidedScript?: boolean;
+
+  // Resolved server-side from brief.selectedTemplateId so admins can edit
+  // template wording without forcing a brief rewrite.
+  creativeTemplateTitle?: string;
+  creativeTemplateInstructions?: string;
 }
 
 export type IntentType =

@@ -37,8 +37,8 @@ import type {
 } from "@/types";
 import type { Language } from "@/utils/language";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCreativeTemplates } from "@/hooks/useCreativeTemplates";
 import { BriefPanelBase } from "./BriefPanelBase";
-import type { ToneOption } from "./ui/ToneSelector";
 
 // ============================================================
 // SSE event types — preserved verbatim from V3 so onStreamUpdate
@@ -127,6 +127,9 @@ export function BriefPanelV4({
   );
   const [voiceInstructions, setVoiceInstructions] = useState<string>(
     initialBrief?.voiceInstructions || "",
+  );
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    initialBrief?.selectedTemplateId || null,
   );
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(
     initialBrief?.selectedLanguage || "en",
@@ -248,6 +251,8 @@ export function BriefPanelV4({
     if (initialBrief.voiceInstructions !== undefined) {
       setVoiceInstructions(initialBrief.voiceInstructions || "");
     }
+    if (initialBrief.selectedTemplateId !== undefined)
+      setSelectedTemplateId(initialBrief.selectedTemplateId);
     if (initialBrief.selectedLanguage)
       setSelectedLanguage(initialBrief.selectedLanguage);
     if (initialBrief.selectedRegion)
@@ -300,6 +305,34 @@ export function BriefPanelV4({
   // Tone presets from /api/tone-of-voice (admin-managed) — fall back to
   // built-in presets when the fetch fails.
   const { toneOptions, toneInstructions } = useToneOfVoice();
+
+  const { templates: creativeTemplates, isLoading: creativeTemplatesLoading } =
+    useCreativeTemplates();
+
+  // Only non-null template defaults are applied — admin ships partial
+  // guidance and we don't want to clobber brief fields with undefineds.
+  // id=null is the deliberate reset path; we don't touch state on reset.
+  const handleTemplateChanged = useCallback(
+    (id: string | null) => {
+      setSelectedTemplateId(id);
+      if (!id) return;
+      const template = creativeTemplates.find((t) => t.id === id);
+      if (!template) return;
+      if (template.defaultPacing === "fast" || template.defaultPacing === "normal") {
+        setSelectedPacing(template.defaultPacing);
+      }
+      if (template.defaultCta != null && template.defaultCta.trim()) {
+        setSelectedCTA(template.defaultCta.trim());
+      }
+      if (
+        typeof template.defaultDurationSeconds === "number" &&
+        template.defaultDurationSeconds > 0
+      ) {
+        setAdDuration(template.defaultDurationSeconds);
+      }
+    },
+    [creativeTemplates],
+  );
 
   // ============================================================
   // Brand picker callback — sets brand AND triggers market default
@@ -369,6 +402,7 @@ export function BriefPanelV4({
         selectedPacing: selectedPacing || null,
         selectedTone: selectedTone || null,
         voiceInstructions: voiceInstructions.trim() || null,
+        selectedTemplateId: selectedTemplateId || null,
         selectedLanguage,
         selectedRegion: selectedRegion || null,
         selectedAccent,
@@ -416,6 +450,7 @@ export function BriefPanelV4({
     selectedPacing,
     selectedTone,
     voiceInstructions,
+    selectedTemplateId,
     selectedLanguage,
     selectedRegion,
     selectedAccent,
@@ -449,6 +484,7 @@ export function BriefPanelV4({
     selectedPacing,
     selectedTone,
     voiceInstructions,
+    selectedTemplateId,
     selectedLanguage,
     selectedRegion,
     selectedAccent,
@@ -641,6 +677,7 @@ export function BriefPanelV4({
         pacing: selectedPacing,
         tone: selectedTone,
         voiceInstructions: voiceInstructions.trim() || null,
+        selectedTemplateId: selectedTemplateId || null,
         selectedProvider,
         autoGenerateAudio,
         ...(parsedReferenceUrls.length
@@ -781,6 +818,10 @@ export function BriefPanelV4({
         onAccentChanged={setSelectedAccent}
         onLanguageOptionsResolved={handleLanguageOptionsResolved}
         error={error}
+        selectedTemplateId={selectedTemplateId}
+        onTemplateChanged={handleTemplateChanged}
+        creativeTemplates={creativeTemplates}
+        creativeTemplatesLoading={creativeTemplatesLoading}
       />
     </div>
   );
