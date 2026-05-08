@@ -7,15 +7,16 @@ export type CreativeTemplate = {
   category: string;
   systemInstructions: string;
   exampleOutput?: string | null;
+  defaultPacing?: "fast" | "normal" | null;
+  defaultCta?: string | null;
+  defaultDurationSeconds?: number | null;
+  defaultMusicStyle?: string | null;
+  bestPractice?: string | null;
   sortOrder: number;
 };
 
-/**
- * Loads admin-managed creative templates (AAC-27) for the brief gallery.
- * Active-only, ordered by sort_order ascending. Empty array on fetch failure
- * — the gallery hides itself when there's nothing to show, the brief flow
- * still works without templates.
- */
+// Empty array on failure on purpose — the gallery hides when empty so the
+// brief panel keeps working when the API is down or unseeded.
 export const useCreativeTemplates = () => {
   const [templates, setTemplates] = useState<CreativeTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +36,7 @@ export const useCreativeTemplates = () => {
           setTemplates(data.templates);
         }
       } catch {
-        // Silent — gallery hides when empty.
+        // Silent: gallery hides on empty list.
       } finally {
         if (!abortController.signal.aborted) setIsLoading(false);
       }

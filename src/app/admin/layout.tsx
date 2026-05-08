@@ -67,8 +67,8 @@ export default function AdminLayout({
     },
   ];
 
-  // Sections with nested /new and /[id]/edit pages should highlight the parent
-  // nav entry. Match the parent href OR any nested route under it.
+  // Sections with nested /new + /[id]/edit pages need parent-prefix matching
+  // so the nav stays highlighted on child routes.
   const NESTED_SECTIONS = new Set([
     "/admin/tone-of-voice",
     "/admin/instruction-templates",

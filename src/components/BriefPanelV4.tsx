@@ -364,11 +364,33 @@ export function BriefPanelV4({
       ? dbToneInstructions
       : FALLBACK_TONE_INSTRUCTIONS;
 
-  // Creative templates (AAC-27) from /api/instruction-templates. The gallery
-  // hides itself when the list is empty so brief flows without seeded
-  // templates keep working unchanged.
   const { templates: creativeTemplates, isLoading: creativeTemplatesLoading } =
     useCreativeTemplates();
+
+  // Only non-null template defaults are applied — admin ships partial
+  // guidance and we don't want to clobber brief fields with undefineds.
+  // id=null is the deliberate reset path; we don't touch state on reset.
+  const handleTemplateChanged = useCallback(
+    (id: string | null) => {
+      setSelectedTemplateId(id);
+      if (!id) return;
+      const template = creativeTemplates.find((t) => t.id === id);
+      if (!template) return;
+      if (template.defaultPacing === "fast" || template.defaultPacing === "normal") {
+        setSelectedPacing(template.defaultPacing);
+      }
+      if (template.defaultCta != null && template.defaultCta.trim()) {
+        setSelectedCTA(template.defaultCta.trim());
+      }
+      if (
+        typeof template.defaultDurationSeconds === "number" &&
+        template.defaultDurationSeconds > 0
+      ) {
+        setAdDuration(template.defaultDurationSeconds);
+      }
+    },
+    [creativeTemplates],
+  );
 
   // ============================================================
   // Brand picker callback — sets brand AND triggers market default
@@ -792,7 +814,7 @@ export function BriefPanelV4({
 
         <CreativeTemplateGallery
           value={selectedTemplateId}
-          onChange={setSelectedTemplateId}
+          onChange={handleTemplateChanged}
           templates={creativeTemplates}
           loading={creativeTemplatesLoading}
           disabled={isGenerating}

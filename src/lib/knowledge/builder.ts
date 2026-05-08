@@ -133,18 +133,8 @@ Single voice, direct address to the listener. Consistent tone throughout. Search
   }
 }
 
-/**
- * Creative template addendum (AAC-27).
- *
- * When the brief picked an admin-managed creative template, append its
- * resolved `system_instructions` to the base system prompt as a standing
- * per-brief constraint — script structure, pacing, music mood, SFX
- * density, word count. Empty string when no template is selected.
- *
- * Distinct from the per-format guidance above: format is a structural
- * shape ("dialogue", "vox pop"); template is a curated creative strategy
- * ("Optimized for 15s", "Gen Z Oriented") that can stack on top.
- */
+// Format vs template precedence: format wins on conflict (format is the
+// structural shape; template is creative strategy stacked on top).
 function getCreativeTemplateGuidance(context?: KnowledgeContext): string {
   const instructions = context?.creativeTemplateInstructions?.trim();
   if (!instructions) return "";

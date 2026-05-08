@@ -100,13 +100,9 @@ export const suggestedTones = pgTable(
   })
 );
 
-/**
- * Instruction templates (AAC-27) — admin-managed creative-strategy presets
- * surfaced in the brief panel. Distinct from `suggested_tones`: tones drive
- * TTS delivery (`voice_instructions`), templates drive the *kind* of ad
- * (`system_instructions` injected into the LLM system prompt — script
- * structure, pacing, music mood, SFX density, word count, narrative arc).
- */
+// Distinct from `suggested_tones`: tones drive TTS delivery (how voices
+// speak), templates drive the system prompt (what kind of ad to make).
+// Don't merge.
 export const instructionTemplates = pgTable(
   "instruction_templates",
   {
@@ -116,6 +112,14 @@ export const instructionTemplates = pgTable(
     category: text("category").notNull().default("general"),
     systemInstructions: text("system_instructions").notNull(),
     exampleOutput: text("example_output"),
+    defaultPacing: text("default_pacing"),
+    defaultCta: text("default_cta"),
+    defaultDurationSeconds: integer("default_duration_seconds"),
+    // Music has no brief UI field; this column is the only path it reaches
+    // the prompt.
+    defaultMusicStyle: text("default_music_style"),
+    // Admin notes — never sent to the LLM.
+    bestPractice: text("best_practice"),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -31,11 +31,8 @@ export interface KnowledgeContext {
   // they can adapt guidance.
   hasProvidedScript?: boolean;
 
-  // Creative template (AAC-27). When set, the resolved instructions are
-  // appended to the base system prompt as a standing per-brief constraint.
-  // The id is in the brief; resolution to title + instructions happens
-  // server-side in the generation routes so admins can iterate on the
-  // wording without forcing a brief rewrite.
+  // Resolved server-side from brief.selectedTemplateId so admins can edit
+  // template wording without forcing a brief rewrite.
   creativeTemplateTitle?: string;
   creativeTemplateInstructions?: string;
 }

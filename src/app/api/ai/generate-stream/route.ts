@@ -278,10 +278,9 @@ export async function POST(req: NextRequest) {
 
       const languageName = getLanguageName(language);
 
-      // Resolve creative template (AAC-27) server-side from the persisted id.
-      // Done here so admins can iterate on the wording without forcing a brief
-      // rewrite. Inactive templates are honoured at generate time even if
-      // hidden from the picker — the user already committed to them.
+      // Inactive templates are honoured here even if hidden from the picker —
+      // the user already committed when the brief was saved. defaultMusicStyle
+      // folds into the instructions because there's no music UI field.
       let creativeTemplateTitle: string | undefined;
       let creativeTemplateInstructions: string | undefined;
       if (selectedTemplateId) {
@@ -289,7 +288,10 @@ export async function POST(req: NextRequest) {
           const template = await instructionTemplatesService.getById(selectedTemplateId);
           if (template) {
             creativeTemplateTitle = template.title;
-            creativeTemplateInstructions = template.systemInstructions;
+            const musicStyle = template.defaultMusicStyle?.trim();
+            creativeTemplateInstructions = musicStyle
+              ? `${template.systemInstructions}\nMusic style: ${musicStyle}`
+              : template.systemInstructions;
           } else {
             console.warn(
               `[generate-stream] selectedTemplateId ${selectedTemplateId} not found — proceeding without template`

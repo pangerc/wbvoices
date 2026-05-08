@@ -1,18 +1,11 @@
-/**
- * In-memory document text extraction for instruction-template references.
- *
- * Accepts uploaded files (PDF, DOCX, MD, TXT, CSV, XLSX/XLS) and returns
- * plain-text content suitable for folding into an LLM prompt. Nothing is
- * persisted — buffers and extracted text live only for the duration of the
- * request that called the extractor.
- *
- * The extracted text is hard-capped per file to keep the LLM call bounded;
- * truncation happens at character boundaries and appends an ellipsis marker.
- */
+// Buffers and extracted text are intentionally request-scoped; never write
+// them to disk or DB — that's the whole reason this lives outside the
+// blob-upload path.
 
-export const MAX_FILE_BYTES = 20 * 1024 * 1024; // 20 MB per file
-export const MAX_TOTAL_BYTES = 60 * 1024 * 1024; // 60 MB across all files
-export const MAX_EXTRACTED_CHARS = 24_000;       // ~6k tokens per file
+export const MAX_FILE_BYTES = 20 * 1024 * 1024;
+export const MAX_TOTAL_BYTES = 60 * 1024 * 1024;
+// ~6k tokens per file — load-bearing for the LLM call budget.
+export const MAX_EXTRACTED_CHARS = 24_000;
 export const MAX_FILES_PER_REQUEST = 10;
 
 export type SupportedFormat =
@@ -32,7 +25,7 @@ const EXTENSION_MAP: Record<string, SupportedFormat> = {
   text: "text",
   csv: "csv",
   xlsx: "xlsx",
-  xls: "xlsx", // SheetJS handles both with the same read() entry point
+  xls: "xlsx",
   xlsm: "xlsx",
 };
 
@@ -48,11 +41,8 @@ const MIME_MAP: Record<string, SupportedFormat> = {
   "application/vnd.ms-excel": "xlsx",
 };
 
-/**
- * Resolve a file's format from its (browser-supplied) MIME and filename.
- * Filename extension wins over MIME because browsers sometimes report
- * `application/octet-stream` for less common types (e.g. `.md`).
- */
+// Extension wins over MIME — browsers report `application/octet-stream`
+// for some types (notably .md) so MIME alone misses them.
 export function detectFormat(name: string, mime?: string): SupportedFormat | null {
   const lowerName = name.toLowerCase();
   const ext = lowerName.includes(".") ? lowerName.split(".").pop() ?? "" : "";
@@ -90,14 +80,6 @@ export interface ExtractionResult {
   text: string;
 }
 
-/**
- * Extract text from a single file buffer.
- *
- * Returns an `ExtractionResult` with the (possibly truncated) text. Throws
- * `UnsupportedFormatError` when the format can't be detected, `FileTooLargeError`
- * when the buffer exceeds `MAX_FILE_BYTES`, or a generic `Error` when a
- * format-specific parser fails.
- */
 export async function extractTextFromFile(
   buffer: ArrayBuffer,
   filename: string,
@@ -135,8 +117,8 @@ async function extractByFormat(
 ): Promise<string> {
   switch (format) {
     case "pdf": {
-      // pdf-parse v2 exports a class. Dynamic import keeps the heavy worker
-      // bundle out of the route's cold start when no PDF is uploaded.
+      // Dynamic import keeps the pdfjs worker bundle out of cold start when
+      // no PDF is uploaded.
       const { PDFParse } = await import("pdf-parse");
       const parser = new PDFParse({ data: new Uint8Array(buffer) });
       try {
@@ -155,16 +137,13 @@ async function extractByFormat(
     case "markdown":
     case "text":
     case "csv": {
-      // All three are text-shaped formats. We deliberately don't render
-      // CSV into a tabular preview — feeding raw rows preserves header
-      // semantics and the LLM handles it well enough for distillation.
+      // CSV stays as raw rows on purpose — header semantics are clearer to
+      // the LLM than a rendered table.
       return new TextDecoder("utf-8", { fatal: false }).decode(buffer);
     }
     case "xlsx": {
       const xlsx = await import("xlsx");
       const wb = xlsx.read(new Uint8Array(buffer), { type: "array" });
-      // Render each sheet as CSV-ish rows under a sheet-name header. Joining
-      // with double-newline keeps sheet boundaries legible to the LLM.
       const sheets = wb.SheetNames.map((sheetName) => {
         const sheet = wb.Sheets[sheetName];
         const csv = xlsx.utils.sheet_to_csv(sheet, { blankrows: false });
@@ -173,19 +152,12 @@ async function extractByFormat(
       return sheets.join("\n\n");
     }
     default: {
-      // Exhaustive guard — TS narrows `format` to `never` here. If a new
-      // SupportedFormat is added without a switch arm, this fails loudly.
       const _exhaustive: never = format;
       throw new Error(`No extractor wired for format ${String(_exhaustive)} (file: ${filename})`);
     }
   }
 }
 
-/**
- * Collapse runs of whitespace to keep token counts tight without losing
- * paragraph structure. Multiple newlines collapse to two; multiple spaces
- * collapse to one; trailing/leading whitespace trimmed.
- */
 function collapseWhitespace(s: string): string {
   return s
     .replace(/\r\n?/g, "\n")

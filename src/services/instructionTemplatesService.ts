@@ -13,6 +13,11 @@ export type InstructionTemplateInput = Pick<
   | "category"
   | "systemInstructions"
   | "exampleOutput"
+  | "defaultPacing"
+  | "defaultCta"
+  | "defaultDurationSeconds"
+  | "defaultMusicStyle"
+  | "bestPractice"
   | "isActive"
   | "sortOrder"
 >;
@@ -20,8 +25,7 @@ export type InstructionTemplateInput = Pick<
 export class InstructionTemplatesService {
   async list(opts?: { activeOnly?: boolean }): Promise<InstructionTemplate[]> {
     const base = db.select().from(instructionTemplates);
-    // Active list (brief panel) is sorted by curator-controlled sort_order
-    // ascending. Admin list is newest-first to surface fresh edits.
+    // Active list = curator order (sort_order asc); admin list = newest first.
     if (opts?.activeOnly) {
       return base
         .where(eq(instructionTemplates.isActive, true))
@@ -48,6 +52,11 @@ export class InstructionTemplatesService {
         category: input.category ?? "general",
         systemInstructions: input.systemInstructions,
         exampleOutput: input.exampleOutput ?? null,
+        defaultPacing: input.defaultPacing ?? null,
+        defaultCta: input.defaultCta ?? null,
+        defaultDurationSeconds: input.defaultDurationSeconds ?? null,
+        defaultMusicStyle: input.defaultMusicStyle ?? null,
+        bestPractice: input.bestPractice ?? null,
         isActive: input.isActive ?? true,
         sortOrder: input.sortOrder ?? 0,
       })

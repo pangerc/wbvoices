@@ -225,12 +225,8 @@ export type ProjectBrief = {
   selectedTone?: string | null;
   voiceInstructions?: string | null;
 
-  // Creative template preset (DB-backed via `instruction_templates`, AAC-27).
-  // The preset's `systemInstructions` is appended to the LLM system prompt to
-  // shape script structure, pacing, music mood and SFX direction. The id is
-  // persisted on the brief; the resolved instructions are fetched server-side
-  // at generation time so admins can iterate on the wording without forcing
-  // a brief rewrite.
+  // Only the id is persisted; resolution to systemInstructions happens
+  // server-side at generation time.
   selectedTemplateId?: string | null;
 };
 

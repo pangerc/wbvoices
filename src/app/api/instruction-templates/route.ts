@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import { instructionTemplatesService } from "@/services/instructionTemplatesService";
 
-/**
- * Public read-only list of active instruction templates (AAC-27),
- * consumed by the brief panel CreativeTemplateGallery. Admin-only CRUD
- * lives under /api/admin/instruction-templates.
- */
 export async function GET() {
   try {
     const templates = await instructionTemplatesService.list({ activeOnly: true });

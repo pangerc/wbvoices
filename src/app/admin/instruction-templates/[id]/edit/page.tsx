@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import type {
   InstructionTemplateFormInitial,
   TemplateCategory,
+  TemplatePacing,
 } from "@/components/admin/InstructionTemplateForm";
 
 const InstructionTemplateForm = dynamic(
@@ -35,6 +36,9 @@ export default function EditInstructionTemplatePage({
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (abortController.signal.aborted) return;
+        const rawPacing = data.template.defaultPacing ?? "";
+        const pacing: TemplatePacing =
+          rawPacing === "fast" || rawPacing === "normal" ? rawPacing : "";
         setInitial({
           id: data.template.id,
           title: data.template.title,
@@ -42,6 +46,14 @@ export default function EditInstructionTemplatePage({
           category: (data.template.category ?? "general") as TemplateCategory,
           systemInstructions: data.template.systemInstructions,
           exampleOutput: data.template.exampleOutput ?? "",
+          defaultPacing: pacing,
+          defaultCta: data.template.defaultCta ?? "",
+          defaultDurationSeconds:
+            typeof data.template.defaultDurationSeconds === "number"
+              ? data.template.defaultDurationSeconds
+              : null,
+          defaultMusicStyle: data.template.defaultMusicStyle ?? "",
+          bestPractice: data.template.bestPractice ?? "",
           sortOrder: data.template.sortOrder ?? 0,
           isActive: data.template.isActive,
         });

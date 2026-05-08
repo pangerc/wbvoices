@@ -17,6 +17,7 @@ import { GlassyListbox } from "@/components/ui/GlassyListbox";
 import { Switch } from "@/components/ui/Switch";
 
 export type TemplateCategory = "duration" | "audience" | "experience" | "general";
+export type TemplatePacing = "" | "fast" | "normal";
 
 const CATEGORY_OPTIONS: { value: TemplateCategory; label: string }[] = [
   { value: "duration", label: "Duration" },
@@ -25,8 +26,13 @@ const CATEGORY_OPTIONS: { value: TemplateCategory; label: string }[] = [
   { value: "general", label: "General" },
 ];
 
-// Mirrors the server-side limits in src/lib/document-extraction.ts so the
-// UI can short-circuit rejected uploads before sending them.
+const PACING_OPTIONS: { value: TemplatePacing; label: string }[] = [
+  { value: "", label: "No default — keep brief's pacing" },
+  { value: "fast", label: "Fast" },
+  { value: "normal", label: "Normal" },
+];
+
+// Mirrors src/lib/document-extraction.ts limits — keep them in sync.
 const REFERENCE_ACCEPT =
   ".pdf,.docx,.md,.markdown,.txt,.csv,.xlsx,.xls,.xlsm";
 const MAX_REFERENCE_BYTES = 20 * 1024 * 1024;
@@ -39,6 +45,11 @@ export type InstructionTemplateFormInitial = {
   category: TemplateCategory;
   systemInstructions: string;
   exampleOutput: string;
+  defaultPacing: TemplatePacing;
+  defaultCta: string;
+  defaultDurationSeconds: number | null;
+  defaultMusicStyle: string;
+  bestPractice: string;
   sortOrder: number;
   isActive: boolean;
 };
@@ -60,6 +71,19 @@ export function InstructionTemplateForm({
     initial?.systemInstructions ?? ""
   );
   const [exampleOutput, setExampleOutput] = useState(initial?.exampleOutput ?? "");
+  const [defaultPacing, setDefaultPacing] = useState<TemplatePacing>(
+    initial?.defaultPacing ?? ""
+  );
+  const [defaultCta, setDefaultCta] = useState(initial?.defaultCta ?? "");
+  const [defaultDurationSeconds, setDefaultDurationSeconds] = useState<string>(
+    initial?.defaultDurationSeconds != null
+      ? String(initial.defaultDurationSeconds)
+      : ""
+  );
+  const [defaultMusicStyle, setDefaultMusicStyle] = useState(
+    initial?.defaultMusicStyle ?? ""
+  );
+  const [bestPractice, setBestPractice] = useState(initial?.bestPractice ?? "");
   const [sortOrder, setSortOrder] = useState<number>(initial?.sortOrder ?? 0);
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
 
@@ -80,12 +104,27 @@ export function InstructionTemplateForm({
     setError(null);
     setIsSaving(true);
     try {
+      const trimmedDuration = defaultDurationSeconds.trim();
+      const parsedDuration = trimmedDuration === "" ? null : Number(trimmedDuration);
+      if (
+        parsedDuration !== null &&
+        (!Number.isFinite(parsedDuration) || !Number.isInteger(parsedDuration) || parsedDuration <= 0)
+      ) {
+        setError("Default duration must be a positive whole number of seconds.");
+        setIsSaving(false);
+        return;
+      }
       const payload = {
         title: title.trim(),
         description: description.trim(),
         category,
         systemInstructions: systemInstructions.trim(),
         exampleOutput: exampleOutput.trim() || null,
+        defaultPacing: defaultPacing === "" ? null : defaultPacing,
+        defaultCta: defaultCta.trim() || null,
+        defaultDurationSeconds: parsedDuration,
+        defaultMusicStyle: defaultMusicStyle.trim() || null,
+        bestPractice: bestPractice.trim() || null,
         sortOrder,
         isActive,
       };
@@ -119,7 +158,8 @@ export function InstructionTemplateForm({
         firstError ??= `"${file.name}" is over the ${MAX_REFERENCE_BYTES / 1024 / 1024} MB per-file limit.`;
         continue;
       }
-      // Dedupe by name+size so re-attaching the same picker doesn't double up.
+      // Dedupe by name+size; re-opening the picker with the same selection
+      // would otherwise stack duplicates.
       if (next.some((f) => f.name === file.name && f.size === file.size)) continue;
       next.push(file);
     }
@@ -144,8 +184,6 @@ export function InstructionTemplateForm({
       const url = "/api/admin/instruction-templates/generate-instructions";
       let res: Response;
       if (referenceFiles.length > 0) {
-        // Multipart path — bundle metadata and files in one round-trip so the
-        // server can extract text in-memory and feed it to the LLM.
         const form = new FormData();
         form.append("title", title);
         form.append("description", description);
@@ -350,6 +388,83 @@ export function InstructionTemplateForm({
           onChange={(e) => setExampleOutput(e.target.value)}
           placeholder="Sample script that shows what an output following this template looks like."
           minRows={4}
+        />
+      </div>
+
+      <div className="mt-8 rounded-xl border border-white/10 bg-white/[0.02] p-5">
+        <div className="mb-4">
+          <h2 className="text-white text-base font-medium">
+            Defaults applied to brief
+          </h2>
+          <p className="text-xs text-gray-400 mt-1">
+            When a user picks this template, these values pre-fill the brief.
+            All optional — leave blank to keep whatever the user already chose.
+            Music style rides directly into the LLM prompt (no UI field for music in the brief).
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <GlassyListbox
+              label="Default pacing"
+              value={defaultPacing}
+              onChange={(v) => setDefaultPacing(v as TemplatePacing)}
+              options={PACING_OPTIONS}
+            />
+          </div>
+          <div>
+            <label className="block mb-2 text-white text-sm">
+              Default duration (seconds)
+            </label>
+            <GlassyInput
+              type="number"
+              min={1}
+              max={600}
+              value={defaultDurationSeconds}
+              onChange={(e) => setDefaultDurationSeconds(e.target.value)}
+              placeholder="e.g. 15 or 30 — blank for no default"
+            />
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-2 text-white text-sm">Default call-to-action</label>
+          <GlassyInput
+            value={defaultCta}
+            onChange={(e) => setDefaultCta(e.target.value)}
+            placeholder="e.g. 'Sign up today at example.com' — blank for no default"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-2 text-white text-sm">
+            Default music style
+            <span className="text-gray-400 font-normal ml-2">
+              Free text — folded into the LLM system prompt.
+            </span>
+          </label>
+          <GlassyTextarea
+            value={defaultMusicStyle}
+            onChange={(e) => setDefaultMusicStyle(e.target.value)}
+            placeholder="e.g. 'energetic, non-intrusive — no big builds'"
+            minRows={2}
+          />
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <label className="block mb-2 text-white text-sm">
+          Associated best practice
+          <span className="text-gray-400 font-normal ml-2">
+            Admin notes — which industry best practice this template encodes.
+            Not sent to the LLM.
+          </span>
+        </label>
+        <GlassyTextarea
+          value={bestPractice}
+          onChange={(e) => setBestPractice(e.target.value)}
+          placeholder="e.g. 'Spotify: hook the listener in the first 3 seconds; one CTA at the end.'"
+          minRows={2}
         />
       </div>
 

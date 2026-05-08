@@ -238,8 +238,7 @@ export async function POST(req: NextRequest) {
     // Build prompts with knowledge context
     const languageName = getLanguageName(language);
 
-    // Resolve creative template (AAC-27) server-side from the persisted id.
-    // Same shape as /api/ai/generate-stream — kept in lockstep.
+    // Mirror /api/ai/generate-stream — keep the two routes in lockstep.
     let creativeTemplateTitle: string | undefined;
     let creativeTemplateInstructions: string | undefined;
     if (selectedTemplateId) {
@@ -247,7 +246,10 @@ export async function POST(req: NextRequest) {
         const template = await instructionTemplatesService.getById(selectedTemplateId);
         if (template) {
           creativeTemplateTitle = template.title;
-          creativeTemplateInstructions = template.systemInstructions;
+          const musicStyle = template.defaultMusicStyle?.trim();
+          creativeTemplateInstructions = musicStyle
+            ? `${template.systemInstructions}\nMusic style: ${musicStyle}`
+            : template.systemInstructions;
         } else {
           console.warn(
             `[/api/ai/generate] selectedTemplateId ${selectedTemplateId} not found — proceeding without template`

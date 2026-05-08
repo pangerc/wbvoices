@@ -9,29 +9,10 @@ import {
   type ExtractionResult,
 } from "@/lib/document-extraction";
 
-/**
- * "Generate instructions with AI" helper for the instruction-template admin
- * form (AAC-27). Two input shapes:
- *
- *   - JSON  { title, description, category? }
- *   - multipart/form-data with files[] + same fields
- *
- * When files are attached they're extracted in-memory (PDF, DOCX, MD, TXT,
- * CSV, XLSX/XLS) and folded into the user message. Nothing is persisted —
- * buffers and extracted text live only for this request.
- *
- * The output is a system-prompt addendum: it tells the creative LLM what
- * KIND of ad to make (script structure, pacing, music mood, SFX density,
- * word count, narrative arc) — it does NOT tell the TTS engine how to
- * speak (that lives in suggested_tones.voiceInstructions).
- */
-
-// Force the Node.js runtime — the extractor uses Buffer + dynamic imports of
-// CommonJS-shaped libraries (mammoth, pdf-parse, xlsx) which don't run on
-// the Edge runtime.
+// nodejs runtime is load-bearing: mammoth/pdf-parse/xlsx are CJS and won't
+// run on Edge.
 export const runtime = "nodejs";
-// File extraction (PDF parsing in particular) can take a few seconds on
-// larger documents; allow extra wall-clock vs the default 10s.
+// PDF parsing of larger docs blows past the 10s default.
 export const maxDuration = 60;
 
 const SYSTEM_PROMPT = `You are a creative-strategy assistant for an audio ad platform.
@@ -76,8 +57,6 @@ export async function POST(req: NextRequest) {
       ],
       reasoning: { effort: "low" },
       text: { verbosity: "low" },
-      // References can push token usage; keep some headroom over the
-      // baseline 600 we used for the no-files path.
       max_output_tokens: inputs.extractedRefs.length > 0 ? 900 : 600,
     });
 
@@ -117,10 +96,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/**
- * Read inputs from either JSON or multipart/form-data. Multipart fields are
- * always strings — caller normalises trim/null below.
- */
 async function readInputs(req: NextRequest): Promise<PromptInputs> {
   const contentType = req.headers.get("content-type") || "";
 
@@ -147,8 +122,8 @@ async function readInputs(req: NextRequest): Promise<PromptInputs> {
     const extractedRefs: ExtractionResult[] = [];
     for (const file of files) {
       const buffer = await file.arrayBuffer();
-      // Sequential rather than parallel: keeps memory bounded when the user
-      // uploads several large PDFs/Excel files at once.
+      // Sequential extraction caps peak memory when several large files
+      // come in together.
       const result = await extractTextFromFile(buffer, file.name, file.type);
       extractedRefs.push(result);
     }
@@ -161,7 +136,6 @@ async function readInputs(req: NextRequest): Promise<PromptInputs> {
     };
   }
 
-  // JSON path — preserves the original v0 contract.
   const body = await req.json();
   return {
     title: typeof body.title === "string" ? body.title : "",

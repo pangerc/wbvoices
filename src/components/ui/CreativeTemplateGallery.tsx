@@ -16,32 +16,10 @@ interface CreativeTemplateGalleryProps {
   disabled?: boolean;
 }
 
-// Compact-mode grid: 5 template cards + a "Show more" tile in the 6th slot
-// when there are extra templates to surface. Expanding the grid renders the
-// full list. The active card is always rendered even when collapsed so
-// picking a template that sits past the limit never visually drops it.
+// 5 + the "Show more" tile = 6 cells = 2 rows on the 3-col grid. Don't
+// raise without redoing the layout math.
 const COMPACT_TEMPLATES = 5;
 
-/**
- * Card grid of admin-managed creative templates surfaced in the brief panel.
- * Each card represents a strategy preset (e.g. "Optimized for 15s", "Gen Z
- * Oriented") that injects a system-prompt addendum at generation time.
- *
- * Selection is single-pick; clicking the active card deselects (resets to
- * freehand mode). A small "Use freehand" reset link sits in the header
- * area when a template is selected — it's the explicit default state and
- * doesn't take a grid slot, so the compact layout fits cleanly on two rows
- * (5 cards + "Show more" tile = 6 cells on a 3-col grid).
- *
- * Past COMPACT_TEMPLATES templates the gallery shows the first 5 plus a
- * "Show more" tile in the 6th grid slot, and surfaces a search input
- * (matches title + description + category, case-insensitive). Click the
- * tile to expand to the full list. Search filters across the full list
- * regardless of expanded state.
- *
- * The gallery hides itself when there are zero templates — the brief flow
- * continues to work without any selection.
- */
 export function CreativeTemplateGallery({
   value,
   onChange,
@@ -52,9 +30,6 @@ export function CreativeTemplateGallery({
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState(false);
 
-  // Filter templates by query against title + description + category. The
-  // query is trimmed and lower-cased once; per-template comparisons stay
-  // cheap.
   const filteredTemplates = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return templates;
@@ -66,11 +41,9 @@ export function CreativeTemplateGallery({
     );
   }, [templates, query]);
 
-  // In compact mode (not expanded, no search) cap at COMPACT_TEMPLATES — the
-  // 6th grid slot becomes the "Show more" tile. The active card is always
-  // included so picking a template past the cap doesn't visually drop it.
-  // Expanding or searching renders the full filtered list.
   const isFiltering = query.trim().length > 0;
+  // Selected card is always included even when it falls past COMPACT_TEMPLATES,
+  // so collapsing the grid never visually drops the active selection.
   const visibleTemplates = useMemo(() => {
     if (expanded || isFiltering) return filteredTemplates;
     const head = filteredTemplates.slice(0, COMPACT_TEMPLATES);
@@ -103,8 +76,6 @@ export function CreativeTemplateGallery({
 
   const showSearchBar = templates.length > COMPACT_TEMPLATES;
   const hiddenCount = filteredTemplates.length - visibleTemplates.length;
-  // Show the "Show more" tile only when collapsed, not searching, and there
-  // really are more templates to reveal beyond the visible slice.
   const showMoreTile = !expanded && !isFiltering && hiddenCount > 0;
 
   return (
@@ -137,7 +108,7 @@ export function CreativeTemplateGallery({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search templates by name, description, or category"
             disabled={disabled}
-            className="w-full pl-9 pr-9 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-wb-blue/50 focus:ring-1 focus:ring-wb-blue/40 disabled:opacity-50"
+            className="w-full pl-9 pr-9 py-2 rounded-lg bg-black/80 backdrop-blur-md border border-white/15 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-wb-blue/50 focus:ring-1 focus:ring-wb-blue/40 disabled:opacity-50"
           />
           {query && (
             <button
@@ -207,7 +178,7 @@ function ShowMoreTile({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="text-left p-4 rounded-xl border border-dashed border-white/15 bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/30 text-white transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center justify-center text-center"
+      className="text-left p-4 rounded-xl border border-dashed border-white/20 bg-black/70 backdrop-blur-md hover:bg-black/60 hover:border-white/35 text-white transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center justify-center text-center"
     >
       <EllipsisHorizontalCircleIcon className="w-6 h-6 text-gray-300 mb-2" />
       <span className="font-medium text-sm">Show more</span>
@@ -238,10 +209,10 @@ function TemplateCard({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`text-left p-4 rounded-xl border transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${
+      className={`text-left p-4 rounded-xl border backdrop-blur-md transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${
         isSelected
-          ? "border-wb-blue/60 bg-wb-blue/10 ring-2 ring-wb-blue/40"
-          : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20"
+          ? "border-wb-blue/60 bg-wb-blue/20 ring-2 ring-wb-blue/40"
+          : "border-white/15 bg-black/80 hover:bg-black/70 hover:border-white/25"
       }`}
       aria-pressed={isSelected}
     >
