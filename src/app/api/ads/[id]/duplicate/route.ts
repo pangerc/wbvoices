@@ -39,6 +39,9 @@ export async function POST(
   const { name, brief } = body;
 
   const newAdId = generateProjectId();
+  console.log(
+    `🚀 [duplicate] Starting duplication ${duplicatedAdId} → ${newAdId} for ${email}`,
+  );
 
   const [voices, music, sfx, mixer, conversation, preview] = await Promise.all([
     getActiveVersionData(duplicatedAdId, "voices"),
@@ -48,24 +51,9 @@ export async function POST(
     getConversation(duplicatedAdId),
     getPreviewData(duplicatedAdId),
   ] as const);
-
-  if (!mixer || !conversation || !voices || !music || !sfx) {
-    const props: string[] = [];
-
-    if (!mixer) props.push("mixer");
-    if (!conversation) props.push("conversation");
-    if (!voices) props.push("voices");
-    if (!music) props.push("music");
-    if (!sfx) props.push("sfx");
-
-    return NextResponse.json(
-      {
-        error: "Failed to duplicate ad",
-        details: `Ad ${props.join(" / ")} is missing`,
-      },
-      { status: 400 },
-    );
-  }
+  console.log(
+    `📥 [duplicate] Fetched source data — voices:${!!voices} music:${!!music} sfx:${!!sfx} mixer:${!!mixer} conversation:${!!conversation} preview:${!!preview}`,
+  );
 
   // Create ad metadata
   const metadata: AdMetadata = {
@@ -75,12 +63,13 @@ export async function POST(
     lastModified: Date.now(),
     owner: email,
   };
+  console.log(`📝 [duplicate] Built metadata for "${metadata.name}"`);
 
   //
   // Mixer Version: copy the rendered mix blob to a new path so the duplicate
   // is independent of the source ad's blob storage.
   //
-  if (mixer.mixedAudioUrl) {
+  if (mixer?.mixedAudioUrl) {
     const mixedAudioUrl = new URL(
       mixer.mixedAudioUrl.replace(duplicatedAdId, newAdId),
     );
@@ -89,9 +78,8 @@ export async function POST(
       access: "public",
     });
 
-    console.log("mixedAudioUrl", mixedAudioUrl.pathname);
-
     mixer.mixedAudioUrl = result.url;
+    console.log(`🎚️ [duplicate] Copied mixed audio blob → ${result.url}`);
   }
 
   //
@@ -104,9 +92,8 @@ export async function POST(
         access: "public",
       });
 
-      console.log("logoUrl", logoUrl.pathname);
-
       preview.logoUrl = result.url;
+      console.log(`🖼️ [duplicate] Copied logo blob → ${result.url}`);
     }
 
     if (preview.visualUrl) {
@@ -118,9 +105,8 @@ export async function POST(
         access: "public",
       });
 
-      console.log("visualUrl", visualUrl.pathname);
-
       preview.visualUrl = result.url;
+      console.log(`🎨 [duplicate] Copied visual blob → ${result.url}`);
     }
   }
 
@@ -132,6 +118,9 @@ export async function POST(
     preview ? setPreviewData(newAdId, preview) : Promise.resolve(),
     saveConversation(newAdId, conversation),
   ]);
+  console.log(
+    `💾 [duplicate] Stored metadata, preview & conversation in Redis`,
+  );
 
   //
   // Creating Versions (Voice, Music, SFX, Mixer). v3.5: mixer state is a
@@ -140,21 +129,33 @@ export async function POST(
   //
   const [voiceVersion, musicVersion, sfxVersion, mixerVersion] =
     await Promise.all([
-      createVersion(newAdId, "voices", voices),
-      createVersion(newAdId, "music", music),
-      createVersion(newAdId, "sfx", sfx),
-      createVersion(newAdId, "mixer", mixer),
+      voices ? createVersion(newAdId, "voices", voices) : Promise.resolve(),
+      music ? createVersion(newAdId, "music", music) : Promise.resolve(),
+      sfx ? createVersion(newAdId, "sfx", sfx) : Promise.resolve(),
+      mixer ? createVersion(newAdId, "mixer", mixer) : Promise.resolve(),
     ]);
+  console.log(
+    `🌱 [duplicate] Created versions — voices:${voiceVersion ?? "—"} music:${musicVersion ?? "—"} sfx:${sfxVersion ?? "—"} mixer:${mixerVersion ?? "—"}`,
+  );
 
   //
   // Setting newly created version as active
   //
   await Promise.all([
-    setActiveVersion(newAdId, "voices", voiceVersion),
-    setActiveVersion(newAdId, "music", musicVersion),
-    setActiveVersion(newAdId, "sfx", sfxVersion),
-    setActiveVersion(newAdId, "mixer", mixerVersion),
+    voiceVersion
+      ? setActiveVersion(newAdId, "voices", voiceVersion)
+      : Promise.resolve(),
+    musicVersion
+      ? setActiveVersion(newAdId, "music", musicVersion)
+      : Promise.resolve(),
+    sfxVersion
+      ? setActiveVersion(newAdId, "sfx", sfxVersion)
+      : Promise.resolve(),
+    mixerVersion
+      ? setActiveVersion(newAdId, "mixer", mixerVersion)
+      : Promise.resolve(),
   ]);
+  console.log(`✅ [duplicate] Activated versions on new ad`);
 
   // Add to new owner's index
   const redis = getRedisV3();
@@ -163,11 +164,14 @@ export async function POST(
   if (!existingAds.includes(newAdId)) {
     await redis.set(userAdsKey, JSON.stringify([...existingAds, newAdId]));
   }
+  console.log(`👤 [duplicate] Indexed under user ${email}`);
 
   // Add to global ads index
   const allAds = (await redis.get<string[]>(ALL_ADS_KEY)) || [];
   await redis.set(ALL_ADS_KEY, JSON.stringify([...allAds, newAdId]));
+  console.log(`🌍 [duplicate] Indexed in global ads list`);
 
+  console.log(`🎉 [duplicate] Done — new ad ${newAdId}`);
   return NextResponse.json(
     {
       adId: newAdId,
