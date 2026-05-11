@@ -71,14 +71,14 @@ export class FileTooLargeError extends Error {
   }
 }
 
-export interface ExtractionResult {
+export type ExtractionResult = {
   filename: string;
   format: SupportedFormat;
   sizeBytes: number;
   charsExtracted: number;
   truncated: boolean;
   text: string;
-}
+};
 
 export async function extractTextFromFile(
   buffer: ArrayBuffer,
