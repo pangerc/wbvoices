@@ -1,51 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { instructionTemplatesService } from "@/services/instructionTemplatesService";
-
-const ALLOWED_CATEGORIES = new Set(["duration", "audience", "experience", "general"]);
-const ALLOWED_PACINGS = new Set(["fast", "normal"]);
-const MAX_DURATION_SECONDS = 600;
-
-function normaliseOptionalText(
-  raw: unknown,
-  field: string,
-  maxChars: number
-): string | null | undefined {
-  if (raw === undefined) return undefined;
-  if (raw === null) return null;
-  if (typeof raw !== "string") {
-    throw new Error(`${field} must be a string or null`);
-  }
-  const trimmed = raw.trim();
-  if (trimmed === "") return null;
-  if (trimmed.length > maxChars) {
-    throw new Error(`${field} exceeds the ${maxChars}-character limit`);
-  }
-  return trimmed;
-}
-
-function normaliseDefaultPacing(raw: unknown): string | null | undefined {
-  if (raw === undefined) return undefined;
-  if (raw === null) return null;
-  if (typeof raw !== "string") throw new Error("defaultPacing must be a string or null");
-  const v = raw.trim();
-  if (v === "") return null;
-  if (!ALLOWED_PACINGS.has(v)) {
-    throw new Error(`defaultPacing must be one of: ${[...ALLOWED_PACINGS].join(", ")}`);
-  }
-  return v;
-}
-
-function normaliseDefaultDuration(raw: unknown): number | null | undefined {
-  if (raw === undefined) return undefined;
-  if (raw === null || raw === "") return null;
-  const n = typeof raw === "number" ? raw : Number(raw);
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0 || n > MAX_DURATION_SECONDS) {
-    throw new Error(
-      `defaultDurationSeconds must be a positive integer ≤ ${MAX_DURATION_SECONDS}`
-    );
-  }
-  return n;
-}
+import {
+  ALLOWED_CATEGORIES,
+  isValidationError,
+  normaliseDefaultDuration,
+  normaliseDefaultPacing,
+  normaliseOptionalText,
+} from "@/lib/instructionTemplateValidation";
 
 export async function GET(
   _req: NextRequest,
@@ -141,8 +102,10 @@ export async function PATCH(
   } catch (error) {
     console.error("Error updating instruction template:", error);
     const message = error instanceof Error ? error.message : "Failed to update template";
-    const status = error instanceof Error && message.match(/^(category|default|exampleOutput|bestPractice)/) ? 400 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json(
+      { error: message },
+      { status: isValidationError(error) ? 400 : 500 }
+    );
   }
 }
 
