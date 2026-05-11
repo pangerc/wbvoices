@@ -50,10 +50,18 @@ export async function POST(
   ] as const);
 
   if (!mixer || !conversation || !voices || !music || !sfx) {
+    const props: string[] = [];
+
+    if (!mixer) props.push("mixer");
+    if (!conversation) props.push("conversation");
+    if (!voices) props.push("voices");
+    if (!music) props.push("music");
+    if (!sfx) props.push("sfx");
+
     return NextResponse.json(
       {
         error: "Failed to duplicate ad",
-        details: "Ad mixer / conversation / voices / music / sfx is missing",
+        details: `Ad ${props.join(" / ")} is missing`,
       },
       { status: 400 },
     );
