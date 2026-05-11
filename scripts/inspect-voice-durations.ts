@@ -17,7 +17,9 @@ async function main() {
   }
 
   const redis = getRedisV3();
-  const activeVoice = (await redis.get(`ad:${adId}:voices:active`)) as string | null;
+  const activeVoice = (await redis.get(`ad:${adId}:voices:active`)) as
+    | string
+    | null;
   if (!activeVoice) {
     console.error("no active voice version");
     process.exit(1);
@@ -27,7 +29,9 @@ async function main() {
 
   const { parseBuffer } = await import("music-metadata");
 
-  console.log(`Voice version ${activeVoice}, ${voice.voiceTracks.length} tracks`);
+  console.log(
+    `Voice version ${activeVoice}, ${voice.voiceTracks.length} tracks`,
+  );
   console.log();
 
   for (const [i, t] of voice.voiceTracks.entries()) {
@@ -48,16 +52,20 @@ async function main() {
         ? (measured - stored).toFixed(3)
         : "n/a";
     console.log(
-      `  [${i}] slot=${t.slotId?.slice(0, 8) ?? "?"} voice=${t.voice?.name ?? "?"}  stored=${stored ?? "n/a"}s  measured=${measured?.toFixed(3) ?? "n/a"}s  drift=${drift}s`
+      `  [${i}] slot=${t.slotId?.slice(0, 8) ?? "?"} voice=${t.voice?.name ?? "?"}  stored=${stored ?? "n/a"}s  measured=${measured?.toFixed(3) ?? "n/a"}s  drift=${drift}s`,
     );
     console.log(
-      `      speedup=${t.postProcessingSpeedup ?? "—"} targetDuration=${t.targetDuration ?? "—"} speed=${t.speed ?? "—"}`
+      `      speedup=${t.postProcessingSpeedup ?? "—"} targetDuration=${t.targetDuration ?? "—"} speed=${t.speed ?? "—"}`,
     );
-    console.log(`      text: "${t.text.slice(0, 60)}${t.text.length > 60 ? "…" : ""}"`);
+    console.log(
+      `      text: "${t.text.slice(0, 60)}${t.text.length > 60 ? "…" : ""}"`,
+    );
   }
 
   // Music
-  const activeMusic = (await redis.get(`ad:${adId}:music:active`)) as string | null;
+  const activeMusic = (await redis.get(`ad:${adId}:music:active`)) as
+    | string
+    | null;
   if (activeMusic) {
     const mraw = await redis.get(`ad:${adId}:music:v:${activeMusic}`);
     const music = typeof mraw === "string" ? JSON.parse(mraw) : mraw;
@@ -74,7 +82,7 @@ async function main() {
     console.log(
       `Music ${activeMusic}: slot=${music.slotId?.slice(0, 8)} stored=${music.duration}s measured=${measured?.toFixed(3) ?? "n/a"}s drift=${
         measured !== null ? (measured - music.duration).toFixed(3) : "n/a"
-      }s`
+      }s`,
     );
   }
 
@@ -102,13 +110,15 @@ async function main() {
           measured !== null && p.duration !== undefined
             ? (measured - p.duration).toFixed(3)
             : "n/a"
-        }s description="${p.description.slice(0, 40)}"`
+        }s description="${p.description.slice(0, 40)}"`,
       );
     }
   }
 
   // Mixer anchors + overrides
-  const activeMixer = (await redis.get(`ad:${adId}:mixer:active`)) as string | null;
+  const activeMixer = (await redis.get(`ad:${adId}:mixer:active`)) as
+    | string
+    | null;
   if (activeMixer) {
     const mxraw = await redis.get(`ad:${adId}:mixer:v:${activeMixer}`);
     const mixer = typeof mxraw === "string" ? JSON.parse(mxraw) : mxraw;
@@ -125,7 +135,11 @@ async function main() {
   // All mixer versions — id, status, pins, voice track count
   console.log();
   console.log("=== All mixer versions ===");
-  const mixerList = (await redis.lrange(`ad:${adId}:mixer:versions`, 0, -1)) as string[];
+  const mixerList = (await redis.lrange(
+    `ad:${adId}:mixer:versions`,
+    0,
+    -1,
+  )) as string[];
   for (const mid of mixerList) {
     const raw = await redis.get(`ad:${adId}:mixer:v:${mid}`);
     const m = typeof raw === "string" ? JSON.parse(raw) : raw;
@@ -141,12 +155,12 @@ async function main() {
       ? `cacheTracks=${cache.calculatedTracks?.length ?? "?"} cacheDuration=${cache.totalDuration ?? "?"}`
       : "nocache";
     console.log(
-      `  ${mid} [${m.status}] pins=(voices:${m.pins?.voices ?? "—"}, music:${m.pins?.music ?? "—"}, sfx:${m.pins?.sfx ?? "—"}) voiceTracks=${voiceTrackCount} anchors=${Object.keys(m.anchors ?? {}).length} ${cacheInfo} label=${m.label ?? "—"} createdAt=${new Date(m.createdAt).toISOString()}`
+      `  ${mid} [${m.status}] pins=(voices:${m.pins?.voices ?? "—"}, music:${m.pins?.music ?? "—"}, sfx:${m.pins?.sfx ?? "—"}) voiceTracks=${voiceTrackCount} anchors=${Object.keys(m.anchors ?? {}).length} ${cacheInfo} label=${m.label ?? "—"} createdAt=${new Date(m.createdAt).toISOString()}`,
     );
     if (cache?.calculatedTracks) {
       for (const ct of cache.calculatedTracks) {
         console.log(
-          `    cached: ${ct.id} type=${ct.type} start=${ct.startTime} dur=${ct.duration}`
+          `    cached: ${ct.id} type=${ct.type} start=${ct.startTime} dur=${ct.duration}`,
         );
       }
     }

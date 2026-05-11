@@ -318,7 +318,10 @@ export function BriefPanelV4({
       if (!id) return;
       const template = creativeTemplates.find((t) => t.id === id);
       if (!template) return;
-      if (template.defaultPacing === "fast" || template.defaultPacing === "normal") {
+      if (
+        template.defaultPacing === "fast" ||
+        template.defaultPacing === "normal"
+      ) {
         setSelectedPacing(template.defaultPacing);
       }
       if (template.defaultCta != null && template.defaultCta.trim()) {

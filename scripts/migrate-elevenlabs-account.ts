@@ -58,12 +58,17 @@ type Result =
 
 const ELEVEN_API = "https://api.elevenlabs.io";
 
-async function fetchVoices(apiKey: string, label: string): Promise<ElevenVoice[]> {
+async function fetchVoices(
+  apiKey: string,
+  label: string,
+): Promise<ElevenVoice[]> {
   const res = await fetch(`${ELEVEN_API}/v1/voices?show_legacy=true`, {
     headers: { "xi-api-key": apiKey },
   });
   if (!res.ok) {
-    throw new Error(`${label} GET /v1/voices failed: ${res.status} ${await res.text()}`);
+    throw new Error(
+      `${label} GET /v1/voices failed: ${res.status} ${await res.text()}`,
+    );
   }
   const data = (await res.json()) as { voices: ElevenVoice[] };
   return data.voices ?? [];
@@ -73,7 +78,7 @@ async function addSharedVoice(
   apiKey: string,
   publicOwnerId: string,
   originalVoiceId: string,
-  newName: string
+  newName: string,
 ): Promise<{ voice_id: string }> {
   const res = await fetch(
     `${ELEVEN_API}/v1/voices/add/${encodeURIComponent(publicOwnerId)}/${encodeURIComponent(originalVoiceId)}`,
@@ -84,7 +89,7 @@ async function addSharedVoice(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ new_name: newName, bookmarked: true }),
-    }
+    },
   );
   if (!res.ok) {
     throw new Error(`${res.status}: ${await res.text()}`);
@@ -93,7 +98,9 @@ async function addSharedVoice(
 }
 
 async function rewriteNeon(mapping: Array<{ old: string; new: string }>) {
-  console.log(`\n🗄  Rewriting Neon for ${mapping.length} changed voice_ids...`);
+  console.log(
+    `\n🗄  Rewriting Neon for ${mapping.length} changed voice_ids...`,
+  );
   await db.transaction(async (tx) => {
     for (const { old: o, new: n } of mapping) {
       // voice_descriptions: exact match on "elevenlabs:{id}"
@@ -120,7 +127,11 @@ async function rewriteNeon(mapping: Array<{ old: string; new: string }>) {
   console.log(`✅ Neon rewrite complete.`);
 }
 
-function writeSummary(results: Result[], outPath: string, meta: Record<string, unknown>) {
+function writeSummary(
+  results: Result[],
+  outPath: string,
+  meta: Record<string, unknown>,
+) {
   const payload = {
     timestamp: new Date().toISOString(),
     meta,
@@ -140,8 +151,10 @@ async function main() {
   const OLD_KEY = process.env.ELEVENLABS_API_KEY;
   const NEW_KEY = process.env.ELEVENLABS_API_KEY_ALEPH;
   if (!OLD_KEY) throw new Error("ELEVENLABS_API_KEY (source) missing in env");
-  if (!NEW_KEY) throw new Error("ELEVENLABS_API_KEY_ALEPH (destination) missing in env");
-  if (OLD_KEY === NEW_KEY) throw new Error("Source and destination keys are identical — aborting");
+  if (!NEW_KEY)
+    throw new Error("ELEVENLABS_API_KEY_ALEPH (destination) missing in env");
+  if (OLD_KEY === NEW_KEY)
+    throw new Error("Source and destination keys are identical — aborting");
 
   console.log(`🎙  ElevenLabs migration ${dryRun ? "(DRY RUN)" : ""}`);
   console.log(`   Source: ELEVENLABS_API_KEY`);
@@ -153,19 +166,27 @@ async function main() {
   ]);
 
   console.log(`📋 OLD account: ${oldVoices.length} voices total`);
-  console.log(`📋 ALEPH account: ${newVoices.length} voices total (pre-migration)`);
+  console.log(
+    `📋 ALEPH account: ${newVoices.length} voices total (pre-migration)`,
+  );
 
   const newVoiceIds = new Set(newVoices.map((v) => v.voice_id));
   const results: Result[] = [];
 
-  const oldProfessional = oldVoices.filter((v) => v.category === "professional");
+  const oldProfessional = oldVoices.filter(
+    (v) => v.category === "professional",
+  );
   const oldPremade = oldVoices.filter((v) => v.category === "premade");
   const oldGenerated = oldVoices.filter((v) => v.category === "generated");
 
   console.log(`\n📊 Breakdown:`);
-  console.log(`   premade (system defaults, no migration): ${oldPremade.length}`);
+  console.log(
+    `   premade (system defaults, no migration): ${oldPremade.length}`,
+  );
   console.log(`   professional (library-copied): ${oldProfessional.length}`);
-  console.log(`   generated (Voice Design, not migratable): ${oldGenerated.length}`);
+  console.log(
+    `   generated (Voice Design, not migratable): ${oldGenerated.length}`,
+  );
 
   for (const v of oldGenerated) {
     results.push({
@@ -200,10 +221,16 @@ async function main() {
     toMigrate.push(v);
   }
 
-  console.log(`\n🎯 Transfer set: ${toMigrate.length} voices will be added to ALEPH`);
-  console.log(`   Skips: ${results.filter((r) => r.kind === "skipped").length}`);
+  console.log(
+    `\n🎯 Transfer set: ${toMigrate.length} voices will be added to ALEPH`,
+  );
+  console.log(
+    `   Skips: ${results.filter((r) => r.kind === "skipped").length}`,
+  );
   for (const r of results.filter((r) => r.kind === "skipped")) {
-    console.log(`   - ${r.old_voice_id} "${r.name}" → ${(r as { reason: string }).reason}`);
+    console.log(
+      `   - ${r.old_voice_id} "${r.name}" → ${(r as { reason: string }).reason}`,
+    );
   }
 
   const outPath = `/tmp/elevenlabs-migration-${dryRun ? "dryrun-" : ""}${Date.now()}.json`;
@@ -212,7 +239,7 @@ async function main() {
     console.log(`\n💤 DRY RUN — no API calls will be made. Transfer preview:`);
     for (const v of toMigrate) {
       console.log(
-        `   + ${v.voice_id} "${v.name}" (owner ${v.sharing!.public_owner_id!.slice(0, 12)}...)`
+        `   + ${v.voice_id} "${v.name}" (owner ${v.sharing!.public_owner_id!.slice(0, 12)}...)`,
       );
     }
     writeSummary(results, outPath, {
@@ -256,7 +283,7 @@ async function main() {
         public_owner_id: ownerId,
       });
       console.log(
-        `   ✅ ${label}${idChanged ? ` → new_id=${resp.voice_id}` : " (id preserved)"}`
+        `   ✅ ${label}${idChanged ? ` → new_id=${resp.voice_id}` : " (id preserved)"}`,
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -273,16 +300,24 @@ async function main() {
     await new Promise((r) => setTimeout(r, 200));
   }
 
-  const added = results.filter((r): r is Extract<Result, { kind: "added" }> => r.kind === "added");
+  const added = results.filter(
+    (r): r is Extract<Result, { kind: "added" }> => r.kind === "added",
+  );
   const changed = added.filter((r) => r.new_voice_id !== r.old_voice_id);
 
-  console.log(`\n📈 Add results: ${added.length} ok, ${results.filter((r) => r.kind === "failed").length} failed`);
+  console.log(
+    `\n📈 Add results: ${added.length} ok, ${results.filter((r) => r.kind === "failed").length} failed`,
+  );
   console.log(`🔁 Voice IDs that changed: ${changed.length}`);
 
   if (changed.length > 0) {
-    await rewriteNeon(changed.map((r) => ({ old: r.old_voice_id, new: r.new_voice_id })));
+    await rewriteNeon(
+      changed.map((r) => ({ old: r.old_voice_id, new: r.new_voice_id })),
+    );
   } else {
-    console.log(`✨ All added voices kept their original IDs — no Neon rewrite needed.`);
+    console.log(
+      `✨ All added voices kept their original IDs — no Neon rewrite needed.`,
+    );
   }
 
   writeSummary(results, outPath, {

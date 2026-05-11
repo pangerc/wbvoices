@@ -10,14 +10,22 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { resolveTimeline, type ResolverInput, type SlotState } from "../timelineResolver";
+import {
+  resolveTimeline,
+  type ResolverInput,
+  type SlotState,
+} from "../timelineResolver";
 import { LegacyTimelineCalculator } from "../legacyTimelineCalculator";
 import type { MixerTrack } from "@/store/mixerStore";
 import type { AnchorEntry } from "@/types/versions";
 
 const NATURAL_OVERLAP = 0.15; // matches LegacyTimelineCalculator's NATURAL_VOICE_OVERLAP
 
-function legacyVoiceTrack(id: string, duration: number, playAfter?: string): MixerTrack {
+function legacyVoiceTrack(
+  id: string,
+  duration: number,
+  playAfter?: string,
+): MixerTrack {
   return {
     id,
     url: `https://fake.example.com/${id}.mp3`,
@@ -29,19 +37,25 @@ function legacyVoiceTrack(id: string, duration: number, playAfter?: string): Mix
 }
 
 function legacyPositions(tracks: MixerTrack[]) {
-  const { calculatedTracks } = LegacyTimelineCalculator.calculateTimings(tracks, {});
+  const { calculatedTracks } = LegacyTimelineCalculator.calculateTimings(
+    tracks,
+    {},
+  );
   return Object.fromEntries(
     calculatedTracks.map((t) => [
       t.id,
       { start: t.actualStartTime, end: t.actualStartTime + t.actualDuration },
-    ])
+    ]),
   );
 }
 
 function resolverPositions(input: ResolverInput) {
   const r = resolveTimeline(input);
   return Object.fromEntries(
-    r.tracks.map((t) => [t.slotId, { start: t.startTime, end: t.startTime + t.duration }])
+    r.tracks.map((t) => [
+      t.slotId,
+      { start: t.startTime, end: t.startTime + t.duration },
+    ]),
   );
 }
 

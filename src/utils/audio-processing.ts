@@ -7,13 +7,13 @@
 const PRE_FILTER_COEFFS = {
   // High shelf filter coefficients (f0 = 1681 Hz, Q = 0.7071, gain = 4 dB)
   b: [1.53512485958697, -2.69169618940638, 1.19839281085285],
-  a: [1.0, -1.69065929318241, 0.73248077421585]
+  a: [1.0, -1.69065929318241, 0.73248077421585],
 };
 
 const RLB_FILTER_COEFFS = {
   // High pass filter coefficients (f0 = 38 Hz, Q = 0.5)
   b: [1.0, -2.0, 1.0],
-  a: [1.0, -1.99004745483398, 0.99007225036621]
+  a: [1.0, -1.99004745483398, 0.99007225036621],
 };
 
 // Channel weights for stereo (L/R)
@@ -24,21 +24,31 @@ const CHANNEL_WEIGHTS = [1.0, 1.0]; // Equal weight for stereo channels
  */
 function applyBiquadFilter(
   input: Float32Array,
-  coeffs: { b: number[]; a: number[] }
+  coeffs: { b: number[]; a: number[] },
 ): Float32Array {
   const output = new Float32Array(input.length);
-  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  let x1 = 0,
+    x2 = 0,
+    y1 = 0,
+    y2 = 0;
 
   for (let i = 0; i < input.length; i++) {
     const x0 = input[i];
-    const y0 = (coeffs.b[0] * x0 + coeffs.b[1] * x1 + coeffs.b[2] * x2 -
-                coeffs.a[1] * y1 - coeffs.a[2] * y2) / coeffs.a[0];
+    const y0 =
+      (coeffs.b[0] * x0 +
+        coeffs.b[1] * x1 +
+        coeffs.b[2] * x2 -
+        coeffs.a[1] * y1 -
+        coeffs.a[2] * y2) /
+      coeffs.a[0];
 
     output[i] = y0;
 
     // Shift delay line
-    x2 = x1; x1 = x0;
-    y2 = y1; y1 = y0;
+    x2 = x1;
+    x1 = x0;
+    y2 = y1;
+    y1 = y0;
   }
 
   return output;
@@ -99,25 +109,29 @@ export function calculateLUFS(audioBuffer: AudioBuffer): number {
   }
 
   // Gating: remove blocks below -70 LUFS (absolute gate)
-  const gatedBlocks = blockLoudness.filter(lufs => lufs >= -70);
+  const gatedBlocks = blockLoudness.filter((lufs) => lufs >= -70);
 
   if (gatedBlocks.length === 0) {
     return -70; // Very quiet audio
   }
 
   // Calculate relative gate (-10 LUFS below ungated mean)
-  const ungatedMean = gatedBlocks.reduce((sum, lufs) => sum + Math.pow(10, lufs / 10), 0) / gatedBlocks.length;
+  const ungatedMean =
+    gatedBlocks.reduce((sum, lufs) => sum + Math.pow(10, lufs / 10), 0) /
+    gatedBlocks.length;
   const relativeGate = -0.691 + 10 * Math.log10(ungatedMean) - 10;
 
   // Apply relative gate
-  const finalGatedBlocks = gatedBlocks.filter(lufs => lufs >= relativeGate);
+  const finalGatedBlocks = gatedBlocks.filter((lufs) => lufs >= relativeGate);
 
   if (finalGatedBlocks.length === 0) {
     return -70; // Very quiet audio
   }
 
   // Calculate final integrated loudness
-  const finalMean = finalGatedBlocks.reduce((sum, lufs) => sum + Math.pow(10, lufs / 10), 0) / finalGatedBlocks.length;
+  const finalMean =
+    finalGatedBlocks.reduce((sum, lufs) => sum + Math.pow(10, lufs / 10), 0) /
+    finalGatedBlocks.length;
   const integratedLUFS = -0.691 + 10 * Math.log10(finalMean);
 
   return integratedLUFS;
@@ -167,7 +181,7 @@ export function calculateTruePeak(audioBuffer: AudioBuffer): number {
 export function applyLoudnessNormalization(
   audioBuffer: AudioBuffer,
   targetLUFS: number = -16,
-  maxTruePeakdBTP: number = -2.0
+  maxTruePeakdBTP: number = -2.0,
 ): AudioBuffer {
   // Calculate current loudness
   const currentLUFS = calculateLUFS(audioBuffer);
@@ -176,13 +190,15 @@ export function applyLoudnessNormalization(
   // Calculate required gain
   const gainLUFS = targetLUFS - currentLUFS;
   const gainLinear = Math.pow(10, gainLUFS / 20);
-  console.log(`Applying gain: ${gainLUFS.toFixed(2)} LUFS (${gainLinear.toFixed(3)}x)`);
+  console.log(
+    `Applying gain: ${gainLUFS.toFixed(2)} LUFS (${gainLinear.toFixed(3)}x)`,
+  );
 
   // Create new audio buffer with normalized levels
   const normalizedBuffer = new AudioBuffer({
     numberOfChannels: audioBuffer.numberOfChannels,
     length: audioBuffer.length,
-    sampleRate: audioBuffer.sampleRate
+    sampleRate: audioBuffer.sampleRate,
   });
 
   // Apply gain to each channel
@@ -201,7 +217,9 @@ export function applyLoudnessNormalization(
 
   if (truePeak > maxTruePeakdBTP) {
     const limitingGain = Math.pow(10, (maxTruePeakdBTP - truePeak) / 20);
-    console.log(`Applying limiting gain: ${(maxTruePeakdBTP - truePeak).toFixed(2)} dB`);
+    console.log(
+      `Applying limiting gain: ${(maxTruePeakdBTP - truePeak).toFixed(2)} dB`,
+    );
 
     // Apply limiting gain
     for (let ch = 0; ch < normalizedBuffer.numberOfChannels; ch++) {
@@ -214,7 +232,9 @@ export function applyLoudnessNormalization(
     // Verify final levels
     const finalLUFS = calculateLUFS(normalizedBuffer);
     const finalTruePeak = calculateTruePeak(normalizedBuffer);
-    console.log(`Final LUFS: ${finalLUFS.toFixed(2)}, Final True Peak: ${finalTruePeak.toFixed(2)} dBTP`);
+    console.log(
+      `Final LUFS: ${finalLUFS.toFixed(2)}, Final True Peak: ${finalTruePeak.toFixed(2)} dBTP`,
+    );
   }
 
   return normalizedBuffer;
@@ -246,7 +266,7 @@ export const SPOTIFY_TRUE_PEAK_CEILING = -2.0;
  */
 export function normalizeToSpotifySpec(
   audioBuffer: AudioBuffer,
-  options: { targetLufs?: number; ceilingDbtp?: number } = {}
+  options: { targetLufs?: number; ceilingDbtp?: number } = {},
 ): AudioBuffer {
   const targetLufs = options.targetLufs ?? SPOTIFY_LUFS_TARGET;
   const ceilingDbtp = options.ceilingDbtp ?? SPOTIFY_TRUE_PEAK_CEILING;
@@ -263,19 +283,25 @@ export function normalizeToSpotifySpec(
 export async function applyTimeStretch(
   audioArrayBuffer: ArrayBuffer,
   speedup: number,
-  pitch: number = 1.0
+  pitch: number = 1.0,
 ): Promise<ArrayBuffer> {
-  console.log(`⚡ Applying time-stretch: ${speedup}x speedup with ${pitch}x pitch adjustment`);
+  console.log(
+    `⚡ Applying time-stretch: ${speedup}x speedup with ${pitch}x pitch adjustment`,
+  );
 
   // Clamp speedup to valid range (1.0-1.6x)
   const clampedSpeedup = Math.max(1.0, Math.min(1.6, speedup));
   if (clampedSpeedup !== speedup) {
-    console.warn(`⚠️ Speedup ${speedup}x clamped to ${clampedSpeedup}x (valid range: 1.0-1.6)`);
+    console.warn(
+      `⚠️ Speedup ${speedup}x clamped to ${clampedSpeedup}x (valid range: 1.0-1.6)`,
+    );
   }
 
   // If no processing needed (both tempo and pitch are default), return original data
   if (clampedSpeedup === 1.0 && pitch === 1.0) {
-    console.log('No tempo or pitch adjustment needed, returning original audio');
+    console.log(
+      "No tempo or pitch adjustment needed, returning original audio",
+    );
     return audioArrayBuffer;
   }
 
@@ -284,20 +310,22 @@ export async function applyTimeStretch(
 
   try {
     // Decode the audio data
-    console.log('Decoding audio data...');
-    const audioBuffer = await tempContext.decodeAudioData(audioArrayBuffer.slice(0));
+    console.log("Decoding audio data...");
+    const audioBuffer = await tempContext.decodeAudioData(
+      audioArrayBuffer.slice(0),
+    );
     const originalDuration = audioBuffer.duration;
     console.log(`Original duration: ${originalDuration.toFixed(2)}s`);
 
     // Use SoundTouch PitchShifter for robust time-stretch with pitch adjustment
-    const { PitchShifter } = await import('soundtouchjs');
+    const { PitchShifter } = await import("soundtouchjs");
 
-    console.log('Applying SoundTouch WSOLA algorithm...');
-    console.log('SoundTouch configuration:', {
+    console.log("Applying SoundTouch WSOLA algorithm...");
+    console.log("SoundTouch configuration:", {
       tempo: clampedSpeedup,
       pitch: pitch,
       speedup: clampedSpeedup,
-      pitchAdjustment: pitch
+      pitchAdjustment: pitch,
     });
 
     // Calculate expected output duration and length
@@ -308,13 +336,13 @@ export async function applyTimeStretch(
     const offlineContext = new OfflineAudioContext({
       numberOfChannels: audioBuffer.numberOfChannels,
       length: expectedLength,
-      sampleRate: audioBuffer.sampleRate
+      sampleRate: audioBuffer.sampleRate,
     });
 
     // Create PitchShifter node - handles all the complexity internally
     const shifter = new PitchShifter(tempContext, audioBuffer, 16384);
-    shifter.tempo = clampedSpeedup;  // Control speed (1.0-1.6x)
-    shifter.pitch = pitch;           // Control pitch (0.8-1.2x)
+    shifter.tempo = clampedSpeedup; // Control speed (1.0-1.6x)
+    shifter.pitch = pitch; // Control pitch (0.8-1.2x)
 
     // Connect to offline context for rendering
     // Note: We need to create a buffer source for the offline context
@@ -324,7 +352,8 @@ export async function applyTimeStretch(
     // PitchShifter works by creating a processing node
     // For offline rendering, we'll use a different approach: manual processing
     // Use the lower-level API but with proper setup
-    const { SoundTouch, SimpleFilter, WebAudioBufferSource } = await import('soundtouchjs');
+    const { SoundTouch, SimpleFilter, WebAudioBufferSource } =
+      await import("soundtouchjs");
 
     const soundtouch = new SoundTouch();
     soundtouch.tempo = clampedSpeedup;
@@ -343,13 +372,15 @@ export async function applyTimeStretch(
 
     while (safetyCounter < maxChunks) {
       // Allocate target buffer (interleaved: frames * channels)
-      const target = new Float32Array(framesToExtract * audioBuffer.numberOfChannels);
+      const target = new Float32Array(
+        framesToExtract * audioBuffer.numberOfChannels,
+      );
 
       let framesExtracted = 0;
       try {
         framesExtracted = filter.extract(target, framesToExtract);
       } catch (err) {
-        console.error('Filter extract failed:', err);
+        console.error("Filter extract failed:", err);
         // If extract fails, we're done
         break;
       }
@@ -370,10 +401,15 @@ export async function applyTimeStretch(
       console.warn(`⚠️ Hit safety limit of ${maxChunks} chunks`);
     }
 
-    console.log(`Extracted ${totalExtracted} frames in ${processedSamples.length} chunks`);
+    console.log(
+      `Extracted ${totalExtracted} frames in ${processedSamples.length} chunks`,
+    );
 
     // Calculate total samples and create output buffer
-    const totalSamples = processedSamples.reduce((sum, chunk) => sum + chunk.length, 0);
+    const totalSamples = processedSamples.reduce(
+      (sum, chunk) => sum + chunk.length,
+      0,
+    );
     const totalFrames = totalSamples / audioBuffer.numberOfChannels;
 
     console.log(`Creating output buffer: ${totalFrames} frames`);
@@ -381,7 +417,7 @@ export async function applyTimeStretch(
     const stretchedBuffer = new AudioBuffer({
       numberOfChannels: audioBuffer.numberOfChannels,
       length: totalFrames,
-      sampleRate: audioBuffer.sampleRate
+      sampleRate: audioBuffer.sampleRate,
     });
 
     // Deinterleave samples into separate channels
@@ -401,27 +437,35 @@ export async function applyTimeStretch(
       }
     }
 
-    console.log(`Rendered duration: ${stretchedBuffer.duration.toFixed(2)}s (${frameIndex} frames written)`);
+    console.log(
+      `Rendered duration: ${stretchedBuffer.duration.toFixed(2)}s (${frameIndex} frames written)`,
+    );
 
     // Convert to WAV format
-    console.log('Converting to WAV format...');
+    console.log("Converting to WAV format...");
     const wavArrayBuffer = audioBufferToWavArrayBuffer(stretchedBuffer);
-    console.log(`✅ Time-stretch complete: ${originalDuration.toFixed(2)}s → ${stretchedBuffer.duration.toFixed(2)}s (tempo: ${clampedSpeedup}x, pitch: ${pitch}x)`);
+    console.log(
+      `✅ Time-stretch complete: ${originalDuration.toFixed(2)}s → ${stretchedBuffer.duration.toFixed(2)}s (tempo: ${clampedSpeedup}x, pitch: ${pitch}x)`,
+    );
 
     return wavArrayBuffer;
   } catch (error) {
-    console.error('❌ SoundTouch processing failed:', error);
-    console.log('Falling back to simple playback rate adjustment (will alter pitch)');
+    console.error("❌ SoundTouch processing failed:", error);
+    console.log(
+      "Falling back to simple playback rate adjustment (will alter pitch)",
+    );
 
     // Fallback to simple playback rate adjustment
-    const audioBuffer = await tempContext.decodeAudioData(audioArrayBuffer.slice(0));
+    const audioBuffer = await tempContext.decodeAudioData(
+      audioArrayBuffer.slice(0),
+    );
     const newDuration = audioBuffer.duration / clampedSpeedup;
     const newLength = Math.ceil(newDuration * audioBuffer.sampleRate);
 
     const offlineContext = new OfflineAudioContext({
       numberOfChannels: audioBuffer.numberOfChannels,
       length: newLength,
-      sampleRate: audioBuffer.sampleRate
+      sampleRate: audioBuffer.sampleRate,
     });
 
     const source = offlineContext.createBufferSource();

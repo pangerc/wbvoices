@@ -1,4 +1,4 @@
-import { Provider, CampaignFormat } from '@/types';
+import { Provider, CampaignFormat } from "@/types";
 
 // Define VoiceCounts locally to avoid importing server-side code
 export type VoiceCounts = Record<Provider, number>;
@@ -17,7 +17,7 @@ export class ProviderSelector {
     voiceCounts: VoiceCounts,
     language?: string,
     region?: string,
-    accent?: string
+    accent?: string,
   ): Provider {
     const minVoices = format === "dialog" ? 2 : 1;
     const isChineseLanguage = language === "zh" || language?.startsWith("zh-");
@@ -32,39 +32,49 @@ export class ProviderSelector {
       isChineseLanguage,
       isArabicLanguage,
       voiceCounts,
-      elevenlabsCheck: `${voiceCounts.elevenlabs} >= ${minVoices} = ${voiceCounts.elevenlabs >= minVoices}`
+      elevenlabsCheck: `${voiceCounts.elevenlabs} >= ${minVoices} = ${voiceCounts.elevenlabs >= minVoices}`,
     });
 
-    const contextStr = [language, region, accent].filter(Boolean).join('+');
+    const contextStr = [language, region, accent].filter(Boolean).join("+");
 
     // Arabic language preference: Lahajati > OpenAI > ElevenLabs
     // Lahajati is a specialized Arabic dialect provider with 339 voices and 116 dialects
     if (isArabicLanguage) {
       if (voiceCounts.lahajati >= minVoices) {
-        console.log(`✅ Selected lahajati for Arabic ${contextStr} (${voiceCounts.lahajati} >= ${minVoices})`);
+        console.log(
+          `✅ Selected lahajati for Arabic ${contextStr} (${voiceCounts.lahajati} >= ${minVoices})`,
+        );
         return "lahajati";
       }
       if (voiceCounts.openai >= minVoices) {
-        console.log(`✅ Selected openai for Arabic ${contextStr} (${voiceCounts.openai} >= ${minVoices})`);
+        console.log(
+          `✅ Selected openai for Arabic ${contextStr} (${voiceCounts.openai} >= ${minVoices})`,
+        );
         return "openai";
       }
     }
 
     // Chinese language preference: Qwen > ByteDance > ElevenLabs > OpenAI
     if (isChineseLanguage && voiceCounts.qwen >= minVoices) {
-      console.log(`✅ Selected qwen for ${contextStr} (${voiceCounts.qwen} >= ${minVoices})`);
+      console.log(
+        `✅ Selected qwen for ${contextStr} (${voiceCounts.qwen} >= ${minVoices})`,
+      );
       return "qwen";
     }
 
     if (isChineseLanguage && voiceCounts.bytedance >= minVoices) {
-      console.log(`✅ Selected bytedance for ${contextStr} (${voiceCounts.bytedance} >= ${minVoices})`);
+      console.log(
+        `✅ Selected bytedance for ${contextStr} (${voiceCounts.bytedance} >= ${minVoices})`,
+      );
       return "bytedance";
     }
 
     // Check providers in quality order (Lovo disabled)
     // For Arabic, only fallback to ElevenLabs if OpenAI unavailable
     if (voiceCounts.elevenlabs >= minVoices) {
-      console.log(`✅ Selected elevenlabs for ${contextStr} (${voiceCounts.elevenlabs} >= ${minVoices})`);
+      console.log(
+        `✅ Selected elevenlabs for ${contextStr} (${voiceCounts.elevenlabs} >= ${minVoices})`,
+      );
       return "elevenlabs";
     }
 
@@ -74,10 +84,12 @@ export class ProviderSelector {
     // }
 
     // OpenAI fallback (good for Arabic, fallback for others)
-    console.log(`✅ Fallback to openai for ${contextStr} (elevenlabs: ${voiceCounts.elevenlabs} < ${minVoices})`);
+    console.log(
+      `✅ Fallback to openai for ${contextStr} (elevenlabs: ${voiceCounts.elevenlabs} < ${minVoices})`,
+    );
     return "openai";
   }
-  
+
   /**
    * Get provider display options with counts for UI
    */
@@ -87,7 +99,7 @@ export class ProviderSelector {
         value: "elevenlabs",
         label: `ElevenLabs (${voiceCounts.elevenlabs})`,
         disabled: voiceCounts.elevenlabs === 0,
-        quality: "excellent" as const
+        quality: "excellent" as const,
       },
       // Lovo disabled due to poor voice quality
       // {
@@ -100,29 +112,29 @@ export class ProviderSelector {
         value: "lahajati",
         label: `Lahajati (${voiceCounts.lahajati})`,
         disabled: voiceCounts.lahajati === 0,
-        quality: "arabic-specialist" as const
+        quality: "arabic-specialist" as const,
       },
       {
         value: "qwen",
         label: `Qwen (${voiceCounts.qwen})`,
         disabled: voiceCounts.qwen === 0,
-        quality: "chinese-specialist" as const
+        quality: "chinese-specialist" as const,
       },
       {
         value: "bytedance",
         label: `ByteDance (${voiceCounts.bytedance})`,
         disabled: voiceCounts.bytedance === 0,
-        quality: "chinese-specialist" as const
+        quality: "chinese-specialist" as const,
       },
       {
         value: "openai",
         label: `OpenAI (${voiceCounts.openai})`,
         disabled: voiceCounts.openai === 0,
-        quality: "fallback" as const
-      }
+        quality: "fallback" as const,
+      },
     ];
   }
-  
+
   /**
    * Check if provider switch makes sense
    */
@@ -132,23 +144,29 @@ export class ProviderSelector {
     voiceCounts: VoiceCounts,
     language?: string,
     region?: string,
-    accent?: string
+    accent?: string,
   ): { suggest: boolean; reason?: string; suggestedProvider?: Provider } {
-    const optimal = this.selectDefault(format, voiceCounts, language, region, accent);
-    
+    const optimal = this.selectDefault(
+      format,
+      voiceCounts,
+      language,
+      region,
+      accent,
+    );
+
     if (currentProvider === optimal) {
       return { suggest: false };
     }
-    
+
     // Suggest switch to better option
     if (optimal === "elevenlabs" && currentProvider !== "elevenlabs") {
       return {
         suggest: true,
         reason: "ElevenLabs has better quality for dialogue",
-        suggestedProvider: "elevenlabs"
+        suggestedProvider: "elevenlabs",
       };
     }
-    
+
     // Lovo suggestions disabled due to poor voice quality
     // if (optimal === "lovo" && voiceCounts.lovo > voiceCounts[currentProvider]) {
     //   return {
@@ -157,7 +175,7 @@ export class ProviderSelector {
     //     suggestedProvider: "lovo"
     //   };
     // }
-    
+
     return { suggest: false };
   }
 }

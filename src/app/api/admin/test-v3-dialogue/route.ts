@@ -11,14 +11,14 @@
  * }
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { uploadVoiceToBlob } from '@/utils/blob-storage';
-import { stripElevenLabsIdSuffix } from '@/lib/providers/elevenlabsIdUtils';
+import { NextRequest, NextResponse } from "next/server";
+import { uploadVoiceToBlob } from "@/utils/blob-storage";
+import { stripElevenLabsIdSuffix } from "@/lib/providers/elevenlabsIdUtils";
 
-export const runtime = 'edge';
+export const runtime = "edge";
 
 // Default Polish test voice (female, ElevenLabs)
-const DEFAULT_POLISH_VOICE = 'EXAVITQu4vr4xnSDxMaL'; // Bella - Polish female voice
+const DEFAULT_POLISH_VOICE = "EXAVITQu4vr4xnSDxMaL"; // Bella - Polish female voice
 
 // Default test dialogue in English (will be translated)
 const DEFAULT_DIALOGUE = `[laughs] Alright...guys - guys. Seriously.
@@ -30,33 +30,34 @@ For example [pauses] could you switch my accent in the old model?
 
 function stripEmotionalTags(text: string): string {
   // Remove all [emotional direction] tags
-  return text.replace(/\[.*?\]\s*/g, '');
+  return text.replace(/\[.*?\]\s*/g, "");
 }
 
 async function translateToPolish(text: string): Promise<string> {
   const openaiApiKey = process.env.OPENAI_API_KEY;
 
   if (!openaiApiKey) {
-    throw new Error('OpenAI API key is missing');
+    throw new Error("OpenAI API key is missing");
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${openaiApiKey}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${openaiApiKey}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: "gpt-4o-mini",
       messages: [
         {
-          role: 'system',
-          content: 'You are a professional translator. Translate the following English text to Polish while preserving all emotional tags in brackets like [laughs], [whispers], etc. Keep the tags in English but translate all other text to natural, conversational Polish. Maintain the same emotional tone and style.'
+          role: "system",
+          content:
+            "You are a professional translator. Translate the following English text to Polish while preserving all emotional tags in brackets like [laughs], [whispers], etc. Keep the tags in English but translate all other text to natural, conversational Polish. Maintain the same emotional tone and style.",
         },
         {
-          role: 'user',
-          content: text
-        }
+          role: "user",
+          content: text,
+        },
       ],
       temperature: 0.3,
     }),
@@ -74,14 +75,14 @@ async function translateToPolish(text: string): Promise<string> {
 async function generateAudio(
   text: string,
   voiceId: string,
-  modelId: 'eleven_multilingual_v2' | 'eleven_v3',
+  modelId: "eleven_multilingual_v2" | "eleven_v3",
   projectId: string,
-  speedTest?: 'fast' | 'slow' | null
+  speedTest?: "fast" | "slow" | null,
 ): Promise<{ audio_url: string; model: string; speed_tested?: number }> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
 
   if (!apiKey) {
-    throw new Error('ElevenLabs API key is missing');
+    throw new Error("ElevenLabs API key is missing");
   }
 
   // Recover the bare ElevenLabs voice_id from the catalogue-synthesized id.
@@ -104,10 +105,10 @@ async function generateAudio(
 
   // Add speed parameter for testing
   let speedValue: number | undefined;
-  if (speedTest === 'fast') {
+  if (speedTest === "fast") {
     speedValue = 1.15; // fast_read preset value
     voiceSettings.speed = speedValue;
-  } else if (speedTest === 'slow') {
+  } else if (speedTest === "slow") {
     speedValue = 0.9; // slow_read preset value
     voiceSettings.speed = speedValue;
   }
@@ -121,10 +122,10 @@ async function generateAudio(
   const apiUrl = `https://api.elevenlabs.io/v1/text-to-speech/${cleanVoiceId}?output_format=mp3_44100_128`;
 
   const response = await fetch(apiUrl, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'xi-api-key': apiKey,
-      'Content-Type': 'application/json',
+      "xi-api-key": apiKey,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(requestBody),
   });
@@ -140,13 +141,13 @@ async function generateAudio(
   const audioArrayBuffer = await response.arrayBuffer();
 
   // Upload to Vercel Blob
-  console.log('Uploading audio to Vercel Blob...');
-  const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/mpeg' });
+  console.log("Uploading audio to Vercel Blob...");
+  const audioBlob = new Blob([audioArrayBuffer], { type: "audio/mpeg" });
   const blobResult = await uploadVoiceToBlob(
     audioBlob,
     `${modelId}-test-${text.substring(0, 30)}`,
-    'elevenlabs',
-    projectId
+    "elevenlabs",
+    projectId,
   );
 
   console.log(`Audio uploaded: ${blobResult.url}`);
@@ -164,84 +165,92 @@ export async function POST(req: NextRequest) {
     const {
       text = DEFAULT_DIALOGUE,
       voiceId = DEFAULT_POLISH_VOICE,
-      language = 'pl',
+      language = "pl",
       skipTranslation = false,
     } = body;
 
-    console.log('🧪 Starting V3 dialogue test');
+    console.log("🧪 Starting V3 dialogue test");
     console.log(`  Voice: ${voiceId}`);
     console.log(`  Language: ${language}`);
     console.log(`  Skip translation: ${skipTranslation}`);
 
     // Step 1: Translate to Polish if needed
     let polishTextWithTags = text;
-    if (!skipTranslation && language === 'pl') {
-      console.log('🌍 Translating to Polish...');
+    if (!skipTranslation && language === "pl") {
+      console.log("🌍 Translating to Polish...");
       polishTextWithTags = await translateToPolish(text);
-      console.log('✅ Translation complete');
-      console.log(`  Translated text preview: ${polishTextWithTags.substring(0, 100)}...`);
+      console.log("✅ Translation complete");
+      console.log(
+        `  Translated text preview: ${polishTextWithTags.substring(0, 100)}...`,
+      );
     }
 
     // Step 2: Create V2 version WITHOUT emotional tags (v2 doesn't support them)
     const polishTextNoTags = stripEmotionalTags(polishTextWithTags);
-    console.log(`📝 V2 text (no tags): ${polishTextNoTags.substring(0, 100)}...`);
-    console.log(`📝 V3 text (with tags): ${polishTextWithTags.substring(0, 100)}...`);
+    console.log(
+      `📝 V2 text (no tags): ${polishTextNoTags.substring(0, 100)}...`,
+    );
+    console.log(
+      `📝 V3 text (with tags): ${polishTextWithTags.substring(0, 100)}...`,
+    );
 
     const projectId = `v3-test-${Date.now()}`;
 
     // Step 3: Generate audio with V2 model (baseline, NO emotional tags)
-    console.log('🎤 Generating baseline audio (V2 model - no emotional tags)...');
+    console.log(
+      "🎤 Generating baseline audio (V2 model - no emotional tags)...",
+    );
     const v2Result = await generateAudio(
       polishTextNoTags,
       voiceId,
-      'eleven_multilingual_v2',
-      `${projectId}-v2`
+      "eleven_multilingual_v2",
+      `${projectId}-v2`,
     );
     console.log(`✅ V2 audio generated: ${v2Result.audio_url}`);
 
     // Step 4: Generate audio with V3 model (WITH emotional tags)
-    console.log('🎤 Generating test audio (V3 model - with emotional tags)...');
+    console.log("🎤 Generating test audio (V3 model - with emotional tags)...");
     const v3Result = await generateAudio(
       polishTextWithTags,
       voiceId,
-      'eleven_v3',
-      `${projectId}-v3`
+      "eleven_v3",
+      `${projectId}-v3`,
     );
     console.log(`✅ V3 audio generated: ${v3Result.audio_url}`);
 
     // Step 5: 🧪 TEST FAST SPEED with V3
-    console.log('🧪 Testing V3 with FAST speed parameter (1.15)...');
+    console.log("🧪 Testing V3 with FAST speed parameter (1.15)...");
     let v3FastResult;
     let fastSpeedError = null;
     try {
       v3FastResult = await generateAudio(
         polishTextWithTags,
         voiceId,
-        'eleven_v3',
+        "eleven_v3",
         `${projectId}-v3-fast`,
-        'fast'
+        "fast",
       );
       console.log(`✅ V3 FAST audio generated: ${v3FastResult.audio_url}`);
     } catch (error) {
-      fastSpeedError = error instanceof Error ? error.message : 'Unknown error';
+      fastSpeedError = error instanceof Error ? error.message : "Unknown error";
       console.error(`❌ V3 FAST speed test failed: ${fastSpeedError}`);
     }
 
     // Step 6: 🧪 TEST SLOW SPEED with V3
-    console.log('🧪 Testing V3 with SLOW speed parameter (0.9)...');
+    console.log("🧪 Testing V3 with SLOW speed parameter (0.9)...");
     let v3SlowResult;
     let slowSpeedError = null;
     try {
       v3SlowResult = await generateAudio(
         polishTextWithTags,
         voiceId,
-        'eleven_v3',
+        "eleven_v3",
         `${projectId}-v3-slow`,
-        'slow'
+        "slow",
       );
       console.log(`✅ V3 SLOW audio generated: ${v3SlowResult.audio_url}`);
     } catch (error) {
-      slowSpeedError = error instanceof Error ? error.message : 'Unknown error';
+      slowSpeedError = error instanceof Error ? error.message : "Unknown error";
       console.error(`❌ V3 SLOW speed test failed: ${slowSpeedError}`);
     }
 
@@ -255,89 +264,99 @@ export async function POST(req: NextRequest) {
       results: {
         v2_model: {
           audio_url: v2Result.audio_url,
-          model: 'eleven_multilingual_v2',
+          model: "eleven_multilingual_v2",
           text_used: polishTextNoTags,
-          description: 'V2 model (no emotional tags support)',
+          description: "V2 model (no emotional tags support)",
         },
         v3_model: {
           audio_url: v3Result.audio_url,
-          model: 'eleven_v3',
+          model: "eleven_v3",
           text_used: polishTextWithTags,
-          description: 'V3 model (with emotional tags)',
+          description: "V3 model (with emotional tags)",
         },
-        v3_fast_speed: fastSpeedError ? {
-          error: fastSpeedError,
-          description: '🧪 V3 with speed=1.15 - FAILED (expected if V3 doesn\'t support speed parameter)',
-        } : {
-          audio_url: v3FastResult?.audio_url,
-          model: 'eleven_v3',
-          speed_tested: v3FastResult?.speed_tested,
-          description: '🧪 V3 with speed=1.15 - SUCCESS (unexpected! V3 accepts speed parameter)',
-        },
-        v3_slow_speed: slowSpeedError ? {
-          error: slowSpeedError,
-          description: '🧪 V3 with speed=0.9 - FAILED (expected if V3 doesn\'t support speed parameter)',
-        } : {
-          audio_url: v3SlowResult?.audio_url,
-          model: 'eleven_v3',
-          speed_tested: v3SlowResult?.speed_tested,
-          description: '🧪 V3 with speed=0.9 - SUCCESS (unexpected! V3 accepts speed parameter)',
-        },
+        v3_fast_speed: fastSpeedError
+          ? {
+              error: fastSpeedError,
+              description:
+                "🧪 V3 with speed=1.15 - FAILED (expected if V3 doesn't support speed parameter)",
+            }
+          : {
+              audio_url: v3FastResult?.audio_url,
+              model: "eleven_v3",
+              speed_tested: v3FastResult?.speed_tested,
+              description:
+                "🧪 V3 with speed=1.15 - SUCCESS (unexpected! V3 accepts speed parameter)",
+            },
+        v3_slow_speed: slowSpeedError
+          ? {
+              error: slowSpeedError,
+              description:
+                "🧪 V3 with speed=0.9 - FAILED (expected if V3 doesn't support speed parameter)",
+            }
+          : {
+              audio_url: v3SlowResult?.audio_url,
+              model: "eleven_v3",
+              speed_tested: v3SlowResult?.speed_tested,
+              description:
+                "🧪 V3 with speed=0.9 - SUCCESS (unexpected! V3 accepts speed parameter)",
+            },
       },
       instructions: {
-        message: 'Listen to all audio samples to compare emotional expressiveness AND pacing',
-        expected_difference: 'V3 should have better emotional range. Speed parameter tests show if V3 supports pacing control.',
-        speed_test_explanation: 'If speed tests FAIL, V3 requires LLM-based pacing control (text/punctuation). If SUCCESS, we can use speed parameter.',
+        message:
+          "Listen to all audio samples to compare emotional expressiveness AND pacing",
+        expected_difference:
+          "V3 should have better emotional range. Speed parameter tests show if V3 supports pacing control.",
+        speed_test_explanation:
+          "If speed tests FAIL, V3 requires LLM-based pacing control (text/punctuation). If SUCCESS, we can use speed parameter.",
       },
     });
-
   } catch (error) {
-    console.error('❌ V3 test failed:', error);
+    console.error("❌ V3 test failed:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function GET() {
   return NextResponse.json({
-    endpoint: '/api/admin/test-v3-dialogue',
-    method: 'POST',
-    description: 'Test ElevenLabs V3 model with emotional dialogue tags',
+    endpoint: "/api/admin/test-v3-dialogue",
+    method: "POST",
+    description: "Test ElevenLabs V3 model with emotional dialogue tags",
     parameters: {
       text: {
-        type: 'string',
+        type: "string",
         required: false,
-        default: 'Sample dialogue with emotional tags',
-        description: 'Text with emotional tags like [laughs], [whispers], etc.',
+        default: "Sample dialogue with emotional tags",
+        description: "Text with emotional tags like [laughs], [whispers], etc.",
       },
       voiceId: {
-        type: 'string',
+        type: "string",
         required: false,
         default: DEFAULT_POLISH_VOICE,
-        description: 'ElevenLabs voice ID to use',
+        description: "ElevenLabs voice ID to use",
       },
       language: {
-        type: 'string',
+        type: "string",
         required: false,
-        default: 'pl',
-        description: 'Language code (will translate if pl)',
+        default: "pl",
+        description: "Language code (will translate if pl)",
       },
       skipTranslation: {
-        type: 'boolean',
+        type: "boolean",
         required: false,
         default: false,
-        description: 'Skip translation and use text as-is',
+        description: "Skip translation and use text as-is",
       },
     },
     example_request: {
-      text: '[laughs] This is amazing! [excited] I love it!',
+      text: "[laughs] This is amazing! [excited] I love it!",
       voiceId: DEFAULT_POLISH_VOICE,
-      language: 'pl',
+      language: "pl",
       skipTranslation: false,
     },
   });

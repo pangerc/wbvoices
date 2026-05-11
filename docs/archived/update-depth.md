@@ -1,8 +1,9 @@
 # Epic Demon Battle Chronicle: Maximum Update Depth Exceeded 👹⚔️
 
-*A comprehensive record of our battle against the infinite loop demon*
+_A comprehensive record of our battle against the infinite loop demon_
 
 ## The Original Sin 🔥
+
 - **Problem**: ESLint warning in BriefPanel.tsx: `React Hook useEffect has a missing dependency: 'setSelectedProvider'`
 - **Fatal Fix**: Added `setSelectedProvider` to useEffect dependency array
 - **Result**: Spawned the demon - "Maximum update depth exceeded" infinite loop
@@ -11,17 +12,21 @@
 ## Battle Timeline ⚔️
 
 ### Phase 1: The Great Hunt Begins
+
 **False Demons We Pursued:**
+
 1. **BriefPanel Auto-Selection Logic** (Lines 264-273)
    - **Strike**: Disabled auto-selection mechanism
    - **Result**: FAILED - Demon laughed at us 👹
 
 ### Phase 2: Nuclear Warfare
+
 **Total Obliteration Attempts:**
+
 1. **useVoiceManagerV2 Complete Destruction**
    - **Targets Destroyed**:
      - Language initialization effect (lines 98-136) ✅ DISABLED
-     - Language change effect (lines 138-161) ✅ DISABLED  
+     - Language change effect (lines 138-161) ✅ DISABLED
      - Accent update effect (lines 163-222) ✅ DISABLED
      - Provider update effect (lines 224-278) ✅ DISABLED
      - Voice loading effect (lines 400-402) ✅ DISABLED
@@ -32,6 +37,7 @@
    - **Result**: FAILED - Innocent civilian, later restored
 
 ### Phase 3: The Demon's True Lairs Revealed
+
 **Multiple Demon Hideouts Discovered:**
 
 1. **Project History Store** (projectHistoryStore.ts:112)
@@ -47,11 +53,14 @@
    - **Result**: FAILED - Demon completely immune
 
 ### Phase 4: Uncommitted Changes Investigation 🔍
+
 **The Critical Discovery:**
+
 - **DAYS of uncommitted architectural changes** since Thursday
 - Major refactors with NO git commits! 🤦‍♂️
 
 **Uncommitted Changes Timeline:**
+
 1. **Thursday**: AUTO mode implementation - consolidated voice filtering server-side
 2. **Recent**: OpenAI voice catalog rebuild
 3. **Last 24h**: Provider auto-selection logic when "any" is chosen
@@ -72,7 +81,7 @@
 We thought we defeated the demon by fixing unstable useEffect dependencies, but the demon **adapted and survived**:
 
 1. **Partial Fix Applied**: Removed `formManager` and `voiceManager` from project useEffect dependencies
-   - **Location**: project/[id]/page.tsx:235 
+   - **Location**: project/[id]/page.tsx:235
    - **Result**: Reduced some 404 spam but **demon still alive**
 
 2. **The Real Demon Revealed** (Thanks to external dev analysis):
@@ -86,7 +95,7 @@ We thought we defeated the demon by fixing unstable useEffect dependencies, but 
    - 404 project API calls still occurring (though fewer)
    - Demon remains "very entertained" by our attempts
 
-2. **Discovered Active Suspects in Uncommitted Code:**
+4. **Discovered Active Suspects in Uncommitted Code:**
    - **Line 386 BriefPanel.tsx**: `setSelectedProvider(data.selectedProvider)` still active in `resolveProviderForGeneration()`
    - **Lines 256-262**: Server-filtered voices state management with `selectedProvider` field
    - **Lines 283-292**: useEffect with `selectedProvider` in dependencies (despite ESLint comment)
@@ -94,12 +103,14 @@ We thought we defeated the demon by fixing unstable useEffect dependencies, but 
 ## Current State of the Battlefield 🏴‍☠️
 
 ### RE-ENABLED CODE (September 5th, 2025):
+
 - ✅ **ALL useVoiceManagerV2 effects** - RESTORED! Complete voice management system re-enabled
 - ✅ **Voice system restoration** - ACTIVE (project/[id]/page.tsx:117-162)
 - ✅ **Mixer store** - Restored to working state
 - ✅ **Project loading** - Working but demon still spawns after successful load
 
 ### STILL FUNCTIONAL:
+
 - ✅ **Project loading from Redis** - Successfully loads projects
 - ✅ **Basic form state** - clientDescription, creativeBrief, etc.
 - ✅ **Tab navigation** - Works normally
@@ -118,12 +129,14 @@ We thought we defeated the demon by fixing unstable useEffect dependencies, but 
 ## The Demon's True Nature 👹
 
 **What We Know:**
-- Triggers "Maximum update depth exceeded"  
+
+- Triggers "Maximum update depth exceeded"
 - Happens during component mounting/state restoration
 - Affects both new and existing projects
 - Survives complete system obliteration
 
 **What We DON'T Know:**
+
 - Where exactly the circular setState calls originate
 - What triggers the infinite re-render cycle
 - Why it started appearing after the ESLint fix
@@ -145,13 +158,15 @@ We thought we defeated the demon by fixing unstable useEffect dependencies, but 
 5. **React DevTools Profiler** - Identify what's causing re-renders
 
 ## War Council Notes 📝
-*The demon has proven more cunning and resilient than initially believed. It has survived total system obliteration and continues to mock our efforts. We must regroup and develop new strategies.*
+
+_The demon has proven more cunning and resilient than initially believed. It has survived total system obliteration and continues to mock our efforts. We must regroup and develop new strategies._
 
 **CRITICAL REALIZATION**: The demon was born from the recent uncommitted architectural changes, not from the original code. The "super banal change" that spawned it is hiding in the provider auto-selection or voice filtering logic implemented in the last 24-48 hours.
 
 **Files with Highest Suspicion** (uncommitted changes):
+
 - `src/components/BriefPanel.tsx` - Provider auto-selection logic, server-filtered voices
-- `src/hooks/useVoiceManagerV2.ts` - Voice filtering changes  
+- `src/hooks/useVoiceManagerV2.ts` - Voice filtering changes
 - `src/app/api/voice-catalogue/route.ts` - Server-side filtering
 - `src/utils/providerSelection.ts` - Auto-selection heuristics
 
@@ -162,6 +177,7 @@ We thought we defeated the demon by fixing unstable useEffect dependencies, but 
 External dev analysis revealed the sophisticated nature of our demon, but the Strict Mode theory **FAILED**:
 
 **STRICT MODE TEST RESULTS:**
+
 - ❌ **Disabled `reactStrictMode: false` in next.config.ts**
 - ❌ **Demon completely unaffected** - identical infinite loop pattern persists
 - ❌ **Same "Maximum update depth exceeded" error**
@@ -172,6 +188,7 @@ External dev analysis revealed the sophisticated nature of our demon, but the St
 ### Phase 7: MAXIMUM DIAGNOSTIC FIREPOWER 🔫
 
 **DEPLOYED WEAPONS:**
+
 1. ✅ **Effect Counters**: All major effects instrumented with `console.count()`
 
    **useVoiceManagerV2 Effects:**
@@ -204,8 +221,9 @@ External dev analysis revealed the sophisticated nature of our demon, but the St
 The demon has achieved **LEGENDARY STATUS** by surviving complete project restoration obliteration:
 
 **NUCLEAR TEST RESULTS:**
+
 - ❌ **Voice Manager restoration COMPLETELY DISABLED** - Demon survives
-- ❌ **Form Manager restoration COMPLETELY DISABLED** - Demon survives  
+- ❌ **Form Manager restoration COMPLETELY DISABLED** - Demon survives
 - ❌ **Mixer Store restoration COMPLETELY DISABLED** - Demon survives
 - ❌ **All setSelectedTab() calls DISABLED** - Demon survives
 - ❌ **ALL project restoration setState calls DISABLED** - Demon survives
@@ -213,15 +231,17 @@ The demon has achieved **LEGENDARY STATUS** by surviving complete project restor
 **SHOCKING CONCLUSION**: The demon is **NOT** in the project restoration logic we suspected!
 
 **Evidence of Immunity:**
+
 - Same "Maximum update depth exceeded" error with zero restoration logic active
-- Same infinite component mount/unmount cycle 
+- Same infinite component mount/unmount cycle
 - "Project found" loads successfully, then immediate crash
 - All diagnostic counters show normal "1" execution per effect
 
 **SYSTEMATIC ELIMINATION PROCESS:**
+
 1. **Voice Manager Restoration (Lines 115-157)** - ELIMINATED ❌
    - `voiceManager.setSelectedLanguage(normalizedLanguage)` - DISABLED
-   - `voiceManager.setSelectedRegion(project.brief.selectedRegion)` - DISABLED  
+   - `voiceManager.setSelectedRegion(project.brief.selectedRegion)` - DISABLED
    - `voiceManager.setSelectedAccent(accentToRestore)` - DISABLED
    - `voiceManager.setSelectedProvider(project.brief.selectedProvider)` - DISABLED
    - **Result**: Demon survives with identical behavior
@@ -239,6 +259,7 @@ The demon has achieved **LEGENDARY STATUS** by surviving complete project restor
    - **Result**: Demon survives with identical behavior
 
 **EFFECT COUNTER ANALYSIS:**
+
 - **All suspected effects counted only "1"** - Normal execution, not infinite loops
 - **Component lifecycle shows mount→crash→unmount pattern** - Not effect cascade
 - **"Project found" loads before crash** - Demon triggers during/after successful load
@@ -254,8 +275,9 @@ Since restoration logic is **NOT** the source, the demon must be hiding in:
 5. **Hidden useEffect Cascades** - Effects we haven't identified yet
 
 **NEXT INVESTIGATION TARGETS:**
+
 - Basic project state setting (setProjectName, setProjectNotFound, etc.)
-- useVoiceManagerV2 effect interdependencies 
+- useVoiceManagerV2 effect interdependencies
 - Zustand store mutation cascades
 - React component lifecycle bugs
 
@@ -269,43 +291,46 @@ This demon transcends typical React patterns. It operates at a deeper architectu
 After the demon achieved legendary immunity to restoration logic fixes, we implemented a **binary isolation strategy** based on external developer advice:
 
 **THE SYSTEMATIC APPROACH:**
+
 1. **Global Component Isolation**: Disabled ClientLayout, AuthProvider, Header
    - **Result**: ✅ Demon survived - NOT in global auth/layout systems
-   
 2. **Page Component Binary Search**: Replaced entire page with static div
    - **Result**: ✅ Demon survived - NOT in UI render tree
-   
 3. **Hook-by-Hook Re-enablement**: Systematically restored hooks one by one
    - **useFormManager**: ✅ INNOCENT - No demon activity
    - **Store connections** (useMixerStore, useProjectHistoryStore): ✅ INNOCENT - Clean behavior
-   - **useVoiceManagerV2**: ✅ INNOCENT - All effects working normally 
+   - **useVoiceManagerV2**: ✅ INNOCENT - All effects working normally
    - **Project initialization useEffect**: ✅ INNOCENT - Proper project loading
    - **Mixer save callback**: 👹 **DEMON ESCAPED!** - "Maximum update depth exceeded" returned
 
 ### THE DEMON'S TRUE IDENTITY REVEALED 🎯👹
 
 **CONFIRMED DEMON:**
+
 - **Name**: Mixer Save Callback Circular Dependency
-- **Location**: `project/[id]/page.tsx` lines 405-420  
+- **Location**: `project/[id]/page.tsx` lines 405-420
 - **Mechanism**: `saveProject()` → mixer timeline recalculation → mixer save callback → `saveProject()` → infinite loop
 - **Trigger Condition**: Automatic saves triggered by mixer timeline changes
 
 **EVIDENCE:**
+
 - Demon remains chained with mixer save callback disabled
 - Demon immediately escapes when callback is re-enabled
 - All other systems (voice manager, project loading, stores) work perfectly
 - Binary isolation definitively identified the single point of failure
 
 **CURRENT CONTAINMENT STRATEGY:**
+
 - ✅ Mixer save callback disabled (demon chained)
-- ✅ Manual saves working normally  
+- ✅ Manual saves working normally
 - ✅ All other functionality restored
 - ⚠️ Need alternative automatic save mechanism without circular dependencies
 
 ---
+
 **Last Updated**: September 5th, 2025 - DEMON IDENTIFIED AND CONTAINED 👹🔒  
 **Demon Status**: CONFIRMED - Mixer Save Callback Circular Dependency  
 **Battle Status**: CONTAINMENT SUCCESSFUL - ALTERNATIVE SAVE STRATEGY NEEDED 🏗️
 
-**CRITICAL LESSON LEARNED**: 
+**CRITICAL LESSON LEARNED**:
 Systematic binary isolation succeeds where nuclear approaches fail. Even legendary demons have specific trigger points that can be isolated through methodical testing.

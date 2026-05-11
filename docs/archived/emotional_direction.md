@@ -1,7 +1,6 @@
 ### Creative direction pipeline (emotion/styling) end-to-end
 
 - What we cache from provider APIs
-
   - ElevenLabs (Voices API → cache)
     - Stored per voice: id, name, gender, language, accent, description/personality, age, use_case, sampleUrl, isMultilingual.
     - No numeric “emotion” controls are stored. These aren’t in their voices API; they’re parameters for the TTS call.
@@ -12,7 +11,6 @@
     - Where: `src/app/api/voice/list/route.ts` (creates entries per style for cache) and stored via `voiceCatalogueService.ts`.
 
 - What we give to the LLM (monoprovider subset)
-
   - We send voices from ONE provider filtered by language and accent.
   - Metadata provided per voice: name, id, gender, accent, age, personality/description, use_case, and style (for Lovo entries).
   - Provider-specific guidance:
@@ -22,7 +20,6 @@
   - Where: `src/app/api/ai/generate/route.ts`.
 
 - What the LLM returns (per voice segment)
-
   - ElevenLabs: description (tone label) and optional use_case.
   - Lovo: style (style name/label).
   - OpenAI: voiceInstructions (freeform text).
@@ -33,7 +30,6 @@
   - Where parsed: `src/utils/json-parser.ts`.
 
 - How we bridge to actual provider APIs (the mapping)
-
   - ElevenLabs
     - LLM returns a qualitative label (e.g., cheerful, calm, serious, energetic, fast_read, slow_read).
     - At call time, we convert the label into numeric `voice_settings`:

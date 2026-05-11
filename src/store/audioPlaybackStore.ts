@@ -51,9 +51,17 @@ type AudioPlaybackState = {
 
   // Generation state setters
   setGeneratingCreative: (generating: boolean) => void;
-  setGeneratingVoice: (generating: boolean, trackIndex?: number | null, versionId?: string | null) => void;
+  setGeneratingVoice: (
+    generating: boolean,
+    trackIndex?: number | null,
+    versionId?: string | null,
+  ) => void;
   setGeneratingMusic: (generating: boolean) => void;
-  setGeneratingSfx: (generating: boolean, versionId?: string | null, promptIndex?: number | null) => void;
+  setGeneratingSfx: (
+    generating: boolean,
+    versionId?: string | null,
+    promptIndex?: number | null,
+  ) => void;
   setGeneratingMix: (generating: boolean) => void;
 
   // Sequential playback
@@ -86,7 +94,9 @@ const getOrCreateAudioElement = (): HTMLAudioElement => {
     });
 
     audioElement.addEventListener("durationchange", () => {
-      useAudioPlaybackStore.getState()._onDurationChange(audioElement!.duration);
+      useAudioPlaybackStore
+        .getState()
+        ._onDurationChange(audioElement!.duration);
     });
 
     audioElement.addEventListener("ended", () => {
@@ -200,7 +210,8 @@ export const useAudioPlaybackStore = create<AudioPlaybackState>((set, get) => ({
   },
 
   // Generation state setters
-  setGeneratingCreative: (generating) => set({ generatingCreative: generating }),
+  setGeneratingCreative: (generating) =>
+    set({ generatingCreative: generating }),
   setGeneratingVoice: (generating, trackIndex = null, versionId = null) =>
     set({
       generatingVoice: generating,
@@ -268,8 +279,12 @@ export const useAudioPlaybackStore = create<AudioPlaybackState>((set, get) => ({
   },
 
   _onEnded: () => {
-    const { isPlayingSequence, sequenceIndex, sequenceUrls, sequenceBaseSource } =
-      get();
+    const {
+      isPlayingSequence,
+      sequenceIndex,
+      sequenceUrls,
+      sequenceBaseSource,
+    } = get();
 
     if (isPlayingSequence && sequenceIndex < sequenceUrls.length - 1) {
       // Play next in sequence
@@ -280,7 +295,11 @@ export const useAudioPlaybackStore = create<AudioPlaybackState>((set, get) => ({
       set({
         sequenceIndex: nextIndex,
         currentSource: sequenceBaseSource
-          ? { ...sequenceBaseSource, url: sequenceUrls[nextIndex], trackIndex: nextIndex }
+          ? {
+              ...sequenceBaseSource,
+              url: sequenceUrls[nextIndex],
+              trackIndex: nextIndex,
+            }
           : null,
         currentTime: 0,
         isPlaying: true, // Keep playback state active for sequence continuation

@@ -93,7 +93,7 @@ export async function fetchElevenLabsVoices(): Promise<ProviderVoice[]> {
       headers: {
         "xi-api-key": apiKey,
       },
-    }
+    },
   );
 
   if (!response.ok) {
@@ -115,13 +115,13 @@ export async function fetchElevenLabsVoices(): Promise<ProviderVoice[]> {
 
         // Don't overwrite Modern Standard Arabic accents with locale region
         const isModernStandardArabic =
-          normalizedLanguage === 'ar' &&
+          normalizedLanguage === "ar" &&
           accent &&
-          (accent.toLowerCase().includes('modern') ||
-           accent.toLowerCase() === 'standard');
+          (accent.toLowerCase().includes("modern") ||
+            accent.toLowerCase() === "standard");
 
         if (!isModernStandardArabic && verifiedLang.locale) {
-          const [, region] = verifiedLang.locale.split('-');
+          const [, region] = verifiedLang.locale.split("-");
           if (region) {
             // Use region code (e.g., AR, MX, CO) which normalizeAccent will convert to specific accents
             accent = region;
@@ -145,14 +145,16 @@ export async function fetchElevenLabsVoices(): Promise<ProviderVoice[]> {
 
       // 🔥 FIX: For Professional Voice Clones, include labels.language as primary language
       // even if not in verified_languages (language-agnostic fix for all PVCs)
-      if (voice.category === 'professional' && voice.labels?.language) {
+      if (voice.category === "professional" && voice.labels?.language) {
         const labelLang = voice.labels.language.toLowerCase();
         const alreadyProcessed = voice.verified_languages.some(
-          (vl: { language: string }) => vl.language.toLowerCase() === labelLang
+          (vl: { language: string }) => vl.language.toLowerCase() === labelLang,
         );
 
         if (!alreadyProcessed) {
-          const normalizedLanguage = normalizeLanguageCode(voice.labels.language);
+          const normalizedLanguage = normalizeLanguageCode(
+            voice.labels.language,
+          );
           const accent = voice.labels.accent;
 
           voices.push({
@@ -180,14 +182,14 @@ export async function fetchElevenLabsVoices(): Promise<ProviderVoice[]> {
 
       // Check if this is Modern Standard Arabic before extracting from locale
       const isModernStandardArabic =
-        normalizedLanguage === 'ar' &&
+        normalizedLanguage === "ar" &&
         finalAccent &&
-        (finalAccent.toLowerCase().includes('modern') ||
-         finalAccent.toLowerCase() === 'standard');
+        (finalAccent.toLowerCase().includes("modern") ||
+          finalAccent.toLowerCase() === "standard");
 
       // Only extract from locale if not MSA and not already a specific Arabic accent
       if (!isModernStandardArabic && voice.labels?.locale) {
-        const [, region] = voice.labels.locale.split('-');
+        const [, region] = voice.labels.locale.split("-");
         if (region) {
           finalAccent = region;
         }
@@ -228,7 +230,7 @@ export async function fetchLovoVoices(): Promise<ProviderVoice[]> {
         "X-API-KEY": apiKey,
         accept: "application/json",
       },
-    }
+    },
   );
 
   if (!response.ok) {
@@ -255,16 +257,18 @@ export async function fetchLovoVoices(): Promise<ProviderVoice[]> {
       voices.push({
         id: styleId,
         externalId: styleId, // Lovo TTS accepts the composite speakerId|styleId directly
-        name: style.displayName === "Default"
-          ? speaker.displayName
-          : `${speaker.displayName} (${style.displayName})`,
+        name:
+          style.displayName === "Default"
+            ? speaker.displayName
+            : `${speaker.displayName} (${style.displayName})`,
         gender: speaker.gender.toLowerCase(),
         language: normalizedLocale,
         accent,
         age: speaker.ageRange ? mapLovoAgeRange(speaker.ageRange) : undefined,
-        description: style.displayName === "Default"
-          ? mapLovoStyleToDescription(speaker)
-          : style.displayName.toLowerCase(),
+        description:
+          style.displayName === "Default"
+            ? mapLovoStyleToDescription(speaker)
+            : style.displayName.toLowerCase(),
         use_case: inferUseCase(speaker.speakerType),
         style: style.displayName,
         sampleUrl: style.sampleTtsUrl || "/samples/default.mp3",
@@ -350,33 +354,134 @@ export function getOpenAIVoices(): ProviderVoice[] {
   ];
 
   const openAILanguages = [
-    "af", "ar", "hy", "az", "be", "bs", "bg", "ca", "zh", "hr", "cs", "da",
-    "nl", "en", "et", "fi", "fr", "gl", "de", "el", "he", "hi", "hu", "is",
-    "id", "it", "ja", "kn", "kk", "ko", "lv", "lt", "mk", "ms", "mr", "mi",
-    "ne", "no", "fa", "pl", "pt", "ro", "ru", "sr", "sk", "sl", "es", "sw",
-    "sv", "tl", "ta", "th", "tr", "uk", "ur", "vi", "cy",
+    "af",
+    "ar",
+    "hy",
+    "az",
+    "be",
+    "bs",
+    "bg",
+    "ca",
+    "zh",
+    "hr",
+    "cs",
+    "da",
+    "nl",
+    "en",
+    "et",
+    "fi",
+    "fr",
+    "gl",
+    "de",
+    "el",
+    "he",
+    "hi",
+    "hu",
+    "is",
+    "id",
+    "it",
+    "ja",
+    "kn",
+    "kk",
+    "ko",
+    "lv",
+    "lt",
+    "mk",
+    "ms",
+    "mr",
+    "mi",
+    "ne",
+    "no",
+    "fa",
+    "pl",
+    "pt",
+    "ro",
+    "ru",
+    "sr",
+    "sk",
+    "sl",
+    "es",
+    "sw",
+    "sv",
+    "tl",
+    "ta",
+    "th",
+    "tr",
+    "uk",
+    "ur",
+    "vi",
+    "cy",
   ];
 
   const languageMap: { [key: string]: string } = {
-    en: "en-US", es: "es-ES", fr: "fr-FR", de: "de-DE", it: "it-IT",
-    pt: "pt-BR", nl: "nl-NL", pl: "pl-PL", ru: "ru-RU", ja: "ja-JP",
-    ko: "ko-KR", zh: "zh-CN", ar: "ar-SA", hi: "hi-IN", sv: "sv-SE",
-    da: "da-DK", fi: "fi-FI", no: "nb-NO", tr: "tr-TR", cs: "cs-CZ",
-    el: "el-GR", he: "he-IL", hu: "hu-HU", id: "id-ID", th: "th-TH",
-    vi: "vi-VN", uk: "uk-UA", ro: "ro-RO", bg: "bg-BG", hr: "hr-HR",
-    sk: "sk-SK", sl: "sl-SI", lt: "lt-LT", lv: "lv-LV", et: "et-EE",
-    fa: "fa-IR", ur: "ur-PK", ta: "ta-IN", bn: "bn-BD", mr: "mr-IN",
-    kn: "kn-IN", sw: "sw-KE", ca: "ca-ES", gl: "gl-ES", eu: "eu-ES",
-    mk: "mk-MK", bs: "bs-BA", sr: "sr-RS", sq: "sq-AL", az: "az-AZ",
-    kk: "kk-KZ", be: "be-BY", hy: "hy-AM", ne: "ne-NP", mi: "mi-NZ",
-    cy: "cy-GB", is: "is-IS", ms: "ms-MY", tl: "tl-PH", nb: "nb-NO",
+    en: "en-US",
+    es: "es-ES",
+    fr: "fr-FR",
+    de: "de-DE",
+    it: "it-IT",
+    pt: "pt-BR",
+    nl: "nl-NL",
+    pl: "pl-PL",
+    ru: "ru-RU",
+    ja: "ja-JP",
+    ko: "ko-KR",
+    zh: "zh-CN",
+    ar: "ar-SA",
+    hi: "hi-IN",
+    sv: "sv-SE",
+    da: "da-DK",
+    fi: "fi-FI",
+    no: "nb-NO",
+    tr: "tr-TR",
+    cs: "cs-CZ",
+    el: "el-GR",
+    he: "he-IL",
+    hu: "hu-HU",
+    id: "id-ID",
+    th: "th-TH",
+    vi: "vi-VN",
+    uk: "uk-UA",
+    ro: "ro-RO",
+    bg: "bg-BG",
+    hr: "hr-HR",
+    sk: "sk-SK",
+    sl: "sl-SI",
+    lt: "lt-LT",
+    lv: "lv-LV",
+    et: "et-EE",
+    fa: "fa-IR",
+    ur: "ur-PK",
+    ta: "ta-IN",
+    bn: "bn-BD",
+    mr: "mr-IN",
+    kn: "kn-IN",
+    sw: "sw-KE",
+    ca: "ca-ES",
+    gl: "gl-ES",
+    eu: "eu-ES",
+    mk: "mk-MK",
+    bs: "bs-BA",
+    sr: "sr-RS",
+    sq: "sq-AL",
+    az: "az-AZ",
+    kk: "kk-KZ",
+    be: "be-BY",
+    hy: "hy-AM",
+    ne: "ne-NP",
+    mi: "mi-NZ",
+    cy: "cy-GB",
+    is: "is-IS",
+    ms: "ms-MY",
+    tl: "tl-PH",
+    nb: "nb-NO",
     af: "af-ZA",
   };
 
   const voices: ProviderVoice[] = [];
 
   for (const langCode of openAILanguages) {
-    const normalizedLang = languageMap[langCode] || `${langCode}-${langCode.toUpperCase()}`;
+    const normalizedLang =
+      languageMap[langCode] || `${langCode}-${langCode.toUpperCase()}`;
 
     // Expose all voices for all languages - let the LLM choose based on rich metadata
     for (const voice of openAIVoiceVariants) {
@@ -419,10 +524,10 @@ export async function fetchLahajatiVoices(): Promise<ProviderVoice[]> {
         `https://lahajati.ai/api/v1/voices-absolute-control?page=${page}&per_page=${LAHAJATI_PER_PAGE}`,
         {
           headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Accept": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+            Accept: "application/json",
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -448,16 +553,16 @@ export async function fetchLahajatiVoices(): Promise<ProviderVoice[]> {
     // Transform to ProviderVoice format
     // All Lahajati voices are Arabic and support all dialects
     const voices: ProviderVoice[] = allVoices
-      .filter(voice => !voice.is_cloned) // Only include non-cloned voices
-      .map(voice => ({
+      .filter((voice) => !voice.is_cloned) // Only include non-cloned voices
+      .map((voice) => ({
         id: voice.id_voice,
         externalId: voice.id_voice,
         name: voice.display_name,
-        gender: voice.gender?.toLowerCase() || 'neutral',
-        language: 'ar', // All Lahajati voices are Arabic
-        accent: 'standard', // Dialect-agnostic (dialect passed at TTS time)
+        gender: voice.gender?.toLowerCase() || "neutral",
+        language: "ar", // All Lahajati voices are Arabic
+        accent: "standard", // Dialect-agnostic (dialect passed at TTS time)
         description: `${voice.display_name} - Arabic voice`,
-        use_case: 'advertisement',
+        use_case: "advertisement",
         isMultilingual: false,
       }));
 
@@ -487,7 +592,7 @@ export type LahajatiPerformance = {
 };
 
 // Rate limit helper for Lahajati API
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const LAHAJATI_RATE_LIMIT_DELAY = 2500; // 2.5s = 24 req/min (under 25 RPM limit for Content Creator package)
 const LAHAJATI_PER_PAGE = 100; // Max allowed by API - reduces total requests significantly
 
@@ -498,7 +603,7 @@ const LAHAJATI_PER_PAGE = 100; // Max allowed by API - reduces total requests si
 async function fetchWithRetry<T>(
   fetchFn: () => Promise<T>,
   operationName: string,
-  maxRetries = 3
+  maxRetries = 3,
 ): Promise<T> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -510,7 +615,9 @@ async function fetchWithRetry<T>(
         error.message.includes("Too Many Attempts")
       ) {
         const waitTime = Math.pow(2, attempt) * 10000; // 10s, 20s, 40s
-        console.log(`⏳ ${operationName}: Rate limited, waiting ${waitTime / 1000}s before retry ${attempt + 1}/${maxRetries}...`);
+        console.log(
+          `⏳ ${operationName}: Rate limited, waiting ${waitTime / 1000}s before retry ${attempt + 1}/${maxRetries}...`,
+        );
         await sleep(waitTime);
       } else {
         throw error;
@@ -541,10 +648,10 @@ export async function fetchLahajatiDialects(): Promise<LahajatiDialect[]> {
         `https://lahajati.ai/api/v1/dialect-absolute-control?page=${page}&per_page=${LAHAJATI_PER_PAGE}`,
         {
           headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Accept": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+            Accept: "application/json",
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -573,7 +680,9 @@ export async function fetchLahajatiDialects(): Promise<LahajatiDialect[]> {
  * Used during voice cache refresh to build performance mappings
  * Includes retry logic with exponential backoff for rate limiting
  */
-export async function fetchLahajatiPerformances(): Promise<LahajatiPerformance[]> {
+export async function fetchLahajatiPerformances(): Promise<
+  LahajatiPerformance[]
+> {
   return fetchWithRetry(async () => {
     const apiKey = process.env.LAHAJATI_SECRET_KEY;
     if (!apiKey) {
@@ -589,10 +698,10 @@ export async function fetchLahajatiPerformances(): Promise<LahajatiPerformance[]
         `https://lahajati.ai/api/v1/performance-absolute-control?page=${page}&per_page=${LAHAJATI_PER_PAGE}`,
         {
           headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Accept": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+            Accept: "application/json",
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -611,7 +720,9 @@ export async function fetchLahajatiPerformances(): Promise<LahajatiPerformance[]
       page++;
     } while (page <= lastPage);
 
-    console.log(`📡 Lahajati: fetched ${allPerformances.length} performance styles`);
+    console.log(
+      `📡 Lahajati: fetched ${allPerformances.length} performance styles`,
+    );
     return allPerformances;
   }, "fetchLahajatiPerformances");
 }
@@ -640,23 +751,53 @@ function getVoiceLanguage(voice: ElevenLabsVoice): {
   const accentLower = accent ? accent.toLowerCase() : "";
 
   if (isMultilingual && accent) {
-    if (accentLower.includes("peninsular") || accentLower.includes("latin american")) {
+    if (
+      accentLower.includes("peninsular") ||
+      accentLower.includes("latin american")
+    ) {
       return { language: "es-ES", isMultilingual: true, accent };
     }
 
     const accentToLanguageMap: Record<string, string> = {
-      italian: "it-IT", swedish: "sv-SE", american: "en-US", british: "en-GB",
-      irish: "en-IE", australian: "en-AU", canadian: "en-CA", "us southern": "en-US",
-      southern: "en-US", transatlantic: "en-US", spanish: "es-ES", mexican: "es-MX",
-      colombian: "es-CO", argentinian: "es-AR", french: "fr-FR", parisian: "fr-FR",
-      "canadian french": "fr-CA", german: "de-DE", austrian: "de-AT",
-      "swiss german": "de-CH", portuguese: "pt-PT", brazilian: "pt-BR",
-      russian: "ru-RU", egyptian: "ar-EG", gulf: "ar-SA", saudi: "ar-SA",
-      jordanian: "ar-JO", moroccan: "ar-MA", mandarin: "zh-CN", cantonese: "zh-HK", japanese: "ja-JP",
-      polish: "pl-PL", mazovian: "pl-PL", warsaw: "pl-PL",
+      italian: "it-IT",
+      swedish: "sv-SE",
+      american: "en-US",
+      british: "en-GB",
+      irish: "en-IE",
+      australian: "en-AU",
+      canadian: "en-CA",
+      "us southern": "en-US",
+      southern: "en-US",
+      transatlantic: "en-US",
+      spanish: "es-ES",
+      mexican: "es-MX",
+      colombian: "es-CO",
+      argentinian: "es-AR",
+      french: "fr-FR",
+      parisian: "fr-FR",
+      "canadian french": "fr-CA",
+      german: "de-DE",
+      austrian: "de-AT",
+      "swiss german": "de-CH",
+      portuguese: "pt-PT",
+      brazilian: "pt-BR",
+      russian: "ru-RU",
+      egyptian: "ar-EG",
+      gulf: "ar-SA",
+      saudi: "ar-SA",
+      jordanian: "ar-JO",
+      moroccan: "ar-MA",
+      mandarin: "zh-CN",
+      cantonese: "zh-HK",
+      japanese: "ja-JP",
+      polish: "pl-PL",
+      mazovian: "pl-PL",
+      warsaw: "pl-PL",
     };
 
-    for (const [accentKeyword, langCode] of Object.entries(accentToLanguageMap)) {
+    for (const [accentKeyword, langCode] of Object.entries(
+      accentToLanguageMap,
+    )) {
       if (accentLower.includes(accentKeyword)) {
         return { language: langCode, isMultilingual: true, accent };
       }
@@ -697,39 +838,67 @@ function extractAccentFromSpeaker(speaker: LovoSpeaker): string | undefined {
   switch (lang) {
     case "en":
       const englishAccentMap: Record<string, string> = {
-        US: "american", GB: "british", AU: "australian",
-        IE: "irish", CA: "canadian", IN: "indian",
+        US: "american",
+        GB: "british",
+        AU: "australian",
+        IE: "irish",
+        CA: "canadian",
+        IN: "indian",
       };
       return englishAccentMap[region] || "standard";
 
     case "es":
       const spanishAccentMap: Record<string, string> = {
-        ES: "castilian", MX: "mexican", AR: "argentinian",
-        CO: "colombian", CL: "chilean", PE: "peruvian",
+        ES: "castilian",
+        MX: "mexican",
+        AR: "argentinian",
+        CO: "colombian",
+        CL: "chilean",
+        PE: "peruvian",
       };
       return spanishAccentMap[region] || "standard";
 
     case "fr":
       const frenchAccentMap: Record<string, string> = {
-        FR: "parisian", CA: "canadian", BE: "belgian", CH: "swiss",
+        FR: "parisian",
+        CA: "canadian",
+        BE: "belgian",
+        CH: "swiss",
       };
       return frenchAccentMap[region] || "standard";
 
     case "ar":
       const arabicAccentMap: Record<string, string> = {
-        SA: "saudi", EG: "egyptian", DZ: "maghrebi", MA: "maghrebi",
-        TN: "maghrebi", JO: "jordanian", IQ: "iraqi", KW: "kuwaiti",
-        AE: "gulf", BH: "bahraini", LB: "lebanese", AR: "standard",
+        SA: "saudi",
+        EG: "egyptian",
+        DZ: "maghrebi",
+        MA: "maghrebi",
+        TN: "maghrebi",
+        JO: "jordanian",
+        IQ: "iraqi",
+        KW: "kuwaiti",
+        AE: "gulf",
+        BH: "bahraini",
+        LB: "lebanese",
+        AR: "standard",
       };
       return arabicAccentMap[region] || "standard";
 
     case "it":
       if (speaker.displayName) {
         const lowerName = speaker.displayName.toLowerCase();
-        if (lowerName.includes("milano") || lowerName.includes("milan") || lowerName.includes("north")) {
+        if (
+          lowerName.includes("milano") ||
+          lowerName.includes("milan") ||
+          lowerName.includes("north")
+        ) {
           return "northern";
         }
-        if (lowerName.includes("napoli") || lowerName.includes("naples") || lowerName.includes("south")) {
+        if (
+          lowerName.includes("napoli") ||
+          lowerName.includes("naples") ||
+          lowerName.includes("south")
+        ) {
           return "southern";
         }
       }
@@ -737,7 +906,9 @@ function extractAccentFromSpeaker(speaker: LovoSpeaker): string | undefined {
 
     case "de":
       const germanAccentMap: Record<string, string> = {
-        DE: "standard", AT: "austrian", CH: "swiss",
+        DE: "standard",
+        AT: "austrian",
+        CH: "swiss",
       };
       return germanAccentMap[region] || "standard";
 
@@ -746,7 +917,9 @@ function extractAccentFromSpeaker(speaker: LovoSpeaker): string | undefined {
 
     case "zh":
       const chineseAccentMap: Record<string, string> = {
-        CN: "mandarin", TW: "taiwanese", HK: "cantonese",
+        CN: "mandarin",
+        TW: "taiwanese",
+        HK: "cantonese",
       };
       return chineseAccentMap[region] || "standard";
 
@@ -769,7 +942,8 @@ function extractAccentFromSpeaker(speaker: LovoSpeaker): string | undefined {
 
 function mapLovoAgeRange(ageRange: string): string {
   if (ageRange.includes("young") || ageRange.includes("18-25")) return "young";
-  if (ageRange.includes("old") || parseInt(ageRange.split("-")[0]) > 50) return "old";
+  if (ageRange.includes("old") || parseInt(ageRange.split("-")[0]) > 50)
+    return "old";
   return "middle_aged";
 }
 
@@ -778,7 +952,8 @@ function mapLovoStyleToDescription(speaker: LovoSpeaker): string | undefined {
     const styleName = speaker.speakerStyles[0].displayName.toLowerCase();
     if (styleName.includes("casual")) return "conversational";
     if (styleName.includes("formal")) return "professional";
-    if (styleName.includes("cheerful") || styleName.includes("happy")) return "upbeat";
+    if (styleName.includes("cheerful") || styleName.includes("happy"))
+      return "upbeat";
     if (styleName.includes("serious")) return "authoritative";
     if (styleName.includes("soft")) return "calm";
     return styleName.split(" ")[0];
@@ -788,7 +963,8 @@ function mapLovoStyleToDescription(speaker: LovoSpeaker): string | undefined {
 
 function inferUseCase(speakerType: string): string | undefined {
   const type = speakerType.toLowerCase();
-  if (type.includes("narration") || type.includes("audio_book")) return "narration";
+  if (type.includes("narration") || type.includes("audio_book"))
+    return "narration";
   if (type.includes("advertisement")) return "advertisement";
   if (type.includes("announcement")) return "announcement";
   if (type.includes("social")) return "social_media";

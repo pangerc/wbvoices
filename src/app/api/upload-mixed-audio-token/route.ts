@@ -1,6 +1,6 @@
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Generate a client upload token for direct Vercel Blob upload
@@ -23,10 +23,10 @@ export async function POST(req: NextRequest) {
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
   } catch (error) {
-    console.error('Failed to generate upload token:', error);
+    console.error("Failed to generate upload token:", error);
     return NextResponse.json(
-      { error: 'Failed to generate upload token' },
-      { status: 500 }
+      { error: "Failed to generate upload token" },
+      { status: 500 },
     );
   }
 }

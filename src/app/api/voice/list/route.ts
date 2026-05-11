@@ -16,7 +16,7 @@ const ensureDirectoryExists = async (dirPath: string) => {
 // Save JSON data to file
 const saveJsonToFile = async (
   data: Record<string, unknown> | unknown[],
-  fileName: string
+  fileName: string,
 ) => {
   try {
     const dataDir = path.join(process.cwd(), "data");
@@ -94,7 +94,7 @@ type LovoSpeaker = {
 
 // Map Eleven Labs voices to languages
 const getVoiceLanguage = (
-  voice: ElevenLabsVoice
+  voice: ElevenLabsVoice,
 ): { language: string; isMultilingual: boolean; accent?: string } => {
   let isMultilingual = false;
   let accent = undefined;
@@ -111,7 +111,6 @@ const getVoiceLanguage = (
   if (voice.labels && voice.labels.accent) {
     accent = voice.labels.accent;
   }
-
 
   // Process accent information to determine most likely language
   const accentLower = accent ? accent.toLowerCase() : "";
@@ -173,7 +172,7 @@ const getVoiceLanguage = (
 
     // Check for specific accent matches
     for (const [accentKeyword, langCode] of Object.entries(
-      accentToLanguageMap
+      accentToLanguageMap,
     )) {
       if (accentLower.includes(accentKeyword)) {
         return {
@@ -372,7 +371,7 @@ const mapLovoAgeRange = (ageRange: string): string => {
 
 // Map Lovo speaker characteristics to a descriptive tone/personality
 const mapLovoStyleToDescription = (
-  speaker: LovoSpeaker
+  speaker: LovoSpeaker,
 ): string | undefined => {
   // Extract style information from first speaking style if available
   if (speaker.speakerStyles[0]?.displayName) {
@@ -416,7 +415,7 @@ export async function GET(req: NextRequest) {
   if (!provider) {
     return NextResponse.json(
       { error: "Provider is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -425,7 +424,7 @@ export async function GET(req: NextRequest) {
     if (!apiKey) {
       return NextResponse.json(
         { error: "Lovo API key is missing" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -436,7 +435,7 @@ export async function GET(req: NextRequest) {
           "X-API-KEY": apiKey,
           accept: "application/json",
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -444,7 +443,7 @@ export async function GET(req: NextRequest) {
       console.error("Lovo API error:", errorText);
       return NextResponse.json(
         { error: "Failed to fetch voices from Lovo" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -517,7 +516,7 @@ export async function GET(req: NextRequest) {
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       await saveJsonToFile(
         voicesByLanguage,
-        `lovo-processed-${timestamp}.json`
+        `lovo-processed-${timestamp}.json`,
       );
     }
 
@@ -536,7 +535,7 @@ export async function GET(req: NextRequest) {
     if (!apiKey) {
       return NextResponse.json(
         { error: "Eleven Labs API key is missing" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -546,7 +545,7 @@ export async function GET(req: NextRequest) {
         headers: {
           "xi-api-key": apiKey,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -554,7 +553,7 @@ export async function GET(req: NextRequest) {
       console.error("Eleven Labs API error:", errorText);
       return NextResponse.json(
         { error: "Failed to fetch voices from Eleven Labs" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -567,45 +566,46 @@ export async function GET(req: NextRequest) {
     }
 
     const voices = data.voices.flatMap((voice: ElevenLabsVoice): Voice[] => {
-
       // For voices with verified_languages, create multiple entries (one per language)
       if (voice.verified_languages && voice.verified_languages.length > 0) {
         return voice.verified_languages
-          .filter((lang) => typeof lang === 'string' && lang) // Filter out non-string values
+          .filter((lang) => typeof lang === "string" && lang) // Filter out non-string values
           .map((langString) => {
-          const normalizedLanguage = normalizeLanguageCode(langString);
+            const normalizedLanguage = normalizeLanguageCode(langString);
 
-          return {
-            id: `${voice.voice_id}-${langString}`,
-            name: voice.name,
-            gender: voice.labels?.gender || null,
-            sampleUrl: voice.preview_url || null,
-            language: normalizedLanguage,
-            isMultilingual: voice.verified_languages!.length > 1,
-            accent: voice.labels?.accent || undefined,
-            age: voice.labels?.age || undefined,
-            description: voice.labels?.description || undefined,
-            use_case: voice.labels?.use_case || undefined,
-          };
-        });
+            return {
+              id: `${voice.voice_id}-${langString}`,
+              name: voice.name,
+              gender: voice.labels?.gender || null,
+              sampleUrl: voice.preview_url || null,
+              language: normalizedLanguage,
+              isMultilingual: voice.verified_languages!.length > 1,
+              accent: voice.labels?.accent || undefined,
+              age: voice.labels?.age || undefined,
+              description: voice.labels?.description || undefined,
+              use_case: voice.labels?.use_case || undefined,
+            };
+          });
       }
 
       // Fallback for voices without verified_languages (use original logic)
       const { language, isMultilingual, accent } = getVoiceLanguage(voice);
       const normalizedLanguage = normalizeLanguageCode(language);
 
-      return [{
-        id: voice.voice_id,
-        name: voice.name,
-        gender: voice.labels?.gender || null,
-        sampleUrl: voice.preview_url || null,
-        language: normalizedLanguage,
-        isMultilingual,
-        accent,
-        age: voice.labels?.age || undefined,
-        description: voice.labels?.description || undefined,
-        use_case: voice.labels?.use_case || undefined,
-      }];
+      return [
+        {
+          id: voice.voice_id,
+          name: voice.name,
+          gender: voice.labels?.gender || null,
+          sampleUrl: voice.preview_url || null,
+          language: normalizedLanguage,
+          isMultilingual,
+          accent,
+          age: voice.labels?.age || undefined,
+          description: voice.labels?.description || undefined,
+          use_case: voice.labels?.use_case || undefined,
+        },
+      ];
     });
 
     // Save processed ElevenLabs data if requested
@@ -876,7 +876,7 @@ export async function GET(req: NextRequest) {
             isMultilingual: true,
             accent: "neutral",
             style: voice.style,
-          } as Voice)
+          }) as Voice,
       );
     });
 
@@ -1072,12 +1072,17 @@ export async function GET(req: NextRequest) {
     if (!apiKey) {
       return NextResponse.json(
         { error: "Lahajati API key is missing" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     // Fetch all voices (paginated)
-    const allVoices: { id_voice: string; display_name: string; gender: string; is_cloned: boolean }[] = [];
+    const allVoices: {
+      id_voice: string;
+      display_name: string;
+      gender: string;
+      is_cloned: boolean;
+    }[] = [];
     let page = 1;
     let hasMore = true;
 
@@ -1086,10 +1091,10 @@ export async function GET(req: NextRequest) {
         `https://lahajati.ai/api/v1/voices-absolute-control?page=${page}`,
         {
           headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Accept": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+            Accept: "application/json",
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -1097,7 +1102,7 @@ export async function GET(req: NextRequest) {
         console.error("Lahajati API error:", errorText);
         return NextResponse.json(
           { error: "Failed to fetch voices from Lahajati" },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
@@ -1111,8 +1116,8 @@ export async function GET(req: NextRequest) {
     // Transform to Voice format
     // All Lahajati voices are Arabic and support all 116 dialects
     const voices: Voice[] = allVoices
-      .filter(voice => !voice.is_cloned) // Only include non-cloned voices
-      .map(voice => ({
+      .filter((voice) => !voice.is_cloned) // Only include non-cloned voices
+      .map((voice) => ({
         id: voice.id_voice,
         name: voice.display_name,
         gender: voice.gender?.toLowerCase() || null,

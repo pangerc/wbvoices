@@ -70,7 +70,9 @@ export function LoudnessMeter({ audioRef, isPlaying }: LoudnessMeterProps) {
     if (wiredElementRef.current !== audio) {
       try {
         const Ctor: typeof AudioContext =
-          window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext })
+            .webkitAudioContext;
         const ctx = new Ctor();
         const source = ctx.createMediaElementSource(audio);
 
@@ -170,8 +172,7 @@ export function LoudnessMeter({ audioRef, isPlaying }: LoudnessMeterProps) {
   // Color zones — green well under target, amber approaching, red over.
   // Inline styles instead of Tailwind classes to avoid any class-name
   // purging surprises with dynamically-selected utilities.
-  const pastTarget =
-    momentaryLufs !== null && momentaryLufs > TARGET_LUFS;
+  const pastTarget = momentaryLufs !== null && momentaryLufs > TARGET_LUFS;
   const pastCeiling =
     momentaryLufs !== null && momentaryLufs > SOFT_CEILING_LUFS;
   const fillRgb = pastCeiling
@@ -188,8 +189,7 @@ export function LoudnessMeter({ audioRef, isPlaying }: LoudnessMeterProps) {
   // Headroom readout: positive = under target (safe), negative = over.
   // Friendlier than raw LUFS for non-engineers; the raw value sits below
   // in subdued type for users who want the absolute number.
-  const headroom =
-    momentaryLufs === null ? null : TARGET_LUFS - momentaryLufs;
+  const headroom = momentaryLufs === null ? null : TARGET_LUFS - momentaryLufs;
   const headroomLabel = (() => {
     if (headroom === null) return "—";
     if (Math.abs(headroom) < 0.5) return "on target";

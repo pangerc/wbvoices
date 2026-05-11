@@ -6,7 +6,9 @@
 ## Symptoms
 
 ### Primary Issue
+
 After regenerating voice tracks in MixerPanel:
+
 1. User clicks PLAY in MixerPanel → hears correct mix (voices + music)
 2. User navigates to PreviewPanel (a minute later)
 3. No "generating" overlay shown
@@ -16,6 +18,7 @@ After regenerating voice tracks in MixerPanel:
 7. Preview eventually plays **music only** (missing voices)
 
 ### Secondary Issues
+
 - Export downloads `blob:https://...` URL instead of permanent Vercel URL
 - Public preview page (`/preview/[projectId]`) plays music only
 - Redis entries missing `preview.mixedAudioUrl` field entirely
@@ -24,6 +27,7 @@ After regenerating voice tracks in MixerPanel:
 ## Architecture Context
 
 ### Audio Mixing Flow
+
 1. **MixerPanel**: Creates mix locally using Web Audio API
 2. **Local Playback**: Uses local blob URL for immediate playback
 3. **Background Upload**: Uploads to Vercel Blob (1-5 seconds on slow connection)
@@ -31,15 +35,17 @@ After regenerating voice tracks in MixerPanel:
 5. **PreviewPanel**: Falls back to Redis URL → falls back to music-only
 
 ### State Management (Zustand)
+
 ```typescript
-isUploadingMix: boolean    // Upload in progress?
-isPreviewValid: boolean    // Is mixed audio available?
-previewUrl: string | null  // Permanent Vercel URL
+isUploadingMix: boolean; // Upload in progress?
+isPreviewValid: boolean; // Is mixed audio available?
+previewUrl: string | null; // Permanent Vercel URL
 ```
 
 ## Attempted Solutions
 
 ### Solution 1: Fingerprinting Auto-Generation ❌
+
 **Approach**: Auto-generate preview when tracks change, using fingerprinting to detect meaningful changes
 
 **Problem**: Too complex, regenerated on volume changes, user explicitly rejected as "pretentious crap"
@@ -47,19 +53,23 @@ previewUrl: string | null  // Permanent Vercel URL
 **Verdict**: Abandoned in favor of "lean and mean" manual generation
 
 ### Solution 2: Local + Permanent URL Juggling ✅ (Partial)
+
 **Approach**: Use local blob for immediate playback, upload permanent URL in background
 
 **Problem**: Fixed immediate playback but introduced new issues:
+
 - Upload state not visible after navigation
 - No timeout detection for stuck uploads
 - Errors swallowed silently
 
 ### Solution 3: `isPreviewValid` Flag ✅ (Partial)
+
 **Approach**: Track validity with boolean flag, invalidate on track changes
 
 **Problem**: Flag never set to `false` on upload failure, never set to `true` when loading existing projects
 
 ### Solution 4: Race Condition Fix ✅ (Partial)
+
 **Approach**: Load fresh project from Redis before every `updateProject()` call in PreviewPanel
 
 **Fix**: Prevented PreviewPanel from overwriting MixerPanel's `mixedAudioUrl` with stale state
@@ -69,6 +79,7 @@ previewUrl: string | null  // Permanent Vercel URL
 ## Root Cause (Finally Found)
 
 ### Bug 1: Incomplete Error Handling
+
 **Location**: `MixerPanel.tsx:520-526` (catch block)
 
 ```typescript
@@ -81,11 +92,13 @@ previewUrl: string | null  // Permanent Vercel URL
 ```
 
 **Result**: Upload fails → `isUploadingMix = false`, `isPreviewValid = false` (stays initial state)
+
 - Overlay logic: `isInvalid={!false && !false}` = `true`
 - But user sees NO overlay because we don't display it properly
 - Falls back to `project.preview.mixedAudioUrl` (doesn't exist) → music-only
 
 ### Bug 2: Missing State Initialization
+
 **Location**: `PreviewPanel.tsx:138-140` (useEffect)
 
 **Problem**: When loading project with existing `mixedAudioUrl`, never set `isPreviewValid = true`
@@ -93,6 +106,7 @@ previewUrl: string | null  // Permanent Vercel URL
 **Result**: Shows "invalid" overlay even on cached previews that are actually valid
 
 ### Bug 3: No Timeout Detection
+
 **Problem**: If upload hangs (slow connection, network issue), `isUploadingMix` stays `true` forever
 
 **Result**: User navigates to PreviewPanel an hour later, still sees "generating" overlay
@@ -100,27 +114,31 @@ previewUrl: string | null  // Permanent Vercel URL
 ## Final Solution
 
 ### 1. Added Upload Error State (`mixerStore.ts`)
+
 ```typescript
 uploadError: string | null
 setUploadError: (error: string | null) => void
 ```
 
 ### 2. Fixed Error Handling (`MixerPanel.tsx:504-526`)
+
 - Added 30-second timeout for stuck uploads
 - Set `isPreviewValid = false` in catch block
 - Set `uploadError` with specific message
 - Clear all preview state when regenerating
 
 ### 3. Initialize State for Existing Projects (`PreviewPanel.tsx:142-148`)
+
 ```typescript
 if (loadedProject.preview?.mixedAudioUrl) {
   setIsPreviewValid(true);
 } else {
-  console.log('⚠️ Project has no mixedAudioUrl, preview is invalid');
+  console.log("⚠️ Project has no mixedAudioUrl, preview is invalid");
 }
 ```
 
 ### 4. Display Error States (`SpotifyPreview.tsx:396-420`)
+
 - Show red overlay with error message on upload failure
 - Show timeout message after 30 seconds
 - Show "invalid" warning when preview is stale

@@ -11,7 +11,7 @@ import { loadWaveformPeaks } from "@/utils/waveform";
  */
 export function useWaveform(
   url: string | undefined,
-  buckets = 200
+  buckets = 200,
 ): { peaks: number[]; isLoading: boolean } {
   const [peaks, setPeaks] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(!!url);

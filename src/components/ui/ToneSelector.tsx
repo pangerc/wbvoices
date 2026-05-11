@@ -29,9 +29,7 @@ export function ToneSelector({
   const handleChange = (v: string) => onChange(v === EMPTY ? null : v);
 
   const display =
-    options.find((o) => o.value === value) ||
-    emptyOption ||
-    options[0];
+    options.find((o) => o.value === value) || emptyOption || options[0];
 
   const allOptions: Array<{ key: string; option: ToneOption }> = [
     ...(emptyOption ? [{ key: EMPTY, option: emptyOption }] : []),

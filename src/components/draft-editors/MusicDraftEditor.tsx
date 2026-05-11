@@ -5,7 +5,10 @@ import { MusicPanel } from "@/components/MusicPanel";
 import type { MusicVersion, VersionId } from "@/types/versions";
 import type { MusicProvider } from "@/types";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
-import { useMusicDraftState, usePlaybackActions } from "@/hooks/useAudioPlayback";
+import {
+  useMusicDraftState,
+  usePlaybackActions,
+} from "@/hooks/useAudioPlayback";
 import { VersionIterationInput } from "@/components/ui";
 import type { DraftState } from "@/components/ui/DraftAccordion";
 
@@ -37,7 +40,7 @@ export function MusicDraftEditor({
   // Ref to expose VersionIterationInput's expand function
   const iterationExpandRef = useRef<(() => void) | null>(null);
   const [musicProvider, setMusicProvider] = useState<MusicProvider>(
-    draftVersion.provider
+    draftVersion.provider,
   );
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -60,9 +63,9 @@ export function MusicDraftEditor({
 
   // Compute draft state from props (music has no local URL copy, props are fine)
   const draftState = useMemo((): DraftState => {
-    if (isGenerating) return 'generating';
-    if (!draftVersion.musicPrompt?.trim()) return 'editing';
-    return draftVersion.generatedUrl ? 'ready' : 'changed';
+    if (isGenerating) return "generating";
+    if (!draftVersion.musicPrompt?.trim()) return "editing";
+    return draftVersion.generatedUrl ? "ready" : "changed";
   }, [draftVersion.generatedUrl, draftVersion.musicPrompt, isGenerating]);
 
   // Notify parent of draft state changes
@@ -100,7 +103,7 @@ export function MusicDraftEditor({
   const handleGenerate = async (
     prompt: string,
     provider: MusicProvider,
-    duration: number
+    duration: number,
   ): Promise<string | null> => {
     setGeneratingMusic(true);
     setStatusMessage("Generating music...");
@@ -116,7 +119,7 @@ export function MusicDraftEditor({
             provider,
             duration,
           }),
-        }
+        },
       );
 
       if (res.ok) {
@@ -126,7 +129,9 @@ export function MusicDraftEditor({
         return result.generatedUrl; // Return URL for autoplay
       } else {
         const error = await res.json();
-        setStatusMessage(`Generation failed: ${error.error || "Unknown error"}`);
+        setStatusMessage(
+          `Generation failed: ${error.error || "Unknown error"}`,
+        );
         return null;
       }
     } catch (error) {
@@ -155,7 +160,7 @@ export function MusicDraftEditor({
       url = await handleGenerate(
         draftVersion.musicPrompt || "",
         musicProvider,
-        draftVersion.duration || adDuration
+        draftVersion.duration || adDuration,
       );
       if (!url) return; // Generation failed
     }
@@ -172,9 +177,12 @@ export function MusicDraftEditor({
   // Uses the same flow as versions - Redis is source of truth
   const handleSendToMixer = async () => {
     try {
-      const res = await fetch(`/api/ads/${adId}/music/${draftVersionId}/freeze`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `/api/ads/${adId}/music/${draftVersionId}/freeze`,
+        {
+          method: "POST",
+        },
+      );
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -203,8 +211,9 @@ export function MusicDraftEditor({
   useEffect(() => {
     if (onPlayAllRef) onPlayAllRef.current = handlePlayAll;
     if (onSendToMixerRef) onSendToMixerRef.current = handleSendToMixer;
-    if (onRequestChangeRef) onRequestChangeRef.current = () => iterationExpandRef.current?.();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (onRequestChangeRef)
+      onRequestChangeRef.current = () => iterationExpandRef.current?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftVersion, musicProvider, isPlaying, draftVersionId]);
 
   // Reset form (not used in draft mode)
@@ -213,7 +222,11 @@ export function MusicDraftEditor({
   };
 
   // Handle custom music upload or library selection - creates NEW version (V3 immutable pattern)
-  const handleTrackSelected = async (url: string, filename?: string, duration?: number) => {
+  const handleTrackSelected = async (
+    url: string,
+    filename?: string,
+    duration?: number,
+  ) => {
     if (!url) return;
 
     try {
@@ -221,7 +234,7 @@ export function MusicDraftEditor({
       if (draftVersionId) {
         const freezeRes = await fetch(
           `/api/ads/${adId}/music/${draftVersionId}/freeze?forceFreeze=true`,
-          { method: "POST" }
+          { method: "POST" },
         );
         if (!freezeRes.ok) {
           console.warn("Failed to freeze existing draft, continuing anyway");
@@ -244,7 +257,9 @@ export function MusicDraftEditor({
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to create custom music version");
+        throw new Error(
+          errorData.error || "Failed to create custom music version",
+        );
       }
 
       const { versionId } = await res.json();
@@ -285,7 +300,11 @@ export function MusicDraftEditor({
         onTrackSelected={handleTrackSelected}
         initialProvider={draftVersion.provider}
         hasGeneratedUrl={!!draftVersion.generatedUrl}
-        existingFilename={draftVersion.provider === "custom" ? draftVersion.musicPrompt : undefined}
+        existingFilename={
+          draftVersion.provider === "custom"
+            ? draftVersion.musicPrompt
+            : undefined
+        }
       />
       <VersionIterationInput
         adId={adId}

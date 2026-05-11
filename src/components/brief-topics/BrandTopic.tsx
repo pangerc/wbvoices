@@ -43,7 +43,9 @@ export function BrandTopic({
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-white mb-1">Brand & Market</h2>
+        <h2 className="text-lg font-semibold text-white mb-1">
+          Brand & Market
+        </h2>
         <p className="text-xs text-gray-500">
           Who the spot is for, where it runs.
         </p>
@@ -59,8 +61,8 @@ export function BrandTopic({
           </p>
           <p className="mt-2 text-gray-600">
             Brand voice is now derived automatically from alaric&apos;s brand
-            dossier. This text is preserved on the brief for legacy ads but
-            no longer flows into generation.
+            dossier. This text is preserved on the brief for legacy ads but no
+            longer flows into generation.
           </p>
         </details>
       )}

@@ -1,4 +1,7 @@
-import { useAudioPlaybackStore, AudioSourceType } from "@/store/audioPlaybackStore";
+import {
+  useAudioPlaybackStore,
+  AudioSourceType,
+} from "@/store/audioPlaybackStore";
 import { useShallow } from "zustand/react/shallow";
 
 /**
@@ -6,7 +9,7 @@ import { useShallow } from "zustand/react/shallow";
  */
 export function useIsSourcePlaying(
   sourceType: AudioSourceType,
-  identifier?: { trackIndex?: number; trackId?: string; versionId?: string }
+  identifier?: { trackIndex?: number; trackId?: string; versionId?: string },
 ): boolean {
   return useAudioPlaybackStore((state) => {
     if (!state.isPlaying || !state.currentSource) return false;
@@ -49,7 +52,8 @@ export function useVoicePlaybackState(versionId: string) {
       const matchesVersion = state.currentSource?.versionId === versionId;
 
       // Only show generating state if it's for THIS version
-      const generatingMatchesVersion = state.generatingVoiceVersionId === versionId;
+      const generatingMatchesVersion =
+        state.generatingVoiceVersionId === versionId;
 
       return {
         isPlaying: state.isPlaying && isVoiceSource && matchesVersion,
@@ -58,7 +62,9 @@ export function useVoicePlaybackState(versionId: string) {
           state.currentSource?.type === "voice-all" &&
           matchesVersion,
         isGenerating: state.generatingVoice && generatingMatchesVersion,
-        generatingTrackIndex: generatingMatchesVersion ? state.generatingVoiceTrackIndex : null,
+        generatingTrackIndex: generatingMatchesVersion
+          ? state.generatingVoiceTrackIndex
+          : null,
         playingTrackIndex:
           state.isPlaying &&
           state.currentSource?.type === "voice-track" &&
@@ -70,7 +76,7 @@ export function useVoicePlaybackState(versionId: string) {
               ? state.sequenceIndex
               : null,
       };
-    })
+    }),
   );
 }
 
@@ -80,17 +86,19 @@ export function useVoicePlaybackState(versionId: string) {
  */
 export function useDraftAccordionState(
   type: "voice" | "music" | "sfx",
-  versionId?: string
+  versionId?: string,
 ) {
   return useAudioPlaybackStore(
     useShallow((state) => {
       // For voice and sfx types, only show generating if version matches
       const isGenerating =
         type === "voice"
-          ? state.generatingVoice && (!versionId || state.generatingVoiceVersionId === versionId)
+          ? state.generatingVoice &&
+            (!versionId || state.generatingVoiceVersionId === versionId)
           : type === "music"
             ? state.generatingMusic
-            : state.generatingSfx && (!versionId || state.generatingSfxVersionId === versionId);
+            : state.generatingSfx &&
+              (!versionId || state.generatingSfxVersionId === versionId);
 
       // Check if any audio from this type is playing
       const sourceTypes: AudioSourceType[] =
@@ -107,7 +115,7 @@ export function useDraftAccordionState(
         (!versionId || state.currentSource.versionId === versionId);
 
       return { isPlaying, isGenerating };
-    })
+    }),
   );
 }
 
@@ -122,7 +130,7 @@ export function useMixerPlaybackState() {
       currentTime: state.currentTime,
       duration: state.duration,
       isGenerating: state.generatingMix,
-    }))
+    })),
   );
 }
 
@@ -156,7 +164,7 @@ export function useMusicDraftState(versionId: string) {
         state.isPlaying &&
         state.currentSource?.type === "music-generated" &&
         state.currentSource?.versionId === versionId,
-    }))
+    })),
   );
 }
 
@@ -167,15 +175,17 @@ export function useSfxDraftState(versionId: string) {
   return useAudioPlaybackStore(
     useShallow((state) => ({
       // Only show generating state if it's for THIS version
-      isGenerating: state.generatingSfx && state.generatingSfxVersionId === versionId,
-      generatingPromptIndex: (state.generatingSfx && state.generatingSfxVersionId === versionId)
-        ? state.generatingSfxPromptIndex
-        : null,
+      isGenerating:
+        state.generatingSfx && state.generatingSfxVersionId === versionId,
+      generatingPromptIndex:
+        state.generatingSfx && state.generatingSfxVersionId === versionId
+          ? state.generatingSfxPromptIndex
+          : null,
       isPlaying:
         state.isPlaying &&
         state.currentSource?.type === "sfx-preview" &&
         state.currentSource?.versionId === versionId,
-    }))
+    })),
   );
 }
 
@@ -197,6 +207,6 @@ export function usePlaybackActions() {
       setGeneratingMusic: state.setGeneratingMusic,
       setGeneratingSfx: state.setGeneratingSfx,
       setGeneratingMix: state.setGeneratingMix,
-    }))
+    })),
   );
 }

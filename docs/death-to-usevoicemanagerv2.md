@@ -35,11 +35,11 @@ provider = "openai"     ───┘──►      v2: openai voices
 
 ### API Calls Per Language Change
 
-| Before | After |
-|--------|-------|
-| 12+ calls | 2-3 calls |
-| Load voices from 3 providers | No voice loading |
-| Multiple cascade triggers | Single-direction flow |
+| Before                       | After                 |
+| ---------------------------- | --------------------- |
+| 12+ calls                    | 2-3 calls             |
+| Load voices from 3 providers | No voice loading      |
+| Multiple cascade triggers    | Single-direction flow |
 
 ### Data Flow
 
@@ -92,15 +92,18 @@ export function useBriefOptions() {
 
   // Load languages ONCE on mount
   useEffect(() => {
-    fetch('/api/voice-catalogue/languages')
-      .then(r => r.json())
-      .then(data => setLanguages(data.languages));
+    fetch("/api/voice-catalogue/languages")
+      .then((r) => r.json())
+      .then((data) => setLanguages(data.languages));
   }, []);
 
   return { languages };
 }
 
-export function useLanguageOptions(language: Language | null, campaignFormat: CampaignFormat) {
+export function useLanguageOptions(
+  language: Language | null,
+  campaignFormat: CampaignFormat,
+) {
   const [options, setOptions] = useState<LanguageOptions | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -110,11 +113,14 @@ export function useLanguageOptions(language: Language | null, campaignFormat: Ca
     const controller = new AbortController();
     setIsLoading(true);
 
-    fetch(`/api/voice-catalogue/language-options?language=${language}&campaignFormat=${campaignFormat}`, {
-      signal: controller.signal
-    })
-      .then(r => r.json())
-      .then(data => {
+    fetch(
+      `/api/voice-catalogue/language-options?language=${language}&campaignFormat=${campaignFormat}`,
+      {
+        signal: controller.signal,
+      },
+    )
+      .then((r) => r.json())
+      .then((data) => {
         setOptions(data);
         setIsLoading(false);
       });
@@ -131,12 +137,14 @@ export function useLanguageOptions(language: Language | null, campaignFormat: Ca
 **Modify: `src/components/BriefPanelV3.tsx`**
 
 Remove:
+
 - `voiceManager` prop and all `voiceManager.*` usage
 - `serverFilteredVoices` state and loading effect
 - Provider reset effect (lines 587-611)
 - `resolveProviderForGeneration` function
 
 Replace with:
+
 ```typescript
 export function BriefPanelV3({ adId, initialBrief, onDraftsCreated }: BriefPanelV3Props) {
   // Simple form state
@@ -201,7 +209,12 @@ const voiceManager = useVoiceManagerV2();
 export type BriefPanelV3Props = {
   adId: string;
   initialBrief?: ProjectBrief | null;
-  onDraftsCreated?: (result: { voices?: string; music?: string; sfx?: string; adName?: string }) => void;
+  onDraftsCreated?: (result: {
+    voices?: string;
+    music?: string;
+    sfx?: string;
+    adName?: string;
+  }) => void;
 };
 // Remove voiceManager prop entirely
 ```
@@ -210,16 +223,17 @@ export type BriefPanelV3Props = {
 
 ## Files to Change
 
-| File | Action |
-|------|--------|
-| `src/app/api/voice-catalogue/language-options/route.ts` | **CREATE** |
-| `src/hooks/useBriefOptions.ts` | **CREATE** |
-| `src/components/BriefPanelV3.tsx` | **MODIFY** - Remove useVoiceManagerV2 |
-| `src/app/ad/[id]/page.tsx` | **MODIFY** - Remove voiceManager prop |
-| `src/hooks/useVoiceManagerV2.ts` | **DELETE** - No longer needed |
-| `src/components/BriefPanel.tsx` | **DELETE** - Legacy component using useVoiceManagerV2 |
+| File                                                    | Action                                                |
+| ------------------------------------------------------- | ----------------------------------------------------- |
+| `src/app/api/voice-catalogue/language-options/route.ts` | **CREATE**                                            |
+| `src/hooks/useBriefOptions.ts`                          | **CREATE**                                            |
+| `src/components/BriefPanelV3.tsx`                       | **MODIFY** - Remove useVoiceManagerV2                 |
+| `src/app/ad/[id]/page.tsx`                              | **MODIFY** - Remove voiceManager prop                 |
+| `src/hooks/useVoiceManagerV2.ts`                        | **DELETE** - No longer needed                         |
+| `src/components/BriefPanel.tsx`                         | **DELETE** - Legacy component using useVoiceManagerV2 |
 
 **Keep unchanged:**
+
 - `src/components/ScripterPanel.tsx` - Already refactored to V3, doesn't use useVoiceManagerV2
 - `src/app/api/voice-catalogue/route.ts` - Keep existing operations
 
@@ -232,17 +246,17 @@ Server-side in `/language-options` endpoint:
 ```typescript
 function suggestProvider(language: string, voiceCounts: VoiceCounts): Provider {
   // Chinese languages → prefer qwen
-  if (language === 'zh' || language.startsWith('zh-')) {
-    if (voiceCounts.qwen > 0) return 'qwen';
+  if (language === "zh" || language.startsWith("zh-")) {
+    if (voiceCounts.qwen > 0) return "qwen";
   }
 
   // Default priority: elevenlabs > openai > qwen > bytedance
-  if (voiceCounts.elevenlabs > 0) return 'elevenlabs';
-  if (voiceCounts.openai > 0) return 'openai';
-  if (voiceCounts.qwen > 0) return 'qwen';
-  if (voiceCounts.bytedance > 0) return 'bytedance';
+  if (voiceCounts.elevenlabs > 0) return "elevenlabs";
+  if (voiceCounts.openai > 0) return "openai";
+  if (voiceCounts.qwen > 0) return "qwen";
+  if (voiceCounts.bytedance > 0) return "bytedance";
 
-  return 'any';
+  return "any";
 }
 ```
 

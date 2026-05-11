@@ -21,7 +21,11 @@
  * sfx-overlay behavior unless re-authored.
  */
 
-import type { VoiceTrack, SoundFxPrompt, SoundFxPlacementIntent } from "@/types";
+import type {
+  VoiceTrack,
+  SoundFxPrompt,
+  SoundFxPlacementIntent,
+} from "@/types";
 import type { Anchor, MusicVersion } from "@/types/versions";
 
 /**
@@ -56,7 +60,7 @@ export interface OrdinalRefs {
  * Returns null for unrecognized formats.
  */
 export function parseTrackRef(
-  ref: string
+  ref: string,
 ): { stream: "voices" | "sfx" | "music"; index: number } | null {
   if (ref === "music") return { stream: "music", index: 0 };
   const m = /^(voice|sfx)-(\d+)$/.exec(ref);
@@ -83,7 +87,7 @@ export function resolveTrackRef(ref: string, refs: OrdinalRefs): string | null {
  */
 export function translateAnchorInput(
   input: AnchorInput,
-  refs: OrdinalRefs
+  refs: OrdinalRefs,
 ): Anchor | null {
   if (input.kind === "absolute") {
     return { kind: "absolute", t: input.t };
@@ -123,7 +127,7 @@ export function translateAnchorInput(
 export function anchorFromVoiceTrack(
   track: VoiceTrack,
   voiceSlotIds: ReadonlyArray<string | undefined>,
-  ordinalIndex: number
+  ordinalIndex: number,
 ): Anchor | undefined {
   if (track.anchor) return track.anchor;
 
@@ -188,7 +192,7 @@ export function anchorFromSoundFxPrompt(
   prompt: SoundFxPrompt,
   voiceSlotIds: ReadonlyArray<string | undefined>,
   _sfxSlotIds: ReadonlyArray<string | undefined>,
-  _ordinalIndex: number
+  _ordinalIndex: number,
 ): Anchor | undefined {
   if (prompt.anchor) return prompt.anchor;
 
@@ -225,8 +229,7 @@ export function anchorFromSoundFxPrompt(
         const m = /^track-(\d+)$/.exec(placement.playAfter);
         if (m) {
           const ref = voiceSlotIds[Number(m[1])];
-          if (ref)
-            return { kind: "relativeTo", slotId: ref, edge: "end" };
+          if (ref) return { kind: "relativeTo", slotId: ref, edge: "end" };
         }
         if (placement.playAfter === "start") {
           return { kind: "absolute", t: 0 };

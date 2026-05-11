@@ -66,7 +66,7 @@ export function useLanguageOptions(
   campaignFormat: CampaignFormat,
   region?: string | null,
   provider?: string | null,
-  accent?: string | null
+  accent?: string | null,
 ) {
   const [options, setOptions] = useState<LanguageOptions | null>(null);
   const [isLoading, setIsLoading] = useState(false);

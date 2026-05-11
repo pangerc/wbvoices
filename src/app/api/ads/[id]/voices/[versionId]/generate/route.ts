@@ -5,7 +5,7 @@ import type { VoiceVersion } from "@/types/versions";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; versionId: string }> }
+  { params }: { params: Promise<{ id: string; versionId: string }> },
 ) {
   try {
     const { id: adId, versionId } = await params;
@@ -17,15 +17,15 @@ export async function POST(
     if (!version || (version as VoiceVersion).status !== "draft") {
       return NextResponse.json(
         { error: "Can only generate audio for draft versions" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const currentVersion = version as VoiceVersion;
 
     // Determine which tracks to generate
-    const indicesToGenerate: number[] = trackIndices ||
-      voiceTracks.map((_: unknown, idx: number) => idx);
+    const indicesToGenerate: number[] =
+      trackIndices || voiceTracks.map((_: unknown, idx: number) => idx);
 
     console.log(`🎙️ Generating voice audio for ${versionId} (${provider}):`, {
       totalTracks: voiceTracks.length,
@@ -42,12 +42,13 @@ export async function POST(
     // For now, generate placeholder URLs only for specified indices
     for (const index of indicesToGenerate) {
       if (index >= 0 && index < voiceTracks.length) {
-        updatedUrls[index] = `/placeholder-voice-${versionId}-${index}-${Date.now()}.mp3`;
+        updatedUrls[index] =
+          `/placeholder-voice-${versionId}-${index}-${Date.now()}.mp3`;
       }
     }
 
     console.log(`✅ Generated ${indicesToGenerate.length} voice tracks:`, {
-      urls: indicesToGenerate.map(i => ({ index: i, url: updatedUrls[i] })),
+      urls: indicesToGenerate.map((i) => ({ index: i, url: updatedUrls[i] })),
     });
 
     // Update version with merged URLs
@@ -72,7 +73,7 @@ export async function POST(
     console.error("❌ Failed to generate voice audio:", error);
     return NextResponse.json(
       { error: "Failed to generate voice audio" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

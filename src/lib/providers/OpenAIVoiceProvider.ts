@@ -1,27 +1,45 @@
-import { BaseAudioProvider, ValidationResult, AuthCredentials, ProviderResponse } from './BaseAudioProvider';
-import { uploadVoiceToBlob } from '@/utils/blob-storage';
-import { getServerPronunciationRules, injectPronunciationRules } from '@/utils/server-pronunciation-helper';
-import { NextResponse } from 'next/server';
-import { trackVoiceUsage } from '@/lib/usage/tracker';
+import {
+  BaseAudioProvider,
+  ValidationResult,
+  AuthCredentials,
+  ProviderResponse,
+} from "./BaseAudioProvider";
+import { uploadVoiceToBlob } from "@/utils/blob-storage";
+import {
+  getServerPronunciationRules,
+  injectPronunciationRules,
+} from "@/utils/server-pronunciation-helper";
+import { NextResponse } from "next/server";
+import { trackVoiceUsage } from "@/lib/usage/tracker";
 
 export class OpenAIVoiceProvider extends BaseAudioProvider {
-  readonly providerName = 'openai';
-  readonly providerType = 'voice' as const;
+  readonly providerName = "openai";
+  readonly providerType = "voice" as const;
 
   validateParams(body: Record<string, unknown>): ValidationResult {
-    const { text, voiceId, style, useCase, projectId, region, accent, pacing, speed } = body;
+    const {
+      text,
+      voiceId,
+      style,
+      useCase,
+      projectId,
+      region,
+      accent,
+      pacing,
+      speed,
+    } = body;
 
-    if (!text || typeof text !== 'string') {
+    if (!text || typeof text !== "string") {
       return {
         isValid: false,
-        error: "Missing required parameter: text"
+        error: "Missing required parameter: text",
       };
     }
 
-    if (!voiceId || typeof voiceId !== 'string') {
+    if (!voiceId || typeof voiceId !== "string") {
       return {
         isValid: false,
-        error: "Missing required parameter: voiceId"
+        error: "Missing required parameter: voiceId",
       };
     }
 
@@ -30,25 +48,27 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
       data: {
         text,
         voiceId,
-        style: typeof style === 'string' ? style : undefined,
-        useCase: typeof useCase === 'string' ? useCase : undefined,
-        projectId: typeof projectId === 'string' ? projectId : undefined,
-        region: typeof region === 'string' ? region : undefined,
-        accent: typeof accent === 'string' ? accent : undefined,
-        pacing: typeof pacing === 'string' ? pacing : undefined,
-        speed: typeof speed === 'number' ? speed : undefined
-      }
+        style: typeof style === "string" ? style : undefined,
+        useCase: typeof useCase === "string" ? useCase : undefined,
+        projectId: typeof projectId === "string" ? projectId : undefined,
+        region: typeof region === "string" ? region : undefined,
+        accent: typeof accent === "string" ? accent : undefined,
+        pacing: typeof pacing === "string" ? pacing : undefined,
+        speed: typeof speed === "number" ? speed : undefined,
+      },
     };
   }
 
   protected validateCredentials(): boolean {
-    const apiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    const apiKey =
+      process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
     return !!apiKey;
   }
 
   async authenticate(): Promise<AuthCredentials> {
-    const apiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-    
+    const apiKey =
+      process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+
     if (!apiKey) {
       throw new Error("OpenAI API key is missing");
     }
@@ -56,69 +76,95 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
     return { apiKey };
   }
 
-  async makeRequest(params: Record<string, unknown>, credentials: AuthCredentials): Promise<ProviderResponse> {
-    const { text, voiceId, style, useCase, voiceInstructions, region, accent, pacing, speed } = params;
+  async makeRequest(
+    params: Record<string, unknown>,
+    credentials: AuthCredentials,
+  ): Promise<ProviderResponse> {
+    const {
+      text,
+      voiceId,
+      style,
+      useCase,
+      voiceInstructions,
+      region,
+      accent,
+      pacing,
+      speed,
+    } = params;
     const { apiKey } = credentials;
 
     console.log(`🎭 OpenAI API Call:`);
     console.log(`  Text: "${(text as string).substring(0, 50)}..."`);
     console.log(`  Voice ID: ${voiceId}`);
-    console.log(`  Style: ${style || 'none'}`);
-    console.log(`  Use Case: ${useCase || 'none'}`);
-    console.log(`  Voice Instructions: ${voiceInstructions || 'none'}`);
-    console.log(`  Region: ${region || 'none'}`);
-    console.log(`  Accent: ${accent || 'none'}`);
-    console.log(`  Pacing: ${pacing || 'normal (default)'}`);
+    console.log(`  Style: ${style || "none"}`);
+    console.log(`  Use Case: ${useCase || "none"}`);
+    console.log(`  Voice Instructions: ${voiceInstructions || "none"}`);
+    console.log(`  Region: ${region || "none"}`);
+    console.log(`  Accent: ${accent || "none"}`);
+    console.log(`  Pacing: ${pacing || "normal (default)"}`);
 
     // Extract base voice from our ID format
-    const openAIVoice = (voiceId as string).split('-')[0];
+    const openAIVoice = (voiceId as string).split("-")[0];
 
     // Fetch pronunciation rules from Redis (server-side safe)
     const pronunciationRules = await getServerPronunciationRules();
 
     // Build voice instructions (separate from text input)
-    let instructions = '';
+    let instructions = "";
 
     // Use provided voice instructions if available (from LLM)
-    if (voiceInstructions && typeof voiceInstructions === 'string') {
+    if (voiceInstructions && typeof voiceInstructions === "string") {
       // Inject pronunciation rules for matched strings in the script
-      instructions = injectPronunciationRules(text as string, voiceInstructions, pronunciationRules) || voiceInstructions;
+      instructions =
+        injectPronunciationRules(
+          text as string,
+          voiceInstructions,
+          pronunciationRules,
+        ) || voiceInstructions;
       console.log(`  🎛️ Using LLM voice instructions: "${instructions}"`);
     } else {
       // Fallback: build instructions from style/useCase (for backward compatibility)
       const instructionParts = [];
-      
-      if (style && style !== 'Default') {
-        instructionParts.push(`Speak in a ${(style as string).toLowerCase()} tone`);
+
+      if (style && style !== "Default") {
+        instructionParts.push(
+          `Speak in a ${(style as string).toLowerCase()} tone`,
+        );
       }
-      
-      if (useCase && useCase !== 'general') {
-        if (useCase === 'advertisement') {
-          instructionParts.push('Use a promotional, engaging delivery suitable for advertising');
+
+      if (useCase && useCase !== "general") {
+        if (useCase === "advertisement") {
+          instructionParts.push(
+            "Use a promotional, engaging delivery suitable for advertising",
+          );
         } else {
-          instructionParts.push(`Adapt delivery for ${(useCase as string).toLowerCase()} context`);
+          instructionParts.push(
+            `Adapt delivery for ${(useCase as string).toLowerCase()} context`,
+          );
         }
       }
-      
+
       if (instructionParts.length > 0) {
-        instructions = instructionParts.join('. ') + '.';
-        console.log(`  🎛️ Built instructions from style/useCase: "${instructions}"`);
+        instructions = instructionParts.join(". ") + ".";
+        console.log(
+          `  🎛️ Built instructions from style/useCase: "${instructions}"`,
+        );
       }
     }
 
     // Append region/accent information to instructions if available
     const accentInstructionParts = [];
-    if (accent && accent !== 'neutral') {
+    if (accent && accent !== "neutral") {
       accentInstructionParts.push(`Speak with a ${accent} accent`);
     }
     if (region && !accent) {
       accentInstructionParts.push(`Use regional pronunciation from ${region}`);
     }
-    
+
     if (accentInstructionParts.length > 0) {
-      const accentInstructions = accentInstructionParts.join('. ') + '.';
+      const accentInstructions = accentInstructionParts.join(". ") + ".";
       if (instructions) {
-        instructions += ' ' + accentInstructions;
+        instructions += " " + accentInstructions;
       } else {
         instructions = accentInstructions;
       }
@@ -127,7 +173,11 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
 
     // Inject pronunciation rules for matched strings (if not already injected via voiceInstructions)
     if (!voiceInstructions) {
-      const withPronunciation = injectPronunciationRules(text as string, instructions || undefined, pronunciationRules);
+      const withPronunciation = injectPronunciationRules(
+        text as string,
+        instructions || undefined,
+        pronunciationRules,
+      );
       if (withPronunciation) {
         instructions = withPronunciation;
       }
@@ -137,18 +187,18 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
     let effectiveSpeed: number;
     let speedSource: string;
 
-    if (speed !== undefined && typeof speed === 'number') {
+    if (speed !== undefined && typeof speed === "number") {
       // Manual speed override from VoiceTrack
       effectiveSpeed = speed;
-      speedSource = 'manual override';
-    } else if (pacing === 'fast') {
+      speedSource = "manual override";
+    } else if (pacing === "fast") {
       // Pacing-based speed (from BriefPanel rabbit button)
       effectiveSpeed = 1.2; // Fast → 1.2 (tuned based on research feedback)
       speedSource = `pacing: ${pacing}`;
     } else {
       // Default normal speed
       effectiveSpeed = 1.0;
-      speedSource = 'default';
+      speedSource = "default";
     }
 
     console.log(`  🎛️ Speed setting: ${effectiveSpeed} (${speedSource})`);
@@ -163,7 +213,7 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
       instructions?: string;
     } = {
       model: "gpt-4o-mini-tts",
-      input: text as string,  // Clean text only
+      input: text as string, // Clean text only
       voice: openAIVoice,
       response_format: "mp3",
       speed: effectiveSpeed,
@@ -173,24 +223,30 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
     if (instructions) {
       requestBody.instructions = instructions;
     }
-    
-    console.log(`  📡 OpenAI request body:`, JSON.stringify(requestBody, null, 2));
 
-    const response = await this.makeFetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+    console.log(
+      `  📡 OpenAI request body:`,
+      JSON.stringify(requestBody, null, 2),
+    );
+
+    const response = await this.makeFetch(
+      "https://api.openai.com/v1/audio/speech",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
       },
-      body: JSON.stringify(requestBody),
-    });
+    );
 
     if (!response.ok) {
       const errorInfo = await this.handleApiError(response);
       return {
         success: false,
         error: errorInfo.message,
-        errorDetails: errorInfo.details
+        errorDetails: errorInfo.details,
       };
     }
 
@@ -206,8 +262,8 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
         text: text as string,
         voiceId: voiceId as string,
         style: style as string,
-        useCase: useCase as string
-      }
+        useCase: useCase as string,
+      },
     };
   }
 
@@ -216,7 +272,10 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
    * This prevents OpenAI from detecting the original request origin (e.g., Hong Kong)
    * when using the proxy architecture
    */
-  protected async makeFetch(url: string, options: RequestInit): Promise<Response> {
+  protected async makeFetch(
+    url: string,
+    options: RequestInit,
+  ): Promise<Response> {
     // Create completely clean headers - don't inherit any proxy-related headers
     const cleanHeaders = new Headers();
 
@@ -226,42 +285,42 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
 
       if (headers instanceof Headers) {
         // Only copy specific, safe headers
-        const authHeader = headers.get('Authorization');
-        const contentType = headers.get('Content-Type');
+        const authHeader = headers.get("Authorization");
+        const contentType = headers.get("Content-Type");
 
-        if (authHeader) cleanHeaders.set('Authorization', authHeader);
-        if (contentType) cleanHeaders.set('Content-Type', contentType);
-      } else if (typeof headers === 'object' && headers !== null) {
+        if (authHeader) cleanHeaders.set("Authorization", authHeader);
+        if (contentType) cleanHeaders.set("Content-Type", contentType);
+      } else if (typeof headers === "object" && headers !== null) {
         // Handle object format
         const headerObj = headers as Record<string, string>;
 
-        if (headerObj['Authorization']) {
-          cleanHeaders.set('Authorization', headerObj['Authorization']);
+        if (headerObj["Authorization"]) {
+          cleanHeaders.set("Authorization", headerObj["Authorization"]);
         }
-        if (headerObj['Content-Type']) {
-          cleanHeaders.set('Content-Type', headerObj['Content-Type']);
+        if (headerObj["Content-Type"]) {
+          cleanHeaders.set("Content-Type", headerObj["Content-Type"]);
         }
       }
     }
 
     // Always set Accept header for JSON responses
-    cleanHeaders.set('Accept', 'application/json');
+    cleanHeaders.set("Accept", "application/json");
 
     // Log what headers we're sending (for debugging)
-    console.log('🔒 OpenAI request headers (proxy-safe):', {
-      Authorization: cleanHeaders.get('Authorization') ? 'Bearer ***' : 'none',
-      'Content-Type': cleanHeaders.get('Content-Type'),
-      Accept: cleanHeaders.get('Accept'),
+    console.log("🔒 OpenAI request headers (proxy-safe):", {
+      Authorization: cleanHeaders.get("Authorization") ? "Bearer ***" : "none",
+      "Content-Type": cleanHeaders.get("Content-Type"),
+      Accept: cleanHeaders.get("Accept"),
       // Log to confirm we're NOT sending proxy headers
-      'X-Forwarded-For': 'stripped',
-      'X-Real-IP': 'stripped',
-      'CF-Connecting-IP': 'stripped'
+      "X-Forwarded-For": "stripped",
+      "X-Real-IP": "stripped",
+      "CF-Connecting-IP": "stripped",
     });
 
     // Make the fetch with clean headers only
     const response = await fetch(url, {
       ...options,
-      headers: cleanHeaders
+      headers: cleanHeaders,
     });
 
     console.log(`${this.providerName} API response status: ${response.status}`);
@@ -269,18 +328,22 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
     return response;
   }
 
-  public async processSuccessfulResponse(data: Record<string, unknown>): Promise<NextResponse> {
+  public async processSuccessfulResponse(
+    data: Record<string, unknown>,
+  ): Promise<NextResponse> {
     const { audioArrayBuffer, text, voiceId, style, useCase, projectId } = data;
 
     try {
       console.log("OpenAI: Uploading voice to Vercel Blob...");
 
-      const audioBlob = new Blob([audioArrayBuffer as ArrayBuffer], { type: 'audio/mpeg' });
+      const audioBlob = new Blob([audioArrayBuffer as ArrayBuffer], {
+        type: "audio/mpeg",
+      });
       const blobResult = await uploadVoiceToBlob(
         audioBlob,
         (text as string).substring(0, 50),
-        'openai',
-        projectId as string
+        "openai",
+        projectId as string,
       );
 
       console.log(`OpenAI voice uploaded to blob: ${blobResult.url}`);
@@ -295,16 +358,16 @@ export class OpenAIVoiceProvider extends BaseAudioProvider {
         use_case: useCase,
         blob_info: {
           downloadUrl: blobResult.downloadUrl,
-          size: (audioArrayBuffer as ArrayBuffer).byteLength
-        }
+          size: (audioArrayBuffer as ArrayBuffer).byteLength,
+        },
       });
     } catch (blobError) {
-      console.error('OpenAI: Failed to upload voice to blob:', blobError);
+      console.error("OpenAI: Failed to upload voice to blob:", blobError);
 
       // Fallback: return raw audio (this shouldn't happen in practice)
       return NextResponse.json(
         { error: "Failed to upload audio to blob storage" },
-        { status: 500 }
+        { status: 500 },
       );
     }
   }

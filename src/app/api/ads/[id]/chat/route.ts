@@ -27,7 +27,7 @@ const STREAM_NAMES: Record<ContentStreamType, string> = {
 function buildFocusedMessage(
   message: string,
   stream?: ContentStreamType,
-  parentVersionId?: string
+  parentVersionId?: string,
 ): string {
   if (!stream) return message;
 
@@ -44,7 +44,7 @@ Create a new ${stream === "voices" ? "voice" : stream === "music" ? "music" : "s
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -59,14 +59,14 @@ export async function POST(
     if (!message || message.trim() === "") {
       return NextResponse.json(
         { error: "message is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: "OpenAI API key not configured" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -74,30 +74,43 @@ export async function POST(
     if (!conversationExists) {
       return NextResponse.json(
         {
-          error: "No conversation found for this ad. Generate the ad first using /api/ai/generate",
+          error:
+            "No conversation found for this ad. Generate the ad first using /api/ai/generate",
           adId,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Build focused message if stream specified
-    const focusedMessage = buildFocusedMessage(message, stream, parentVersionId);
+    const focusedMessage = buildFocusedMessage(
+      message,
+      stream,
+      parentVersionId,
+    );
 
-    console.log(`[/api/ads/${adId}/chat] Processing refinement: ${focusedMessage.substring(0, 100)}...`);
+    console.log(
+      `[/api/ads/${adId}/chat] Processing refinement: ${focusedMessage.substring(0, 100)}...`,
+    );
     if (stream) {
-      console.log(`[/api/ads/${adId}/chat] Stream focus: ${stream}, parent: ${parentVersionId}`);
+      console.log(
+        `[/api/ads/${adId}/chat] Stream focus: ${stream}, parent: ${parentVersionId}`,
+      );
     }
 
     // Set parent version as active before creating new draft
     if (freezeParent && parentVersionId && stream) {
       await setActiveVersion(adId, stream, parentVersionId);
-      console.log(`[/api/ads/${adId}/chat] Set parent ${parentVersionId} as active`);
+      console.log(
+        `[/api/ads/${adId}/chat] Set parent ${parentVersionId} as active`,
+      );
     }
 
     const result = await continueConversation(adId, focusedMessage);
 
-    console.log(`[/api/ads/${adId}/chat] Agent completed with ${result.toolCallHistory.length} tool calls`);
+    console.log(
+      `[/api/ads/${adId}/chat] Agent completed with ${result.toolCallHistory.length} tool calls`,
+    );
     console.log(`[/api/ads/${adId}/chat] New drafts:`, result.drafts);
 
     // Update metadata on new versions (if stream was specified)
@@ -108,7 +121,9 @@ export async function POST(
           parentVersionId,
           requestText: message, // Original message, not the focused one
         });
-        console.log(`[/api/ads/${adId}/chat] Updated lineage: ${parentVersionId} → ${newVersionId}`);
+        console.log(
+          `[/api/ads/${adId}/chat] Updated lineage: ${parentVersionId} → ${newVersionId}`,
+        );
       }
     }
 
@@ -124,10 +139,13 @@ export async function POST(
     console.error("[/api/ads/[id]/chat] Error:", error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to process chat message",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to process chat message",
         details: error instanceof Error ? error.stack : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

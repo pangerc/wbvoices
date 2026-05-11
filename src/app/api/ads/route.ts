@@ -66,7 +66,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ adId, meta: metadata }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     console.error("❌ Failed to create ad:", error);
     return NextResponse.json(
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest) {
         error: "Failed to create ad",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -122,7 +125,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ads });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     console.error("❌ Failed to load ads:", error);
     return NextResponse.json(
@@ -131,7 +137,7 @@ export async function GET(request: NextRequest) {
         details: error instanceof Error ? error.message : String(error),
         ads: [],
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -20,7 +20,7 @@ export const MAX_TEXT_FIELD_CHARS = 2000;
 export function normaliseOptionalText(
   raw: unknown,
   field: string,
-  maxChars: number = MAX_TEXT_FIELD_CHARS
+  maxChars: number = MAX_TEXT_FIELD_CHARS,
 ): string | null | undefined {
   if (raw === undefined) return undefined;
   if (raw === null) return null;
@@ -36,7 +36,7 @@ export function normaliseOptionalText(
 }
 
 export function normaliseDefaultPacing(
-  raw: unknown
+  raw: unknown,
 ): string | null | undefined {
   if (raw === undefined) return undefined;
   if (raw === null) return null;
@@ -47,14 +47,14 @@ export function normaliseDefaultPacing(
   if (v === "") return null;
   if (!ALLOWED_PACINGS.has(v)) {
     throw new Error(
-      `defaultPacing must be one of: ${[...ALLOWED_PACINGS].join(", ")}`
+      `defaultPacing must be one of: ${[...ALLOWED_PACINGS].join(", ")}`,
     );
   }
   return v;
 }
 
 export function normaliseDefaultDuration(
-  raw: unknown
+  raw: unknown,
 ): number | null | undefined {
   if (raw === undefined) return undefined;
   if (raw === null || raw === "") return null;
@@ -66,7 +66,7 @@ export function normaliseDefaultDuration(
     n > MAX_DURATION_SECONDS
   ) {
     throw new Error(
-      `defaultDurationSeconds must be a positive integer ≤ ${MAX_DURATION_SECONDS}`
+      `defaultDurationSeconds must be a positive integer ≤ ${MAX_DURATION_SECONDS}`,
     );
   }
   return n;

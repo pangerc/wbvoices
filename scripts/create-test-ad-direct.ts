@@ -60,7 +60,8 @@ async function createTestAd() {
       name: "Spotify Premium - Test Campaign",
       brief: {
         clientDescription: "Spotify - Leading music streaming platform",
-        creativeBrief: "Promote Spotify Premium with ad-free listening and offline downloads",
+        creativeBrief:
+          "Promote Spotify Premium with ad-free listening and offline downloads",
       },
       createdAt: now,
       lastModified: now,
@@ -72,12 +73,12 @@ async function createTestAd() {
 
     // 2. Add to user's ads list
     const userAdsKey = `ads:by_user:${sessionId}`;
-    const existingAds = await redis.get<string[]>(userAdsKey) || [];
+    const existingAds = (await redis.get<string[]>(userAdsKey)) || [];
     await redis.set(userAdsKey, JSON.stringify([...existingAds, adId]));
     console.log(`✅ Added to user's ads list`);
 
     // 3. Add to global ads index
-    const allAds = await redis.get<string[]>("ads:all") || [];
+    const allAds = (await redis.get<string[]>("ads:all")) || [];
     await redis.set("ads:all", JSON.stringify([...allAds, adId]));
     console.log(`✅ Added to global ads index\n`);
 
@@ -163,7 +164,9 @@ async function createTestAd() {
     await redis.set(`ad:${adId}:voices:v:v1`, JSON.stringify(voiceVersions[0]));
     await redis.set(`ad:${adId}:voices:v:v2`, JSON.stringify(voiceVersions[1]));
     await redis.set(`ad:${adId}:voices:v:v3`, JSON.stringify(voiceVersions[2]));
-    console.log(`   ✅ Created 3 voice versions (v1: draft, v2: active, v3: draft)`);
+    console.log(
+      `   ✅ Created 3 voice versions (v1: draft, v2: active, v3: draft)`,
+    );
 
     // 5. Create music versions
     console.log("🎵 Creating music versions...");

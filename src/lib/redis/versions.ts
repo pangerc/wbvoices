@@ -103,7 +103,7 @@ export const AD_KEYS = {
 export async function createVersion(
   adId: string,
   streamType: StreamType,
-  data: AnyVersion
+  data: AnyVersion,
 ): Promise<VersionId> {
   const redis = getRedisV3();
 
@@ -174,17 +174,17 @@ async function getNextVersionId(
 export async function getVersion<T extends StreamType>(
   adId: string,
   streamType: T,
-  versionId: VersionId
+  versionId: VersionId,
 ): Promise<VersionFor<T> | null>;
 export async function getVersion(
   adId: string,
   streamType: StreamType,
-  versionId: VersionId
+  versionId: VersionId,
 ): Promise<AnyVersion | null>;
 export async function getVersion(
   adId: string,
   streamType: StreamType,
-  versionId: VersionId
+  versionId: VersionId,
 ): Promise<AnyVersion | null> {
   const redis = getRedisV3();
   const versionKey = AD_KEYS.version(adId, streamType, versionId);
@@ -231,15 +231,15 @@ export async function listVersions(
  */
 export async function getAllVersionsWithData<T extends StreamType>(
   adId: string,
-  streamType: T
+  streamType: T,
 ): Promise<Record<VersionId, VersionFor<T>>>;
 export async function getAllVersionsWithData(
   adId: string,
-  streamType: StreamType
+  streamType: StreamType,
 ): Promise<Record<VersionId, AnyVersion>>;
 export async function getAllVersionsWithData(
   adId: string,
-  streamType: StreamType
+  streamType: StreamType,
 ): Promise<Record<VersionId, AnyVersion>> {
   const versionIds = await listVersions(adId, streamType);
 
@@ -459,7 +459,7 @@ export async function updateVersion(
   adId: string,
   streamType: StreamType,
   versionId: VersionId,
-  updates: Partial<AnyVersion>
+  updates: Partial<AnyVersion>,
 ): Promise<void> {
   const redis = getRedisV3();
 
@@ -748,7 +748,7 @@ export async function writeTagLintTelemetry(
     accentPresent: boolean;
     lintPassed: boolean;
     violations: string[];
-  }>
+  }>,
 ): Promise<void> {
   if (!entries.length) return;
   const redis = getRedisV3();
@@ -765,4 +765,3 @@ export async function writeTagLintTelemetry(
   await redis.hset(key, payload);
   await redis.expire(key, 60 * 60 * 24 * 30); // 30 days
 }
-

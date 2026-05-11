@@ -68,15 +68,18 @@ export const elevenLabsHandlers = [
  */
 export const lovoHandlers = [
   // Mock TTS endpoint
-  http.post("https://api.genny.lovo.ai/api/v1/speakers/:speakerId/convert", () => {
-    return HttpResponse.json({
-      success: true,
-      data: {
-        id: "test-job-id",
-        status: "processing",
-      },
-    });
-  }),
+  http.post(
+    "https://api.genny.lovo.ai/api/v1/speakers/:speakerId/convert",
+    () => {
+      return HttpResponse.json({
+        success: true,
+        data: {
+          id: "test-job-id",
+          status: "processing",
+        },
+      });
+    },
+  ),
 
   // Mock job status check
   http.get("https://api.genny.lovo.ai/api/v1/jobs/:jobId", () => {

@@ -29,6 +29,7 @@ This proposal introduces **Version Streams**: a Redis-first architecture where e
 ### Problem 1: 4-Layer Data Model Creates Sync Hell
 
 **Current Flow:**
+
 ```
 LLM JSON → FormManager (React hook) → Explicit saveProject() → Redis
                 ↓
@@ -38,6 +39,7 @@ LLM JSON → FormManager (React hook) → Explicit saveProject() → Redis
 ```
 
 **Symptoms:**
+
 - Comments in code: `"DON'T set musicPrompt here - it will be set after saveProject completes"`
 - Circular dependency workarounds
 - 500ms debounced saves to avoid performance issues
@@ -48,9 +50,11 @@ LLM JSON → FormManager (React hook) → Explicit saveProject() → Redis
 ### Problem 2: Lost Iterations
 
 **User Story:**
+
 > "I asked the AI to generate 5 different versions of the script with different voice combinations. After 30 minutes of iterations, I realized version 2 was the best, but I can't get back to it. The current system only keeps the latest version."
 
 **Current Behavior:**
+
 - Each LLM generation **replaces** previous state
 - No history, no undo, no comparison
 - Users keep parallel notes in Google Docs to track versions
@@ -58,11 +62,13 @@ LLM JSON → FormManager (React hook) → Explicit saveProject() → Redis
 ### Problem 3: Mixer State Confusion
 
 **Current Issue:**
+
 - Mixer tracks reference ephemeral IDs that break on regeneration
 - No clear relationship between form state and mixer tracks
 - Regenerating voice tracks can orphan sound effects
 
 **Desired Behavior:**
+
 - Mixer always reflects the **union of active versions** from each panel
 - Changing active voice version automatically updates mixer
 - Timeline state belongs to mixer, not individual versions
@@ -70,6 +76,7 @@ LLM JSON → FormManager (React hook) → Explicit saveProject() → Redis
 ### Problem 4: Brittle LLM Integration
 
 **Current Flow:**
+
 ```javascript
 // LLM generates → Must map to FormManager → Must saveProject → Then update UI
 const llmResponse = await generateCreative(...);
@@ -81,6 +88,7 @@ formManager.setMusicPrompt(llmResponse.musicPrompt);  // AGAIN after save comple
 ```
 
 **Problems:**
+
 - LLM can't directly manipulate project state
 - Complex two-phase update (FormManager → Redis)
 - Race conditions between phases
@@ -117,6 +125,7 @@ Mixer:           Union of voices:v3 + music:v2 + sfx:v1
 ### Why Flat Keys Over Nested JSON
 
 **OPTION A: Flat Keys (CHOSEN)**
+
 ```typescript
 ad:{adId}:voices:v:{versionId} -> { voiceTracks, generatedUrls, ... }
 ad:{adId}:music:v:{versionId} -> { musicPrompt, generatedUrl, ... }
@@ -124,6 +133,7 @@ ad:{adId}:sfx:v:{versionId} -> { soundFxPrompts, generatedUrls, ... }
 ```
 
 **OPTION B: Nested JSON (REJECTED)**
+
 ```typescript
 ad:{adId} -> {
   meta: {...},
@@ -135,6 +145,7 @@ ad:{adId} -> {
 ```
 
 **Rationale:**
+
 - ✅ **Atomic Operations:** `GET/SET` single version without loading entire ad
 - ✅ **Append Efficiency:** Add version without parsing/serializing entire document
 - ✅ **Independent Access:** Read voices without touching music data
@@ -230,12 +241,14 @@ ads:by_user:{userId} -> [...]            // User-specific index
 **Example:** `v1`, `v2`, `v3`, `v4`, ...
 
 **Rationale:**
+
 - Simple and human-readable
 - Still sortable by creation order
 - Easy to reference in UI ("Version 3")
 - Collision-free (sequential increment)
 
 **Implementation:** `getNextVersionId()` function in `src/lib/redis/versions.ts` counts existing versions using `LRANGE` and returns next integer:
+
 ```typescript
 const versions = await redis.lrange(`ad:${adId}:${streamType}:versions`, 0, -1);
 const nextNum = versions.length + 1;
@@ -243,6 +256,7 @@ return `v${nextNum}`;
 ```
 
 **Alternatives considered:**
+
 - `v{timestamp}` (e.g., `v1731456789123`) - rejected for complexity
 - UUID v4 (rejected - not sortable, harder to debug)
 
@@ -253,6 +267,7 @@ return `v${nextNum}`;
 ### RESTful Endpoints
 
 All endpoints follow REST conventions:
+
 - `GET` for reads
 - `POST` for creates
 - `PATCH` for updates (rare, versions are mostly immutable)
@@ -328,19 +343,19 @@ Response: {
 Same pattern as voices:
 
 ```typescript
-GET    /api/ads/{adId}/music
-POST   /api/ads/{adId}/music
-GET    /api/ads/{adId}/music/{versionId}
-PATCH  /api/ads/{adId}/music/{versionId}
-POST   /api/ads/{adId}/music/{versionId}/activate
-POST   /api/ads/{adId}/music/{versionId}/generate
+GET / api / ads / { adId } / music;
+POST / api / ads / { adId } / music;
+GET / api / ads / { adId } / music / { versionId };
+PATCH / api / ads / { adId } / music / { versionId };
+POST / api / ads / { adId } / music / { versionId } / activate;
+POST / api / ads / { adId } / music / { versionId } / generate;
 
-GET    /api/ads/{adId}/sfx
-POST   /api/ads/{adId}/sfx
-GET    /api/ads/{adId}/sfx/{versionId}
-PATCH  /api/ads/{adId}/sfx/{versionId}
-POST   /api/ads/{adId}/sfx/{versionId}/activate
-POST   /api/ads/{adId}/sfx/{versionId}/generate
+GET / api / ads / { adId } / sfx;
+POST / api / ads / { adId } / sfx;
+GET / api / ads / { adId } / sfx / { versionId };
+PATCH / api / ads / { adId } / sfx / { versionId };
+POST / api / ads / { adId } / sfx / { versionId } / activate;
+POST / api / ads / { adId } / sfx / { versionId } / generate;
 ```
 
 ### LLM Integration Endpoint
@@ -361,6 +376,7 @@ Response: {
 ```
 
 **Key Behavior:**
+
 - Creates **draft versions** in relevant streams
 - Does NOT activate them automatically
 - UI shows new versions in accordion (expanded by default)
@@ -400,6 +416,7 @@ Body: {
 ### Workflow 1: User Creates New Voice Version Manually
 
 **Steps:**
+
 1. User edits script in ScripterPanel
 2. User clicks "+ New Voice Version"
 3. `POST /api/ads/{adId}/voices` with edited voiceTracks
@@ -420,6 +437,7 @@ Body: {
 ### Workflow 2: LLM Generates Draft Versions
 
 **Steps:**
+
 1. User fills brief in BriefPanel
 2. User clicks "Generate Creative" (AUTO mode)
 3. `POST /api/ads/{adId}/llm-generate` with brief + voices
@@ -446,6 +464,7 @@ Body: {
 ### Workflow 3: Time Travel (Reactivate Old Version)
 
 **Steps:**
+
 1. User realizes `v2` voices were better than current `v5`
 2. User clicks on collapsed `v2` accordion to expand
 3. Inline audio players show preview of `v2` voices
@@ -462,6 +481,7 @@ Body: {
 **Scenario:** User wants LLM to recast voices but keep script.
 
 **Steps:**
+
 1. Current active: `voices:v3` with Script A + Voice Actor 1
 2. User clicks "Recast Voices" in ScripterPanel
 3. Dialog: "Keep script? Yes / No"
@@ -488,21 +508,23 @@ Body: {
 **Purpose:** Display a single version in the stream with expand/collapse, preview, and activation.
 
 **Props:**
+
 ```typescript
 interface VersionAccordionProps {
   adId: string;
   versionId: string;
   streamType: "voices" | "music" | "sfx";
-  isActive: boolean;        // Is this the active version?
-  isLatest: boolean;        // Is this the newest version?
+  isActive: boolean; // Is this the active version?
+  isLatest: boolean; // Is this the newest version?
   defaultExpanded: boolean; // Expand by default?
-  onActivate: () => void;   // Callback when "Push to Timeline" clicked
+  onActivate: () => void; // Callback when "Push to Timeline" clicked
 }
 ```
 
 **Visual States:**
 
 1. **Active Version (Green Border)**
+
    ```
    ┌─────────────────────────────────────────┐
    │ ✓ v3 (Active) · 2:30 PM · 🤖 AI        │ ← Green border
@@ -517,6 +539,7 @@ interface VersionAccordionProps {
    ```
 
 2. **Draft Version (Blue Border, Expanded)**
+
    ```
    ┌─────────────────────────────────────────┐
    │ v5 (Draft) · 3:15 PM · 🤖 AI    [×]    │ ← Blue border, close button
@@ -537,6 +560,7 @@ interface VersionAccordionProps {
    ```
 
 **Interaction:**
+
 - Click header → Toggle expand/collapse
 - Click "Push to Timeline" → Activate version, rebuild mixer
 - Click [▶ Preview] → Play audio inline (no mixer update)
@@ -546,6 +570,7 @@ interface VersionAccordionProps {
 ### ScripterPanel with Streams
 
 **Layout:**
+
 ```
 ┌─────────────────────────────────────────────────────┐
 │ Your Message, in the Right Voice                    │
@@ -582,6 +607,7 @@ interface VersionAccordionProps {
 ```
 
 **Behavior:**
+
 - Newest version always at top (reverse chronological)
 - Latest version expanded by default
 - Active version has green checkmark + border
@@ -593,6 +619,7 @@ interface VersionAccordionProps {
 Same accordion pattern, adapted for their content:
 
 **MusicPanel:**
+
 ```
 ┌─ v3 (Draft) · 3:20 PM · 🤖 AI ──────────────┐
 │                                              │
@@ -606,6 +633,7 @@ Same accordion pattern, adapted for their content:
 ```
 
 **SoundFxPanel:**
+
 ```
 ┌─ v2 (Draft) · 3:25 PM · 🤖 AI ──────────────┐
 │                                              │
@@ -660,14 +688,14 @@ async function rebuildMixer(adId: string): Promise<MixerState> {
       id: `voice-${activeVoiceId}-${i}`,
       url,
       type: "voice",
-      label: voiceVersion.voiceTracks[i].voice?.name || `Voice ${i+1}`,
+      label: voiceVersion.voiceTracks[i].voice?.name || `Voice ${i + 1}`,
       duration: voiceVersion.voiceTracks[i].duration,
       playAfter: voiceVersion.voiceTracks[i].playAfter,
       overlap: voiceVersion.voiceTracks[i].overlap,
       metadata: {
         versionId: activeVoiceId,
-        scriptText: voiceVersion.voiceTracks[i].text
-      }
+        scriptText: voiceVersion.voiceTracks[i].text,
+      },
     });
   });
 
@@ -681,8 +709,8 @@ async function rebuildMixer(adId: string): Promise<MixerState> {
       duration: musicVersion.duration,
       metadata: {
         versionId: activeMusicId,
-        promptText: musicVersion.musicPrompt
-      }
+        promptText: musicVersion.musicPrompt,
+      },
     });
   }
 
@@ -698,13 +726,16 @@ async function rebuildMixer(adId: string): Promise<MixerState> {
       overlap: sfxVersion.soundFxPrompts[i].overlap,
       metadata: {
         versionId: activeSfxId,
-        placementIntent: sfxVersion.soundFxPrompts[i].placement
-      }
+        placementIntent: sfxVersion.soundFxPrompts[i].placement,
+      },
     });
   });
 
   // 4. Calculate timeline positions
-  const calculated = LegacyTimelineCalculator.calculateTimings(tracks, audioDurations);
+  const calculated = LegacyTimelineCalculator.calculateTimings(
+    tracks,
+    audioDurations,
+  );
 
   // 5. Save mixer state
   const mixerState: MixerState = {
@@ -715,8 +746,8 @@ async function rebuildMixer(adId: string): Promise<MixerState> {
     activeVersions: {
       voices: activeVoiceId,
       music: activeMusicId,
-      sfx: activeSfxId
-    }
+      sfx: activeSfxId,
+    },
   };
 
   await redis.set(`ad:${adId}:mixer`, JSON.stringify(mixerState));
@@ -728,11 +759,13 @@ async function rebuildMixer(adId: string): Promise<MixerState> {
 ### When to Rebuild
 
 Mixer automatically rebuilds when:
+
 1. User activates a different version (POST `/activate` endpoint)
 2. User generates audio for active version (updates URLs)
 3. User manually triggers rebuild (POST `/mixer/rebuild`)
 
 Mixer does NOT rebuild when:
+
 - User creates new draft version (no impact until activated)
 - User edits draft version content (no impact until activated)
 - User generates audio for draft version (no impact until activated)
@@ -750,9 +783,10 @@ This keeps the mixer stable during experimentation.
 **Tasks:**
 
 1. **Define TypeScript Types**
+
    ```typescript
    // src/types/versions.ts
-   export type VersionId = string;  // "v{timestamp}"
+   export type VersionId = string; // "v{timestamp}"
    export type StreamType = "voices" | "music" | "sfx";
 
    export interface VoiceVersion {
@@ -786,12 +820,13 @@ This keeps the mixer stable during experimentation.
    ```
 
 2. **Create Redis Helper Functions**
+
    ```typescript
    // src/lib/redis/versions.ts
    export async function createVersion(
      adId: string,
      streamType: StreamType,
-     data: VoiceVersion | MusicVersion | SfxVersion
+     data: VoiceVersion | MusicVersion | SfxVersion,
    ): Promise<VersionId> {
      const versionId = `v${Date.now()}`;
      const key = `ad:${adId}:${streamType}:v:${versionId}`;
@@ -805,7 +840,7 @@ This keeps the mixer stable during experimentation.
    export async function getVersion(
      adId: string,
      streamType: StreamType,
-     versionId: VersionId
+     versionId: VersionId,
    ): Promise<VoiceVersion | MusicVersion | SfxVersion | null> {
      const key = `ad:${adId}:${streamType}:v:${versionId}`;
      const data = await redis.get(key);
@@ -814,7 +849,7 @@ This keeps the mixer stable during experimentation.
 
    export async function getActiveVersion(
      adId: string,
-     streamType: StreamType
+     streamType: StreamType,
    ): Promise<VersionId | null> {
      return await redis.get(`ad:${adId}:${streamType}:active`);
    }
@@ -822,51 +857,58 @@ This keeps the mixer stable during experimentation.
    export async function setActiveVersion(
      adId: string,
      streamType: StreamType,
-     versionId: VersionId
+     versionId: VersionId,
    ): Promise<void> {
      await redis.set(`ad:${adId}:${streamType}:active`, versionId);
    }
 
    export async function listVersions(
      adId: string,
-     streamType: StreamType
+     streamType: StreamType,
    ): Promise<VersionId[]> {
      return await redis.lrange(`ad:${adId}:${streamType}:versions`, 0, -1);
    }
    ```
 
 3. **Create Voice Stream API Endpoints**
+
    ```typescript
    // src/app/api/ads/[id]/voices/route.ts
-   export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+   export async function GET(
+     req: NextRequest,
+     { params }: { params: { id: string } },
+   ) {
      const adId = params.id;
-     const versionIds = await listVersions(adId, 'voices');
-     const activeId = await getActiveVersion(adId, 'voices');
+     const versionIds = await listVersions(adId, "voices");
+     const activeId = await getActiveVersion(adId, "voices");
 
      // Load all versions
      const versionsData: Record<VersionId, VoiceVersion> = {};
      for (const vId of versionIds) {
-       const version = await getVersion(adId, 'voices', vId);
+       const version = await getVersion(adId, "voices", vId);
        if (version) versionsData[vId] = version;
      }
 
      return NextResponse.json({
        versions: versionIds,
        active: activeId,
-       versionsData
+       versionsData,
      });
    }
 
-   export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+   export async function POST(
+     req: NextRequest,
+     { params }: { params: { id: string } },
+   ) {
      const adId = params.id;
      const { voiceTracks, createdBy = "user" } = await req.json();
 
-     const versionId = await createVersion(adId, 'voices', {
+     const versionId = await createVersion(adId, "voices", {
        voiceTracks,
        generatedUrls: [],
        createdAt: Date.now(),
        createdBy,
-       status: "draft"
+       status: "draft",
      });
 
      return NextResponse.json({ versionId, status: "draft" });
@@ -875,10 +917,13 @@ This keeps the mixer stable during experimentation.
    // src/app/api/ads/[id]/voices/[vId]/route.ts
    export async function GET(req: NextRequest, { params }) {
      const { id: adId, vId } = params;
-     const version = await getVersion(adId, 'voices', vId);
+     const version = await getVersion(adId, "voices", vId);
 
      if (!version) {
-       return NextResponse.json({ error: "Version not found" }, { status: 404 });
+       return NextResponse.json(
+         { error: "Version not found" },
+         { status: 404 },
+       );
      }
 
      return NextResponse.json(version);
@@ -889,10 +934,10 @@ This keeps the mixer stable during experimentation.
      const { id: adId, vId } = params;
 
      // Set active pointer
-     await setActiveVersion(adId, 'voices', vId);
+     await setActiveVersion(adId, "voices", vId);
 
      // Update version status
-     const version = await getVersion(adId, 'voices', vId);
+     const version = await getVersion(adId, "voices", vId);
      if (version) {
        version.status = "active";
        await redis.set(`ad:${adId}:voices:v:${vId}`, JSON.stringify(version));
@@ -913,6 +958,7 @@ This keeps the mixer stable during experimentation.
    - Verify mixer rebuild
 
 **Success Criteria:**
+
 - Can create voice versions via API
 - Can list all versions in stream
 - Can activate version
@@ -927,6 +973,7 @@ This keeps the mixer stable during experimentation.
 **Tasks:**
 
 1. **Create Base Component**
+
    ```typescript
    // src/components/VersionAccordion.tsx
    export function VersionAccordion({
@@ -994,6 +1041,7 @@ This keeps the mixer stable during experimentation.
    ```
 
 2. **Create Content Components**
+
    ```typescript
    // src/components/VoiceVersionContent.tsx
    function VoiceVersionContent({ version }: { version: VoiceVersion }) {
@@ -1016,6 +1064,7 @@ This keeps the mixer stable during experimentation.
    ```
 
 3. **Integrate into ScripterPanel**
+
    ```typescript
    // src/components/ScripterPanel.tsx
    export function ScripterPanel({ adId }: { adId: string }) {
@@ -1061,6 +1110,7 @@ This keeps the mixer stable during experimentation.
    ```
 
 **Success Criteria:**
+
 - Accordion expands/collapses smoothly
 - Active version has green border
 - Inline audio previews work
@@ -1081,6 +1131,7 @@ This keeps the mixer stable during experimentation.
 4. Integrate into `MusicPanel` and `SoundFxPanel`
 
 **Success Criteria:**
+
 - All 3 streams working independently
 - Can activate different versions in each stream
 - Mixer correctly unions all active versions
@@ -1094,6 +1145,7 @@ This keeps the mixer stable during experimentation.
 **Status:** See [docs/version3-llm.md](./version3-llm.md) for complete architecture.
 
 **Key Changes:**
+
 - Replace structured JSON output with tool calling (no more parsing errors)
 - LLM searches for voices on-demand (eliminates 10k token catalogues in prompts)
 - LLM writes directly to Redis via tools (no FormManager layer)
@@ -1102,6 +1154,7 @@ This keeps the mixer stable during experimentation.
 - Prompt caching for 50-90% token savings
 
 **Tools Provided to LLM:**
+
 - `search_voices(language, gender, accent)` - find voices from database
 - `create_voice_draft(adId, tracks)` - write voice version to Redis
 - `create_music_draft(adId, prompt, provider)` - write music version
@@ -1109,6 +1162,7 @@ This keeps the mixer stable during experimentation.
 - `get_current_state(adId)` - optional state refresh
 
 **Implementation Phases:**
+
 1. Tool definitions & provider adapters (OpenAI/Qwen/KIMI)
 2. Refactor `/api/ai/generate` with tool support
 3. New `/api/ads/[id]/chat` endpoint for iteration
@@ -1116,6 +1170,7 @@ This keeps the mixer stable during experimentation.
 5. Conversation management & summarization
 
 **Success Criteria:**
+
 - Zero JSON parsing errors (no more parsing)
 - 50% token cost reduction via caching
 - Conversational refinement works end-to-end
@@ -1135,6 +1190,7 @@ This keeps the mixer stable during experimentation.
 4. Handle edge cases (no active version in stream)
 
 **Success Criteria:**
+
 - Mixer clearly shows which versions are active
 - Activating any version immediately updates mixer
 - Timeline calculator handles mixed version sources
@@ -1148,6 +1204,7 @@ This keeps the mixer stable during experimentation.
 **Tasks:**
 
 1. **Route Split**
+
    ```typescript
    // Old system
    /project/{id} → uses project:* keys, old FormManager system
@@ -1157,6 +1214,7 @@ This keeps the mixer stable during experimentation.
    ```
 
 2. **Project Creation Flow**
+
    ```typescript
    // src/app/new/page.tsx
    async function createNewAd() {
@@ -1164,8 +1222,8 @@ This keeps the mixer stable during experimentation.
 
      // Initialize meta
      await fetch(`/api/ads`, {
-       method: 'POST',
-       body: JSON.stringify({ name, brief })
+       method: "POST",
+       body: JSON.stringify({ name, brief }),
      });
 
      // Navigate to new ad
@@ -1174,6 +1232,7 @@ This keeps the mixer stable during experimentation.
    ```
 
 3. **Future Migration Tool**
+
    ```typescript
    // src/lib/migration/projectToAd.ts
    async function migrateProjectToAd(projectId: string): Promise<string> {
@@ -1190,6 +1249,7 @@ This keeps the mixer stable during experimentation.
    ```
 
 **Success Criteria:**
+
 - Old projects still work at `/project/*`
 - New ads work at `/ad/*`
 - No breaking changes to existing users
@@ -1201,30 +1261,30 @@ This keeps the mixer stable during experimentation.
 
 ### Technical Metrics
 
-| Metric | Current | Target | How to Measure |
-|--------|---------|--------|----------------|
-| Code complexity | FormManager + debounced saves + sync logic | Direct API calls only | Lines of code |
-| Data layers | 4 (LLM JSON → FormManager → saveProject → Redis) | 2 (API ↔ Redis) | Architecture diagram |
-| Sync issues | Frequent (race conditions, lost updates) | Zero (Redis is truth) | Bug reports |
-| Version history | None | Unlimited | Redis key count |
+| Metric          | Current                                          | Target                | How to Measure       |
+| --------------- | ------------------------------------------------ | --------------------- | -------------------- |
+| Code complexity | FormManager + debounced saves + sync logic       | Direct API calls only | Lines of code        |
+| Data layers     | 4 (LLM JSON → FormManager → saveProject → Redis) | 2 (API ↔ Redis)       | Architecture diagram |
+| Sync issues     | Frequent (race conditions, lost updates)         | Zero (Redis is truth) | Bug reports          |
+| Version history | None                                             | Unlimited             | Redis key count      |
 
 ### User Experience Metrics
 
-| Metric | Current | Target | How to Measure |
-|--------|---------|--------|----------------|
-| Lost iterations | Common complaint | Never (all versions preserved) | User feedback |
-| Comparison workflows | Manual notes in Google Docs | Built-in accordion UI | User surveys |
-| LLM refinement | Replace-only (scary) | Draft-review-activate (safe) | Usage analytics |
-| Time to find old version | Impossible | < 5 seconds | User testing |
+| Metric                   | Current                     | Target                         | How to Measure  |
+| ------------------------ | --------------------------- | ------------------------------ | --------------- |
+| Lost iterations          | Common complaint            | Never (all versions preserved) | User feedback   |
+| Comparison workflows     | Manual notes in Google Docs | Built-in accordion UI          | User surveys    |
+| LLM refinement           | Replace-only (scary)        | Draft-review-activate (safe)   | Usage analytics |
+| Time to find old version | Impossible                  | < 5 seconds                    | User testing    |
 
 ### Architecture Quality
 
-| Metric | Current | Target | How to Measure |
-|--------|---------|--------|----------------|
-| Single source of truth | Violated (FormManager + Redis) | Achieved (Redis only) | Code review |
-| Immutability | None (everything mutable) | Versions immutable | Schema design |
-| Testability | Hard (mocked FormManager) | Easy (pure API tests) | Test coverage |
-| Scalability | Limited (nested JSON) | High (flat keys) | Redis performance |
+| Metric                 | Current                        | Target                | How to Measure    |
+| ---------------------- | ------------------------------ | --------------------- | ----------------- |
+| Single source of truth | Violated (FormManager + Redis) | Achieved (Redis only) | Code review       |
+| Immutability           | None (everything mutable)      | Versions immutable    | Schema design     |
+| Testability            | Hard (mocked FormManager)      | Easy (pure API tests) | Test coverage     |
+| Scalability            | Limited (nested JSON)          | High (flat keys)      | Redis performance |
 
 ---
 
@@ -1235,6 +1295,7 @@ This keeps the mixer stable during experimentation.
 **Feature:** Side-by-side comparison of two versions.
 
 **UI:**
+
 ```
 ┌─────────────────────────────────────────────┐
 │ Compare: v3 (Active) vs v5 (Draft)          │
@@ -1256,6 +1317,7 @@ This keeps the mixer stable during experimentation.
 **Feature:** Duplicate a version to experiment without LLM.
 
 **Workflow:**
+
 1. User clicks [⋯] on v3
 2. Select "Fork Version"
 3. Creates v6 as exact copy of v3
@@ -1283,6 +1345,7 @@ This keeps the mixer stable during experimentation.
 ### Why Not Nested JSON?
 
 **Considered:**
+
 ```typescript
 ad:{adId} -> {
   meta: {...},
@@ -1291,6 +1354,7 @@ ad:{adId} -> {
 ```
 
 **Rejected because:**
+
 1. Every version read requires parsing entire ad object
 2. Adding version requires read-modify-write cycle (not atomic)
 3. Can't use Redis LIST operations for ordering
@@ -1300,6 +1364,7 @@ ad:{adId} -> {
 ### Why Immutable Versions?
 
 **Benefits:**
+
 - Safe to fork/experiment (can't corrupt original)
 - Easy to implement time travel (no state snapshots needed)
 - Simplifies conflict resolution (no concurrent edits)
@@ -1320,6 +1385,7 @@ ad:{adId} -> {
 ### Why Redis Over Neon (PostgreSQL)?
 
 **Redis Pros:**
+
 - Faster reads/writes (in-memory)
 - Simpler schema (key-value, not tables)
 - Natural fit for ephemeral project data
@@ -1327,6 +1393,7 @@ ad:{adId} -> {
 - TTL support for garbage collection
 
 **Neon Pros:**
+
 - Relational queries (version history across ads)
 - Transactional consistency
 - Better for long-term archival
@@ -1353,22 +1420,26 @@ ad:{adId} -> {
    - Cons: Two connections to maintain during development
 
 **Implementation Benefits:**
+
 - **Zero production risk**: New code cannot touch `project:*` keys
 - **Easy rollback**: Drop V3 instance if design needs major changes
 - **Independent testing**: Test environment completely isolated
 - **Clear migration path**: When ready, can migrate or keep separate
 
 **Trade-offs:**
+
 - Requires setting `V3_REDIS_URL` environment variable locally and in deployment
 - Two Redis connections during development phase (temporary until migration complete)
 - Slight increase in complexity (two getRedis functions)
 
 **Future Path:**
+
 - Phase 6: Optionally migrate old projects to Version Streams
 - Or: Keep separate instances permanently (different use cases)
 - Or: Merge after Version Streams proven stable
 
 **Connection Format:**
+
 ```bash
 # Development instance (Version Streams)
 V3_REDIS_URL=https://your-instance.upstash.io?token=xxx
@@ -1386,6 +1457,7 @@ REDIS_URL=https://your-prod.upstash.io?token=yyy
 **Status:** Phase 1 & 2 Complete (APIs + UI Fully Tested)
 
 **Implementation Status:**
+
 - ✅ Phase 1: Redis data model & API foundation (COMPLETED)
   - 15 API endpoints implemented
   - Dual Redis architecture for production safety
@@ -1405,6 +1477,7 @@ REDIS_URL=https://your-prod.upstash.io?token=yyy
 - ⏳ Phase 6: Migration & coexistence (PENDING)
 
 **Next Steps:**
+
 1. ✅ ~~Test the VersionAccordion UI by creating test data via APIs~~ (COMPLETED)
 2. **CRITICAL:** Strip voice metadata bloat - store only voice IDs, hydrate at read time
 3. Integrate audio generation to populate generatedUrls (Phase 3)
@@ -1419,6 +1492,7 @@ REDIS_URL=https://your-prod.upstash.io?token=yyy
 ### The Problem
 
 **Current Implementation (WRONG):**
+
 ```typescript
 // voiceTrack stores FULL voice object - 300+ bytes per track!
 {
@@ -1441,6 +1515,7 @@ REDIS_URL=https://your-prod.upstash.io?token=yyy
 ```
 
 **Why This Is Terrible:**
+
 - 🔴 Stores 9 fields of voice metadata per track (name, provider, gender, language, accent, style, description, age, use_case)
 - 🔴 3 voice tracks = 900+ bytes of duplicated metadata
 - 🔴 Voice metadata already exists in the app's voice database
@@ -1450,6 +1525,7 @@ REDIS_URL=https://your-prod.upstash.io?token=yyy
 ### The Solution
 
 **Store Voice IDs Only:**
+
 ```typescript
 // voiceTrack stores ONLY voice ID - 30 bytes per track
 {
@@ -1462,18 +1538,20 @@ REDIS_URL=https://your-prod.upstash.io?token=yyy
 ```
 
 **Voice Metadata Hydration at Read Time:**
+
 ```typescript
 // When loading versions, hydrate voice metadata from app database
 const version = await getVersion(adId, "voices", versionId);
 
 // Hydrate voice metadata for UI display
-const hydratedTracks = version.voiceTracks.map(track => ({
+const hydratedTracks = version.voiceTracks.map((track) => ({
   ...track,
-  voice: getVoiceById(track.voiceId) // Fetch from voice cache/database
+  voice: getVoiceById(track.voiceId), // Fetch from voice cache/database
 }));
 ```
 
 **Benefits:**
+
 - ✅ 95% reduction in Redis storage (30 bytes vs 300+ bytes per track)
 - ✅ Single source of truth for voice metadata (app database)
 - ✅ Voice metadata updates don't require version migration
@@ -1483,10 +1561,11 @@ const hydratedTracks = version.voiceTracks.map(track => ({
 ### Implementation Plan
 
 **Phase 1: Update Types**
+
 ```typescript
 // src/types/versions.ts
 export interface VoiceTrack {
-  voiceId: string;        // Voice ID reference (NOT full object)
+  voiceId: string; // Voice ID reference (NOT full object)
   text: string;
   playAfter: string;
   overlap: number;
@@ -1496,50 +1575,53 @@ export interface VoiceTrack {
 ```
 
 **Phase 2: Update Write Operations**
+
 ```typescript
 // When creating version, extract voice IDs
 const versionData: VoiceVersion = {
-  voiceTracks: voiceTracks.map(track => ({
-    voiceId: track.voice?.id || "",  // Extract ID only
+  voiceTracks: voiceTracks.map((track) => ({
+    voiceId: track.voice?.id || "", // Extract ID only
     text: track.text,
     playAfter: track.playAfter,
     overlap: track.overlap,
     isConcurrent: track.isConcurrent,
-    speed: track.speed
+    speed: track.speed,
   })),
   generatedUrls: [],
   createdAt: Date.now(),
   createdBy: "llm",
-  status: "draft"
+  status: "draft",
 };
 ```
 
 **Phase 3: Update Read Operations**
+
 ```typescript
 // When loading version, hydrate voice metadata
 export async function getVersionHydrated(
   adId: string,
   streamType: "voices",
-  versionId: VersionId
+  versionId: VersionId,
 ): Promise<VoiceVersion> {
   const version = await getVersion(adId, streamType, versionId);
 
   // Hydrate voice metadata from voice database
   const hydratedTracks = await Promise.all(
-    version.voiceTracks.map(async track => ({
+    version.voiceTracks.map(async (track) => ({
       ...track,
-      voice: await getVoiceById(track.voiceId)
-    }))
+      voice: await getVoiceById(track.voiceId),
+    })),
   );
 
   return {
     ...version,
-    voiceTracks: hydratedTracks
+    voiceTracks: hydratedTracks,
   };
 }
 ```
 
 **Phase 4: Voice Database/Cache**
+
 ```typescript
 // src/lib/voices/cache.ts
 export async function getVoiceById(voiceId: string): Promise<Voice | null> {
@@ -1561,6 +1643,7 @@ export async function getVoiceById(voiceId: string): Promise<Voice | null> {
 ### The Problem
 
 **WRONG Pattern (Single JSON Blob):**
+
 ```typescript
 // ❌ WRONG - writes entire stream as single JSON object
 ad:{adId}:voices:stream -> {
@@ -1575,6 +1658,7 @@ ad:{adId}:voices:stream -> {
 ```
 
 **Why This Breaks:**
+
 - 🔴 API expects flat keys, not nested JSON
 - 🔴 `getAllVersionsWithData()` looks for `ad:{adId}:voices:versions` (Redis LIST)
 - 🔴 `getActiveVersion()` looks for `ad:{adId}:voices:active` (Redis STRING)
@@ -1583,6 +1667,7 @@ ad:{adId}:voices:stream -> {
 ### The Solution
 
 **CORRECT Pattern (Flat Keys):**
+
 ```typescript
 // ✅ CORRECT - writes to separate Redis keys
 await redis.rpush(`ad:${adId}:voices:versions`, "v1");
@@ -1595,6 +1680,7 @@ await redis.set(`ad:${adId}:voices:v:v3`, JSON.stringify(voiceVersion3));
 ```
 
 **Test Script Example:**
+
 ```typescript
 // scripts/create-test-ad-direct.ts
 const voiceVersions = [
@@ -1631,6 +1717,7 @@ await redis.set(`ad:${adId}:sfx:v:v1`, JSON.stringify(sfxVersion));
 ### What Was Built
 
 **Files Created:**
+
 ```
 src/
 ├── types/versions.ts (248 lines)
@@ -1680,15 +1767,17 @@ src/
 ### Key Implementation Decisions
 
 #### 1. Next.js 15 Async Params
+
 **Issue:** Next.js 15 requires route params to be awaited
 
 **Solution:** All routes use `{ params }: { params: Promise<{ id: string }> }` pattern
 
 **Pattern:**
+
 ```typescript
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: adId } = await params;
   // ...
@@ -1700,17 +1789,23 @@ export async function GET(
 ---
 
 #### 2. Version ID Generation
+
 **Decision:** Integer auto-increment (v1, v2, v3) instead of timestamps
 
 **Reason:** User preference for simplicity and readability
 
 **Implementation:**
+
 ```typescript
 async function getNextVersionId(
   adId: string,
-  streamType: StreamType
+  streamType: StreamType,
 ): Promise<VersionId> {
-  const versions = await redis.lrange(`ad:${adId}:${streamType}:versions`, 0, -1);
+  const versions = await redis.lrange(
+    `ad:${adId}:${streamType}:versions`,
+    0,
+    -1,
+  );
   const nextNum = versions.length + 1;
   return `v${nextNum}`;
 }
@@ -1721,6 +1816,7 @@ async function getNextVersionId(
 ---
 
 #### 3. Redis Import Path
+
 **Issue:** Initially used wrong relative path in `versions.ts`
 
 **Fix:** Changed from `import { getRedis } from "./redis"` to `import { getRedis } from "../redis"` (correct path from `lib/redis/` to `lib/`)
@@ -1730,11 +1826,13 @@ async function getNextVersionId(
 ---
 
 #### 4. TypeScript ESLint
+
 **Issue:** `Record<string, any>` flagged by linter in MixerTrack metadata
 
 **Fix:** Changed to `Record<string, unknown>` to satisfy strict typing rules
 
 **Code:**
+
 ```typescript
 export interface MixerTrack {
   // ...
@@ -1745,9 +1843,11 @@ export interface MixerTrack {
 ---
 
 #### 5. Mixer Duration Estimation
+
 **Implementation:** Voice duration estimated from word count using simple heuristic
 
 **Algorithm:**
+
 ```typescript
 function estimateVoiceDuration(text: string): number {
   const words = text.trim().split(/\s+/).length;
@@ -1768,12 +1868,14 @@ function estimateVoiceDuration(text: string): number {
 **Decision:** Separate Redis instances for production (`REDIS_URL`) and development (`V3_REDIS_URL`)
 
 **Rationale:**
+
 - User concern: "i'm a bit worried now. the redis we're working with is a PRODUCTION instance"
 - Protect production `project:*` data during Version Streams development
 - Enable safe experimentation with new `ad:*` namespace
 - Allow rollback without affecting existing users
 
 **Implementation:**
+
 ```typescript
 // src/lib/redis-v3.ts
 export function getRedisV3(): Redis {
@@ -1789,12 +1891,14 @@ export function getRedisV3(): Redis {
 ```
 
 **Files Modified to Use getRedisV3():**
+
 - `src/lib/redis/versions.ts` (10 function calls)
 - `src/lib/mixer/rebuilder.ts` (2 function calls)
 - `src/app/api/ads/route.ts` (2 function calls)
 - All test files updated to mock `redis-v3` instead of `redis`
 
 **Environment Setup:**
+
 - Local: `V3_REDIS_URL=https://*.upstash.io?token=xxx` in `.env.local`
 - Tests: `V3_REDIS_URL=redis://localhost:6379?token=mock-token` in `vitest.config.mts`
 
@@ -1805,6 +1909,7 @@ export function getRedisV3(): Redis {
 ### Testing Status
 
 **Build Verification:**
+
 - ✅ TypeScript compilation successful
 - ✅ ESLint passing (0 errors, 0 warnings)
 - ✅ All imports resolved correctly
@@ -1812,11 +1917,13 @@ export function getRedisV3(): Redis {
 - ✅ All 15 API routes registered in Next.js
 
 **API Testing:**
+
 - ⏳ Manual API testing pending (can proceed with Phase 2 or test now)
 - ⏳ No audio generation integration yet (generatedUrls remain empty)
 - ⏳ No UI to interact with APIs yet
 
 **Redis Operations:**
+
 - ✅ Key patterns verified correct
 - ✅ Version CRUD operations implemented
 - ✅ Active pointer management working
@@ -1830,14 +1937,15 @@ export function getRedisV3(): Redis {
 
 **Redis Operations Per Request:**
 
-| Operation | Redis Calls | Efficiency |
-|-----------|-------------|------------|
-| Create version | 2 (SET + RPUSH) | ✅ Optimal |
-| List versions | N+1 (LRANGE + N GETs) | ⚠️ Could use pipeline |
-| Activate version | 3 (GET verify + SET active + SET status) | ✅ Acceptable |
-| Rebuild mixer | 6 (3 GET active + 3 GET versions) + 1 SET | ⚠️ Could use MGET |
+| Operation        | Redis Calls                               | Efficiency            |
+| ---------------- | ----------------------------------------- | --------------------- |
+| Create version   | 2 (SET + RPUSH)                           | ✅ Optimal            |
+| List versions    | N+1 (LRANGE + N GETs)                     | ⚠️ Could use pipeline |
+| Activate version | 3 (GET verify + SET active + SET status)  | ✅ Acceptable         |
+| Rebuild mixer    | 6 (3 GET active + 3 GET versions) + 1 SET | ⚠️ Could use MGET     |
 
 **Potential Optimizations:**
+
 - Use Redis pipelines for batch operations
 - Use MGET for loading multiple versions simultaneously
 - Consider caching mixer state client-side to reduce rebuilds
@@ -1869,6 +1977,7 @@ export function getRedisV3(): Redis {
 ### What Was Built
 
 **Files Created:**
+
 ```
 src/
 ├── components/
@@ -1895,6 +2004,7 @@ src/
 ### Key Implementation Decisions
 
 #### 1. Radix UI Over Headless UI
+
 **User Requirement:** "use this as accordion component: https://www.radix-ui.com/primitives/docs/components/accordion"
 
 **Implementation:** Installed `@radix-ui/react-accordion@1.2.12` despite existing Headless UI library
@@ -1904,9 +2014,11 @@ src/
 ---
 
 #### 2. Generic Type System with BaseVersionItem
+
 **Problem:** VoiceVersion, MusicVersion, and SfxVersion have different structures (generatedUrls vs generatedUrl)
 
 **Solution:**
+
 ```typescript
 export interface BaseVersionItem {
   id: VersionId;
@@ -1929,9 +2041,11 @@ export function VersionAccordion<T extends BaseVersionItem>({
 ---
 
 #### 3. Flexible Audio Detection via Callback
+
 **Implementation:** Optional `hasAudio` prop instead of hardcoded field checks
 
 **Usage:**
+
 ```typescript
 // Voice (array of URLs)
 hasAudio={(v) => (v as VoiceVersion).generatedUrls?.length > 0}
@@ -1945,9 +2059,11 @@ hasAudio={(v) => (v as MusicVersion).generatedUrl?.length > 0}
 ---
 
 #### 4. Minimal Styling with Glassmorphism
+
 **User Requirement:** "style it super minimally"
 
 **Implementation:**
+
 - Blue "ACTIVE" pill badge with `bg-wb-blue/20 border-wb-blue/30`
 - Glassy play button with `backdrop-blur-sm bg-white/10`
 - Read-only fields with `bg-white/5 border-white/10`
@@ -1958,9 +2074,11 @@ hasAudio={(v) => (v as MusicVersion).generatedUrl?.length > 0}
 ---
 
 #### 5. Descending Order Sorting
+
 **User Requirement:** "versions are sorted in a descending order"
 
 **Implementation:**
+
 ```typescript
 const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 ```
@@ -1970,11 +2088,13 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 ---
 
 #### 6. Nested Buttons Hydration Fix
+
 **Problem:** React hydration error: "In HTML, <button> cannot be a descendant of <button>"
 
 **Root Cause:** `Accordion.Trigger` renders as a `<button>`, and we had play/activate buttons nested inside it
 
 **Solution:** Restructured accordion header so interactive buttons are siblings of the trigger:
+
 ```typescript
 <Accordion.Header className="flex items-center gap-2 px-4 py-3">
   {/* Trigger button */}
@@ -2001,23 +2121,27 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 ### UI Specifications Implemented
 
 **Active Version State:**
+
 - Blue "ACTIVE" pill badge in title
 - "USE IN MIX" button (disabled) instead of checkbox
 - Green border (planned but not in current implementation)
 - All fields read-only
 
 **Inactive Version State:**
+
 - No badge
 - Checkbox button for activation
 - Gray/neutral styling
 - All fields read-only
 
 **Play Button:**
+
 - Only shown when hasAudio() returns true
 - Glassy button with PlayIcon
 - Stops event propagation (doesn't toggle accordion)
 
 **Layout:**
+
 - Title: Version ID + ACTIVE badge (left)
 - Right side: Play button + Checkbox/Button
 
@@ -2028,6 +2152,7 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 **Location:** `/ad/[id]/page.tsx`
 
 **Features:**
+
 - Tabbed interface for Voices / Music / SFX
 - Fetches all three streams on mount
 - Handles activation via POST to `/activate` endpoints
@@ -2041,6 +2166,7 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 ### Known Limitations
 
 #### 1. No Audio Generation Yet
+
 **Status:** Play buttons shown but no actual audio to play
 
 **Impact:** Cannot test full preview functionality
@@ -2050,6 +2176,7 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 ---
 
 #### 2. No Edit Mode
+
 **Current:** All fields read-only
 
 **Future:** Active versions might get inline editing capability
@@ -2059,6 +2186,7 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 ---
 
 #### 3. No Version Comparison
+
 **Spec Feature:** Phase 7 includes side-by-side comparison UI
 
 **Status:** Not implemented yet
@@ -2068,6 +2196,7 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 ---
 
 #### 4. No Version Forking/Merging
+
 **Spec Features:** Phase 8-9 include fork/merge workflows
 
 **Status:** Not implemented yet
@@ -2079,6 +2208,7 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 ### Testing Status
 
 **Manual Testing:**
+
 - ✅ Test data script created (scripts/create-test-ad.ts)
 - ✅ Successfully creates realistic Spotify Premium campaign
 - ✅ Accordion expand/collapse verified
@@ -2087,10 +2217,12 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 - ⏳ Play button functionality (no audio generation yet)
 
 **Component Testing:**
+
 - ⏳ No unit tests written yet
 - ⏳ No Storybook stories created
 
 **Build Verification:**
+
 - ✅ TypeScript compilation successful
 - ✅ All imports resolved
 - ✅ No ESLint errors
@@ -2101,6 +2233,7 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 ### Next Development Tasks
 
 **✅ Completed:**
+
 1. ✅ Create test data via Phase 1 APIs
 2. ✅ Manually test accordion expand/collapse
 3. ✅ Verify activation flow works end-to-end
@@ -2108,12 +2241,14 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 5. ✅ Fix nested buttons hydration error
 
 **Immediate (Phase 3):**
+
 1. Integrate audio generation to populate generatedUrls
 2. Test play button functionality with real audio
 3. Add loading states for activation
 4. Handle error states (failed activation, missing data)
 
 **Soon:**
+
 1. Add unit tests for VersionAccordion
 2. Create Storybook stories for components
 3. Add keyboard navigation support
@@ -2124,9 +2259,11 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 ### Known Limitations
 
 #### 1. No Actual Audio Generation Yet
+
 **Status:** `generatedUrls` arrays remain empty until audio generation is integrated
 
 **Impact:**
+
 - Mixer tracks will have empty URLs until generation endpoints are wired up
 - Cannot test full end-to-end flow yet
 - Timeline calculations use estimated durations instead of actual
@@ -2136,16 +2273,19 @@ const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
 ---
 
 #### 2. Naive Duration Estimation
+
 **Current Approach:**
+
 - Voice: Word count heuristic (~2.5 words/sec)
 - Music/SFX: Use provided duration values
 
 **Limitation:** Estimates may not match actual audio length
 
 **TODO:** Measure actual audio duration after generation using Audio API:
+
 ```typescript
 const audio = new Audio(url);
-audio.addEventListener('loadedmetadata', () => {
+audio.addEventListener("loadedmetadata", () => {
   const actualDuration = audio.duration;
 });
 ```
@@ -2153,6 +2293,7 @@ audio.addEventListener('loadedmetadata', () => {
 ---
 
 #### 3. No User Authentication
+
 **Current State:** Still using `universal-session` pattern from legacy system
 
 **Impact:** All users share same session (testing mode only)
@@ -2162,9 +2303,11 @@ audio.addEventListener('loadedmetadata', () => {
 ---
 
 #### 4. No UI Yet
+
 **Status:** APIs fully functional but no client-side interface
 
 **Impact:**
+
 - Manual API testing required (curl/Postman)
 - Cannot demonstrate version accordion UI
 - No "Push to Timeline" activation buttons
@@ -2174,6 +2317,7 @@ audio.addEventListener('loadedmetadata', () => {
 ---
 
 #### 5. Race Conditions in Version ID Generation
+
 **Potential Issue:** Multiple concurrent version creations could generate duplicate IDs
 
 **Current Mitigation:** Acceptable for single-user testing mode
@@ -2185,6 +2329,7 @@ audio.addEventListener('loadedmetadata', () => {
 ### Next Development Tasks
 
 **Immediate (Phase 2):**
+
 1. Build VersionAccordion component for displaying version history
 2. Update ScripterPanel to fetch and display version stream via API
 3. Wire "Push to Timeline" activation buttons to `/activate` endpoints
@@ -2192,6 +2337,7 @@ audio.addEventListener('loadedmetadata', () => {
 5. Handle draft vs active visual states (badges, borders)
 
 **Soon (Phase 3):**
+
 1. Integrate audio generation APIs with version endpoints
 2. Create `/generate` endpoints for each stream type
 3. Populate `generatedUrls` arrays after successful generation
@@ -2199,12 +2345,14 @@ audio.addEventListener('loadedmetadata', () => {
 5. Add error handling for failed generations
 
 **Medium-term (Phase 4):**
+
 1. Build `/api/ads/{id}/llm-generate` endpoint
 2. Parse LLM JSON responses and create draft versions
 3. UI for reviewing and activating LLM-generated versions
 4. Support iterative refinement (recast voices, modify music, etc.)
 
 **Future (Phase 5-6):**
+
 1. Update MixerPanel to show active version indicators
 2. Add manual mixer rebuild button
 3. Build migration tool for legacy `project:*` data

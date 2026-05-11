@@ -46,7 +46,11 @@ export default function AdWorkspace() {
   const sfx = useStreamOperations(adId, "sfx");
 
   // Mixer data and operations
-  const { data: mixerData, mutate: mutateMixer, removeStream } = useMixerData(adId);
+  const {
+    data: mixerData,
+    mutate: mutateMixer,
+    removeStream,
+  } = useMixerData(adId);
 
   // Helper to get mixer URL for a track type
   const getMixerUrl = (type: "music" | "soundfx") =>

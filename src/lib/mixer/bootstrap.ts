@@ -74,7 +74,7 @@ export interface BootstrapResult {
  * bootstrap that landed between our list read and our lock acquisition.
  */
 export async function bootstrapLegacyMixer(
-  adId: string
+  adId: string,
 ): Promise<BootstrapResult> {
   const existing = await listVersions(adId, "mixer");
   if (existing.length > 0) {
@@ -86,11 +86,10 @@ export async function bootstrapLegacyMixer(
     };
   }
 
-  return withAdLock(
-    adId,
-    () => bootstrapLocked(adId),
-    { ttlSec: 30, timeoutMs: 10_000 }
-  );
+  return withAdLock(adId, () => bootstrapLocked(adId), {
+    ttlSec: 30,
+    timeoutMs: 10_000,
+  });
 }
 
 async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
@@ -146,17 +145,17 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
   const voiceSlotIds = await ensureVoiceSlotIds(
     adId,
     activeVoiceId,
-    voiceVersion as VoiceVersion | null
+    voiceVersion as VoiceVersion | null,
   );
   const sfxSlotIds = await ensureSfxSlotIds(
     adId,
     activeSfxId,
-    sfxVersion as SfxVersion | null
+    sfxVersion as SfxVersion | null,
   );
   const musicSlotId = await ensureMusicSlotId(
     adId,
     activeMusicId,
-    musicVersion as MusicVersion | null
+    musicVersion as MusicVersion | null,
   );
 
   // Build the anchor graph, keyed by slot id.
@@ -179,7 +178,12 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
     sv.soundFxPrompts.forEach((prompt, index) => {
       const slotId = sfxSlotIds[index];
       if (!slotId) return;
-      const anchor = anchorFromSoundFxPrompt(prompt, voiceSlotIds, sfxSlotIds, index);
+      const anchor = anchorFromSoundFxPrompt(
+        prompt,
+        voiceSlotIds,
+        sfxSlotIds,
+        index,
+      );
       if (anchor) {
         anchors[slotId] = { anchor, origin: "llm-seed" };
       }
@@ -214,7 +218,7 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
   const deleted = await redis.del(legacyKey);
 
   console.log(
-    `[mixer-bootstrap] adId=${adId} versionId=${versionId} legacyDeleted=${deleted > 0}`
+    `[mixer-bootstrap] adId=${adId} versionId=${versionId} legacyDeleted=${deleted > 0}`,
   );
 
   return {
@@ -236,7 +240,7 @@ function mintSlotId(): string {
 async function ensureVoiceSlotIds(
   adId: string,
   versionId: VersionId | null,
-  voiceVersion: VoiceVersion | null
+  voiceVersion: VoiceVersion | null,
 ): Promise<Array<string | undefined>> {
   if (!voiceVersion || !versionId) return [];
   const slotIds: Array<string | undefined> = [];
@@ -263,7 +267,7 @@ async function ensureVoiceSlotIds(
 async function ensureSfxSlotIds(
   adId: string,
   versionId: VersionId | null,
-  sfxVersion: SfxVersion | null
+  sfxVersion: SfxVersion | null,
 ): Promise<Array<string | undefined>> {
   if (!sfxVersion || !versionId) return [];
   const slotIds: Array<string | undefined> = [];
@@ -290,7 +294,7 @@ async function ensureSfxSlotIds(
 async function ensureMusicSlotId(
   adId: string,
   versionId: VersionId | null,
-  musicVersion: MusicVersion | null
+  musicVersion: MusicVersion | null,
 ): Promise<string | null> {
   if (!musicVersion || !versionId) return null;
   if (musicVersion.slotId) return musicVersion.slotId;

@@ -93,8 +93,8 @@ You MUST generate FOUR optimized music prompts for different providers.
 - **Style**: Detailed instrumental descriptions with concrete musical terms
 - **Band/artist references**: ALLOWED and ENCOURAGED (key differentiator from ElevenLabs)
 - **Contextual framing**: OPTIONAL - use when it adds value:
-  * "feels like [mood/scene]" - adds emotional/contextual anchor
-  * "for [use case or scenario]" - adds purpose-driven context
+  - "feels like [mood/scene]" - adds emotional/contextual anchor
+  - "for [use case or scenario]" - adds purpose-driven context
 - **Focus**: Instruments, tempo, playing techniques, genres, artist/band style references
 - **Flexibility**: Not a rigid template - use contextual framing naturally when helpful
 - **Example**: "Uplifting indie pop track that feels like a summer road trip with friends, featuring bright jangly electric guitars reminiscent of The Strokes, fast rhythmic strumming similar to early Phoenix albums, light bouncy drums with tambourine accents and walking bassline in the style of Vampire Weekend. Perfect for energetic lifestyle content and youth-oriented brands."
@@ -108,6 +108,7 @@ You MUST generate FOUR optimized music prompts for different providers.
 - **Multi-word phrases add depth**: "fun day with friends", "night city street", "rainy window"
 
 **Excellent Examples** (battle-tested patterns):
+
 - "Indie rock, energetic, summer, full of life, fun day with friends"
 - "Lo-fi, chill, night, soft keys, rainy window, city lights"
 - "Smooth jazz, calm, warm, gentle saxophone, quiet night, reading"
@@ -229,13 +230,13 @@ export function removeArtistReferences(prompt: string): string;
 
 // Generate provider-specific prompts from description
 export function generatePromptsFromDescription(
-  description: string
+  description: string,
 ): MusicPrompts;
 
 // Validate and fix music prompts
 export function validateMusicPrompts(
   prompts: Partial<MusicPrompts> | null,
-  fallbackDescription?: string
+  fallbackDescription?: string,
 ): MusicPrompts;
 
 // Migration helper
@@ -388,7 +389,7 @@ Added missing restoration logic:
 if (project.musicPrompts) {
   console.log(
     "🎵 Restoring provider-specific music prompts:",
-    project.musicPrompts
+    project.musicPrompts,
   );
   formManager.setMusicPrompts(project.musicPrompts);
 }
@@ -426,13 +427,11 @@ This ensures:
 ### Architecture Insights
 
 1. **FormManager as Source of Truth**
-
    - FormManager is the bridge between UI and Redis for auto-saves
    - **Critical Rule**: If data isn't in formManager, it will be lost on auto-save
    - All project data must be restored to formManager on load, not just some fields
 
 2. **Dual Save Paths Require Coordination**
-
    - Explicit saves (after LLM generation) use `explicitLLMData` parameter
    - Auto-saves (text changes, provider switches) use `formManager` state
    - Both paths must have access to the same complete data
@@ -448,7 +447,6 @@ This ensures:
 ### React Component Patterns
 
 4. **Controlling Component Visibility**
-
    - Setting `style={{ display: 'none' }}` on nested elements doesn't hide wrapper components
    - For complex components with multiple wrappers, control visibility at the outermost level
    - Solution: Wrap entire component in a div with conditional display
@@ -461,7 +459,6 @@ This ensures:
 ### Development Process
 
 6. **Documentation Value**
-
    - Detailed docs helped diagnose the bug quickly
    - Clear data flow diagrams pinpointed the missing restoration step
    - Next developer knew exactly what the system should do vs. what it was doing
@@ -476,22 +473,18 @@ This ensures:
 ### Core Strategy Pattern
 
 1. **src/lib/prompt-strategies/BasePromptStrategy.ts**
-
    - Added MUSIC GENERATION GUIDANCE section (lines 221-303)
    - Requires 4-field music object output
    - Preserves all original detailed guidance + provider transformations
 
 2. **src/lib/prompt-strategies/ElevenLabsV3PromptStrategy.ts**
-
    - Updated buildOutputFormat() to include 4-field music object
    - Added reminder line about required fields
 
 3. **src/lib/prompt-strategies/OpenAIPromptStrategy.ts**
-
    - Updated buildOutputFormat() to match ElevenLabs structure
 
 4. **src/lib/prompt-strategies/LovoPromptStrategy.ts**
-
    - Updated buildOutputFormat() with 4-field music object
 
 5. **src/lib/prompt-strategies/QwenPromptStrategy.ts**
@@ -506,7 +499,6 @@ This ensures:
 ### Parsing & Validation
 
 7. **src/utils/json-parser.ts**
-
    - Updated `CreativeResponse` interface with music fields
    - Updated `ParsedCreativeResponse` to include musicPrompts
    - Added extraction logic with smart fallbacks
@@ -522,7 +514,6 @@ This ensures:
 ### UI Components
 
 9. **src/components/MusicPanel.tsx**
-
    - Added state for musicPrompts and promptEdits
    - Load musicPrompts on mount with migration
    - Smart prompt switching on provider change
@@ -651,25 +642,21 @@ LLM generates all 4 prompts:
 ### Potential Improvements
 
 1. **Real-time Character Count**
-
    - Show Mubert character count in UI
    - Warn when approaching 250 char limit
    - Visual indicator for valid/invalid lengths
 
 2. **Artist Reference Detection**
-
    - Real-time detection in UI for ElevenLabs
    - Suggest instrumental alternatives
    - Auto-clean option
 
 3. **Prompt Templates**
-
    - Pre-built templates for common scenarios
    - Genre-specific transformations
    - Mood-based suggestions
 
 4. **Quality Scoring**
-
    - Analyze prompt quality for each provider
    - Suggest improvements based on provider constraints
    - Learn from successful generations

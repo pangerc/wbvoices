@@ -82,7 +82,9 @@ export function ScripterPanel({
   // Load voices for the VERSION's provider only (not both providers)
   useEffect(() => {
     if (overrideVoices) {
-      console.log("🎯 ScripterPanel using overrideVoices, skipping server load");
+      console.log(
+        "🎯 ScripterPanel using overrideVoices, skipping server load",
+      );
       return;
     }
 
@@ -90,7 +92,8 @@ export function ScripterPanel({
       setIsLoadingVoices(true);
 
       // Use the version's provider - "any" shouldn't reach here but handle gracefully
-      const effectiveProvider = selectedProvider === "any" ? "elevenlabs" : selectedProvider;
+      const effectiveProvider =
+        selectedProvider === "any" ? "elevenlabs" : selectedProvider;
 
       try {
         const url = new URL("/api/voice-catalogue", window.location.origin);
@@ -117,7 +120,9 @@ export function ScripterPanel({
             provider: effectiveProvider,
           }));
           setVoices(loadedVoices);
-          console.log(`✅ ScripterPanel loaded ${loadedVoices.length} ${effectiveProvider} voices`);
+          console.log(
+            `✅ ScripterPanel loaded ${loadedVoices.length} ${effectiveProvider} voices`,
+          );
         } else {
           console.error(`❌ ScripterPanel voice load error:`, data.error);
           setVoices([]);
@@ -347,13 +352,13 @@ export function ScripterPanel({
                                 : "text-wb-blue hover:text-blue-400 hover:bg-wb-blue/10 border-wb-blue/20 hover:border-wb-blue/30"
                           }`}
                         >
-                        {trackGenerationStatus[index]?.isGenerating ? (
-                          <LoadingSpinner size="sm" />
-                        ) : trackGenerationStatus[index]?.isPlaying ? (
-                          <StopIcon className="w-4 h-4" />
-                        ) : (
-                          <PlayIcon className="w-4 h-4" />
-                        )}
+                          {trackGenerationStatus[index]?.isGenerating ? (
+                            <LoadingSpinner size="sm" />
+                          ) : trackGenerationStatus[index]?.isPlaying ? (
+                            <StopIcon className="w-4 h-4" />
+                          ) : (
+                            <PlayIcon className="w-4 h-4" />
+                          )}
                         </button>
                       </Tooltip>
                     )}
@@ -364,7 +369,10 @@ export function ScripterPanel({
                         shows its knobs. Qwen/Lovo are intentionally hidden:
                         they have no per-track configuration surface. */}
                     {(() => {
-                      const effective = getEffectiveProvider(track, selectedProvider as Provider);
+                      const effective = getEffectiveProvider(
+                        track,
+                        selectedProvider as Provider,
+                      );
                       const hasConfigKnobs =
                         effective === "openai" ||
                         effective === "elevenlabs" ||
@@ -388,7 +396,10 @@ export function ScripterPanel({
                                 : "text-gray-500 hover:text-wb-blue hover:bg-wb-blue/10 border-transparent hover:border-wb-blue/20"
                             }`}
                           >
-                            <Cog6ToothIcon className="w-4 h-4" strokeWidth={2} />
+                            <Cog6ToothIcon
+                              className="w-4 h-4"
+                              strokeWidth={2}
+                            />
                           </button>
                         </Tooltip>
                       );
@@ -430,7 +441,10 @@ export function ScripterPanel({
           }
           targetDuration={voiceTracks[editingInstructionsIndex]?.targetDuration}
           provider={selectedProvider as Provider}
-          trackProvider={getEffectiveProvider(voiceTracks[editingInstructionsIndex], selectedProvider as Provider)}
+          trackProvider={getEffectiveProvider(
+            voiceTracks[editingInstructionsIndex],
+            selectedProvider as Provider,
+          )}
           voiceDescription={
             voiceTracks[editingInstructionsIndex]?.voice?.description
           }
@@ -452,7 +466,7 @@ export function ScripterPanel({
             dialectId,
             performanceId,
             emotion,
-            convertedText
+            convertedText,
           ) => {
             const currentTrack = voiceTracks[editingInstructionsIndex];
             const providerChanged =

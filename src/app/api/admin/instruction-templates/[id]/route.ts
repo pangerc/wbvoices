@@ -10,7 +10,7 @@ import {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -22,15 +22,18 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching instruction template:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch template" },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to fetch template",
+      },
+      { status: 500 },
     );
   }
 }
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -52,13 +55,16 @@ export async function PATCH(
     } = {};
 
     if (typeof body.title === "string") patch.title = body.title.trim();
-    if (typeof body.description === "string") patch.description = body.description.trim();
+    if (typeof body.description === "string")
+      patch.description = body.description.trim();
     if (typeof body.category === "string") {
       const c = body.category.trim();
       if (!ALLOWED_CATEGORIES.has(c)) {
         return NextResponse.json(
-          { error: `category must be one of: ${[...ALLOWED_CATEGORIES].join(", ")}` },
-          { status: 400 }
+          {
+            error: `category must be one of: ${[...ALLOWED_CATEGORIES].join(", ")}`,
+          },
+          { status: 400 },
         );
       }
       patch.category = c;
@@ -66,7 +72,11 @@ export async function PATCH(
     if (typeof body.systemInstructions === "string")
       patch.systemInstructions = body.systemInstructions.trim();
 
-    const exampleOutput = normaliseOptionalText(body.exampleOutput, "exampleOutput", 4000);
+    const exampleOutput = normaliseOptionalText(
+      body.exampleOutput,
+      "exampleOutput",
+      4000,
+    );
     if (exampleOutput !== undefined) patch.exampleOutput = exampleOutput;
 
     const dPacing = normaliseDefaultPacing(body.defaultPacing);
@@ -78,7 +88,11 @@ export async function PATCH(
     const dDuration = normaliseDefaultDuration(body.defaultDurationSeconds);
     if (dDuration !== undefined) patch.defaultDurationSeconds = dDuration;
 
-    const dMusic = normaliseOptionalText(body.defaultMusicStyle, "defaultMusicStyle", 600);
+    const dMusic = normaliseOptionalText(
+      body.defaultMusicStyle,
+      "defaultMusicStyle",
+      600,
+    );
     if (dMusic !== undefined) patch.defaultMusicStyle = dMusic;
 
     const bp = normaliseOptionalText(body.bestPractice, "bestPractice", 1000);
@@ -90,7 +104,7 @@ export async function PATCH(
     if (Object.keys(patch).length === 0) {
       return NextResponse.json(
         { error: "No updatable fields supplied" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -101,17 +115,18 @@ export async function PATCH(
     return NextResponse.json({ template });
   } catch (error) {
     console.error("Error updating instruction template:", error);
-    const message = error instanceof Error ? error.message : "Failed to update template";
+    const message =
+      error instanceof Error ? error.message : "Failed to update template";
     return NextResponse.json(
       { error: message },
-      { status: isValidationError(error) ? 400 : 500 }
+      { status: isValidationError(error) ? 400 : 500 },
     );
   }
 }
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -123,8 +138,11 @@ export async function DELETE(
   } catch (error) {
     console.error("Error deleting instruction template:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to delete template" },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to delete template",
+      },
+      { status: 500 },
     );
   }
 }

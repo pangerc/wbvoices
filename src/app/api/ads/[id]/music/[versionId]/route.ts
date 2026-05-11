@@ -22,7 +22,7 @@ export const runtime = "nodejs";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; versionId: string }> }
+  { params }: { params: Promise<{ id: string; versionId: string }> },
 ) {
   try {
     const { id: adId, versionId } = await params;
@@ -38,7 +38,7 @@ export async function GET(
           adId,
           versionId,
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -50,7 +50,7 @@ export async function GET(
         error: "Failed to get music version",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -62,7 +62,7 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; versionId: string }> }
+  { params }: { params: Promise<{ id: string; versionId: string }> },
 ) {
   try {
     const { id: adId, versionId } = await params;
@@ -73,16 +73,13 @@ export async function PATCH(
     const version = await getVersion(adId, "music", versionId);
 
     if (!version) {
-      return NextResponse.json(
-        { error: "Version not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Version not found" }, { status: 404 });
     }
 
     if ((version as MusicVersion).status !== "draft") {
       return NextResponse.json(
         { error: "Only draft versions can be edited" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -107,7 +104,7 @@ export async function PATCH(
         error: "Failed to update music version",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -119,7 +116,7 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; versionId: string }> }
+  { params }: { params: Promise<{ id: string; versionId: string }> },
 ) {
   try {
     const { id: adId, versionId } = await params;
@@ -142,7 +139,7 @@ export async function DELETE(
         error: "Failed to delete music version",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -3,7 +3,11 @@ import { NextRequest } from "next/server";
 import { getRedis } from "@/lib/redis";
 import { getRedisV3 } from "@/lib/redis-v3";
 
-function parseMonth(m: string | null): { start: number; end: number; label: string } {
+function parseMonth(m: string | null): {
+  start: number;
+  end: number;
+  label: string;
+} {
   const now = new Date();
   let year: number;
   let month: number;
@@ -44,7 +48,10 @@ export async function GET(request: NextRequest) {
   let cursor = 0;
   const metaKeys: string[] = [];
   do {
-    const [next, keys] = await redisV2.scan(cursor, { match: "project_meta:*", count: 100 });
+    const [next, keys] = await redisV2.scan(cursor, {
+      match: "project_meta:*",
+      count: 100,
+    });
     cursor = Number(next);
     metaKeys.push(...keys);
   } while (cursor !== 0);

@@ -5,9 +5,9 @@ import dynamic from "next/dynamic";
 const InstructionTemplateList = dynamic(
   () =>
     import("@/components/admin/InstructionTemplateList").then(
-      (m) => m.InstructionTemplateList
+      (m) => m.InstructionTemplateList,
     ),
-  { ssr: false }
+  { ssr: false },
 );
 
 export default function InstructionTemplatesPage() {

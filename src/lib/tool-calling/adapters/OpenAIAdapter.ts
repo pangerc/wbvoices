@@ -45,8 +45,11 @@ export class OpenAIAdapter {
       onModelEvent,
     } = options;
 
-    const input = this.buildInput(messages, !!previousResponseId, currentToolResults);
-
+    const input = this.buildInput(
+      messages,
+      !!previousResponseId,
+      currentToolResults,
+    );
 
     const responseParams: any = {
       model: "gpt-5.5",
@@ -75,9 +78,11 @@ export class OpenAIAdapter {
       responseParams.previous_response_id = previousResponseId;
     }
 
-    const inputType = Array.isArray(input) ? `array[${input.length}]` : "string";
+    const inputType = Array.isArray(input)
+      ? `array[${input.length}]`
+      : "string";
     console.log(
-      `[OpenAIAdapter] Invoking GPT-5.5 with reasoning=${reasoningEffort}, tools=${tools.length}, input=${inputType}${previousResponseId ? ", CoT=ON" : ""}${onModelEvent ? ", streaming=ON" : ""}`
+      `[OpenAIAdapter] Invoking GPT-5.5 with reasoning=${reasoningEffort}, tools=${tools.length}, input=${inputType}${previousResponseId ? ", CoT=ON" : ""}${onModelEvent ? ", streaming=ON" : ""}`,
     );
 
     // Two paths: streaming (when caller wants per-token events for UI
@@ -125,7 +130,7 @@ export class OpenAIAdapter {
 
   private async invokeStreaming(
     responseParams: any,
-    onModelEvent: (event: ModelStreamEvent) => void
+    onModelEvent: (event: ModelStreamEvent) => void,
   ): Promise<any> {
     const stream = await this.client.responses.stream(responseParams);
 
@@ -192,11 +197,11 @@ export class OpenAIAdapter {
    * - First call: simple string (system + user message)
    * - Subsequent calls with tool results: structured array with function_call_output items
    */
-   
+
   private buildInput(
     messages: ConversationMessage[],
     hasCoT: boolean,
-    currentToolResults?: Array<{ call_id: string; output: string }>
+    currentToolResults?: Array<{ call_id: string; output: string }>,
   ): any {
     // With CoT continuity + explicit tool results - use only current iteration's results
     // (avoids stale call_ids from previous sessions in Redis)
@@ -211,14 +216,16 @@ export class OpenAIAdapter {
     // First call or no tool results - send conversation as string
     return messages
       .filter((m) => m.role !== "tool" && m.role !== "assistant")
-      .map((msg) => (msg.role === "system" ? msg.content : `\n\n${msg.role}: ${msg.content}`))
+      .map((msg) =>
+        msg.role === "system" ? msg.content : `\n\n${msg.role}: ${msg.content}`,
+      )
       .join("");
   }
 
   /**
    * Extract tool calls from Responses API response
    */
-   
+
   private extractToolCalls(response: any): ToolCall[] {
     // The Responses API returns tool calls in the output array
     const toolCalls: ToolCall[] = [];
@@ -227,7 +234,9 @@ export class OpenAIAdapter {
       for (const item of response.output) {
         if (item.type === "function_call") {
           toolCalls.push({
-            id: item.call_id || `call_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            id:
+              item.call_id ||
+              `call_${Date.now()}_${Math.random().toString(36).slice(2)}`,
             type: "function",
             function: {
               name: item.name,

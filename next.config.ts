@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    middlewareClientMaxBodySize: '50mb',
+    middlewareClientMaxBodySize: "50mb",
   },
   // pdfjs-dist's worker breaks when Next chunks it — externalising the
   // family also lets the CJS imports resolve at runtime.
@@ -10,8 +10,8 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: '/project/:id',
-        destination: '/',
+        source: "/project/:id",
+        destination: "/",
         permanent: false,
       },
     ];

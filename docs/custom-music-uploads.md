@@ -32,6 +32,7 @@ Browser ──[2. file binary + token]───> Vercel Blob Storage (direct)
 ### Client-Side Extras
 
 Before uploading, `FileUpload.tsx` also:
+
 - **Validates file size** client-side against known limits (50MB for music)
 - **Measures audio duration** using HTML5 Audio element's `loadedmetadata` event
 
@@ -84,6 +85,7 @@ POST /api/ads/{adId}/music/v5/freeze
 ```
 
 This endpoint:
+
 1. Sets `ad:{adId}:music:active = "v5"` in Redis
 2. Calls `rebuildMixer(adId)` which:
    - Loads the active music version (including the Blob URL)
@@ -154,14 +156,14 @@ ad:{adId}:mixer = {
 
 ## Key Files
 
-| File | Role |
-|------|------|
-| `src/components/ui/FileUpload.tsx` | Two-step upload: token request + direct `put()` to Blob |
-| `src/app/api/upload-asset-token/route.ts` | Validates metadata, returns `{ filename, token }` |
-| `src/components/MusicPanel.tsx` | Upload tab UI, `handleMusicUpload` callback |
-| `src/components/draft-editors/MusicDraftEditor.tsx` | `handleTrackSelected`: freeze → create → patch |
-| `src/app/api/ads/[id]/music/route.ts` | POST: create new music version in Redis |
-| `src/app/api/ads/[id]/music/[versionId]/route.ts` | PATCH: set `generatedUrl` on draft version |
-| `src/app/api/ads/[id]/music/[versionId]/freeze/route.ts` | Freeze version, set active, rebuild mixer |
-| `src/lib/mixer/rebuilder.ts` | `rebuildMixer()`: loads active versions, builds MixerState |
-| `src/lib/redis/versions.ts` | `createVersion`, `setActiveVersion`, `freezeVersion` |
+| File                                                     | Role                                                       |
+| -------------------------------------------------------- | ---------------------------------------------------------- |
+| `src/components/ui/FileUpload.tsx`                       | Two-step upload: token request + direct `put()` to Blob    |
+| `src/app/api/upload-asset-token/route.ts`                | Validates metadata, returns `{ filename, token }`          |
+| `src/components/MusicPanel.tsx`                          | Upload tab UI, `handleMusicUpload` callback                |
+| `src/components/draft-editors/MusicDraftEditor.tsx`      | `handleTrackSelected`: freeze → create → patch             |
+| `src/app/api/ads/[id]/music/route.ts`                    | POST: create new music version in Redis                    |
+| `src/app/api/ads/[id]/music/[versionId]/route.ts`        | PATCH: set `generatedUrl` on draft version                 |
+| `src/app/api/ads/[id]/music/[versionId]/freeze/route.ts` | Freeze version, set active, rebuild mixer                  |
+| `src/lib/mixer/rebuilder.ts`                             | `rebuildMixer()`: loads active versions, builds MixerState |
+| `src/lib/redis/versions.ts`                              | `createVersion`, `setActiveVersion`, `freezeVersion`       |

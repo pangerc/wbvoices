@@ -141,8 +141,8 @@ describe("translateAnchorInput", () => {
     expect(
       translateAnchorInput(
         { kind: "relativeTo", trackRef: "voice-99", edge: "end" },
-        refs
-      )
+        refs,
+      ),
     ).toBeNull();
   });
 });
@@ -313,7 +313,9 @@ describe("anchorFromSoundFxPrompt", () => {
       description: "x",
       placement: { type: "afterVoice", index: 99 },
     };
-    expect(anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toBeUndefined();
+    expect(
+      anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0),
+    ).toBeUndefined();
   });
 
   it("placement end → relativeTo last voice end", () => {
@@ -353,7 +355,9 @@ describe("anchorFromSoundFxPrompt", () => {
 
   it("no placement → undefined", () => {
     const prompt: SoundFxPrompt = { description: "x" };
-    expect(anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toBeUndefined();
+    expect(
+      anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0),
+    ).toBeUndefined();
   });
 });
 

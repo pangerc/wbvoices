@@ -46,7 +46,7 @@ export interface AgentExecutorOptions {
 export async function runAgentLoop(
   systemPrompt: string,
   userMessage: string,
-  options: AgentExecutorOptions
+  options: AgentExecutorOptions,
 ): Promise<AgentResult> {
   const {
     adId,
@@ -58,7 +58,9 @@ export async function runAgentLoop(
   } = options;
 
   const adapter = new OpenAIAdapter();
-  let messages: ConversationMessage[] = continueConvo ? await getConversation(adId) : [];
+  let messages: ConversationMessage[] = continueConvo
+    ? await getConversation(adId)
+    : [];
 
   if (messages.length === 0 || messages[0].role !== "system") {
     messages = [{ role: "system", content: systemPrompt }, ...messages];
@@ -66,7 +68,11 @@ export async function runAgentLoop(
   messages.push({ role: "user", content: userMessage });
 
   const drafts: { voices?: string; music?: string; sfx?: string } = {};
-  const toolCallHistory: Array<{ tool: string; args: unknown; result: unknown }> = [];
+  const toolCallHistory: Array<{
+    tool: string;
+    args: unknown;
+    result: unknown;
+  }> = [];
   let totalUsage = { promptTokens: 0, completionTokens: 0, cachedTokens: 0 };
   let previousResponseId: string | undefined;
   let currentToolResults: Array<{ call_id: string; output: string }> = [];
@@ -100,8 +106,13 @@ export async function runAgentLoop(
       break;
     }
 
-    console.log(`[AgentExecutor] Executing ${response.toolCalls.length} tool call(s)`);
-    const toolResults = await executeToolCalls(response.toolCalls, { knowledgeContext, adId });
+    console.log(
+      `[AgentExecutor] Executing ${response.toolCalls.length} tool call(s)`,
+    );
+    const toolResults = await executeToolCalls(response.toolCalls, {
+      knowledgeContext,
+      adId,
+    });
 
     // Track tool results for CoT continuity (used in next iteration)
     currentToolResults = response.toolCalls.map((call, i) => ({
@@ -120,11 +131,24 @@ export async function runAgentLoop(
         result: resultContent,
       });
 
-      if (call.function.name === "create_voice_draft" && resultContent.versionId) drafts.voices = resultContent.versionId;
-      if (call.function.name === "create_music_draft" && resultContent.versionId) drafts.music = resultContent.versionId;
-      if (call.function.name === "create_sfx_draft" && resultContent.versionId) drafts.sfx = resultContent.versionId;
+      if (
+        call.function.name === "create_voice_draft" &&
+        resultContent.versionId
+      )
+        drafts.voices = resultContent.versionId;
+      if (
+        call.function.name === "create_music_draft" &&
+        resultContent.versionId
+      )
+        drafts.music = resultContent.versionId;
+      if (call.function.name === "create_sfx_draft" && resultContent.versionId)
+        drafts.sfx = resultContent.versionId;
 
-      messages.push({ role: "tool", tool_call_id: call.id, content: result.content });
+      messages.push({
+        role: "tool",
+        tool_call_id: call.id,
+        content: result.content,
+      });
     }
   }
 
@@ -133,13 +157,16 @@ export async function runAgentLoop(
       .map((c, i) => `${i + 1}.${c.tool}`)
       .join(" → ");
     console.warn(
-      `[AgentExecutor] Hit max iterations (${maxIterations}). Tool sequence: ${callBreakdown}. Drafts: voices=${drafts.voices ?? "none"} music=${drafts.music ?? "none"} sfx=${drafts.sfx ?? "none"}`
+      `[AgentExecutor] Hit max iterations (${maxIterations}). Tool sequence: ${callBreakdown}. Drafts: voices=${drafts.voices ?? "none"} music=${drafts.music ?? "none"} sfx=${drafts.sfx ?? "none"}`,
     );
   }
 
   await saveConversation(adId, messages);
 
-  const lastAssistantMessage = messages.slice().reverse().find((m) => m.role === "assistant");
+  const lastAssistantMessage = messages
+    .slice()
+    .reverse()
+    .find((m) => m.role === "assistant");
 
   return {
     conversationId: adId,
@@ -147,22 +174,28 @@ export async function runAgentLoop(
     drafts,
     toolCallHistory,
     provider: "openai",
-    totalUsage: totalUsage.promptTokens > 0 ? {
-      promptTokens: totalUsage.promptTokens,
-      completionTokens: totalUsage.completionTokens,
-      cachedTokens: totalUsage.cachedTokens > 0 ? totalUsage.cachedTokens : undefined,
-    } : undefined,
+    totalUsage:
+      totalUsage.promptTokens > 0
+        ? {
+            promptTokens: totalUsage.promptTokens,
+            completionTokens: totalUsage.completionTokens,
+            cachedTokens:
+              totalUsage.cachedTokens > 0 ? totalUsage.cachedTokens : undefined,
+          }
+        : undefined,
   };
 }
 
 export async function continueConversation(
   adId: string,
   userMessage: string,
-  contextOverrides?: Partial<KnowledgeContext>
+  contextOverrides?: Partial<KnowledgeContext>,
 ): Promise<AgentResult> {
   const existing = await getConversation(adId);
   if (existing.length === 0) {
-    throw new Error(`No conversation found for ad ${adId}. Use runAgentLoop() for initial generation.`);
+    throw new Error(
+      `No conversation found for ad ${adId}. Use runAgentLoop() for initial generation.`,
+    );
   }
 
   // Inherit KnowledgeContext from the active voice version's snapshot, merge
@@ -175,14 +208,15 @@ export async function continueConversation(
   // iteration prompt falls back to thin "normal pacing" defaults and
   // generated scripts lose their rich [rapid-fire] / [accent] tag density.
   const parentContext = await getActiveVoiceVersionContext(adId);
-  const mergedContext: KnowledgeContext | undefined = parentContext || contextOverrides
-    ? { ...(parentContext ?? {}), ...(contextOverrides ?? {}) }
-    : undefined;
+  const mergedContext: KnowledgeContext | undefined =
+    parentContext || contextOverrides
+      ? { ...(parentContext ?? {}), ...(contextOverrides ?? {}) }
+      : undefined;
 
   if (!parentContext) {
     console.warn(
       `[continueConversation] No knowledgeContext on active voice version for ad ${adId}. ` +
-      `Legacy or bare ad — iteration prompt will use thin defaults.`
+        `Legacy or bare ad — iteration prompt will use thin defaults.`,
     );
   }
 
@@ -202,11 +236,15 @@ export async function continueConversation(
  * field — caller decides whether to degrade or infer from tracks.
  */
 async function getActiveVoiceVersionContext(
-  adId: string
+  adId: string,
 ): Promise<KnowledgeContext | undefined> {
   const activeId = await getActiveVersion(adId, "voices");
   if (!activeId) return undefined;
-  const version = (await getVersion(adId, "voices", activeId)) as VoiceVersion | null;
+  const version = (await getVersion(
+    adId,
+    "voices",
+    activeId,
+  )) as VoiceVersion | null;
   if (!version) return undefined;
   if (version.knowledgeContext) return version.knowledgeContext;
 

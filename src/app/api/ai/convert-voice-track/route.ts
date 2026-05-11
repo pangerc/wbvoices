@@ -36,9 +36,19 @@ const SUPPORTED: readonly SupportedProvider[] = [
 ];
 
 const BYTEDANCE_EMOTIONS = [
-  "happy", "sad", "angry", "excited", "warm", "neutral",
-  "fear", "surprised", "coldness", "affectionate", "chat",
-  "ASMR", "authoritative",
+  "happy",
+  "sad",
+  "angry",
+  "excited",
+  "warm",
+  "neutral",
+  "fear",
+  "surprised",
+  "coldness",
+  "affectionate",
+  "chat",
+  "ASMR",
+  "authoritative",
 ];
 
 interface ConvertRequest {
@@ -99,31 +109,46 @@ Do NOT include prose explanation, commentary, or markdown. Just the JSON object.
 function buildUserMessage(req: ConvertRequest): string {
   const parts = [`SCRIPT:\n${req.text}`];
   if (req.voiceInstructions && req.voiceInstructions.trim()) {
-    parts.push(`\nCURRENT INSTRUCTIONS (${req.fromProvider} format):\n${req.voiceInstructions}`);
+    parts.push(
+      `\nCURRENT INSTRUCTIONS (${req.fromProvider} format):\n${req.voiceInstructions}`,
+    );
   }
   return parts.join("\n");
 }
 
 function validate(body: unknown): ConvertRequest | { error: string } {
-  if (!body || typeof body !== "object") return { error: "body must be an object" };
+  if (!body || typeof body !== "object")
+    return { error: "body must be an object" };
   const b = body as Record<string, unknown>;
 
   if (typeof b.text !== "string" || !b.text.trim()) {
     return { error: "text is required and must be a non-empty string" };
   }
-  if (typeof b.fromProvider !== "string" || !SUPPORTED.includes(b.fromProvider as SupportedProvider)) {
+  if (
+    typeof b.fromProvider !== "string" ||
+    !SUPPORTED.includes(b.fromProvider as SupportedProvider)
+  ) {
     return { error: `fromProvider must be one of ${SUPPORTED.join(", ")}` };
   }
-  if (typeof b.toProvider !== "string" || !SUPPORTED.includes(b.toProvider as SupportedProvider)) {
+  if (
+    typeof b.toProvider !== "string" ||
+    !SUPPORTED.includes(b.toProvider as SupportedProvider)
+  ) {
     return { error: `toProvider must be one of ${SUPPORTED.join(", ")}` };
   }
   if (typeof b.language !== "string" || !b.language) {
     return { error: "language is required" };
   }
-  if (b.voiceInstructions !== undefined && typeof b.voiceInstructions !== "string") {
+  if (
+    b.voiceInstructions !== undefined &&
+    typeof b.voiceInstructions !== "string"
+  ) {
     return { error: "voiceInstructions must be a string if provided" };
   }
-  if (b.voiceDescription !== undefined && typeof b.voiceDescription !== "string") {
+  if (
+    b.voiceDescription !== undefined &&
+    typeof b.voiceDescription !== "string"
+  ) {
     return { error: "voiceDescription must be a string if provided" };
   }
 
@@ -141,7 +166,7 @@ export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json(
       { error: "OpenAI API key not configured" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -182,7 +207,7 @@ export async function POST(req: NextRequest) {
       console.error("[convert-voice-track] empty response from model");
       return NextResponse.json(
         { error: "empty response from model" },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -193,14 +218,14 @@ export async function POST(req: NextRequest) {
       console.error("[convert-voice-track] failed to parse model JSON:", raw);
       return NextResponse.json(
         { error: "model returned invalid JSON", raw },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
     if (typeof parsed.text !== "string" || !parsed.text.trim()) {
       return NextResponse.json(
         { error: "model response missing required 'text' field", raw },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -209,7 +234,7 @@ export async function POST(req: NextRequest) {
     if (validated.toProvider === "bytedance" && parsed.emotion) {
       if (!BYTEDANCE_EMOTIONS.includes(parsed.emotion)) {
         console.warn(
-          `[convert-voice-track] dropping invalid ByteDance emotion: ${parsed.emotion}`
+          `[convert-voice-track] dropping invalid ByteDance emotion: ${parsed.emotion}`,
         );
         parsed.emotion = undefined;
       }
@@ -224,7 +249,7 @@ export async function POST(req: NextRequest) {
       {
         error: err instanceof Error ? err.message : "conversion failed",
       },
-      { status: 502 }
+      { status: 502 },
     );
   }
 }

@@ -45,8 +45,8 @@ export function GlassyOptionPicker<T extends string | number>({
               value === option.value
                 ? "bg-wb-blue/30 text-white ring-1 ring-wb-blue/50"
                 : option.disabled
-                ? "bg-transparent text-gray-500"
-                : "bg-transparent hover:bg-white/10 text-gray-300"
+                  ? "bg-transparent text-gray-500"
+                  : "bg-transparent hover:bg-white/10 text-gray-300"
             }`}
             onClick={() => !option.disabled && onChange(option.value)}
           >

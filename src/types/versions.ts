@@ -11,7 +11,7 @@ import {
   MusicPrompts,
   MusicProvider,
   SoundFxPrompt,
-  ProjectBrief
+  ProjectBrief,
 } from "./index";
 import type { KnowledgeContext } from "@/lib/knowledge/types";
 
@@ -467,7 +467,12 @@ export type SlotId = string;
  */
 export type Anchor =
   | { kind: "absolute"; t: number }
-  | { kind: "relativeTo"; slotId: SlotId; edge: "start" | "end"; offset?: number }
+  | {
+      kind: "relativeTo";
+      slotId: SlotId;
+      edge: "start" | "end";
+      offset?: number;
+    }
   | {
       kind: "simultaneousWith";
       slotId: SlotId;

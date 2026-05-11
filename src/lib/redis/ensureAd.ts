@@ -32,7 +32,7 @@ const ALL_ADS_KEY = "ads:all";
 export async function ensureAdExists(
   adId: string,
   ownerEmail: string,
-  initialBrief?: Partial<ProjectBrief>
+  initialBrief?: Partial<ProjectBrief>,
 ): Promise<AdMetadata> {
   // Check if ad already exists
   const existingMeta = await getAdMetadata(adId);

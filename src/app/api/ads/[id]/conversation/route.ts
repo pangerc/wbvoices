@@ -10,7 +10,7 @@ import { getConversation } from "@/lib/redis/conversation";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: adId } = await params;
 

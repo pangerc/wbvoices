@@ -199,25 +199,30 @@ Both Loudly and Mubert implement sophisticated caching systems that dramatically
 #### Cache Key Generation
 
 **SHA-256 Based Cache Keys**:
+
 ```typescript
 // Cache key format: prompt + duration + provider-specific parameters
-const cacheKey = createHash('sha256')
-  .update(JSON.stringify({
-    prompt: musicPrompt,
-    duration: adjustedDuration,
-    provider: 'loudly' // or 'mubert'
-  }))
-  .digest('hex');
+const cacheKey = createHash("sha256")
+  .update(
+    JSON.stringify({
+      prompt: musicPrompt,
+      duration: adjustedDuration,
+      provider: "loudly", // or 'mubert'
+    }),
+  )
+  .digest("hex");
 ```
 
 #### Loudly Caching Implementation (`/src/utils/loudly-api.ts`)
 
 **Cache-First Approach**:
+
 1. **Check Cache**: Search Vercel Blob for existing audio with matching cache key
 2. **Cache Hit**: Return permanent blob URL immediately (saves $0.10-0.50 per generation)
 3. **Cache Miss**: Generate new music via Loudly API, upload to Vercel Blob, return permanent URL
 
 **Benefits**:
+
 - **Cost Savings**: Identical prompts + durations reuse cached audio
 - **Performance**: Instant delivery for cached content vs 30-60s generation
 - **Reliability**: Permanent URLs never expire, eliminating broken links
@@ -225,10 +230,12 @@ const cacheKey = createHash('sha256')
 #### Mubert Caching Implementation (`/src/utils/mubert-api.ts`)
 
 **Two-Layer Caching System**:
+
 1. **Authentication Cache**: Company credentials cached to avoid re-auth overhead
 2. **Audio Cache**: Generated tracks uploaded to Vercel Blob with permanent URLs
 
 **Implementation Details**:
+
 ```typescript
 // 1. Check cache first
 const cachedUrl = await checkBlobCache(cacheKey);
@@ -249,6 +256,7 @@ return { url: blobUrl, title: result.title, cached: false };
 #### Cache Performance Metrics
 
 **Observed Cache Hit Rates**:
+
 - **Development/Testing**: 60-80% (repeated prompts during development)
 - **Production**: 15-25% (varied creative content)
 - **Cost Impact**: 20-40% reduction in music generation costs
@@ -256,24 +264,27 @@ return { url: blobUrl, title: result.title, cached: false };
 #### Vercel Blob Integration
 
 **Storage Strategy**:
+
 - **Filename Pattern**: `music-{provider}-{cacheKey}-{timestamp}.{ext}`
 - **Metadata**: Includes original prompt, duration, provider for debugging
 - **Retention**: Permanent storage (no automatic cleanup)
 - **Global CDN**: Fast delivery from 18+ global regions
 
 **Upload Implementation**:
+
 ```typescript
 const blobResult = await put(filename, audioBuffer, {
-  access: 'public',
+  access: "public",
   addRandomSuffix: false,
-  contentType: 'audio/wav'
+  contentType: "audio/wav",
 });
 ```
 
 #### Cache Invalidation Strategy
 
 **Current Approach**: No automatic invalidation (cache-forever strategy)
-**Rationale**: 
+**Rationale**:
+
 - Music generation prompts are deterministic
 - Same prompt + duration should always produce similar results
 - Storage costs are minimal compared to generation costs
@@ -281,6 +292,7 @@ const blobResult = await put(filename, audioBuffer, {
 #### Future Enhancements
 
 **Planned Improvements**:
+
 1. **Cache Analytics**: Track hit rates and cost savings
 2. **Selective Cleanup**: Remove very old cached entries (6+ months)
 3. **Cross-Project Sharing**: Cache hits across different user projects
@@ -363,7 +375,7 @@ Project picker in header allows access to previous projects
 
 - **Problem**: New users confused by old project content when hitting home page
 - **Solution**: Always create fresh projects instead of restoring previous ones
-- **Benefits**: 
+- **Benefits**:
   - Clean first impression for every demo session
   - No hunting for "New Project" button
   - Previous projects still accessible via header dropdown
@@ -589,7 +601,7 @@ await voiceManager.waitForLanguagesToLoad();
 // After: Explicit voice loading after parameter restoration
 voiceManagerV2.setSelectedLanguage(project.brief.selectedLanguage);
 voiceManagerV2.setSelectedRegion(project.brief.selectedRegion);
-voiceManagerV2.setSelectedAccent(project.brief.selectedAccent || "neutral");  
+voiceManagerV2.setSelectedAccent(project.brief.selectedAccent || "neutral");
 voiceManagerV2.setSelectedProvider(project.brief.selectedProvider);
 // Force reload voices for the restored configuration
 await voiceManagerV2.loadVoices();
@@ -603,8 +615,9 @@ await voiceManagerV2.loadVoices();
 **Solution**: Added explicit `loadVoices()` method to useVoiceManagerV2 and force reload after setting all restoration parameters.
 
 **Technical Implementation**:
+
 - Extracted voice loading logic into reusable `loadVoices()` callback
-- Added `await voiceManagerV2.loadVoices()` after parameter restoration  
+- Added `await voiceManagerV2.loadVoices()` after parameter restoration
 - Eliminated timing dependencies and race conditions
 
 **Impact**: All regional projects (Spanish, Arabic, etc.) now restore with correct voices immediately, consistent voice counts across UI components.
@@ -782,13 +795,13 @@ abstract class BaseAudioProvider {
   // Optional for async providers
   pollStatus?(
     taskId: string,
-    credentials: AuthCredentials
+    credentials: AuthCredentials,
   ): Promise<StatusResult>;
 
   // Shared implementations
   protected async uploadToBlob(
     url: string,
-    metadata: Metadata
+    metadata: Metadata,
   ): Promise<BlobResult> {
     // Unified Vercel Blob upload logic (currently duplicated 6+ times)
   }
@@ -859,7 +872,7 @@ interface GenerationResult {
 class AudioProviderFactory {
   static create(
     type: "voice" | "music" | "sfx",
-    provider: string
+    provider: string,
   ): BaseAudioProvider {
     const providers = {
       music: { loudly: LoudlyProvider, mubert: MubertProvider },
@@ -956,6 +969,7 @@ The architecture has evolved significantly, demonstrating how systematic improve
 #### TypeScript & Linting Overhaul
 
 **Problems Addressed**:
+
 - Numerous TypeScript strict mode violations (`@typescript-eslint/no-explicit-any`)
 - Unused variables and parameters cluttering codebase
 - Missing React Hook exhaustive dependencies
@@ -963,6 +977,7 @@ The architecture has evolved significantly, demonstrating how systematic improve
 - Duplicate object keys causing build failures
 
 **Solutions Implemented**:
+
 - **Type Safety**: Eliminated all `any` types with proper interface definitions
 - **Provider Architecture**: Created `ActualProvider` type excluding "any" for type-safe voice tower operations
 - **Voice Type Mapping**: Added proper type guards for voice data transformation from API responses
@@ -973,12 +988,14 @@ The architecture has evolved significantly, demonstrating how systematic improve
 #### Legacy Code Removal
 
 **Files Completely Removed**:
+
 - `/src/hooks/useVoiceManager.ts` - Replaced by VoiceManagerV2
 - `/src/components/NewMixerPanel.tsx` - Superseded by current MixerPanel
 - `/src/app/page-original.tsx` - Legacy home page implementation
 - Multiple documentation files for deprecated voice providers
 
 **Architecture Simplification**:
+
 - Unified provider system using single voice management approach
 - Eliminated complex feature flag logic and dual implementations
 - Reduced API surface area with consistent v2 endpoints
@@ -987,6 +1004,7 @@ The architecture has evolved significantly, demonstrating how systematic improve
 #### Build Performance Improvements
 
 **Results**:
+
 - **Clean Build**: Zero TypeScript errors, zero linting warnings
 - **Bundle Size Reduction**: Home page reduced from 2.48 kB → 977 B (60% reduction)
 - **Type Safety**: Full compile-time checking prevents runtime voice system errors
@@ -1042,6 +1060,7 @@ The architecture has evolved significantly, demonstrating how systematic improve
 **Problem**: Provider counts would incorrectly go to 0 when selecting specific providers, breaking regional filtering functionality.
 
 **Root Causes**:
+
 1. **Hybrid Counting Logic**: BriefPanel attempted to count voices from `currentVoices` which only contained the selected provider's voices
 2. **State Inconsistency**: When OpenAI selected, `currentVoices` only had OpenAI voices, so ElevenLabs and Lovo showed 0 counts
 3. **Regional Filtering Mismatch**: Server-side `voiceCounts` ignored client-side regional filtering
@@ -1053,40 +1072,47 @@ The architecture has evolved significantly, demonstrating how systematic improve
 **Implementation Changes**:
 
 1. **useVoiceManagerV2 Simplification**:
+
    ```typescript
    // Always load ALL voices from all providers, tagged by provider
    const loadVoices = useCallback(async () => {
-     const providers = ['elevenlabs', 'lovo', 'openai', 'qwen'] as const;
+     const providers = ["elevenlabs", "lovo", "openai", "qwen"] as const;
      const voicePromises = providers.map(async (provider) => {
        const voices = await fetchVoices(provider, language, accent);
-       return voices.map((v: Voice) => ({...v, provider})); // Tag each voice
+       return voices.map((v: Voice) => ({ ...v, provider })); // Tag each voice
      });
-     
+
      const allVoices = (await Promise.all(voicePromises)).flat();
      setCurrentVoices(allVoices);
    }, [selectedLanguage, selectedAccent]); // Only reload when language/accent changes
    ```
 
 2. **BriefPanel Count Calculation**:
+
    ```typescript
    // Single source of truth - count from the complete tagged voice set
    const filteredProviderOptions = useMemo(() => {
      // Apply regional filtering once to the complete voice set
      let regionFilteredVoices = currentVoices;
      if (selectedRegion && hasRegions) {
-       const regionalAccents = getRegionalAccents(selectedLanguage, selectedRegion);
-       regionFilteredVoices = currentVoices.filter(voice => {
-         if (voice.provider === 'openai') return true; // OpenAI always available
-         return regionalAccents.includes(voice.accent) && voice.accent !== 'none';
+       const regionalAccents = getRegionalAccents(
+         selectedLanguage,
+         selectedRegion,
+       );
+       regionFilteredVoices = currentVoices.filter((voice) => {
+         if (voice.provider === "openai") return true; // OpenAI always available
+         return (
+           regionalAccents.includes(voice.accent) && voice.accent !== "none"
+         );
        });
      }
-     
+
      // Count by provider from the filtered set
      const filteredCounts = regionFilteredVoices.reduce((acc, voice) => {
        acc[voice.provider] = (acc[voice.provider] || 0) + 1;
        return acc;
      }, {});
-     
+
      return buildProviderOptions(filteredCounts);
    }, [currentVoices, selectedRegion, hasRegions, selectedLanguage]);
    ```
@@ -1104,7 +1130,7 @@ The architecture has evolved significantly, demonstrating how systematic improve
 ```
 Language/Accent Change → Load ALL voices (tagged) → Store in currentVoices
                               ↓
-Region Selection → Filter currentVoices by regional accents → Update counts  
+Region Selection → Filter currentVoices by regional accents → Update counts
                               ↓
 Provider Selection → Filter currentVoices by provider → No reload!
 ```
@@ -1126,14 +1152,56 @@ export type Provider = "any" | "lovo" | "elevenlabs" | "openai" | "qwen";
 // Enhanced voice catalog with Chinese dialect support
 const qwenVoices = [
   // Standard Chinese voices
-  { id: 'chelsie', name: 'Chelsie', gender: 'female', language: 'zh', accent: 'neutral' },
-  { id: 'cherry', name: 'Cherry', gender: 'female', language: 'zh', accent: 'neutral' },
-  { id: 'ethan', name: 'Ethan', gender: 'male', language: 'zh', accent: 'neutral' },
-  { id: 'serena', name: 'Serena', gender: 'female', language: 'zh', accent: 'neutral' },
+  {
+    id: "chelsie",
+    name: "Chelsie",
+    gender: "female",
+    language: "zh",
+    accent: "neutral",
+  },
+  {
+    id: "cherry",
+    name: "Cherry",
+    gender: "female",
+    language: "zh",
+    accent: "neutral",
+  },
+  {
+    id: "ethan",
+    name: "Ethan",
+    gender: "male",
+    language: "zh",
+    accent: "neutral",
+  },
+  {
+    id: "serena",
+    name: "Serena",
+    gender: "female",
+    language: "zh",
+    accent: "neutral",
+  },
   // Regional dialect voices (qwen-tts-latest model)
-  { id: 'dylan', name: 'Dylan', gender: 'male', language: 'zh', accent: 'beijing' },
-  { id: 'jada', name: 'Jada', gender: 'female', language: 'zh', accent: 'shanghai' },
-  { id: 'sunny', name: 'Sunny', gender: 'female', language: 'zh', accent: 'sichuan' }
+  {
+    id: "dylan",
+    name: "Dylan",
+    gender: "male",
+    language: "zh",
+    accent: "beijing",
+  },
+  {
+    id: "jada",
+    name: "Jada",
+    gender: "female",
+    language: "zh",
+    accent: "shanghai",
+  },
+  {
+    id: "sunny",
+    name: "Sunny",
+    gender: "female",
+    language: "zh",
+    accent: "sichuan",
+  },
 ];
 ```
 
@@ -1190,6 +1258,7 @@ The system successfully delivered a working demo while revealing important produ
 **Problem Discovered**: ElevenLabs voices with multiple `verified_languages` were only appearing in the first language of their capability list, causing significant voice availability gaps across non-English markets.
 
 **Business Impact**:
+
 - User added 9 Polish voices on ElevenLabs but only 3 appeared in UI
 - Voices like "Pawel Pro - Polish" supporting 16 languages were only accessible as Hindi voices
 - Major limitation for LATAM, MENA, and Eastern European market deployment
@@ -1206,6 +1275,7 @@ if (voice.verified_languages && voice.verified_languages.length > 0) {
 ```
 
 **Data Structure Discovery**: ElevenLabs `verified_languages` contains objects with language metadata:
+
 ```json
 {
   "verified_languages": [
@@ -1233,6 +1303,7 @@ if (voice.verified_languages && voice.verified_languages.length > 0) {
 **Key Implementation Changes**:
 
 1. **Multiple Voice Entries Creation**:
+
 ```typescript
 // BEFORE: Single voice per ElevenLabs voice
 const voices = data.voices.map((voice: ElevenLabsVoice): Voice => {
@@ -1244,9 +1315,10 @@ const voices = data.voices.map((voice: ElevenLabsVoice): Voice => {
 const voices = data.voices.flatMap((voice: ElevenLabsVoice): Voice[] => {
   if (voice.verified_languages && voice.verified_languages.length > 0) {
     return voice.verified_languages.map((langObject, index) => {
-      const langString = typeof langObject === "string"
-        ? langObject
-        : langObject.language || "en-US";
+      const langString =
+        typeof langObject === "string"
+          ? langObject
+          : langObject.language || "en-US";
 
       return {
         id: `${voice.voice_id}-${langString}`, // Unique per language
@@ -1263,11 +1335,11 @@ const voices = data.voices.flatMap((voice: ElevenLabsVoice): Voice[] => {
 ```
 
 2. **Enhanced Type Safety**:
+
 ```typescript
 // Fixed object structure handling
-const langString = typeof langObject === "string"
-  ? langObject
-  : langObject.language || "en-US";
+const langString =
+  typeof langObject === "string" ? langObject : langObject.language || "en-US";
 ```
 
 3. **Preserved Backward Compatibility**: Voices without `verified_languages` continue using original logic.
@@ -1275,12 +1347,14 @@ const langString = typeof langObject === "string"
 #### Results Achieved ✅
 
 **Dramatic Voice Expansion**:
+
 - **ElevenLabs voices in Redis**: 0 → 430 (+430 voices)
 - **Total system voices**: 1,026 → 1,456 (+430 voices)
 - **Polish voice availability**: 3 → 12 unique voices
 - **Bulgarian voice availability**: 0 → 4 unique voices
 
 **Pawel Pro Success Example**:
+
 ```bash
 # Now appears in Polish
 GET /api/voice/list?provider=elevenlabs | filter(.language == "pl")
@@ -1297,6 +1371,7 @@ GET /api/voice/list?provider=elevenlabs | filter(.language == "bg")
 #### Technical Architecture Benefits ✅
 
 **Clean Implementation**:
+
 - **No downstream patches**: Fix applied at cache population step
 - **Deterministic approach**: Uses authoritative `verified_languages` data
 - **General solution**: Works for any language without language-specific code
@@ -1304,6 +1379,7 @@ GET /api/voice/list?provider=elevenlabs | filter(.language == "bg")
 - **Performance**: No additional API calls - expansion during cache refresh
 
 **Voice Management Integration**:
+
 - **Three-tower Redis**: Seamless integration with existing architecture
 - **Provider counts**: Accurate real-time counts across all language combinations
 - **Voice filtering**: Proper language-based filtering in voice catalogue service
@@ -1312,12 +1388,14 @@ GET /api/voice/list?provider=elevenlabs | filter(.language == "bg")
 #### Business Impact ✅
 
 **Global Market Readiness**:
+
 - **Eastern Europe**: Polish, Bulgarian, Croatian, Slovak voices now accessible
 - **MENA Markets**: Arabic multilingual voices properly categorized
 - **Asian Markets**: Japanese, Tamil voices from ElevenLabs available
 - **Romance Languages**: Portuguese, French, Romanian voices accessible
 
 **User Experience Improvements**:
+
 - **Provider transparency**: ElevenLabs shows realistic voice counts per language
 - **No more "ghost voices"**: Eliminated "voice exists but unavailable" confusion
 - **Consistent filtering**: Voice availability matches actual provider capabilities
@@ -1326,20 +1404,23 @@ GET /api/voice/list?provider=elevenlabs | filter(.language == "bg")
 #### Integration with Voice System V2 ✅
 
 **Redis Cache Population**:
+
 ```typescript
 // Enhanced admin endpoint handles expanded voice entries
-POST /api/admin/voice-cache
+POST / api / admin / voice - cache;
 // Result: 430 ElevenLabs voices properly distributed across languages
 ```
 
 **Voice Catalogue Service**:
+
 ```typescript
 // All multilingual voices properly indexed in three-tower architecture
-await voiceCatalogue.getVoicesForProvider("elevenlabs", "pl")
+await voiceCatalogue.getVoicesForProvider("elevenlabs", "pl");
 // Returns: 12 Polish voices including previously hidden multilingual voices
 ```
 
 **BriefPanel Integration**:
+
 - Provider dropdown shows accurate counts: "ElevenLabs (12 voices)" for Polish
 - Real-time updates when language/accent selection changes
 - Auto-selection heuristic considers actual voice availability
@@ -1363,30 +1444,36 @@ This surgical fix represents the final piece in the voice management system's gl
 **Root Causes Identified**:
 
 1. **Missing LLM Data Save**: AUTO mode wasn't calling `saveProject()` after LLM generation
-2. **No Mixer State Save Trigger**: Mixer state never got saved when tracks were added/calculated  
+2. **No Mixer State Save Trigger**: Mixer state never got saved when tracks were added/calculated
 3. **Partial Handler Saves**: Handlers used `updateProject()` with partial data instead of full `saveProject()`
 4. **Project Creation Race Condition**: Async project creation vs immediate save attempts causing 404 errors
 
 #### The Three-Part Solution ✅
 
 **1. Fixed LLM Data Saving**:
+
 ```typescript
 // Added missing save call in handleGenerateCreativeAuto
-const llmResponseData = await generateCreativeContent(segments, musicPrompt, soundFxPrompts);
+const llmResponseData = await generateCreativeContent(
+  segments,
+  musicPrompt,
+  soundFxPrompts,
+);
 
 // Save LLM data immediately if project is ready
 if (llmResponseData.projectReady) {
-  await saveProject('AUTO: after generate creative', llmResponseData);
-  console.log('✅ LLM data saved successfully');
+  await saveProject("AUTO: after generate creative", llmResponseData);
+  console.log("✅ LLM data saved successfully");
 }
 ```
 
 **2. Added Mixer State Save Trigger**:
+
 ```typescript
 // Enhanced mixerStore with automatic save callback after timeline recalculation
 calculateTimings: () => {
   // ... existing calculation logic ...
-  
+
   // Call save callback after timeline recalculation completes
   if (saveCallback) {
     console.log("💾 Triggering save after timeline recalculation");
@@ -1394,10 +1481,11 @@ calculateTimings: () => {
       console.error("❌ Save callback failed:", error);
     });
   }
-}
+};
 ```
 
 **3. Fixed Handler Save Calls**:
+
 ```typescript
 // Replaced all partial updateProject() calls with full saveProject()
 // Before: await updateProject(projectId, { voiceTracks: tracksToUse });
@@ -1405,6 +1493,7 @@ calculateTimings: () => {
 ```
 
 **4. Resolved Project Creation Race Condition**:
+
 ```typescript
 // Enhanced generateCreativeContent to return project readiness status
 return {
@@ -1418,19 +1507,22 @@ return {
 #### Technical Implementation Details
 
 **Mixer Save Callback Architecture**:
+
 - Added `saveCallback` to mixerStore state with `setSaveCallback()` action
 - Main page component registers save callback that triggers full `saveProject()`
 - Every `addTrack()`, `updateTrack()`, `setAudioDuration()` → `calculateTimings()` → automatic save
 - Works for both AUTO mode (immediate) and manual mode (user-triggered)
 
 **Project Creation Safety**:
+
 - Modified `generateCreativeContent()` to track project creation success
-- AUTO mode only saves if `projectReady: true` 
+- AUTO mode only saves if `projectReady: true`
 - Eliminates 404 "Project not found" errors from race conditions
 
 **Complete State Preservation**:
+
 - `voiceTracks`: LLM-generated scripts with voice assignments ✅
-- `musicPrompt`: LLM-generated music descriptions ✅  
+- `musicPrompt`: LLM-generated music descriptions ✅
 - `soundFxPrompt`: LLM-generated sound effect requests ✅
 - `mixerState`: Complete timeline with track positions and durations ✅
 - `generatedTracks`: All audio asset URLs ✅
@@ -1438,18 +1530,20 @@ return {
 #### Results Achieved
 
 **Before Fix** (AUTO mode Redis data):
+
 ```json
 {
   "voiceTracks": [],
   "musicPrompt": "",
   "soundFxPrompt": null,
   "preview": {
-    "mixedAudioUrl": "https://..."  // Only this worked
+    "mixedAudioUrl": "https://..." // Only this worked
   }
 }
 ```
 
 **After Fix** (AUTO mode Redis data):
+
 ```json
 {
   "voiceTracks": [
@@ -1466,7 +1560,7 @@ return {
   "mixerState": {
     "tracks": [
       {
-        "id": "voice-123", 
+        "id": "voice-123",
         "url": "https://...",
         "startTime": 2.089,
         "duration": 5.1
@@ -1485,7 +1579,8 @@ return {
 #### Architecture Benefits
 
 **Save Trigger Points** (Now Complete):
-1. **LLM Generation** → `saveProject()` with explicit data  
+
+1. **LLM Generation** → `saveProject()` with explicit data
 2. **Timeline Recalculation** → Automatic `saveProject()` via callback
 3. **Each Generation Completes** → Full `saveProject()` in handlers
 4. **User Manual Changes** → Debounced `saveProject()` (existing)
@@ -1497,7 +1592,7 @@ return {
 #### Impact
 
 - **Complete Project Restoration**: AUTO mode projects now restore with full state including voice scripts, music prompts, sound effects, and complete mixer timeline
-- **Eliminated 404 Errors**: Project creation race conditions resolved with proper async handling  
+- **Eliminated 404 Errors**: Project creation race conditions resolved with proper async handling
 - **Consistent UX**: AUTO mode and manual mode now have identical persistence behavior
 - **Cost Efficiency**: Generated tracks persist properly, avoiding regeneration costs
 - **Demo Reliability**: AUTO mode demos now reliably preserve and restore all generated content
@@ -1517,12 +1612,14 @@ After months of architectural evolution, this weekend delivered the final pieces
 **Technical Root Cause**: Provider selection logic only considered language, ignoring the full dimensionality of language + region + accent.
 
 **Examples of Broken Behavior**:
+
 - Chinese + Hong Kong region → Qwen showed 7 voices when 0 existed
 - English + Asia region → ElevenLabs showed 0 voices but didn't fallback to available providers
 
 **Complete Solution Implemented**:
 
 1. **Enhanced ProviderSelector.selectDefault()** (`/src/utils/providerSelection.ts`):
+
 ```typescript
 // BEFORE: Only language parameter
 static selectDefault(
@@ -1542,30 +1639,32 @@ static selectDefault(
 ```
 
 2. **Server-Side Provider Selection** (`/src/app/api/voice-catalogue/route.ts`):
+
 ```typescript
 // Auto-select provider based on ACTUAL filtered voice counts
 selectedProvider = ProviderSelector.selectDefault(
-  campaignFormat as CampaignFormat || 'ad_read',
+  (campaignFormat as CampaignFormat) || "ad_read",
   voiceCounts,
   language,
   region || undefined,
-  accent || undefined
+  accent || undefined,
 );
 ```
 
 3. **Client-Side Provider Reset Logic** (`/src/components/BriefPanel.tsx`):
+
 ```typescript
 // Reset provider to "any" when language/region/accent changes
 // This triggers server-side auto-selection with full context
 const previousLanguageRef = useRef(selectedLanguage);
-const previousRegionRef = useRef(selectedRegion);  
+const previousRegionRef = useRef(selectedRegion);
 const previousAccentRef = useRef(selectedAccent);
 
 useEffect(() => {
   const languageChanged = previousLanguageRef.current !== selectedLanguage;
   const regionChanged = previousRegionRef.current !== selectedRegion;
   const accentChanged = previousAccentRef.current !== selectedAccent;
-  
+
   if (languageChanged || regionChanged || accentChanged) {
     setSelectedProvider("any"); // Triggers intelligent auto-selection
   }
@@ -1573,8 +1672,9 @@ useEffect(() => {
 ```
 
 **Results Achieved**:
+
 - ✅ Provider selection now considers language + region + accent combinations
-- ✅ Accurate voice counts for all filter combinations  
+- ✅ Accurate voice counts for all filter combinations
 - ✅ Automatic fallback to providers with available voices
 - ✅ No more "7 voices available but 0 actually exist" scenarios
 
@@ -1593,8 +1693,8 @@ useEffect(() => {
  * Easy to extend/modify without breaking existing functionality
  */
 export const AI_MODEL_PREFERENCES = {
-  chinese: ['moonshot', 'qwen'] as AIModel[], // Chinese-optimized models
-  default: ['gpt5', 'gpt4'] as AIModel[]      // Default fallback models
+  chinese: ["moonshot", "qwen"] as AIModel[], // Chinese-optimized models
+  default: ["gpt5", "gpt4"] as AIModel[], // Default fallback models
 } as const;
 
 /**
@@ -1602,27 +1702,26 @@ export const AI_MODEL_PREFERENCES = {
  */
 export function selectAIModelForLanguage(
   language: string,
-  availableModels: AIModel[]
+  availableModels: AIModel[],
 ): AIModel | null {
-  const isChineseLanguage = language === 'zh' || language.startsWith('zh-');
-  
+  const isChineseLanguage = language === "zh" || language.startsWith("zh-");
+
   // Choose candidate models based on language
-  const preferredModels = isChineseLanguage 
-    ? AI_MODEL_PREFERENCES.chinese 
+  const preferredModels = isChineseLanguage
+    ? AI_MODEL_PREFERENCES.chinese
     : AI_MODEL_PREFERENCES.default;
-  
+
   // Filter to only models that are actually available
-  const availableCandidates = preferredModels.filter(model => 
-    availableModels.includes(model)
+  const availableCandidates = preferredModels.filter((model) =>
+    availableModels.includes(model),
   );
-  
+
   // Random selection from available candidates
   if (availableCandidates.length === 0) return null;
-  
-  const selectedModel = availableCandidates[
-    Math.floor(Math.random() * availableCandidates.length)
-  ];
-  
+
+  const selectedModel =
+    availableCandidates[Math.floor(Math.random() * availableCandidates.length)];
+
   return selectedModel;
 }
 ```
@@ -1630,21 +1729,27 @@ export function selectAIModelForLanguage(
 **BriefPanel Integration** (`/src/components/BriefPanel.tsx`):
 
 ```typescript
-// 🎯 AI Model auto-selection for Chinese language - intelligent model matching  
+// 🎯 AI Model auto-selection for Chinese language - intelligent model matching
 useEffect(() => {
-  const isChineseLanguage = selectedLanguage === 'zh' || selectedLanguage.startsWith('zh-');
-  
+  const isChineseLanguage =
+    selectedLanguage === "zh" || selectedLanguage.startsWith("zh-");
+
   if (isChineseLanguage) {
     // Only switch if currently using a non-Chinese model
-    const chineseModels = ['moonshot', 'qwen'];
+    const chineseModels = ["moonshot", "qwen"];
     const isUsingChineseModel = chineseModels.includes(selectedAiModel);
-    
+
     if (!isUsingChineseModel) {
-      const availableModels = aiModelOptions.map(option => option.value);
-      const suggestedModel = selectAIModelForLanguage(selectedLanguage, availableModels);
-      
+      const availableModels = aiModelOptions.map((option) => option.value);
+      const suggestedModel = selectAIModelForLanguage(
+        selectedLanguage,
+        availableModels,
+      );
+
       if (suggestedModel && suggestedModel !== selectedAiModel) {
-        console.log(`🎯 Auto-selecting AI model "${suggestedModel}" for Chinese language`);
+        console.log(
+          `🎯 Auto-selecting AI model "${suggestedModel}" for Chinese language`,
+        );
         setSelectedAiModel(suggestedModel);
       }
     }
@@ -1653,6 +1758,7 @@ useEffect(() => {
 ```
 
 **Features**:
+
 - ✅ **Random Selection**: Randomly chooses between Moonshot KIMI and Qwen for variety
 - ✅ **Non-Breaking Design**: Gracefully handles removed models without crashes
 - ✅ **Bidirectional**: Switches away from Chinese models for non-Chinese languages
@@ -1673,8 +1779,8 @@ useEffect(() => {
     onClick={onClick}
     disabled={disabled || isGenerating}
     className={`${baseClasses} ${
-      autoMode 
-        ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700' 
+      autoMode
+        ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
         : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
     }`}
   >
@@ -1687,10 +1793,10 @@ useEffect(() => {
       </>
     )}
   </button>
-  
-  <AutoModeToggle 
-    autoMode={autoMode} 
-    onAutoModeChange={onAutoModeChange} 
+
+  <AutoModeToggle
+    autoMode={autoMode}
+    onAutoModeChange={onAutoModeChange}
   />
 </div>
 ```
@@ -1702,7 +1808,8 @@ useEffect(() => {
 const handleGenerateCreativeAutoMode = async () => {
   // Step 1: Generate LLM creative content
   const jsonResponse = await generateCreativeCopy(/* ... */);
-  const { voiceSegments, musicPrompt, soundFxPrompts } = parseCreativeJSON(jsonResponse);
+  const { voiceSegments, musicPrompt, soundFxPrompts } =
+    parseCreativeJSON(jsonResponse);
 
   // Step 2: Trigger parallel generation of all assets
   onGenerateCreativeAuto(segments, musicPrompt || "", soundFxPrompts);
@@ -1710,8 +1817,9 @@ const handleGenerateCreativeAutoMode = async () => {
 ```
 
 **Benefits**:
+
 - ✅ **Power User Speed**: One-click generation of complete campaigns
-- ✅ **Choice Preserved**: Manual mode still available for granular control  
+- ✅ **Choice Preserved**: Manual mode still available for granular control
 - ✅ **Visual Distinction**: Different colors and icons for each mode
 - ✅ **Default for B2B**: Auto mode enabled by default for business users
 
@@ -1722,21 +1830,22 @@ const handleGenerateCreativeAutoMode = async () => {
 **Complete UI Restructuring**:
 
 **Before (3-column complex layout)**:
+
 - Provider selection: Complex picker with detailed descriptions
-- Duration: Hidden in AI Model column  
+- Duration: Hidden in AI Model column
 - Ad Format: At bottom of form
 - Cognitive load: High - too many decisions up front
 
 **After (streamlined 2-column layout)**:
 
-1. **Row 1**: Client Description | Creative Brief *(unchanged)*
-2. **Row 2**: Language/Region/Accent | **Ad Format + Duration** *(promoted)*
-3. **Row 3**: **Voice Provider** *(simplified)* | AI Model
+1. **Row 1**: Client Description | Creative Brief _(unchanged)_
+2. **Row 2**: Language/Region/Accent | **Ad Format + Duration** _(promoted)_
+3. **Row 3**: **Voice Provider** _(simplified)_ | AI Model
 
 **Key Changes**:
 
 1. **Ad Format Prominence** - Moved to row 2 for early decision-making
-2. **Duration Integration** - Placed directly under Ad Format for logical grouping  
+2. **Duration Integration** - Placed directly under Ad Format for logical grouping
 3. **Provider Simplification** - Converted from complex `GlassyOptionPicker` to clean `GlassyListbox`:
 
 ```typescript
@@ -1745,7 +1854,7 @@ const handleGenerateCreativeAutoMode = async () => {
   options={[
     {
       value: "elevenlabs",
-      label: "ElevenLabs", 
+      label: "ElevenLabs",
       description: "Good quality of real actor voices with accents, but speakers need to be handpicked on the ElevenLabs platform",
       badge: `${voiceCount} voices`
     }
@@ -1768,6 +1877,7 @@ const handleGenerateCreativeAutoMode = async () => {
 4. **Voice Cache Refresh** - Moved to logical location under language selection
 
 **Results**:
+
 - ✅ **Reduced Cognitive Load**: Key decisions (Ad Format, Duration) more prominent
 - ✅ **Natural Tab Order**: Left-to-right, top-to-bottom flow
 - ✅ **Simplified Choices**: Provider selection streamlined without overwhelming detail
@@ -1783,9 +1893,13 @@ const handleGenerateCreativeAutoMode = async () => {
 
 ```typescript
 // 🔥 NEW: Reset accent if it's no longer valid for the new language
-const currentAccentIsValid = accents.some(accent => accent.code === selectedAccent);
+const currentAccentIsValid = accents.some(
+  (accent) => accent.code === selectedAccent,
+);
 if (!currentAccentIsValid) {
-  console.log(`🔄 Current accent "${selectedAccent}" is invalid for ${selectedLanguage}, resetting to "neutral"`);
+  console.log(
+    `🔄 Current accent "${selectedAccent}" is invalid for ${selectedLanguage}, resetting to "neutral"`,
+  );
   setSelectedAccent("neutral");
 }
 ```
@@ -1811,11 +1925,11 @@ async getProviderOptions(filters: {
 case 'filtered-voices': {
   // Get all voices for language with filtering applied
   const allVoices: unknown[] = [];
-  
-  // Load from non-excluded providers  
+
+  // Load from non-excluded providers
   const availableProviders = ['elevenlabs', 'openai', 'qwen'] as const;
   const providersToLoad = availableProviders.filter(p => !excludeProviders.includes(p));
-  
+
   for (const providerName of providersToLoad) {
     // Apply region filtering if specified
     if (region && region !== 'all') {
@@ -1828,7 +1942,7 @@ case 'filtered-voices': {
     }
     allVoices.push(...taggedVoices);
   }
-  
+
   // Server-side provider auto-selection with correct counting
   selectedProvider = ProviderSelector.selectDefault(
     campaignFormat, voiceCounts, language, region, accent
@@ -1839,34 +1953,40 @@ case 'filtered-voices': {
 #### 18.7 Impact & Business Results ✅
 
 **Sales Team Efficiency**:
+
 - ✅ **40% Faster Workflow**: Auto mode eliminates manual steps
-- ✅ **Reduced Errors**: Intelligent provider selection prevents failed generations  
+- ✅ **Reduced Errors**: Intelligent provider selection prevents failed generations
 - ✅ **Simplified Decisions**: Streamlined UI reduces confusion and training time
 
 **Technical Reliability**:
+
 - ✅ **Eliminated Edge Cases**: Accent validation, provider reset logic
 - ✅ **Server-Side Consistency**: All filtering moved to Redis-backed APIs
 - ✅ **Real-Time Accuracy**: Provider counts reflect actual voice availability
 
 **International Expansion**:
+
 - ✅ **Chinese Market Ready**: Smart AI model selection for Chinese content
-- ✅ **Regional Precision**: Provider selection considers full geographic context  
+- ✅ **Regional Precision**: Provider selection considers full geographic context
 - ✅ **Accent Validation**: Prevents invalid language/accent combinations
 
 #### 18.8 Code Quality & Architecture ✅
 
 **Clean Architecture Principles Applied**:
+
 - ✅ **Single Responsibility**: Each component handles one concern
 - ✅ **No Duct-Tape Fixes**: Eliminated complex parameter threading
 - ✅ **Early State Resolution**: Resolve "any" provider immediately, not during generation
 - ✅ **Type Safety**: Full TypeScript coverage with proper interfaces
 
 **Performance Optimizations**:
+
 - ✅ **Server-Side Caching**: Redis-backed voice filtering (<50ms responses)
 - ✅ **Efficient State Management**: Reduced useEffect cascades and race conditions
 - ✅ **Batch Processing**: Provider options and voice counts computed together
 
 **User Experience Excellence**:
+
 - ✅ **Progressive Disclosure**: Show complexity only when needed
 - ✅ **Intelligent Defaults**: Auto-selection based on data, not assumptions
 - ✅ **Feedback Loops**: Real-time counts and validation messages
@@ -1932,6 +2052,7 @@ Make it prominent and compelling while sounding natural in the target language.
 ```
 
 **Key Features**:
+
 - **Language Translation**: CTAs automatically translated to target language (e.g., "buy now" → "kup teraz" in Polish)
 - **Natural Integration**: LLM instructed to incorporate CTA naturally into script flow
 - **Marketing Compliance**: All CTAs based on Spotify's approved marketing language
@@ -1940,27 +2061,32 @@ Make it prominent and compelling while sounding natural in the target language.
 
 ```typescript
 // Auto-populate CTA from brief data with proper capitalization
-const briefCTA = loadedProject.brief?.selectedCTA?.replace(/-/g, ' ') || '';
+const briefCTA = loadedProject.brief?.selectedCTA?.replace(/-/g, " ") || "";
 
 // Helper function to capitalize text (for both CTA and brand names)
 const capitalizeText = (text: string) => {
-  return text.split(' ').map(word =>
-    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-  ).join(' ');
+  return text
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
 };
 
-const finalCTA = (loadedProject.preview?.cta && loadedProject.preview.cta !== 'Learn More')
-  ? loadedProject.preview.cta
-  : briefCTA || 'Learn More';
+const finalCTA =
+  loadedProject.preview?.cta && loadedProject.preview.cta !== "Learn More"
+    ? loadedProject.preview.cta
+    : briefCTA || "Learn More";
 
 setPreviewData({
-  brandName: loadedProject.preview?.brandName || (briefBrandName ? capitalizeText(briefBrandName) : ''),
+  brandName:
+    loadedProject.preview?.brandName ||
+    (briefBrandName ? capitalizeText(briefBrandName) : ""),
   cta: capitalizeText(finalCTA),
   // ... other fields
 });
 ```
 
 **Smart Brand Name Extraction**: Automatically extracts brand name from client description using intelligent parsing:
+
 - "Coca-Cola is a beverage company" → "Coca-Cola"
 - "McDonald's offers fast food" → "McDonald's"
 - "Apple provides technology solutions" → "Apple"
@@ -1968,22 +2094,26 @@ setPreviewData({
 #### Architecture Benefits ✅
 
 **1. Complete Data Flow**:
+
 ```
 BriefPanel CTA Selection → ProjectBrief Storage → LLM Prompt Integration →
 Script Generation → PreviewPanel Auto-Population → Client Presentation
 ```
 
 **2. Multi-Language Support**:
+
 - **Source**: English CTA options for consistency
 - **Processing**: LLM translates to target language during script generation
 - **Output**: Proper localization for all supported markets
 
 **3. UI/UX Improvements**:
+
 - **Dedicated Row**: CTA and Duration get their own row for better organization
 - **Visual Hierarchy**: Important marketing decisions more prominent
 - **Auto-Capitalization**: Professional formatting for client presentations
 
 **4. Backwards Compatibility**:
+
 - **Optional Field**: `selectedCTA?` doesn't break existing projects
 - **Default Fallback**: "Learn More" when no CTA specified
 - **Progressive Enhancement**: Existing projects benefit without manual updates
@@ -1991,16 +2121,19 @@ Script Generation → PreviewPanel Auto-Population → Client Presentation
 #### Business Impact ✅
 
 **Marketing Effectiveness**:
+
 - ✅ **Consistent CTAs**: All generated ads end with appropriate calls-to-action
 - ✅ **Conversion Optimization**: Marketing-tested CTA options improve campaign performance
 - ✅ **Brand Consistency**: Automated brand name extraction and capitalization
 
 **Global Market Support**:
+
 - ✅ **Language Localization**: CTAs properly translated for all target markets
 - ✅ **Cultural Adaptation**: LLM incorporates CTAs idiomatically per language
 - ✅ **Spotify Compliance**: All CTAs align with platform marketing guidelines
 
 **Operational Efficiency**:
+
 - ✅ **Automated Workflow**: No manual CTA insertion required
 - ✅ **Preview Integration**: Client presentations show proper CTAs automatically
 - ✅ **Project Persistence**: CTA selections saved and restored across sessions
@@ -2008,6 +2141,7 @@ Script Generation → PreviewPanel Auto-Population → Client Presentation
 #### Technical Implementation Details ✅
 
 **Duration & Compliance System**:
+
 - **Updated Duration Constraints**: Slider maximum reduced to 60 seconds (from 90s)
 - **Spotify Guidelines**: Clear warning about 30-second standard limit
 - **Default Duration**: Changed to 25 seconds for optimal ad length

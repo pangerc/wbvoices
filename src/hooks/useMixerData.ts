@@ -14,7 +14,7 @@ export function useMixerData(adId: string) {
     {
       revalidateOnFocus: false,
       dedupingInterval: 2000, // Prevent rapid refetches
-    }
+    },
   );
 
   /**
@@ -41,7 +41,7 @@ export function useMixerData(adId: string) {
    * cache updated" and "store hydration effect fires."
    */
   const patchAnchors = async (
-    anchorUpdates: Record<SlotId, Anchor | null>
+    anchorUpdates: Record<SlotId, Anchor | null>,
   ): Promise<MixerState | null> => {
     if (!adId || Object.keys(anchorUpdates).length === 0) return null;
     const response = await fetch(`/api/ads/${adId}/mixer`, {
@@ -65,7 +65,7 @@ export function useMixerData(adId: string) {
    * slot. Client is responsible for clamping values to the source duration.
    */
   const patchTrim = async (
-    trimUpdates: Record<SlotId, { start: number; end: number } | null>
+    trimUpdates: Record<SlotId, { start: number; end: number } | null>,
   ): Promise<MixerState | null> => {
     if (!adId || Object.keys(trimUpdates).length === 0) return null;
     const response = await fetch(`/api/ads/${adId}/mixer`, {
@@ -89,9 +89,7 @@ export function useMixerData(adId: string) {
    * preserved as a frozen version in the take list. Optional `label`
    * lands on the frozen (outgoing) take — that's the one worth naming.
    */
-  const startNewTake = async (
-    label?: string
-  ): Promise<MixerState | null> => {
+  const startNewTake = async (label?: string): Promise<MixerState | null> => {
     if (!adId) return null;
     const response = await fetch(`/api/ads/${adId}/mixer/new-take`, {
       method: "POST",
@@ -114,12 +112,12 @@ export function useMixerData(adId: string) {
    * active take's pins, anchors, overrides, and cached mix.
    */
   const activateMixerVersion = async (
-    versionId: string
+    versionId: string,
   ): Promise<MixerState | null> => {
     if (!adId) return null;
     const response = await fetch(
       `/api/ads/${adId}/mixer/${versionId}/activate`,
-      { method: "POST" }
+      { method: "POST" },
     );
     if (!response.ok) {
       console.error("❌ Failed to activate mixer version:", response.status);

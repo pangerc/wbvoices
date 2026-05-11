@@ -25,9 +25,7 @@ export const runtime = "nodejs";
 
 export async function POST(
   request: NextRequest,
-  {
-    params,
-  }: { params: Promise<{ id: string; versionId: string }> }
+  { params }: { params: Promise<{ id: string; versionId: string }> },
 ) {
   try {
     const { id: adId, versionId } = await params;
@@ -36,9 +34,11 @@ export async function POST(
       adId,
       async () => {
         // Verify the target exists before touching anything.
-        const target = (await getVersion(adId, "mixer", versionId)) as
-          | MixerVersion
-          | null;
+        const target = (await getVersion(
+          adId,
+          "mixer",
+          versionId,
+        )) as MixerVersion | null;
         if (!target) {
           throw new Error(`mixer version ${versionId} not found`);
         }
@@ -48,27 +48,29 @@ export async function POST(
         // don't want two drafts coexisting even transiently.
         const prevId = await getActiveVersion(adId, "mixer");
         if (prevId && prevId !== versionId) {
-          const prev = (await getVersion(adId, "mixer", prevId)) as
-            | MixerVersion
-            | null;
+          const prev = (await getVersion(
+            adId,
+            "mixer",
+            prevId,
+          )) as MixerVersion | null;
           if (prev && prev.status === "draft") {
             await updateVersion(adId, "mixer", prevId, { status: "frozen" });
             console.log(
-              `[mixer-activate] auto-froze outgoing draft ${prevId} before switching to ${versionId}`
+              `[mixer-activate] auto-froze outgoing draft ${prevId} before switching to ${versionId}`,
             );
           }
         }
 
         await setActiveVersion(adId, "mixer", versionId);
       },
-      { ttlSec: 10 }
+      { ttlSec: 10 },
     );
 
     const updated = await getMixerState(adId);
     if (!updated) {
       return NextResponse.json(
         { error: "Mixer state unavailable after activate" },
-        { status: 500 }
+        { status: 500 },
       );
     }
     return NextResponse.json(updated);
@@ -79,7 +81,7 @@ export async function POST(
         error: "Failed to activate mixer version",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

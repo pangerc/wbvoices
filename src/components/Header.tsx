@@ -18,7 +18,10 @@ type HeaderProps = {
 type GeneratingState = "llm" | "audio" | false;
 
 // Get stroke color based on selection and generation state
-function getStrokeColor(selected: boolean, generating: GeneratingState): string {
+function getStrokeColor(
+  selected: boolean,
+  generating: GeneratingState,
+): string {
   if (generating === "llm") return "#FFFFFF"; // White during LLM thinking
   if (generating === "audio") return "#2F7DFA"; // Blue during audio generation
   return selected ? "#2F7DFA" : "#FFFFFF"; // Normal state
@@ -408,7 +411,6 @@ export function Header({
               />
             </svg>
           </button>
-
 
           <HistoryDrawer
             isOpen={isOpen}

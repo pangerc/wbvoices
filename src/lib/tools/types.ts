@@ -1,4 +1,10 @@
-import type { VoiceVersion, MusicVersion, SfxVersion, VersionId, StreamType } from "@/types/versions";
+import type {
+  VoiceVersion,
+  MusicVersion,
+  SfxVersion,
+  VersionId,
+  StreamType,
+} from "@/types/versions";
 import type { AnchorInput } from "./anchorTranslation";
 import type { KnowledgeContext } from "@/lib/knowledge/types";
 import type {

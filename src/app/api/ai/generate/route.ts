@@ -112,28 +112,34 @@ function buildUserMessage(params: {
     dialectNote = `\n- Region: ${region} (use local expressions)`;
   }
 
-  const pacingNote = pacing && pacing !== "normal" ? `\n- Pacing: ${pacing}` : "";
+  const pacingNote =
+    pacing && pacing !== "normal" ? `\n- Pacing: ${pacing}` : "";
   const ctaNote = cta ? `\n- Call to Action: ${cta}` : "";
-  const voiceInstructionsNote = voiceInstructions && voiceInstructions.trim()
-    ? `\n- Voice delivery instructions: ${voiceInstructions.trim()}`
-    : "";
+  const voiceInstructionsNote =
+    voiceInstructions && voiceInstructions.trim()
+      ? `\n- Voice delivery instructions: ${voiceInstructions.trim()}`
+      : "";
   const referenceSection =
     referenceUrls && referenceUrls.length
       ? `\n\n## Reference URLs\n${referenceUrls.map((u) => `- ${u}`).join("\n")}`
       : "";
-  const forbiddenSection = forbiddenWords && forbiddenWords.trim()
-    ? `\n\n## Forbidden words / phrases (do NOT use)\n${forbiddenWords.trim()}`
-    : "";
-  const providedScriptSection = providedScript && providedScript.trim()
-    ? `\n\n## Provided Script (USE VERBATIM)\nThe user has supplied the script text below. Use it exactly as written; only write acting instructions, music, and SFX around it. Do not edit, translate, or paraphrase.\n\n\`\`\`\n${providedScript.trim()}\n\`\`\``
-    : "";
-  const creativeAngleSection = creativeAngle && creativeAngle.trim()
-    ? `\n\n## Creative angle (THIS spot only)\n${creativeAngle.trim()}\nThis is the variance — what makes THIS ad different from every other ad for this brand. Brand voice is the constant; treat the angle as load-bearing.`
-    : "";
+  const forbiddenSection =
+    forbiddenWords && forbiddenWords.trim()
+      ? `\n\n## Forbidden words / phrases (do NOT use)\n${forbiddenWords.trim()}`
+      : "";
+  const providedScriptSection =
+    providedScript && providedScript.trim()
+      ? `\n\n## Provided Script (USE VERBATIM)\nThe user has supplied the script text below. Use it exactly as written; only write acting instructions, music, and SFX around it. Do not edit, translate, or paraphrase.\n\n\`\`\`\n${providedScript.trim()}\n\`\`\``
+      : "";
+  const creativeAngleSection =
+    creativeAngle && creativeAngle.trim()
+      ? `\n\n## Creative angle (THIS spot only)\n${creativeAngle.trim()}\nThis is the variance — what makes THIS ad different from every other ad for this brand. Brand voice is the constant; treat the angle as load-bearing.`
+      : "";
 
   // Word count targets (~2.5 words/sec)
   const totalWords = Math.round(duration * 2.5);
-  const wordsPerSpeaker = campaignFormat === "dialog" ? Math.round(totalWords / 2) : totalWords;
+  const wordsPerSpeaker =
+    campaignFormat === "dialog" ? Math.round(totalWords / 2) : totalWords;
 
   return `Create a ${duration}-second ${campaignFormat} audio ad.
 
@@ -187,8 +193,10 @@ export async function POST(req: NextRequest) {
     // Read order matches the brief schema deprecation contract: brand
     // wins, top-level salesforceAccountId is the legacy fallback.
     const effectiveSfAccountId: string | null =
-      (brand && typeof brand === "object" && typeof (brand as Record<string, unknown>).salesforceAccountId === "string"
-        ? ((brand as { salesforceAccountId: string }).salesforceAccountId)
+      (brand &&
+      typeof brand === "object" &&
+      typeof (brand as Record<string, unknown>).salesforceAccountId === "string"
+        ? (brand as { salesforceAccountId: string }).salesforceAccountId
         : null) ||
       (typeof salesforceAccountId === "string" ? salesforceAccountId : null);
 
@@ -213,14 +221,17 @@ export async function POST(req: NextRequest) {
     if (!adId) {
       return NextResponse.json(
         { error: "adId is required for agentic generation" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!language || !clientDescription || !creativeBrief || !campaignFormat) {
       return NextResponse.json(
-        { error: "Missing required fields: language, clientDescription, creativeBrief, campaignFormat" },
-        { status: 400 }
+        {
+          error:
+            "Missing required fields: language, clientDescription, creativeBrief, campaignFormat",
+        },
+        { status: 400 },
       );
     }
 
@@ -228,12 +239,16 @@ export async function POST(req: NextRequest) {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: "OpenAI API key not configured" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    console.log(`[/api/ai/generate] Starting agentic generation for ad ${adId}`);
-    console.log(`[/api/ai/generate] Voice Provider: ${voiceProvider}, Language: ${language}`);
+    console.log(
+      `[/api/ai/generate] Starting agentic generation for ad ${adId}`,
+    );
+    console.log(
+      `[/api/ai/generate] Voice Provider: ${voiceProvider}, Language: ${language}`,
+    );
 
     // Build prompts with knowledge context
     const languageName = getLanguageName(language);
@@ -243,7 +258,8 @@ export async function POST(req: NextRequest) {
     let creativeTemplateInstructions: string | undefined;
     if (selectedTemplateId) {
       try {
-        const template = await instructionTemplatesService.getById(selectedTemplateId);
+        const template =
+          await instructionTemplatesService.getById(selectedTemplateId);
         if (template) {
           creativeTemplateTitle = template.title;
           const musicStyle = template.defaultMusicStyle?.trim();
@@ -252,13 +268,13 @@ export async function POST(req: NextRequest) {
             : template.systemInstructions;
         } else {
           console.warn(
-            `[/api/ai/generate] selectedTemplateId ${selectedTemplateId} not found — proceeding without template`
+            `[/api/ai/generate] selectedTemplateId ${selectedTemplateId} not found — proceeding without template`,
           );
         }
       } catch (err) {
         console.warn(
           `[/api/ai/generate] template fetch failed for ${selectedTemplateId} — proceeding without template:`,
-          err
+          err,
         );
       }
     }
@@ -270,7 +286,11 @@ export async function POST(req: NextRequest) {
       language: language,
       voiceProvider: voiceProvider,
       campaignFormat: campaignFormat as KnowledgeContext["campaignFormat"],
-      hasProvidedScript: !!(providedScript && typeof providedScript === "string" && providedScript.trim()),
+      hasProvidedScript: !!(
+        providedScript &&
+        typeof providedScript === "string" &&
+        providedScript.trim()
+      ),
       creativeTemplateTitle,
       creativeTemplateInstructions,
     };
@@ -306,14 +326,17 @@ export async function POST(req: NextRequest) {
       referenceUrls,
       forbiddenWords,
       providedScript,
-      creativeAngle: typeof creativeAngle === "string" ? creativeAngle : undefined,
+      creativeAngle:
+        typeof creativeAngle === "string" ? creativeAngle : undefined,
       enrichmentSections,
     });
 
     // Build system prompt with modular knowledge
     // LLM will call read_ad_state + search_voices as needed
     const systemPrompt = buildSystemPrompt(userMessage, knowledgeContext);
-    console.log(`[/api/ai/generate] Built system prompt with knowledge modules`);
+    console.log(
+      `[/api/ai/generate] Built system prompt with knowledge modules`,
+    );
 
     // Run the agent loop
     const result = await runAgentLoop(systemPrompt, userMessage, {
@@ -323,7 +346,9 @@ export async function POST(req: NextRequest) {
       knowledgeContext,
     });
 
-    console.log(`[/api/ai/generate] Agent completed with ${result.toolCallHistory.length} tool calls`);
+    console.log(
+      `[/api/ai/generate] Agent completed with ${result.toolCallHistory.length} tool calls`,
+    );
     console.log(`[/api/ai/generate] Drafts created:`, result.drafts);
 
     // Build brief object from request params
@@ -341,13 +366,27 @@ export async function POST(req: NextRequest) {
       voiceInstructions: voiceInstructionsText,
       selectedTemplateId,
       selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
-      ...(Array.isArray(referenceUrls) && referenceUrls.length ? { referenceUrls } : {}),
-      ...(forbiddenWords && typeof forbiddenWords === "string" && forbiddenWords.trim() ? { forbiddenWords: forbiddenWords.trim() } : {}),
-      ...(providedScript && typeof providedScript === "string" && providedScript.trim() ? { providedScript: providedScript.trim() } : {}),
+      ...(Array.isArray(referenceUrls) && referenceUrls.length
+        ? { referenceUrls }
+        : {}),
+      ...(forbiddenWords &&
+      typeof forbiddenWords === "string" &&
+      forbiddenWords.trim()
+        ? { forbiddenWords: forbiddenWords.trim() }
+        : {}),
+      ...(providedScript &&
+      typeof providedScript === "string" &&
+      providedScript.trim()
+        ? { providedScript: providedScript.trim() }
+        : {}),
       // Persist both the legacy top-level field AND the new brand.* shape
       // so v1 readers keep working while v2 readers prefer brand.*.
-      ...(effectiveSfAccountId ? { salesforceAccountId: effectiveSfAccountId } : {}),
-      ...(typeof creativeAngle === "string" && creativeAngle.trim() ? { creativeAngle: creativeAngle.trim() } : {}),
+      ...(effectiveSfAccountId
+        ? { salesforceAccountId: effectiveSfAccountId }
+        : {}),
+      ...(typeof creativeAngle === "string" && creativeAngle.trim()
+        ? { creativeAngle: creativeAngle.trim() }
+        : {}),
       ...(brand && typeof brand === "object"
         ? { brand: brand as ProjectBrief["brand"] }
         : {}),
@@ -375,7 +414,9 @@ export async function POST(req: NextRequest) {
       lastModified: Date.now(),
       owner: currentMeta?.owner || ownerEmail,
     });
-    console.log(`[/api/ai/generate] Updated ad - title: "${adTitle}" (LLM-generated: ${llmSetTitle})`);
+    console.log(
+      `[/api/ai/generate] Updated ad - title: "${adTitle}" (LLM-generated: ${llmSetTitle})`,
+    );
 
     // Return the result
     return NextResponse.json({
@@ -391,10 +432,13 @@ export async function POST(req: NextRequest) {
     console.error("[/api/ai/generate] Error:", error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to generate creative",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate creative",
         details: error instanceof Error ? error.stack : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

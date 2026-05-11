@@ -22,14 +22,16 @@ export function ReferenceUrlsSubeditor({
       <label className="block text-sm font-medium text-gray-300 mb-2">
         Reference URLs
         <span className="ml-2 text-xs text-gray-500">
-          (one per line — homepages, product pages, prior ads we should
-          inherit voice from)
+          (one per line — homepages, product pages, prior ads we should inherit
+          voice from)
         </span>
       </label>
       <GlassyTextarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={"https://example.com\nhttps://example.com/products/whatever"}
+        placeholder={
+          "https://example.com\nhttps://example.com/products/whatever"
+        }
         rows={4}
         disabled={disabled}
       />

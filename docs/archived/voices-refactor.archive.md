@@ -25,12 +25,14 @@
 ## FINAL VICTORY METRICS 🎯
 
 ### Technical Achievements
+
 - **Voice Coverage**: 1,594+ voices across 3 providers with 100+ accent variants
 - **Performance**: <50ms voice lookups (vs 500ms+ API cascades before)
 - **Reliability**: 99%+ project restoration success rate
 - **Architecture**: 3 Redis keys vs 1000+ individual entries
 
 ### Business Impact
+
 - **Global Market Ready**: LATAM, MENA, Chinese markets with authentic regional accents
 - **Sales Team Efficiency**: 40% faster workflow with streamlined UI
 - **Error Reduction**: Eliminated provider/voice mismatches and edge case failures
@@ -329,7 +331,7 @@ const defaultProvider = ProviderSelection.selectDefault(format, counts);
 const voices = await voiceCatalogue.getVoicesForProvider(
   provider,
   language,
-  accent
+  accent,
 );
 ```
 
@@ -356,7 +358,7 @@ if (provider === "elevenlabs") {
 const voices = await voiceCatalogue.getVoicesForProvider(
   provider,
   language,
-  accent
+  accent,
 );
 ```
 
@@ -521,7 +523,7 @@ if (USE_NEW_VOICE_SYSTEM) {
 ```typescript
 function selectDefaultProvider(
   format: CampaignFormat,
-  voiceCounts: Record<Provider, number>
+  voiceCounts: Record<Provider, number>,
 ): Provider {
   // Rule 1: For dialogue, prefer ElevenLabs if it has 2+ voices
   if (format === "dialog" && voiceCounts.elevenlabs >= 2) {
@@ -654,7 +656,7 @@ interface AccentFeedback {
 ### ALL PHASES COMPLETED ✅
 
 - ✅ **Phase 1**: Infrastructure - Voice Catalogue Service, Redis towers
-- ✅ **Phase 2**: Data Migration - 1,594 voices populated, towers operational  
+- ✅ **Phase 2**: Data Migration - 1,594 voices populated, towers operational
 - ✅ **Phase 3**: UI Refactoring - BriefPanelV2 with proper flow
 - ✅ **Phase 4**: LLM Integration - Feature flag system operational
 - ✅ **Phase 5**: Critical Bug Hunts - Dragon eggs destroyed, normalization fixed
@@ -667,13 +669,13 @@ interface AccentFeedback {
 ### ✅ WEEKEND VICTORY ADDITION (September 2025)
 
 - ✅ **Phase 11**: Intelligent Provider Auto-Selection - Full dimensionality
-- ✅ **Phase 12**: Smart AI Model Switching - Chinese language optimization  
+- ✅ **Phase 12**: Smart AI Model Switching - Chinese language optimization
 - ✅ **Phase 13**: Enhanced Auto Mode - Split generate button
 - ✅ **Phase 14**: Sales-Friendly UI - Streamlined cognitive load
 
 ### ACTUAL TIMELINE DELIVERED
 
-- **Day 1-2**: Infrastructure ✅ COMPLETED  
+- **Day 1-2**: Infrastructure ✅ COMPLETED
 - **Day 3**: Data Migration ✅ COMPLETED
 - **Day 4-5**: UI Refactoring ✅ COMPLETED
 - **Day 6**: LLM Integration & Project History ✅ COMPLETED
@@ -691,9 +693,9 @@ interface AccentFeedback {
 
 ### 🏰 **Infrastructure Victories - ALL DELIVERED**:
 
-- ✅ **Three-Tower Architecture**: Redis fortress operational with 1,594+ voices  
+- ✅ **Three-Tower Architecture**: Redis fortress operational with 1,594+ voices
 - ✅ **Language Normalization**: All APIs use consistent base codes (`en`, `es`, `ar`)
-- ✅ **URL Extraction Breakthrough**: Secret regional accents liberated from Lovo URLs  
+- ✅ **URL Extraction Breakthrough**: Secret regional accents liberated from Lovo URLs
 - ✅ **Accent Registry**: Comprehensive 100+ accent mapping with regional code support
 - ✅ **Intelligent Auto-Selection**: Clean provider selection with full dimensionality
 - ✅ **Smart AI Model Selection**: Chinese-optimized model switching (Moonshot KIMI/Qwen)
@@ -703,7 +705,7 @@ interface AccentFeedback {
 - ✅ **Flow Revolution**: Language → Region → Accent → Provider (with intelligent auto-selection)
 - ✅ **Provider Lock-in Destroyed**: Cross-provider accent visibility achieved
 - ✅ **Accent Explosion**: Spanish 3 → 24 authentic regional accents + 100+ total variants
-- ✅ **All Dragon Eggs Eliminated**: "Saudi Spanish", normalization bugs, race conditions destroyed  
+- ✅ **All Dragon Eggs Eliminated**: "Saudi Spanish", normalization bugs, race conditions destroyed
 - ✅ **BriefPanel Perfection**: Redis-powered voice management with streamlined UI
 - ✅ **Regional Organization**: Spanish accents organized by Europe/Latin America/Africa
 - ✅ **Auto Mode Enhancement**: Split generate button with parallel asset generation
@@ -711,7 +713,7 @@ interface AccentFeedback {
 ### 🎯 **Critical Business Wins - GLOBAL CONQUEST**:
 
 - ✅ **LATAM Markets Ready**: Authentic Mexican, Argentinian, Colombian accents operational
-- ✅ **MENA Markets Ready**: Saudi, Egyptian, Kuwaiti Arabic properly supported  
+- ✅ **MENA Markets Ready**: Saudi, Egyptian, Kuwaiti Arabic properly supported
 - ✅ **Chinese Markets Ready**: Smart AI model selection for optimal Chinese content
 - ✅ **Sales Team Efficiency**: 40% faster workflow with cognitive load reduction
 - ✅ **Voice Transparency**: Real-time provider counts that update with all filter changes
@@ -722,32 +724,35 @@ interface AccentFeedback {
 ### 🔥 **Technical Breakthroughs - LEGENDARY ACHIEVEMENTS**:
 
 - ✅ **URL Regex Magic**: `/([a-z]{2}-[A-Z]{2})-/` pattern unlocked hidden accent treasure
-- ✅ **Accent Normalization Perfection**: Uppercase region codes → proper accent names  
+- ✅ **Accent Normalization Perfection**: Uppercase region codes → proper accent names
 - ✅ **API Consistency**: All endpoints unified with normalized language contracts
 - ✅ **Redis Performance**: <50ms voice lookups (10x faster than API cascades)
 - ✅ **Early State Resolution**: "Any" provider resolved immediately, not during generation
 - ✅ **Layout Optimization**: 2-column BriefPanel with natural tab order and prominence
 - ✅ **Server-Side Intelligence**: Complete migration from client-side hybrid approaches
-- ✅ **Provider Reset Logic**: Intelligent filtering changes trigger smart auto-selection  
+- ✅ **Provider Reset Logic**: Intelligent filtering changes trigger smart auto-selection
 - ✅ **Accent Validation**: Invalid accent combinations automatically resolved
 
 ### 🚀 **FINAL BUSINESS IMPACT - ENTERPRISE READY**:
 
 **Sales Team Transformation**:
+
 - ✅ 40% faster campaign creation workflow
-- ✅ Reduced training time with intuitive UI flow  
+- ✅ Reduced training time with intuitive UI flow
 - ✅ Eliminated voice generation failures and edge cases
 - ✅ Auto mode for power users, manual mode for detailed control
 
 **Global Market Expansion**:
+
 - ✅ 100+ regional accent variants across all major languages
 - ✅ Chinese market optimization with intelligent AI model selection
 - ✅ LATAM/MENA market precision with authentic regional voices
 - ✅ Accent validation prevents invalid language combinations
 
 **Technical Excellence**:
+
 - ✅ Production-ready architecture with <50ms response times
-- ✅ Zero duct-tape fixes or architectural compromises  
+- ✅ Zero duct-tape fixes or architectural compromises
 - ✅ Complete server-side intelligence with Redis backing
 - ✅ Bullet-proof project restoration and state management
 
@@ -927,7 +932,7 @@ const getVoicesForProvider = useCallback(
     }
     return currentVoices;
   },
-  [currentVoices, selectedProvider]
+  [currentVoices, selectedProvider],
 );
 
 // Clean provider selection (quality over quantity)
@@ -990,6 +995,7 @@ All systems operational with clean architecture principles. The voice management
 **Problem**: Provider counts would go to 0 when selecting specific providers, breaking regional filtering
 
 **Root Causes Identified**:
+
 1. **Hybrid Counting Logic**: BriefPanel was trying to count voices from `currentVoices` array
 2. **State Inconsistency**: When specific provider selected, `currentVoices` only contained that provider's voices
 3. **Regional Filtering Mismatch**: Server counts ignored regional filtering applied client-side
@@ -1006,12 +1012,12 @@ All systems operational with clean architecture principles. The voice management
 // 🗡️ ALWAYS LOAD ALL VOICES - Clean, consistent approach!
 const loadVoices = useCallback(async () => {
   // Always load from ALL providers and tag each voice
-  const providers = ['elevenlabs', 'lovo', 'openai'] as const;
+  const providers = ["elevenlabs", "lovo", "openai"] as const;
   const voicePromises = providers.map(async (provider) => {
     // Tag each voice with its provider
-    return voices.map((v: Voice) => ({...v, provider}));
+    return voices.map((v: Voice) => ({ ...v, provider }));
   });
-  
+
   const allVoices = (await Promise.all(voicePromises)).flat();
   setCurrentVoices(allVoices);
 }, [selectedLanguage, selectedAccent]); // Only reload when language/accent changes, NOT provider
@@ -1025,26 +1031,42 @@ const filteredProviderOptions = useMemo(() => {
   // Apply regional filtering once
   let regionFilteredVoices = currentVoices;
   if (selectedRegion && hasRegions) {
-    const regionalAccents = getRegionalAccents(selectedLanguage, selectedRegion);
-    regionFilteredVoices = currentVoices.filter(voice => {
-      if ((voice as Voice & { provider?: string }).provider === 'openai') return true;
-      return regionalAccents.includes(voice.accent) && voice.accent !== 'none';
+    const regionalAccents = getRegionalAccents(
+      selectedLanguage,
+      selectedRegion,
+    );
+    regionFilteredVoices = currentVoices.filter((voice) => {
+      if ((voice as Voice & { provider?: string }).provider === "openai")
+        return true;
+      return regionalAccents.includes(voice.accent) && voice.accent !== "none";
     });
   }
-  
+
   // Count voices by provider in the regionally filtered set
-  const filteredCounts = regionFilteredVoices.reduce((acc, voice) => {
-    const provider = (voice as Voice & { provider?: string }).provider || 'unknown';
-    acc[provider] = (acc[provider] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  
+  const filteredCounts = regionFilteredVoices.reduce(
+    (acc, voice) => {
+      const provider =
+        (voice as Voice & { provider?: string }).provider || "unknown";
+      acc[provider] = (acc[provider] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
   // Build provider options with accurate counts
   return [
-    { provider: 'any', count: totalVoices, label: `Any Provider (${totalVoices} voices)` },
-    { provider: 'elevenlabs', count: elevenlabs, label: `ElevenLabs (${elevenlabs} voices)` },
-    { provider: 'lovo', count: lovo, label: `Lovo (${lovo} voices)` },
-    { provider: 'openai', count: openai, label: `OpenAI (${openai} voices)` }
+    {
+      provider: "any",
+      count: totalVoices,
+      label: `Any Provider (${totalVoices} voices)`,
+    },
+    {
+      provider: "elevenlabs",
+      count: elevenlabs,
+      label: `ElevenLabs (${elevenlabs} voices)`,
+    },
+    { provider: "lovo", count: lovo, label: `Lovo (${lovo} voices)` },
+    { provider: "openai", count: openai, label: `OpenAI (${openai} voices)` },
   ];
 }, [currentVoices, selectedRegion, hasRegions, selectedLanguage]);
 ```
@@ -1071,7 +1093,7 @@ const filteredProviderOptions = useMemo(() => {
 Language/Accent Change → Load ALL voices (tagged by provider) → Store in currentVoices
                               ↓
 Region Change → Filter currentVoices by regional accents → Update provider counts
-                              ↓  
+                              ↓
 Provider Change → Filter currentVoices by selected provider → No reload needed!
 ```
 
@@ -1080,21 +1102,18 @@ Provider Change → Filter currentVoices by selected provider → No reload need
 ### Provider Styling – Current State of the Art (September 2025)
 
 - ElevenLabs mapping bridge
-
   - LLM provides a single tone label (e.g., cheerful, calm, serious, energetic, fast_read, slow_read)
   - Server translates label → ElevenLabs `voice_settings` (stability, similarity_boost, style, speed, use_speaker_boost)
   - Numeric knobs are applied only at generation time; no schema change required
   - Reference: `Create speech` docs for accepted fields: https://elevenlabs.io/docs/api-reference/text-to-speech/convert
 
 - Lovo speaker styles
-
   - Voice IDs now encode exact style: `speakerId|styleId` (from `/api/v1/speakers`)
   - Generation sends `speaker` and `speakerStyle` to TTS
   - We use the Sync TTS endpoint; if it returns a pending job (90s limit), we short‑poll the job endpoint for a few seconds
   - Reference: Sync/Async TTS docs: https://docs.genny.lovo.ai/reference/sync-tts
 
 - OpenAI voices - **UPDATED SEPTEMBER 2025**
-
   - **Expanded catalog**: 10 voices total (Alloy, Echo, Fable, Onyx, Nova, Shimmer, Ash, Ballad, Coral, Sage)
   - **Gender classification**: No more "neutral" - all voices assigned male/female based on perceived characteristics
     - **Male**: Alloy, Echo, Fable, Onyx, Ash, Ballad, Sage
@@ -1104,14 +1123,13 @@ Provider Change → Filter currentVoices by selected provider → No reload need
     - **Multilingual suitable** (`qualityTier: "good"/"excellent"`): Fable, Nova, Shimmer, Ballad, Coral
   - **Enhanced descriptions**: Updated with proper style/tone descriptions from research
     - Alloy: "Balanced, neutral, clear"
-    - Echo: "Calm, measured, thoughtful" 
+    - Echo: "Calm, measured, thoughtful"
     - Fable: "Warm, engaging, storytelling"
     - Nova: "Bright, energetic, enthusiastic"
     - Shimmer: "Soft, gentle, soothing"
   - **LLM integration**: Can emit rich `voiceInstructions`; rendered as part of creative direction
 
 - ScripterPanel UI
-
   - Replaced badges with two neutral gray lines directly under the voice picker:
     - `Speaker:` name · accent · gender · speaker style (if present)
     - `Creative:` Tone=… · Use=… · Instructions=… (only shows provided parts)
@@ -1132,6 +1150,7 @@ These changes keep the mono‑provider approach clean: the LLM sees one provider
 **Problem**: User added 9 Polish voices on ElevenLabs but only 3 appeared in the UI after Redis cache refresh. Investigation revealed that voices with multiple `verified_languages` (like "Pawel Pro - Polish" supporting 16+ languages) were only stored as single Redis entries for the first language.
 
 **Root Cause**: The `getVoiceLanguage()` function naively took the first language from the `verified_languages` array:
+
 ```typescript
 // ❌ PROBLEMATIC CODE
 if (voice.verified_languages && voice.verified_languages.length > 0) {
@@ -1148,6 +1167,7 @@ This caused "Pawel Pro - Polish" with `["hindi", "polish", "portuguese", ...]` t
 **Implementation Changes**:
 
 1. **Multiple Voice Entries per ElevenLabs Voice**:
+
 ```typescript
 // BEFORE: Single voice object per ElevenLabs voice
 const voices = data.voices.map((voice: ElevenLabsVoice): Voice => {
@@ -1159,7 +1179,10 @@ const voices = data.voices.map((voice: ElevenLabsVoice): Voice => {
 const voices = data.voices.flatMap((voice: ElevenLabsVoice): Voice[] => {
   if (voice.verified_languages && voice.verified_languages.length > 0) {
     return voice.verified_languages.map((langObject, index) => {
-      const langString = typeof langObject === "string" ? langObject : langObject.language || "en-US";
+      const langString =
+        typeof langObject === "string"
+          ? langObject
+          : langObject.language || "en-US";
       const normalizedLanguage = normalizeLanguageCode(langString);
 
       return {
@@ -1177,11 +1200,11 @@ const voices = data.voices.flatMap((voice: ElevenLabsVoice): Voice[] => {
 ```
 
 2. **Enhanced Data Structure Handling**:
+
 ```typescript
 // Fixed: verified_languages contains objects, not strings
-const langString = typeof langObject === "string"
-  ? langObject
-  : langObject.language || "en-US";
+const langString =
+  typeof langObject === "string" ? langObject : langObject.language || "en-US";
 ```
 
 3. **Preserved Backward Compatibility**: Voices without `verified_languages` still use the original `getVoiceLanguage()` logic.
@@ -1189,12 +1212,14 @@ const langString = typeof langObject === "string"
 #### Results Achieved ✅
 
 **Voice Explosion**:
+
 - **Before**: 0 ElevenLabs voices in Redis
 - **After**: 430 ElevenLabs voices in Redis
 - **Polish Voices**: 12 unique voices now available (including Pawel)
 - **Bulgarian Voices**: 4 unique voices now available (including Pawel)
 
 **Example Success**:
+
 ```bash
 # Pawel now appears correctly in Polish voices
 curl "/api/voice/list?provider=elevenlabs" | jq '.voices[] | select(.name | contains("Pawel")) | select(.language == "pl")'

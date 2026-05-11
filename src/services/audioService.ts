@@ -1,4 +1,11 @@
-import { Provider, Voice, VoiceTrack, MusicProvider, SoundFxPrompt, Pacing } from "@/types";
+import {
+  Provider,
+  Voice,
+  VoiceTrack,
+  MusicProvider,
+  SoundFxPrompt,
+  Pacing,
+} from "@/types";
 // Beatoven removed - trial expired and poor quality
 import { generateMusicWithLoudly } from "@/utils/loudly-api";
 import { generateMusicWithMubert } from "@/utils/mubert-api";
@@ -14,32 +21,43 @@ export class AudioService {
     setIsGenerating?: (generating: boolean) => void,
     region?: string,
     accent?: string,
-    pacing?: Pacing | null
+    pacing?: Pacing | null,
   ): Promise<void> {
     setIsGenerating?.(true);
     onStatusUpdate("Generating audio...");
-    
+
     // Clear existing voice tracks from mixer
     const { clearTracks, addTrack } = useMixerStore.getState();
     clearTracks("voice");
-    
+
     try {
       for (const track of voiceTracks) {
         if (!track.voice || !track.text) continue;
 
         // Use track-specific provider if set, otherwise fall back to voice.provider or selectedProvider
-        const trackProvider = track.trackProvider || track.voice.provider || selectedProvider;
+        const trackProvider =
+          track.trackProvider || track.voice.provider || selectedProvider;
 
         console.log(`🎭 Sending emotional parameters to ${trackProvider}:`);
         console.log(`  - Voice: ${track.voice.name} (${track.voice.id})`);
-        console.log(`  - Provider: ${trackProvider}${track.trackProvider ? ' (track override)' : ''}`);
-        console.log(`  - Style: ${track.style || 'none'}`);
-        console.log(`  - Use Case: ${track.useCase || 'none'}`);
-        console.log(`  - Voice Instructions: ${track.voiceInstructions || 'none'}`);
-        console.log(`  - Speed: ${track.speed !== undefined ? `${track.speed}x (manual)` : 'not set (using preset/default)'}`);
-        if (trackProvider === 'lahajati') {
-          console.log(`  - Dialect ID: ${track.dialectId || 'not set (LLM default)'}`);
-          console.log(`  - Performance ID: ${track.performanceId || 'not set (LLM default)'}`);
+        console.log(
+          `  - Provider: ${trackProvider}${track.trackProvider ? " (track override)" : ""}`,
+        );
+        console.log(`  - Style: ${track.style || "none"}`);
+        console.log(`  - Use Case: ${track.useCase || "none"}`);
+        console.log(
+          `  - Voice Instructions: ${track.voiceInstructions || "none"}`,
+        );
+        console.log(
+          `  - Speed: ${track.speed !== undefined ? `${track.speed}x (manual)` : "not set (using preset/default)"}`,
+        );
+        if (trackProvider === "lahajati") {
+          console.log(
+            `  - Dialect ID: ${track.dialectId || "not set (LLM default)"}`,
+          );
+          console.log(
+            `  - Performance ID: ${track.performanceId || "not set (LLM default)"}`,
+          );
         }
 
         const res = await fetch(`/api/voice/${trackProvider}-v2`, {
@@ -68,9 +86,9 @@ export class AudioService {
         }
 
         let url: string;
-        const contentType = res.headers.get('content-type');
+        const contentType = res.headers.get("content-type");
 
-        if (contentType && contentType.includes('application/json')) {
+        if (contentType && contentType.includes("application/json")) {
           // New blob storage response format (OpenAI and future providers)
           const jsonResponse = await res.json();
           url = jsonResponse.audio_url;
@@ -87,8 +105,14 @@ export class AudioService {
         // Qwen / Lovo / ByteDance benefit too (they have no native speed).
         if (track.postProcessingSpeedup || track.targetDuration) {
           console.log(`🎬 Post-processing required for ${trackProvider} track`);
-          onStatusUpdate(`Applying ${track.postProcessingSpeedup ? `${track.postProcessingSpeedup}x speedup` : `target duration ${track.targetDuration}s`}...`);
-          url = await this.applyPostProcessingSpeedup(url, track, onStatusUpdate);
+          onStatusUpdate(
+            `Applying ${track.postProcessingSpeedup ? `${track.postProcessingSpeedup}x speedup` : `target duration ${track.targetDuration}s`}...`,
+          );
+          url = await this.applyPostProcessingSpeedup(
+            url,
+            track,
+            onStatusUpdate,
+          );
         }
 
         const mixerTrack: MixerTrack = {
@@ -122,15 +146,15 @@ export class AudioService {
     provider: MusicProvider,
     duration: number,
     onStatusUpdate: (message: string) => void,
-    setIsGeneratingMusic?: (generating: boolean) => void
+    setIsGeneratingMusic?: (generating: boolean) => void,
   ): Promise<void> {
     setIsGeneratingMusic?.(true);
     onStatusUpdate("Generating music...");
-    
+
     // Clear existing music tracks from mixer
     const { clearTracks, addTrack } = useMixerStore.getState();
     clearTracks("music");
-    
+
     try {
       let musicTrack;
 
@@ -176,7 +200,7 @@ export class AudioService {
     duration: number,
     soundFxPrompt: SoundFxPrompt | null,
     onStatusUpdate: (message: string) => void,
-    setIsGeneratingSoundFx?: (generating: boolean) => void
+    setIsGeneratingSoundFx?: (generating: boolean) => void,
   ): Promise<void> {
     setIsGeneratingSoundFx?.(true);
     onStatusUpdate("Generating sound effect...");
@@ -201,14 +225,14 @@ export class AudioService {
         throw new Error(
           `Failed to generate sound effect: ${
             errorData.error || response.statusText
-          }`
+          }`,
         );
       }
 
       let url: string;
-      const contentType = response.headers.get('content-type');
-      
-      if (contentType && contentType.includes('application/json')) {
+      const contentType = response.headers.get("content-type");
+
+      if (contentType && contentType.includes("application/json")) {
         // New blob storage response format
         const jsonResponse = await response.json();
         url = jsonResponse.audio_url;
@@ -223,17 +247,23 @@ export class AudioService {
       // Measure actual audio duration before creating track
       const actualDuration = await new Promise<number>((resolve) => {
         const audio = new Audio(url);
-        audio.addEventListener('loadedmetadata', () => {
+        audio.addEventListener("loadedmetadata", () => {
           if (audio.duration && !isNaN(audio.duration)) {
-            console.log(`Measured sound effect duration: ${audio.duration}s (requested: ${duration}s)`);
+            console.log(
+              `Measured sound effect duration: ${audio.duration}s (requested: ${duration}s)`,
+            );
             resolve(audio.duration);
           } else {
-            console.warn(`Could not measure audio duration, using requested duration: ${duration}s`);
+            console.warn(
+              `Could not measure audio duration, using requested duration: ${duration}s`,
+            );
             resolve(duration);
           }
         });
-        audio.addEventListener('error', () => {
-          console.warn(`Error loading audio for duration measurement, using requested duration: ${duration}s`);
+        audio.addEventListener("error", () => {
+          console.warn(
+            `Error loading audio for duration measurement, using requested duration: ${duration}s`,
+          );
           resolve(duration);
         });
         audio.load();
@@ -275,7 +305,7 @@ export class AudioService {
   private static async applyPostProcessingSpeedup(
     originalUrl: string,
     track: VoiceTrack,
-    onStatusUpdate: (message: string) => void
+    onStatusUpdate: (message: string) => void,
   ): Promise<string> {
     try {
       // Download the original audio
@@ -298,11 +328,11 @@ export class AudioService {
         // Measure original duration using Audio element
         const originalDuration = await new Promise<number>((resolve) => {
           const audio = new Audio(originalUrl);
-          audio.addEventListener('loadedmetadata', () => {
+          audio.addEventListener("loadedmetadata", () => {
             console.log(`Original duration: ${audio.duration}s`);
             resolve(audio.duration);
           });
-          audio.addEventListener('error', () => {
+          audio.addEventListener("error", () => {
             console.warn(`Could not measure duration, using speedup parameter`);
             resolve(0);
           });
@@ -312,13 +342,19 @@ export class AudioService {
         if (originalDuration > 0) {
           // Calculate speedup to achieve target duration
           speedup = originalDuration / track.targetDuration!;
-          console.log(`Calculated speedup: ${speedup}x (${originalDuration}s → ${track.targetDuration}s)`);
+          console.log(
+            `Calculated speedup: ${speedup}x (${originalDuration}s → ${track.targetDuration}s)`,
+          );
 
           // Clamp to 1.6x max
           if (speedup > 1.6) {
-            console.warn(`⚠️ Calculated speedup ${speedup}x exceeds 1.6x, clamping to 1.6x`);
+            console.warn(
+              `⚠️ Calculated speedup ${speedup}x exceeds 1.6x, clamping to 1.6x`,
+            );
             const achievableDuration = originalDuration / 1.6;
-            console.warn(`  Achievable duration at 1.6x: ${achievableDuration.toFixed(2)}s (target was ${track.targetDuration}s)`);
+            console.warn(
+              `  Achievable duration at 1.6x: ${achievableDuration.toFixed(2)}s (target was ${track.targetDuration}s)`,
+            );
             speedup = 1.6;
           }
         }
@@ -326,54 +362,85 @@ export class AudioService {
 
       // Apply time-stretching
       const pitch = track.postProcessingPitch || 1.0;
-      console.log(`⚡ Applying ${speedup}x time-stretch with ${pitch}x pitch adjustment...`);
-      onStatusUpdate(`Processing audio (${speedup.toFixed(2)}x speedup, ${pitch.toFixed(2)}x pitch)...`);
-      const processedArrayBuffer = await applyTimeStretch(audioArrayBuffer, speedup, pitch);
+      console.log(
+        `⚡ Applying ${speedup}x time-stretch with ${pitch}x pitch adjustment...`,
+      );
+      onStatusUpdate(
+        `Processing audio (${speedup.toFixed(2)}x speedup, ${pitch.toFixed(2)}x pitch)...`,
+      );
+      const processedArrayBuffer = await applyTimeStretch(
+        audioArrayBuffer,
+        speedup,
+        pitch,
+      );
 
       // Upload processed audio to Vercel
       console.log(`📤 Uploading processed audio...`);
-      onStatusUpdate('Uploading processed audio...');
+      onStatusUpdate("Uploading processed audio...");
 
-      const processedBlob = new Blob([processedArrayBuffer], { type: 'audio/wav' });
+      const processedBlob = new Blob([processedArrayBuffer], {
+        type: "audio/wav",
+      });
       const formData = new FormData();
-      formData.append('audio', processedBlob, `processed-voice-${Date.now()}.wav`);
-      formData.append('voiceId', track.voice?.id || 'unknown');
-      formData.append('provider', 'elevenlabs-processed');
-      formData.append('projectId', `voice-processed-${Date.now()}`);
+      formData.append(
+        "audio",
+        processedBlob,
+        `processed-voice-${Date.now()}.wav`,
+      );
+      formData.append("voiceId", track.voice?.id || "unknown");
+      formData.append("provider", "elevenlabs-processed");
+      formData.append("projectId", `voice-processed-${Date.now()}`);
 
-      const uploadResponse = await fetch('/api/voice/upload-processed', {
-        method: 'POST',
+      const uploadResponse = await fetch("/api/voice/upload-processed", {
+        method: "POST",
         body: formData,
       });
 
       if (!uploadResponse.ok) {
-        throw new Error(`Failed to upload processed audio: ${uploadResponse.statusText}`);
+        throw new Error(
+          `Failed to upload processed audio: ${uploadResponse.statusText}`,
+        );
       }
 
       const { audio_url } = await uploadResponse.json();
       console.log(`✅ Processed audio uploaded: ${audio_url}`);
       return audio_url;
     } catch (error) {
-      console.error('❌ Post-processing failed:', error);
-      onStatusUpdate('Post-processing failed, using original audio');
+      console.error("❌ Post-processing failed:", error);
+      onStatusUpdate("Post-processing failed, using original audio");
       // Return original URL on error
       return originalUrl;
     }
   }
 
   static mapVoiceSegmentsToTracks(
-    segments: Array<{ voiceId: string; text: string; style?: string; useCase?: string; voiceInstructions?: string }>,
+    segments: Array<{
+      voiceId: string;
+      text: string;
+      style?: string;
+      useCase?: string;
+      voiceInstructions?: string;
+    }>,
     filteredVoices: Voice[],
-    allVoices: Voice[]
+    allVoices: Voice[],
   ): VoiceTrack[] {
-    console.log('🔍 mapVoiceSegmentsToTracks called with:');
-    console.log('  - Segments:', segments.map(s => ({ voiceId: s.voiceId, text: s.text?.slice(0, 30) + '...' })));
-    console.log('  - Filtered voices:', filteredVoices.length, 'voices');
-    console.log('  - All voices:', allVoices.length, 'voices');
-    
+    console.log("🔍 mapVoiceSegmentsToTracks called with:");
+    console.log(
+      "  - Segments:",
+      segments.map((s) => ({
+        voiceId: s.voiceId,
+        text: s.text?.slice(0, 30) + "...",
+      })),
+    );
+    console.log("  - Filtered voices:", filteredVoices.length, "voices");
+    console.log("  - All voices:", allVoices.length, "voices");
+
     return segments.map((segment, index) => {
-      console.log(`🎯 Processing segment ${index}:`, { voiceId: segment.voiceId, text: segment.text?.slice(0, 30) + '...' });
-      
+      console.log(`🎯 Processing segment ${index}:`, {
+        voiceId: segment.voiceId,
+        text: segment.text?.slice(0, 30) + "...",
+      });
+
       // Try to find the voice by ID from filtered voices first
       let voice = filteredVoices.find((v) => v.id === segment.voiceId);
       console.log(`  - Found in filtered voices:`, !!voice, voice?.name);
@@ -387,15 +454,19 @@ export class AudioService {
       // If still not found, try to find a voice by name in filtered voices
       if (!voice) {
         voice = filteredVoices.find(
-          (v) => v.name.toLowerCase() === segment.voiceId.toLowerCase()
+          (v) => v.name.toLowerCase() === segment.voiceId.toLowerCase(),
         );
-        console.log(`  - Found by name in filtered voices:`, !!voice, voice?.name);
+        console.log(
+          `  - Found by name in filtered voices:`,
+          !!voice,
+          voice?.name,
+        );
       }
 
       // If still not found, try to find by name in all voices (fallback)
       if (!voice) {
         voice = allVoices.find(
-          (v) => v.name.toLowerCase() === segment.voiceId.toLowerCase()
+          (v) => v.name.toLowerCase() === segment.voiceId.toLowerCase(),
         );
         console.log(`  - Found by name in all voices:`, !!voice, voice?.name);
       }
@@ -403,7 +474,7 @@ export class AudioService {
       // If still not found, use the first available voice
       if (!voice) {
         console.log(
-          `❌ Voice ID "${segment.voiceId}" not found anywhere, using fallback voice`
+          `❌ Voice ID "${segment.voiceId}" not found anywhere, using fallback voice`,
         );
         voice = filteredVoices.length > 0 ? filteredVoices[0] : allVoices[0];
         console.log(`  - Using fallback:`, voice?.name);
@@ -416,8 +487,12 @@ export class AudioService {
         useCase: segment.useCase,
         voiceInstructions: segment.voiceInstructions,
       } as VoiceTrack;
-      
-      console.log(`  - Final result:`, { hasVoice: !!result.voice, voiceName: result.voice?.name, text: result.text?.slice(0, 20) + '...' });
+
+      console.log(`  - Final result:`, {
+        hasVoice: !!result.voice,
+        voiceName: result.voice?.name,
+        text: result.text?.slice(0, 20) + "...",
+      });
       return result;
     });
   }

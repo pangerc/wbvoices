@@ -97,7 +97,9 @@ export function CreativeTemplateGallery({
     <div className="space-y-3">
       <div className="flex items-baseline justify-between gap-3">
         <div className="flex items-baseline gap-3 min-w-0">
-          <h3 className="text-white text-base font-medium">Creative template</h3>
+          <h3 className="text-white text-base font-medium">
+            Creative template
+          </h3>
           {value !== null && (
             <button
               type="button"
@@ -165,16 +167,18 @@ export function CreativeTemplateGallery({
         </p>
       )}
 
-      {expanded && !isFiltering && filteredTemplates.length > COMPACT_TEMPLATES && (
-        <button
-          type="button"
-          onClick={() => setExpanded(false)}
-          disabled={disabled}
-          className="text-xs text-gray-400 hover:text-white disabled:opacity-50"
-        >
-          Show fewer
-        </button>
-      )}
+      {expanded &&
+        !isFiltering &&
+        filteredTemplates.length > COMPACT_TEMPLATES && (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            disabled={disabled}
+            className="text-xs text-gray-400 hover:text-white disabled:opacity-50"
+          >
+            Show fewer
+          </button>
+        )}
     </div>
   );
 }

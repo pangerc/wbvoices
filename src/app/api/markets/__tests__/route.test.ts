@@ -100,6 +100,8 @@ describe("GET /api/markets", () => {
     );
     expect(res.headers.get("Cache-Control")).toContain("max-age=60");
     expect(res.headers.get("Cache-Control")).toContain("s-maxage=300");
-    expect(res.headers.get("Cache-Control")).toContain("stale-while-revalidate");
+    expect(res.headers.get("Cache-Control")).toContain(
+      "stale-while-revalidate",
+    );
   });
 });

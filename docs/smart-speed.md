@@ -13,6 +13,7 @@ Smart Speed is a client-side post-processing feature that enables time-stretchin
 ### Initial Challenge
 
 Speeding up audio naturally raises pitch proportionally - this is basic physics. At 1.5x speed:
+
 - Audio plays 50% faster ✅
 - Pitch raises by ~7 semitones ❌
 - Result: Cartoon character / chipmunk voice that's unrecognizable
@@ -20,11 +21,13 @@ Speeding up audio naturally raises pitch proportionally - this is basic physics.
 ### Why ElevenLabs Native Speed Wasn't Enough
 
 **ElevenLabs V3 Speed Range**: 0.7x - 1.2x (limited)
+
 - Native API speed parameter works but has narrow range
 - Maximum 1.2x is insufficient for pharma disclaimers
 - Users reported needing 1.5x+ for 30-second Spotify ad constraints
 
 **Attempted Solution**: Use OpenAI (supports 0.25x - 4.0x)
+
 - ✅ OpenAI can do 2.5x+ speed
 - ❌ ElevenLabs has superior voice quality for main content
 - Result: Implemented per-track provider switching (see oct25-creative-pipeline.md)
@@ -56,6 +59,7 @@ Mixer receives processed URL (transparent to timeline code)
 ```
 
 **Key Insight**: Double upload accepted as trade-off
+
 - Original audio uploaded but wasted
 - Processed audio uploaded and used
 - Simpler than server-side processing
@@ -64,12 +68,14 @@ Mixer receives processed URL (transparent to timeline code)
 ### Technical Stack
 
 **Library**: [soundtouchjs](https://github.com/cutterbl/SoundTouchJS) v0.2.1
+
 - Algorithm: WSOLA (Waveform Similarity Overlap and Add)
 - Real-time capable on all devices
 - 1,314 weekly npm downloads (battle-tested)
 - LGPL-2.1 license
 
 **Why soundtouchjs?**
+
 - ✅ Optimized for speech at 1.0-1.6x range
 - ✅ Time-domain processing (simple, fast)
 - ✅ ~1x CPU (real-time capable on mobile)
@@ -103,18 +109,21 @@ Mixer receives processed URL (transparent to timeline code)
 ### Controls
 
 **Tempo Slider**:
+
 - Range: 1.00x - 1.60x
 - Step: 0.01 (fine granularity)
 - Purpose: Controls playback speed
 - Default: 1.0x (no speedup)
 
 **Pitch Slider**:
+
 - Range: 0.70x - 1.20x
 - Step: 0.01 (fine granularity)
 - Purpose: Compensates for pitch elevation
 - Default: 1.0x (no pitch adjustment)
 
 **Typical Values**:
+
 - 1.1x tempo → 0.95x pitch
 - 1.3x tempo → 0.85-0.90x pitch
 - 1.5x tempo → 0.75-0.80x pitch
@@ -136,9 +145,9 @@ export type VoiceTrack = {
   voice: Voice | null;
   text: string;
   // ... existing fields
-  postProcessingSpeedup?: number;  // 1.0-1.6x tempo control
-  postProcessingPitch?: number;    // 0.7-1.2x pitch compensation
-  targetDuration?: number;         // Alternative: specify duration, auto-calc tempo
+  postProcessingSpeedup?: number; // 1.0-1.6x tempo control
+  postProcessingPitch?: number; // 0.7-1.2x pitch compensation
+  targetDuration?: number; // Alternative: specify duration, auto-calc tempo
 };
 ```
 
@@ -150,8 +159,8 @@ export type VoiceTrack = {
 export async function applyTimeStretch(
   audioArrayBuffer: ArrayBuffer,
   speedup: number,
-  pitch: number = 1.0
-): Promise<ArrayBuffer>
+  pitch: number = 1.0,
+): Promise<ArrayBuffer>;
 ```
 
 **Algorithm Flow**:
@@ -161,23 +170,25 @@ export async function applyTimeStretch(
 2. **Decode Audio**: Web Audio API decodes MP3/WAV to AudioBuffer
 
 3. **Setup SoundTouch**:
+
    ```typescript
    const soundtouch = new SoundTouch();
-   soundtouch.tempo = clampedSpeedup;  // 1.0-1.6x
-   soundtouch.pitch = pitch;           // 0.7-1.2x
-   soundtouch.rate = 1.0;              // Locked (prevents interference)
+   soundtouch.tempo = clampedSpeedup; // 1.0-1.6x
+   soundtouch.pitch = pitch; // 0.7-1.2x
+   soundtouch.rate = 1.0; // Locked (prevents interference)
    ```
 
 4. **Process in Chunks**:
+
    ```typescript
    const source = new WebAudioBufferSource(audioBuffer);
    const filter = new SimpleFilter(source, soundtouch);
 
-   const framesToExtract = 8192;  // 8K frames per iteration
+   const framesToExtract = 8192; // 8K frames per iteration
    while (true) {
      const target = new Float32Array(framesToExtract * channels);
      const extracted = filter.extract(target, framesToExtract);
-     if (extracted === 0) break;  // Done
+     if (extracted === 0) break; // Done
      processedSamples.push(target.slice(0, extracted * channels));
    }
    ```
@@ -196,7 +207,10 @@ export async function applyTimeStretch(
 
 ```typescript
 // In generateVoiceTrack(), after getting raw URL from provider:
-if (provider === 'elevenlabs' && (track.postProcessingSpeedup || track.targetDuration)) {
+if (
+  provider === "elevenlabs" &&
+  (track.postProcessingSpeedup || track.targetDuration)
+) {
   const processed = await applyPostProcessing(audioUrl, track, duration);
   audioUrl = processed.audioUrl;
   duration = processed.duration;
@@ -214,13 +228,14 @@ export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
-  const audioFile = formData.get('audio') as Blob;
-  const projectId = formData.get('projectId') as string || `processed-${Date.now()}`;
+  const audioFile = formData.get("audio") as Blob;
+  const projectId =
+    (formData.get("projectId") as string) || `processed-${Date.now()}`;
 
   const filename = `${projectId}/processed-${Date.now()}.wav`;
   const blob = await put(filename, audioFile, {
-    access: 'public',
-    contentType: 'audio/wav',
+    access: "public",
+    contentType: "audio/wav",
   });
 
   return NextResponse.json({ audio_url: blob.url });
@@ -236,19 +251,22 @@ export async function POST(req: NextRequest) {
 **Root Cause**: Completely wrong API usage based on outdated type definitions
 
 **Incorrect Code**:
+
 ```typescript
 const filter = new SimpleFilter(sampleRate, numberOfChannels, soundtouch);
-const output = filter.process(chunk);  // ❌ process() doesn't exist!
+const output = filter.process(chunk); // ❌ process() doesn't exist!
 ```
 
 **Correct Code**:
+
 ```typescript
 const source = new WebAudioBufferSource(audioBuffer);
-const filter = new SimpleFilter(source, soundtouch);  // ✅ Different constructor!
-const framesExtracted = filter.extract(target, numFrames);  // ✅ Use extract()
+const filter = new SimpleFilter(source, soundtouch); // ✅ Different constructor!
+const framesExtracted = filter.extract(target, numFrames); // ✅ Use extract()
 ```
 
 **Key Learnings**:
+
 - `SimpleFilter` constructor: `(source: WebAudioBufferSource, pipe: SoundTouch)`
 - Method: `extract(target: Float32Array, numFrames: number): number`
 - Frame-based, not sample-based: 1 frame = 1 sample per channel
@@ -261,9 +279,10 @@ const framesExtracted = filter.extract(target, numFrames);  // ✅ Use extract()
 **Root Cause**: soundtouchjs internal buffer management tried to write beyond target buffer
 
 **Fix**: Smaller chunk size + exact buffer sizing
+
 ```typescript
-const framesToExtract = 8192;  // Reduced from 16384
-const target = new Float32Array(framesToExtract * numberOfChannels);  // Exact size
+const framesToExtract = 8192; // Reduced from 16384
+const target = new Float32Array(framesToExtract * numberOfChannels); // Exact size
 ```
 
 ### Bug 3: Pitch Range Too Wide
@@ -281,7 +300,7 @@ const target = new Float32Array(framesToExtract * numberOfChannels);  // Exact s
 Created complete type definitions for soundtouchjs (no types available from package):
 
 ```typescript
-declare module 'soundtouchjs' {
+declare module "soundtouchjs" {
   export class SoundTouch {
     tempo: number;
     pitch: number;
@@ -295,7 +314,11 @@ declare module 'soundtouchjs' {
   }
 
   export class SimpleFilter {
-    constructor(sourceSound: WebAudioBufferSource, pipe: SoundTouch, callback?: () => void);
+    constructor(
+      sourceSound: WebAudioBufferSource,
+      pipe: SoundTouch,
+      callback?: () => void,
+    );
     extract(target: Float32Array, numFrames: number): number;
   }
 
@@ -320,11 +343,13 @@ User asked: "Are there more sophisticated libraries that achieve more natural so
 **Quality**: Professional-grade (used in Ardour DAW)
 
 **Pros**:
+
 - ✅ Superior quality vs WSOLA
 - ✅ Better formant preservation for speech
 - ✅ Handles transients better
 
 **Cons**:
+
 - ❌ "CPU load so high it cannot run on mobile devices for real-time"
 - ❌ GPL license (requires commercial license for your use)
 - ❌ ~100 npm downloads (low adoption)
@@ -339,6 +364,7 @@ User asked: "Are there more sophisticated libraries that achieve more natural so
 **iZotope Radius**: Used in Pro Tools X-Form
 
 **Reality**: NOT available for web applications
+
 - Only C/C++ SDKs
 - Enterprise B2B licensing
 - Likely $5k-$50k+ costs
@@ -374,27 +400,32 @@ User asked: "Are there more sophisticated libraries that achieve more natural so
 ✅ **CPU**: ~1x real-time (vs Rubber Band's ~10x)
 
 **When Rubber Band Would Matter**:
+
 - Music with percussive elements
 - Stretch factors >2x
 - Offline batch processing
 - Professional mastering quality
 
 **User feedback from mpv-player issue #7792**:
+
 > "Rubberband boosts bass and muffles acoustics. Soundtouch gives a result closer to the original."
 
 ## Performance
 
 **Processing Time**:
+
 - ~1-2 seconds for 10-second audio clip
 - Real-time factor: ~0.1-0.2x (processes faster than playback)
 - Mobile capable
 
 **Memory**:
+
 - Temporary AudioContext created and disposed
 - Peak memory: ~2-3x audio file size during processing
 - No memory leaks detected
 
 **Network**:
+
 - Double upload: original (~500KB) + processed (~800KB WAV)
 - Total: ~1.3MB for 10s clip
 - Acceptable trade-off for client-side processing
@@ -402,20 +433,24 @@ User asked: "Are there more sophisticated libraries that achieve more natural so
 ## Limitations
 
 **Provider**: ElevenLabs only
+
 - OpenAI doesn't need this (native 0.25x-4.0x support)
 - Lovo doesn't support speed parameter
 - Applied only when `trackProvider === 'elevenlabs'`
 
 **Range**: 1.0x-1.6x tempo
+
 - Capped at 1.6x for quality
 - Below 1.0x not needed (ElevenLabs native 0.7x-1.2x covers slow speeds)
 
 **Quality**: Manual tuning required
+
 - No "auto-magic" pitch compensation
 - User must experiment with pitch slider
 - Typical values documented but vary by voice
 
 **Browser Only**: Web Audio API limitation
+
 - Cannot run in Node.js/Edge Runtime
 - Must happen client-side after generation
 
@@ -441,23 +476,27 @@ User asked: "Are there more sophisticated libraries that achieve more natural so
 ## Future Enhancements
 
 **Automatic Pitch Compensation**:
+
 - Analyze audio frequency before/after speedup
 - Calculate optimal pitch adjustment
 - Apply automatically (no manual tuning)
 - Implementation: Pitch detection algorithm + heuristic
 
 **Preset Combinations**:
+
 - "Pharma Disclaimer": 1.5x tempo + 0.80x pitch
 - "Fast Promo": 1.3x tempo + 0.90x pitch
 - "Slow Narration": 0.9x tempo + 1.1x pitch
 - Store as user presets
 
 **Server-Side Option**:
+
 - Process audio server-side with Rubber Band
 - Better quality but higher latency/cost
 - Hybrid: client for preview, server for final
 
 **A/B Testing**:
+
 - Compare soundtouchjs vs Rubber Band WASM
 - Real user quality ratings
 - Data-driven decision on upgrade

@@ -7,10 +7,12 @@ type: project
 wb-voices output today reads as unanchored LLM-default voice ("global slop"), not as on-brand-but-boring. The "regression to brand mean" concern only becomes the dominant failure mode after Stage 1 is solved.
 
 **The ladder:**
+
 - Stage 1 (where we are): global LLM slop → on-brand competence. Intervention: auto-inject brand-library signals.
 - Stage 2 (future risk): on-brand competence → on-brand monotony. Intervention: variance controls, opt-in reference modes, temperature/seed diversity.
 
 **Discriminator on what to inject:**
+
 - Anchors (safe, default ON): structured tonal axes (energy register, pacing, vocab register, sentence shapes), tagline, product canon, sign-off phrases, taboo words, locale formality.
 - Middle ground (default ON, capped): short functional excerpts — hook + CTA only, ~40 words each. Anchors rhythm without giving a full template to xerox.
 - Traps (opt-in only): full transcripts, "match this specific spot" mode. Useful for client-driven references; dangerous as defaults because LLMs pattern-match whole arcs.

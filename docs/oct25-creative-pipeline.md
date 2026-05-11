@@ -41,6 +41,7 @@ Result: Clean architecture + better voice quality + new capabilities
 5. **Error-Prone**: Easy to forget provider-specific requirements
 
 **Example of the Old Code**:
+
 ```typescript
 // 230 lines of switch/case statements
 switch (provider) {
@@ -66,21 +67,26 @@ switch (provider) {
 **Critical Discovery**: The gender field existed in the Voice type but was **never sent to the LLM**.
 
 **Impact**:
+
 - LLM couldn't make gender-aware voice selections
 - Dialog format couldn't ensure male/female voice diversity
 - Result: "Raed talking to himself" scenarios
 
 **Evidence**:
+
 ```typescript
 // OLD: Voice metadata sent to LLM (lines 106-134)
-const voiceOptions = filteredVoices.map((voice) =>
-  `${voice.name} (${voice.id})\n` +
-  `  Personality: ${voice.description}\n` +
-  `  Best for: ${voice.use_case}\n` +
-  `  Age: ${voice.age}\n` +
-  `  Accent: ${voice.accent}`
-  // ❌ Gender field MISSING!
-).join("\n\n");
+const voiceOptions = filteredVoices
+  .map(
+    (voice) =>
+      `${voice.name} (${voice.id})\n` +
+      `  Personality: ${voice.description}\n` +
+      `  Best for: ${voice.use_case}\n` +
+      `  Age: ${voice.age}\n` +
+      `  Accent: ${voice.accent}`,
+    // ❌ Gender field MISSING!
+  )
+  .join("\n\n");
 ```
 
 ## ElevenLabs V3 Discovery
@@ -89,14 +95,14 @@ const voiceOptions = filteredVoices.map((voice) =>
 
 **Model Comparison**:
 
-| Feature | V2 (eleven_multilingual_v2) | V3 (eleven_v3) |
-|---------|----------------------------|----------------|
-| Languages | 28 | 70+ |
-| Emotional Tags | ❌ No | ✅ Yes ([laughs], [whispers], etc.) |
-| Character Limit | 500 | 3,000 |
-| Speed Parameter | ✅ Yes | ✅ Yes (we were stripping it!) |
-| Stability Values | Continuous 0-1 | Discrete: 0.0, 0.5, 1.0 |
-| Expressiveness | Good | Excellent |
+| Feature          | V2 (eleven_multilingual_v2) | V3 (eleven_v3)                      |
+| ---------------- | --------------------------- | ----------------------------------- |
+| Languages        | 28                          | 70+                                 |
+| Emotional Tags   | ❌ No                       | ✅ Yes ([laughs], [whispers], etc.) |
+| Character Limit  | 500                         | 3,000                               |
+| Speed Parameter  | ✅ Yes                      | ✅ Yes (we were stripping it!)      |
+| Stability Values | Continuous 0-1              | Discrete: 0.0, 0.5, 1.0             |
+| Expressiveness   | Good                        | Excellent                           |
 
 ### V3 Dual Control System
 
@@ -108,14 +114,25 @@ Sets the overall voice character via presets:
 
 ```typescript
 // Available baseline tones
-cheerful | happy | excited | energetic | dynamic |
-calm | gentle | soothing |
-serious | professional | authoritative |
-empathetic | warm |
-fast_read | slow_read
+cheerful |
+  happy |
+  excited |
+  energetic |
+  dynamic |
+  calm |
+  gentle |
+  soothing |
+  serious |
+  professional |
+  authoritative |
+  empathetic |
+  warm |
+  fast_read |
+  slow_read;
 ```
 
 **Example**:
+
 ```json
 {
   "description": "cheerful",
@@ -128,15 +145,18 @@ fast_read | slow_read
 Layer emotional moments for fine-grained control:
 
 **Available Tags**:
+
 - **Laughter**: `[laughs]`, `[chuckles]`, `[giggles]`, `[laughs harder]`, `[starts laughing]`, `[wheezing]`
 - **Vocal Effects**: `[whispers]`, `[sighs]`, `[exhales]`, `[gasps]`, `[pauses]`, `[snorts]`, `[coughs]`
 - **Emotions**: `[sarcastic]`, `[excited]`, `[curious]`, `[crying]`, `[mischievously]`
 
 **Punctuation Controls**:
+
 - **Ellipses** (...) - Creates pauses and thoughtful delivery
 - **CAPITALIZATION** - Adds emphasis to specific words
 
 **Example**:
+
 ```json
 {
   "description": "cheerful",
@@ -149,6 +169,7 @@ Layer emotional moments for fine-grained control:
 ### V3 Stability Constraints Discovery
 
 **The Error**:
+
 ```json
 {
   "error": {
@@ -167,7 +188,7 @@ Layer emotional moments for fine-grained control:
 const PRESETS: Record<string, Settings> = {
   // Creative (0.0): High expressiveness
   cheerful: {
-    stability: 0.0,  // Changed from 0.25
+    stability: 0.0, // Changed from 0.25
     similarity_boost: 0.85,
     style: 0.5,
     speed: 1.08,
@@ -176,7 +197,7 @@ const PRESETS: Record<string, Settings> = {
 
   // Natural (0.5): Balanced delivery
   neutral: {
-    stability: 0.5,  // Already correct
+    stability: 0.5, // Already correct
     similarity_boost: 0.75,
     style: 0.3,
     speed: 1.0,
@@ -185,7 +206,7 @@ const PRESETS: Record<string, Settings> = {
 
   // Robust (1.0): Highly stable
   calm: {
-    stability: 1.0,  // Changed from 0.75
+    stability: 1.0, // Changed from 0.75
     similarity_boost: 0.65,
     style: 0.15,
     speed: 0.96,
@@ -196,6 +217,7 @@ const PRESETS: Record<string, Settings> = {
 ```
 
 **Mapping Logic**:
+
 - **0.0 (Creative)**: cheerful, excited, energetic, fast_read
 - **0.5 (Natural)**: neutral, warm, empathetic (default)
 - **1.0 (Robust)**: calm, serious, professional, slow_read
@@ -205,6 +227,7 @@ const PRESETS: Record<string, Settings> = {
 ### The Solution
 
 **File Structure**:
+
 ```
 src/lib/prompt-strategies/
 ├── BasePromptStrategy.ts          # Abstract base with common logic
@@ -223,6 +246,7 @@ src/lib/prompt-strategies/
 **Key Features**:
 
 1. **Gender Field Fix** (lines 76-98):
+
 ```typescript
 formatVoiceMetadata(voice: Voice, _context: PromptContext): string {
   let desc = `${voice.name} (id: ${voice.id})`;
@@ -252,6 +276,7 @@ formatVoiceMetadata(voice: Voice, _context: PromptContext): string {
 ```
 
 2. **Template Method Pattern**:
+
 ```typescript
 abstract class BasePromptStrategy implements PromptStrategy {
   // Abstract methods - must be implemented
@@ -259,9 +284,15 @@ abstract class BasePromptStrategy implements PromptStrategy {
   abstract buildOutputFormat(campaignFormat: CampaignFormat): string;
 
   // Shared implementations
-  formatVoiceMetadata(voice: Voice, context: PromptContext): string { /* ... */ }
-  buildFormatGuide(campaignFormat: CampaignFormat): string { /* ... */ }
-  buildPrompt(context: PromptContext): PromptResult { /* ... */ }
+  formatVoiceMetadata(voice: Voice, context: PromptContext): string {
+    /* ... */
+  }
+  buildFormatGuide(campaignFormat: CampaignFormat): string {
+    /* ... */
+  }
+  buildPrompt(context: PromptContext): PromptResult {
+    /* ... */
+  }
 }
 ```
 
@@ -270,6 +301,7 @@ abstract class BasePromptStrategy implements PromptStrategy {
 **File**: `src/lib/prompt-strategies/ElevenLabsV3PromptStrategy.ts`
 
 **Complete Style Instructions**:
+
 ```typescript
 buildStyleInstructions(context: PromptContext): string {
   const { pacing } = context;
@@ -373,6 +405,7 @@ Use longer sentences with natural pauses.`;
 **File**: `src/lib/prompt-strategies/PromptStrategyFactory.ts`
 
 **Factory Pattern Implementation**:
+
 ```typescript
 export class PromptStrategyFactory {
   private static strategies: Record<Provider, () => PromptStrategy> = {
@@ -395,6 +428,7 @@ export class PromptStrategyFactory {
 ```
 
 **Usage in Generate Route**:
+
 ```typescript
 // BEFORE: 230 lines of switch/case
 // ...
@@ -456,6 +490,7 @@ const response = await client.chat.completions.create({
 **Discovery**: We tested V3 speed parameter and it **WORKS**, but we were removing it!
 
 **Test Results** (from `/api/admin/test-v3-dialogue`):
+
 ```json
 {
   "v3_fast_speed": {
@@ -472,6 +507,7 @@ const response = await client.chat.completions.create({
 ```
 
 **The Fix**:
+
 ```typescript
 // BEFORE (lines 258-264):
 // Remove speed parameter as it's not supported in current ElevenLabs API
@@ -495,6 +531,7 @@ const apiVoiceSettings = {
 ```
 
 **Impact**:
+
 - ✅ fast_read preset now works (speed: 1.15)
 - ✅ slow_read preset now works (speed: 0.9)
 - ✅ All 15 presets function as designed
@@ -506,6 +543,7 @@ const apiVoiceSettings = {
 **The Fix**: Added gender to voice metadata sent to LLM.
 
 **Impact**:
+
 - ✅ LLM can now ensure gender diversity in dialogs
 - ✅ "Raed talking to himself" scenarios eliminated
 - ✅ Better voice casting for conversation-style ads
@@ -517,6 +555,7 @@ const apiVoiceSettings = {
 **UI Location**: `src/components/BriefPanel.tsx` - Row 3, next to Duration slider
 
 **Design**:
+
 ```
 ┌─────────────────────────────────────┐
 │ Duration Slider (2/3 width)         │
@@ -531,6 +570,7 @@ const apiVoiceSettings = {
 ```
 
 **Interaction**:
+
 - Click 🐢 Slow → toggles slow pacing (click again to deselect)
 - Click 🐰 Fast → toggles fast pacing (click again to deselect)
 - No selection → normal/default pacing (LLM chooses freely)
@@ -539,11 +579,13 @@ const apiVoiceSettings = {
 ### Technical Implementation
 
 **Type System** (`src/types/index.ts`):
+
 ```typescript
 export type Pacing = "slow" | "normal" | "fast";
 ```
 
 **PromptContext Extension** (`src/lib/prompt-strategies/BasePromptStrategy.ts:19`):
+
 ```typescript
 export interface PromptContext {
   // ... existing fields
@@ -552,6 +594,7 @@ export interface PromptContext {
 ```
 
 **Data Flow**:
+
 ```
 BriefPanel State (selectedPacing)
     ↓
@@ -575,6 +618,7 @@ Audio API applies speed parameter from preset
 **The Key Insight**: LLM chooses the preset, speed flows through automatically.
 
 **Decoupled Design**:
+
 1. **User selects pacing** → UI state
 2. **Pacing sent to LLM** → Prompt guidance
 3. **LLM chooses preset** → "description": "energetic"
@@ -609,25 +653,28 @@ PRESETS["energetic"] = {
 ### Provider-Specific Adaptations
 
 **ElevenLabs V3**: Uses preset recommendations + speed parameter
+
 ```typescript
 if (pacing === "fast") {
-  "RECOMMENDED: fast_read, energetic, dynamic"
+  ("RECOMMENDED: fast_read, energetic, dynamic");
   // → LLM chooses → speed=1.12 applied
 }
 ```
 
 **OpenAI**: Emphasizes pacing in voiceInstructions
+
 ```typescript
 if (pacing === "fast") {
-  "Pacing: Rapid, energetic delivery with quick tempo"
+  ("Pacing: Rapid, energetic delivery with quick tempo");
   // → LLM includes in voiceInstructions field
 }
 ```
 
 **Lovo/Qwen**: General pacing guidance (limited API control)
+
 ```typescript
 if (pacing === "fast") {
-  "Create fast-paced delivery with shorter sentences"
+  ("Create fast-paced delivery with shorter sentences");
   // → LLM adjusts text content and word choice
 }
 ```
@@ -639,11 +686,13 @@ if (pacing === "fast") {
 **File**: `src/app/api/admin/test-v3-dialogue/route.ts`
 
 **Purpose**:
+
 - Compare V2 vs V3 models
 - Test speed parameter support
 - Validate emotional tags
 
 **Features**:
+
 - Translates English dialogue to target language (default: Polish)
 - Generates 4 audio samples:
   1. V2 baseline (no tags)
@@ -652,6 +701,7 @@ if (pacing === "fast") {
   4. V3 with slow speed (0.9)
 
 **Usage**:
+
 ```bash
 curl -X POST http://localhost:3000/api/admin/test-v3-dialogue \
   -H "Content-Type: application/json" \
@@ -662,6 +712,7 @@ curl -X POST http://localhost:3000/api/admin/test-v3-dialogue \
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -693,6 +744,7 @@ curl -X POST http://localhost:3000/api/admin/test-v3-dialogue \
 ### Code Quality Improvements
 
 **Metrics**:
+
 - ✅ **52% code reduction** in generate route (443 → 213 lines)
 - ✅ **Eliminated 230 lines** of switch/case chaos
 - ✅ **7 new strategy files** with clean separation of concerns
@@ -700,6 +752,7 @@ curl -X POST http://localhost:3000/api/admin/test-v3-dialogue \
 - ✅ **Zero architectural compromises**
 
 **Maintainability**:
+
 - ✅ Adding new providers: ~20-30 lines vs 200+ lines
 - ✅ Provider logic isolated and testable
 - ✅ Easy to understand and modify
@@ -708,18 +761,21 @@ curl -X POST http://localhost:3000/api/admin/test-v3-dialogue \
 ### Feature Capabilities
 
 **V3 Emotional Control**:
+
 - ✅ Emotional tags ([laughs], [whispers], etc.)
 - ✅ Punctuation controls (ellipses, CAPS)
 - ✅ Baseline + tags dual control system
 - ✅ 3,000 character limit (6x increase from 500)
 
 **Pacing Control**:
+
 - ✅ User-facing 🐢 Slow | 🐰 Fast toggle
 - ✅ LLM-driven preset selection
 - ✅ Automatic speed parameter application
 - ✅ Provider-aware implementation
 
 **Fixed Bugs**:
+
 - ✅ Gender field now sent to LLM
 - ✅ Speed parameter restored for V3
 - ✅ All 15 presets work correctly
@@ -728,18 +784,21 @@ curl -X POST http://localhost:3000/api/admin/test-v3-dialogue \
 ### Business Value
 
 **Content Quality**:
+
 - ✅ Better emotional expressiveness in ads
 - ✅ More authentic dialog with gender diversity
 - ✅ Pacing control for different campaign styles
 - ✅ Longer-form content support (60s ads)
 
 **Development Velocity**:
+
 - ✅ Faster to add new providers
 - ✅ Easier to test provider-specific logic
 - ✅ Cleaner codebase for onboarding
 - ✅ Reduced bug surface area
 
 **Market Expansion**:
+
 - ✅ 70+ languages with V3
 - ✅ Better quality for non-English markets
 - ✅ Emotional expressiveness across all languages
@@ -812,34 +871,38 @@ curl -X POST http://localhost:3000/api/admin/test-v3-dialogue \
 
 ## Provider Capabilities Matrix
 
-| Provider | Model | Emotional Control | Pacing | Speed Param | Char Limit |
-|----------|-------|-------------------|--------|-------------|------------|
-| **ElevenLabs V3** | eleven_v3 | Baseline + Tags | Presets + Speed | ✅ Yes | 3,000 |
-| **ElevenLabs V2** | eleven_multilingual_v2 | Presets only | Speed | ✅ Yes | 500 |
-| **OpenAI** | tts-1 | voiceInstructions | voiceInstructions | ❌ No | 4,096 |
-| **Lovo** | Various | Baked into voice | Limited | ❌ No | ~500 |
-| **Qwen** | qwen-tts-latest | Direct control | Limited | ❌ No | 512 tokens |
+| Provider          | Model                  | Emotional Control | Pacing            | Speed Param | Char Limit |
+| ----------------- | ---------------------- | ----------------- | ----------------- | ----------- | ---------- |
+| **ElevenLabs V3** | eleven_v3              | Baseline + Tags   | Presets + Speed   | ✅ Yes      | 3,000      |
+| **ElevenLabs V2** | eleven_multilingual_v2 | Presets only      | Speed             | ✅ Yes      | 500        |
+| **OpenAI**        | tts-1                  | voiceInstructions | voiceInstructions | ❌ No       | 4,096      |
+| **Lovo**          | Various                | Baked into voice  | Limited           | ❌ No       | ~500       |
+| **Qwen**          | qwen-tts-latest        | Direct control    | Limited           | ❌ No       | 512 tokens |
 
 ## Future Considerations
 
 ### Potential Enhancements
 
 **Per-Segment Pacing**:
+
 - Allow different pacing for different voice segments
 - UI: Pacing control in ScripterPanel per segment
 - Implementation: Extend VoiceTrack type with pacing field
 
 **Emotional Tag Suggestions**:
+
 - LLM suggests appropriate emotional tags
 - UI: Preview suggested tags before generation
 - Implementation: Add tag analysis to LLM prompt
 
 **Advanced Preset Customization**:
+
 - Allow users to create custom stability/style combinations
 - UI: Advanced settings panel
 - Implementation: Custom preset storage in project data
 
 **Pacing Preview Mode**:
+
 - Test pacing before final generation
 - UI: Quick preview button with sample text
 - Implementation: Lightweight TTS call with preset
@@ -851,12 +914,14 @@ curl -X POST http://localhost:3000/api/admin/test-v3-dialogue \
 **Vision**: Apply Strategy Pattern to all audio providers.
 
 **Benefits**:
+
 - 90% code reduction for new provider integrations
 - Unified error handling and response formatting
 - Easier testing with base class mocking
 - Consistent API across all providers
 
 **Estimated Impact**:
+
 - Current: ~200 lines per new provider
 - Future: ~20-30 lines per new provider
 - Maintenance: Fix once, applies to all
@@ -907,22 +972,25 @@ _Added October 2025_
 ### The Problem
 
 Region + Accent filtering wasn't working:
+
 - Spanish + Argentinian → Shows voices ✅
 - Spanish + Latin America + Argentinian → 0 voices ❌
 
 ### Root Causes Discovered
 
 **1. Generic vs Specific Accents**
+
 ```json
 {
   "labels": {
-    "accent": "latin american",  // ❌ Generic
-    "locale": "es-AR"             // ✅ Specific!
+    "accent": "latin american", // ❌ Generic
+    "locale": "es-AR" // ✅ Specific!
   }
 }
 ```
 
 **2. Type Mismatch**
+
 ```typescript
 // Expected: verified_languages?: string[]
 // Actual: Array of objects with locale/language/accent
@@ -940,19 +1008,21 @@ ElevenLabs uses `"argentine"` not `"argentinian"`.
 ### The Fixes
 
 **1. Extract Locale from verified_languages** (voiceProviderService.ts)
+
 ```typescript
 for (const verifiedLang of voice.verified_languages) {
   let accent = verifiedLang.accent;
   if (verifiedLang.locale) {
-    const [, region] = verifiedLang.locale.split('-');
+    const [, region] = verifiedLang.locale.split("-");
     accent = region; // "AR" → normalizeAccent → "argentinian"
   }
 }
 ```
 
 **2. Apply Accent Filter in Region Query** (voice-catalogue/route.ts)
+
 ```typescript
-providerVoices = regionVoices.filter(voice => {
+providerVoices = regionVoices.filter((voice) => {
   const matchesProvider = voice.provider === providerName;
   const matchesAccent = !accent || voice.accent === accent;
   return matchesProvider && matchesAccent;
@@ -960,16 +1030,18 @@ providerVoices = regionVoices.filter(voice => {
 ```
 
 **3. Fix Provider Counts** (voiceCatalogueService.ts)
+
 ```typescript
 if (filters.region && filters.accent) {
   // Filter by BOTH region AND accent
   const regionVoices = await this.getVoicesByRegion(language, region);
-  const accentVoices = regionVoices.filter(v => v.accent === accent);
+  const accentVoices = regionVoices.filter((v) => v.accent === accent);
   // Count per provider from filtered set
 }
 ```
 
 **4. Add Spelling Variant** (accents.ts)
+
 ```typescript
 argentine: "argentinian", // ElevenLabs uses "argentine"
 ```
@@ -1000,18 +1072,22 @@ Cache rebuild was **emptying the database** in production. Root cause: internal 
 
 ```typescript
 // ❌ BAD: Self-referential HTTP call
-const response = await fetch(`${getBaseUrl()}/api/voice/list?provider=elevenlabs`);
+const response = await fetch(
+  `${getBaseUrl()}/api/voice/list?provider=elevenlabs`,
+);
 // Network round-trip → timeout on Vercel → cache cleared but not repopulated
 ```
 
 ### The Fix
 
 **Created** `src/services/voiceProviderService.ts` - Direct provider API calls:
+
 - `fetchElevenLabsVoices()` - Direct ElevenLabs API
 - `fetchLovoVoices()` - Direct Lovo API
 - `getOpenAIVoices()` - Hardcoded (no API needed)
 
 **Updated** `src/app/api/admin/voice-cache/route.ts`:
+
 ```typescript
 // ✅ GOOD: Direct external API call
 const elevenlabsVoices = await fetchElevenLabsVoices();
@@ -1058,6 +1134,7 @@ _January 2025_
 ### The Business Problem
 
 **Use Case**: Pharmaceutical-style advertisements require:
+
 - **Main content**: Natural, humane-sounding voice (ElevenLabs excels here)
 - **Disclaimer section**: Ultra-fast legal text (OpenAI supports up to 4.0x speed)
 - **Constraint**: Must fit within 30-second Spotify ad duration
@@ -1073,6 +1150,7 @@ _January 2025_
 **Expected**: ~70% duration difference (1.2/0.7 ≈ 1.71x faster)
 
 **Actual Results**:
+
 ```json
 {
   "track_1_speed_1.2x": { "duration": 6.269 },
@@ -1086,6 +1164,7 @@ _January 2025_
 **Root Cause**: Documentation research revealed ElevenLabs V3 **only accepts 0.7-1.2x range**.
 
 **Evidence from API logs**:
+
 ```typescript
 📡 === FINAL REQUEST TO ELEVENLABS API ===
 {
@@ -1111,6 +1190,7 @@ _January 2025_
 **File**: `src/types/index.ts`
 
 **Added Fields**:
+
 ```typescript
 export type Voice = {
   id: string;
@@ -1135,28 +1215,31 @@ export type VoiceTrack = {
 **File**: `src/components/ui/VoiceInstructionsDialog.tsx`
 
 **Changes**:
+
 1. **Added provider dropdown** at top of modal
 2. **Provider-aware speed ranges**: Dynamically adjusts slider min/max based on selected provider
 3. **Warning when switching**: Shows "⚠️ Changing provider will require selecting a new voice"
 4. **Speed reset on provider change**: Automatically adjusts to new provider's default
 
 **Interface Update**:
+
 ```typescript
 interface VoiceInstructionsDialogProps {
-  provider: Provider;           // Global provider
-  trackProvider?: Provider;     // Track-specific override
+  provider: Provider; // Global provider
+  trackProvider?: Provider; // Track-specific override
   onSave: (
     instructions: string,
     speed: number | undefined,
-    provider: Provider          // NEW: Returns selected provider
+    provider: Provider, // NEW: Returns selected provider
   ) => void;
 }
 ```
 
 **Provider Selection Logic**:
+
 ```typescript
 const [providerValue, setProviderValue] = useState<Provider>(
-  trackProvider || provider  // Use track override or fall back to global
+  trackProvider || provider, // Use track override or fall back to global
 );
 
 const handleProviderChange = (newProvider: Provider) => {
@@ -1181,13 +1264,15 @@ const [openAIVoices, setOpenAIVoices] = useState<Voice[]>([]);
 useEffect(() => {
   const loadAllVoices = async () => {
     const [elevenLabsData, openAIData] = await Promise.all([
-      loadVoicesForProvider('elevenlabs'),
-      loadVoicesForProvider('openai'),
+      loadVoicesForProvider("elevenlabs"),
+      loadVoicesForProvider("openai"),
     ]);
 
     // Ensure each voice has provider field set
-    setElevenLabsVoices(elevenLabsData.map(v => ({ ...v, provider: 'elevenlabs' })));
-    setOpenAIVoices(openAIData.map(v => ({ ...v, provider: 'openai' })));
+    setElevenLabsVoices(
+      elevenLabsData.map((v) => ({ ...v, provider: "elevenlabs" })),
+    );
+    setOpenAIVoices(openAIData.map((v) => ({ ...v, provider: "openai" })));
   };
 
   loadAllVoices();
@@ -1195,6 +1280,7 @@ useEffect(() => {
 ```
 
 **Voice Picker Logic**:
+
 ```typescript
 // Helper function to get voices for specific track
 const getVoicesForTrack = (trackProvider?: Provider): Voice[] => {
@@ -1224,10 +1310,13 @@ const getVoicesForTrack = (trackProvider?: Provider): Voice[] => {
 ```typescript
 for (const track of voiceTracks) {
   // Priority: 1. Track override, 2. Voice provider, 3. Global default
-  const trackProvider = track.trackProvider || track.voice.provider || selectedProvider;
+  const trackProvider =
+    track.trackProvider || track.voice.provider || selectedProvider;
 
   console.log(`🎭 Sending to ${trackProvider}:`);
-  console.log(`  - Provider: ${trackProvider}${track.trackProvider ? ' (track override)' : ''}`);
+  console.log(
+    `  - Provider: ${trackProvider}${track.trackProvider ? " (track override)" : ""}`,
+  );
 
   // Route to provider-specific API
   const res = await fetch(`/api/voice/${trackProvider}-v2`, {
@@ -1252,6 +1341,7 @@ return voices.map((v: Voice) => ({ ...v, provider }));
 **File**: `src/lib/voice-presets.ts`
 
 **Change**:
+
 ```typescript
 case "elevenlabs":
   // BEFORE: { min: 0.5, max: 1.5 }
@@ -1268,6 +1358,7 @@ case "elevenlabs":
 **File**: `src/lib/voice-presets.ts`
 
 **Change**:
+
 ```typescript
 case "openai":
   // BEFORE: { min: 1.0, max: 4.0 }
@@ -1282,22 +1373,33 @@ case "openai":
 ### Enhanced Logging for Debugging
 
 **Files Modified**:
+
 - `src/services/audioService.ts`
 - `src/lib/providers/ElevenLabsVoiceProvider.ts`
 
 **audioService.ts Additions**:
+
 ```typescript
-console.log(`  - Speed: ${track.speed !== undefined ? `${track.speed}x (manual)` : 'not set (using preset/default)'}`);
-console.log(`  - Provider: ${trackProvider}${track.trackProvider ? ' (track override)' : ''}`);
+console.log(
+  `  - Speed: ${track.speed !== undefined ? `${track.speed}x (manual)` : "not set (using preset/default)"}`,
+);
+console.log(
+  `  - Provider: ${trackProvider}${track.trackProvider ? " (track override)" : ""}`,
+);
 ```
 
 **ElevenLabsVoiceProvider.ts Enhancements**:
+
 ```typescript
-console.log(`  Speed parameter received: ${speed !== undefined ? `${speed}x` : 'undefined (will use preset)'}`);
+console.log(
+  `  Speed parameter received: ${speed !== undefined ? `${speed}x` : "undefined (will use preset)"}`,
+);
 
 console.log(`  🎛️ Speed calculation:`);
 console.log(`    - Preset speed (from voice tone): ${presetSpeed}x`);
-console.log(`    - Manual speed override: ${speed !== undefined ? `${speed}x` : 'none'}`);
+console.log(
+  `    - Manual speed override: ${speed !== undefined ? `${speed}x` : "none"}`,
+);
 console.log(`    - Effective speed (FINAL): ${effectiveSpeed}x`);
 
 console.log(`\n  📡 === FINAL REQUEST TO ELEVENLABS API ===`);
@@ -1306,8 +1408,8 @@ console.log(`  === END REQUEST ===\n`);
 
 console.log(`  ✅ ElevenLabs API response status: ${response.status}`);
 console.log(`  📋 Response headers:`, {
-  'content-type': response.headers.get('content-type'),
-  'content-length': response.headers.get('content-length'),
+  "content-type": response.headers.get("content-type"),
+  "content-length": response.headers.get("content-length"),
 });
 ```
 
@@ -1345,19 +1447,24 @@ console.log(`  📋 Response headers:`, {
 ### Implementation Files
 
 **Type Definitions** (1 file):
+
 - `src/types/index.ts`: Added `trackProvider` to VoiceTrack, `provider` to Voice
 
 **UI Components** (2 files):
+
 - `src/components/ui/VoiceInstructionsDialog.tsx`: Provider dropdown, provider-aware speed controls
 - `src/components/ScripterPanel.tsx`: Parallel voice loading, track-specific voice filtering
 
 **Services** (1 file):
+
 - `src/services/audioService.ts`: Provider resolution cascade, routing logic
 
 **Configuration** (1 file):
+
 - `src/lib/voice-presets.ts`: Corrected speed ranges for both providers
 
 **Logging** (2 files):
+
 - `src/services/audioService.ts`: Track provider logging
 - `src/lib/providers/ElevenLabsVoiceProvider.ts`: Comprehensive request/response logging
 
@@ -1368,6 +1475,7 @@ console.log(`  📋 Response headers:`, {
 **Problem**: Voices loaded from API lacked `provider` field, breaking routing logic.
 
 **Solution**: Map over loaded voices to ensure `provider` field is always present:
+
 ```typescript
 return voices.map((v: Voice) => ({ ...v, provider }));
 ```
@@ -1377,12 +1485,14 @@ return voices.map((v: Voice) => ({ ...v, provider }));
 #### Challenge 2: React Hooks Violation
 
 **Problem**: Initially tried to use `useMemo` inside `voiceTracks.map()` callback:
+
 ```typescript
 voices={useMemo(() => getVoicesForTrack(...), [...])}
 // ❌ ERROR: React Hook "useMemo" cannot be called inside a callback
 ```
 
 **Solution**: Extracted to helper function callable in render:
+
 ```typescript
 const getVoicesForTrack = (trackProvider?: Provider): Voice[] => {
   // Filtering logic here
@@ -1395,6 +1505,7 @@ voices={getVoicesForTrack(track.trackProvider)}  // ✅ Works!
 #### Challenge 3: Build Warnings
 
 **Fixed**:
+
 - Unused `useMemo` import in ScripterPanel
 - Unused `voiceTrackCount` parameter in SoundFxPanel
 - Missing hook dependencies in admin pages
@@ -1405,15 +1516,16 @@ voices={getVoicesForTrack(track.trackProvider)}  // ✅ Works!
 ### Performance Considerations
 
 **Voice Loading**: Parallel fetching reduces load time:
+
 ```typescript
 // Sequential: ~2 seconds (1s per provider)
-await loadVoicesForProvider('elevenlabs');
-await loadVoicesForProvider('openai');
+await loadVoicesForProvider("elevenlabs");
+await loadVoicesForProvider("openai");
 
 // Parallel: ~1 second (both fetch simultaneously)
 await Promise.all([
-  loadVoicesForProvider('elevenlabs'),
-  loadVoicesForProvider('openai'),
+  loadVoicesForProvider("elevenlabs"),
+  loadVoicesForProvider("openai"),
 ]);
 ```
 
@@ -1423,13 +1535,14 @@ await Promise.all([
 
 ### Speed Parameter Validation Matrix
 
-| Provider | Valid Range | UI Range | Behavior Outside Range |
-|----------|-------------|----------|------------------------|
-| ElevenLabs V3 | 0.7 - 1.2 | 0.7 - 1.2 | Silently ignored/clamped by API |
-| OpenAI | 0.25 - 4.0 | 0.25 - 4.0 | API accepts, applies correctly |
-| Lovo | N/A | N/A | Speed parameter not supported |
+| Provider      | Valid Range | UI Range   | Behavior Outside Range          |
+| ------------- | ----------- | ---------- | ------------------------------- |
+| ElevenLabs V3 | 0.7 - 1.2   | 0.7 - 1.2  | Silently ignored/clamped by API |
+| OpenAI        | 0.25 - 4.0  | 0.25 - 4.0 | API accepts, applies correctly  |
+| Lovo          | N/A         | N/A        | Speed parameter not supported   |
 
 **Testing Methodology**:
+
 1. Set two tracks with same text/voice to extreme speeds (0.7x, 1.2x for ElevenLabs)
 2. Generate audio and measure actual durations
 3. Compare expected vs actual duration ratio
@@ -1438,17 +1551,20 @@ await Promise.all([
 ### Impact & Benefits
 
 **Business Value**:
+
 - ✅ **Pharma-ad use case enabled**: Mix quality (ElevenLabs) with speed (OpenAI)
 - ✅ **30-second constraint met**: Ultra-fast disclaimers fit legal text in time limit
 - ✅ **Flexibility**: Any track can use any provider based on requirements
 
 **Code Quality**:
+
 - ✅ **Type-safe provider routing**: TypeScript ensures correct API calls
 - ✅ **Parallel voice loading**: ~50% faster voice picker population
 - ✅ **Clean architecture**: Provider resolution cascade is explicit and debuggable
 - ✅ **Zero build warnings**: Fixed all React hooks and unused variable issues
 
 **User Experience**:
+
 - ✅ **Intuitive UI**: Provider selection in same modal as other voice settings
 - ✅ **Visual feedback**: Voice picker label shows provider when overridden
 - ✅ **Clear warnings**: Notifies user when provider change requires new voice selection
@@ -1457,16 +1573,19 @@ await Promise.all([
 ### Lessons Learned
 
 **API Documentation Trust**:
+
 - ✅ Always empirically test claims (speed parameter "worked" but was limited)
 - ✅ Documentation can be incomplete or outdated
 - ✅ Comprehensive logging is essential for debugging silent failures
 
 **Architecture Wins**:
+
 - ✅ Voice object already had `provider` field in the design (prescient!)
 - ✅ Provider-specific logic already isolated in Strategy Pattern
 - ✅ Adding per-track override was clean ~200 lines, not a massive refactor
 
 **Testing Approach**:
+
 - ✅ Duration comparison is definitive proof of speed parameter effectiveness
 - ✅ Console logging full request/response bodies catches API mismatches
 - ✅ Real-world use cases (pharma ad) drive feature priorities
@@ -1521,11 +1640,13 @@ Even with per-track provider switching (ElevenLabs for quality + OpenAI for spee
 ### The Solution
 
 **Client-Side Post-Processing Pipeline**:
+
 ```
 Generate → Download → applyTimeStretch(tempo, pitch) → Re-upload → Mixer
 ```
 
 **Technology**: soundtouchjs (WSOLA algorithm)
+
 - Real-time capable on all devices
 - Optimized for speech at 1.0-1.6x range
 - Manual pitch compensation (0.7x-1.2x)
@@ -1533,16 +1654,19 @@ Generate → Download → applyTimeStretch(tempo, pitch) → Re-upload → Mixer
 ### Key Features
 
 **Dual Slider Control**:
+
 - **Tempo**: 1.0-1.6x (0.01 step granularity)
 - **Pitch**: 0.7-1.2x (0.01 step granularity)
 - **Tabbed UI**: Smart Speed | Fit Duration | Advanced
 
 **Typical Values**:
+
 - 1.1x tempo → 0.95x pitch
 - 1.3x tempo → 0.85-0.90x pitch
 - 1.5x tempo → 0.75-0.80x pitch
 
 **Alternative Libraries Researched**:
+
 - Rubber Band WASM: Superior quality but ~10x CPU (overkill for browser)
 - Professional DAWs (Elastique, ZTX): Not available for web
 - Superpowered SDK: Commercial option (potential future upgrade)
@@ -1551,6 +1675,7 @@ Generate → Download → applyTimeStretch(tempo, pitch) → Re-upload → Mixer
 ### Implementation
 
 **Files Modified**:
+
 - `src/types/index.ts`: Added postProcessingSpeedup/Pitch to VoiceTrack
 - `src/utils/audio-processing.ts`: Core applyTimeStretch() function
 - `src/services/audioService.ts`: Post-processing pipeline integration
@@ -1558,6 +1683,7 @@ Generate → Download → applyTimeStretch(tempo, pitch) → Re-upload → Mixer
 - `src/app/api/voice/upload-processed/route.ts`: New upload endpoint
 
 **Bug Fixes**:
+
 - Corrected soundtouchjs API usage (WebAudioBufferSource + extract())
 - Fixed buffer overflow with smaller chunk sizes
 - Narrowed pitch range based on user testing (0.8→0.7x min)
@@ -1584,6 +1710,7 @@ Users could only add one sound effect per project. Creative ads often require mu
 **Architecture**: Array-based soundfx management following voice tracks pattern.
 
 **Files Modified**:
+
 - `src/types/index.ts`: SoundFxPrompt already supported placement intent
 - `src/hooks/useFormManager.ts`: Added soundFxPrompts array, CRUD operations
 - `src/components/SoundFxPanel.tsx`: Transformed to render multiple form cards
@@ -1591,6 +1718,7 @@ Users could only add one sound effect per project. Creative ads often require mu
 - `src/services/audioService.ts`: Moved clearTracks outside loop
 
 **Key Decisions**:
+
 1. **Single generate button** (not per-form): Simpler UX, cache handles unchanged prompts
 2. **Placement per soundfx**: Each effect has independent placement (start/after voice X/end)
 3. **Partial updates**: `updateSoundFxPrompt(index, updates)` merges instead of replacing
@@ -1599,20 +1727,24 @@ Users could only add one sound effect per project. Creative ads often require mu
 ### Bugs Fixed
 
 **Bug 1: Lost form data on placement change**
+
 - **Cause**: `updateSoundFxPrompt` replaced entire object instead of merging
 - **Fix**: Changed to `{...existing, ...updates}` spread pattern
 
 **Bug 2: Only last soundfx appeared on timeline**
+
 - **Cause**: `clearTracks("soundfx")` called inside generation loop
 - **Fix**: Moved to before loop (clear once, then append all)
 
 **Bug 3: TypeScript signature mismatch**
+
 - **Cause**: Interface declared `prompt: SoundFxPrompt`, implementation used `Partial<SoundFxPrompt>`
 - **Fix**: Updated interface to match implementation
 
 ### Caching Behavior
 
 ElevenLabs soundfx API includes full cache support (lines 56-78 in `ElevenLabsSoundFxProvider.ts`):
+
 - Cache key: `generateCacheKey(text, {duration, provider})`
 - Cache hit: Returns existing blob URL, no API call
 - Cache miss: Generates new audio, uploads to Vercel blob
@@ -1622,6 +1754,7 @@ When regenerating multiple soundfx, unchanged prompts serve from cache automatic
 ### Impact
 
 **User workflow**:
+
 - Add multiple soundfx forms via "+ Add Sound Effect" button
 - Configure each with independent prompt/placement/duration
 - Generate all with single button (cached prompts reuse existing audio)
@@ -1632,6 +1765,7 @@ When regenerating multiple soundfx, unchanged prompts serve from cache automatic
 ---
 
 **Related Documentation**:
+
 - [Architecture Overview](./architecture.md) - Main system architecture
 - [Pronunciation System](./pronounciation.md) - ElevenLabs pronunciation dictionaries
 - [Voice System Guide](./voice-system-guide.md) - Redis voice management

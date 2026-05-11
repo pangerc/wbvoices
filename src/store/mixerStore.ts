@@ -227,7 +227,8 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
     const calculatedTracks: CalculatedTrack[] = incomingCalc.map((calc) => {
       const full = incomingTracks.find((t) => t.id === calc.id);
       return {
-        ...(full ?? ({ id: calc.id, url: "", label: "", type: calc.type } as MixerTrack)),
+        ...(full ??
+          ({ id: calc.id, url: "", label: "", type: calc.type } as MixerTrack)),
         actualStartTime: calc.startTime,
         actualDuration: calc.duration,
       };
@@ -237,7 +238,8 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
     const nextVolumes: { [key: string]: number } = {};
     for (const track of incomingTracks) {
       const fromState = state.volumes?.[track.id];
-      nextVolumes[track.id] = fromState ?? track.volume ?? getDefaultVolume(track.type);
+      nextVolumes[track.id] =
+        fromState ?? track.volume ?? getDefaultVolume(track.type);
     }
 
     // Detect URL changes vs current state to decide whether preview is stale.

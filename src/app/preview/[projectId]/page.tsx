@@ -121,7 +121,7 @@ export default function PreviewPage({ params }: PreviewPageProps) {
             onClick={() => {
               const downloadUrl = previewData.mixedAudioUrl!.replace(
                 /\/[^/]+$/,
-                (match) => `${match}?download=1`
+                (match) => `${match}?download=1`,
               );
               const a = document.createElement("a");
               a.href = downloadUrl;

@@ -31,7 +31,9 @@ export function InstructionTemplateList() {
         setTemplates(data.templates);
       } catch (err) {
         if (abortController.signal.aborted) return;
-        setError(err instanceof Error ? err.message : "Failed to load templates");
+        setError(
+          err instanceof Error ? err.message : "Failed to load templates",
+        );
       }
     })();
     return () => {
@@ -51,7 +53,9 @@ export function InstructionTemplateList() {
       setTemplates((prev) => (prev ? prev.filter((t) => t.id !== id) : prev));
       setPendingDelete(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete template");
+      setError(
+        err instanceof Error ? err.message : "Failed to delete template",
+      );
       setPendingDelete(null);
     } finally {
       setDeletingId(null);
@@ -115,7 +119,9 @@ export function InstructionTemplateList() {
                   className="grid grid-cols-[2fr_3fr_1fr_auto] items-center gap-4 px-5 py-4 hover:bg-white/[0.02]"
                 >
                   <div className="font-medium text-white">{tpl.title}</div>
-                  <div className="text-sm text-gray-300 italic">{tpl.description}</div>
+                  <div className="text-sm text-gray-300 italic">
+                    {tpl.description}
+                  </div>
                   <div>
                     <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-white/5 border border-white/10 text-gray-300 capitalize">
                       {tpl.category}
@@ -166,8 +172,11 @@ export function InstructionTemplateList() {
         title="Delete creative template"
         message={
           <>
-            Delete <span className="font-semibold text-white">&ldquo;{pendingDelete?.title}&rdquo;</span>?
-            This cannot be undone.
+            Delete{" "}
+            <span className="font-semibold text-white">
+              &ldquo;{pendingDelete?.title}&rdquo;
+            </span>
+            ? This cannot be undone.
           </>
         }
         confirmLabel="Delete"

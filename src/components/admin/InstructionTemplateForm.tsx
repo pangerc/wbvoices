@@ -16,7 +16,11 @@ import { GlassyTextarea } from "@/components/ui/GlassyTextarea";
 import { GlassyListbox } from "@/components/ui/GlassyListbox";
 import { Switch } from "@/components/ui/Switch";
 
-export type TemplateCategory = "duration" | "audience" | "experience" | "general";
+export type TemplateCategory =
+  | "duration"
+  | "audience"
+  | "experience"
+  | "general";
 export type TemplatePacing = "" | "fast" | "normal";
 
 const CATEGORY_OPTIONS: { value: TemplateCategory; label: string }[] = [
@@ -33,8 +37,7 @@ const PACING_OPTIONS: { value: TemplatePacing; label: string }[] = [
 ];
 
 // Mirrors src/lib/document-extraction.ts limits — keep them in sync.
-const REFERENCE_ACCEPT =
-  ".pdf,.docx,.md,.markdown,.txt,.csv,.xlsx,.xls,.xlsm";
+const REFERENCE_ACCEPT = ".pdf,.docx,.md,.markdown,.txt,.csv,.xlsx,.xls,.xlsm";
 const MAX_REFERENCE_BYTES = 20 * 1024 * 1024;
 const MAX_REFERENCE_FILES = 10;
 
@@ -65,23 +68,25 @@ export function InstructionTemplateForm({
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [category, setCategory] = useState<TemplateCategory>(
-    initial?.category ?? "general"
+    initial?.category ?? "general",
   );
   const [systemInstructions, setSystemInstructions] = useState(
-    initial?.systemInstructions ?? ""
+    initial?.systemInstructions ?? "",
   );
-  const [exampleOutput, setExampleOutput] = useState(initial?.exampleOutput ?? "");
+  const [exampleOutput, setExampleOutput] = useState(
+    initial?.exampleOutput ?? "",
+  );
   const [defaultPacing, setDefaultPacing] = useState<TemplatePacing>(
-    initial?.defaultPacing ?? ""
+    initial?.defaultPacing ?? "",
   );
   const [defaultCta, setDefaultCta] = useState(initial?.defaultCta ?? "");
   const [defaultDurationSeconds, setDefaultDurationSeconds] = useState<string>(
     initial?.defaultDurationSeconds != null
       ? String(initial.defaultDurationSeconds)
-      : ""
+      : "",
   );
   const [defaultMusicStyle, setDefaultMusicStyle] = useState(
-    initial?.defaultMusicStyle ?? ""
+    initial?.defaultMusicStyle ?? "",
   );
   const [bestPractice, setBestPractice] = useState(initial?.bestPractice ?? "");
   const [sortOrder, setSortOrder] = useState<number>(initial?.sortOrder ?? 0);
@@ -105,12 +110,17 @@ export function InstructionTemplateForm({
     setIsSaving(true);
     try {
       const trimmedDuration = defaultDurationSeconds.trim();
-      const parsedDuration = trimmedDuration === "" ? null : Number(trimmedDuration);
+      const parsedDuration =
+        trimmedDuration === "" ? null : Number(trimmedDuration);
       if (
         parsedDuration !== null &&
-        (!Number.isFinite(parsedDuration) || !Number.isInteger(parsedDuration) || parsedDuration <= 0)
+        (!Number.isFinite(parsedDuration) ||
+          !Number.isInteger(parsedDuration) ||
+          parsedDuration <= 0)
       ) {
-        setError("Default duration must be a positive whole number of seconds.");
+        setError(
+          "Default duration must be a positive whole number of seconds.",
+        );
         setIsSaving(false);
         return;
       }
@@ -160,7 +170,8 @@ export function InstructionTemplateForm({
       }
       // Dedupe by name+size; re-opening the picker with the same selection
       // would otherwise stack duplicates.
-      if (next.some((f) => f.name === file.name && f.size === file.size)) continue;
+      if (next.some((f) => f.name === file.name && f.size === file.size))
+        continue;
       next.push(file);
     }
     setReferenceFiles(next);
@@ -175,7 +186,9 @@ export function InstructionTemplateForm({
 
   const handleGenerate = async () => {
     if (!title.trim() || !description.trim()) {
-      setError("Fill in Title and Description first, then generate instructions.");
+      setError(
+        "Fill in Title and Description first, then generate instructions.",
+      );
       return;
     }
     setError(null);
@@ -188,7 +201,8 @@ export function InstructionTemplateForm({
         form.append("title", title);
         form.append("description", description);
         form.append("category", category);
-        for (const file of referenceFiles) form.append("files", file, file.name);
+        for (const file of referenceFiles)
+          form.append("files", file, file.name);
         res = await fetch(url, { method: "POST", body: form });
       } else {
         res = await fetch(url, {
@@ -201,7 +215,9 @@ export function InstructionTemplateForm({
       const data = (await res.json()) as { instructions: string };
       setSystemInstructions(data.instructions);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate instructions");
+      setError(
+        err instanceof Error ? err.message : "Failed to generate instructions",
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -299,8 +315,8 @@ export function InstructionTemplateForm({
         <label className="block mb-2 text-white text-sm">
           System Instructions
           <span className="text-gray-400 font-normal ml-2">
-            Appended to the LLM system prompt — directs script structure, pacing,
-            music mood, SFX density.
+            Appended to the LLM system prompt — directs script structure,
+            pacing, music mood, SFX density.
           </span>
         </label>
         <GlassyTextarea
@@ -399,7 +415,8 @@ export function InstructionTemplateForm({
           <p className="text-xs text-gray-400 mt-1">
             When a user picks this template, these values pre-fill the brief.
             All optional — leave blank to keep whatever the user already chose.
-            Music style rides directly into the LLM prompt (no UI field for music in the brief).
+            Music style rides directly into the LLM prompt (no UI field for
+            music in the brief).
           </p>
         </div>
 
@@ -428,7 +445,9 @@ export function InstructionTemplateForm({
         </div>
 
         <div className="mb-4">
-          <label className="block mb-2 text-white text-sm">Default call-to-action</label>
+          <label className="block mb-2 text-white text-sm">
+            Default call-to-action
+          </label>
           <GlassyInput
             value={defaultCta}
             onChange={(e) => setDefaultCta(e.target.value)}

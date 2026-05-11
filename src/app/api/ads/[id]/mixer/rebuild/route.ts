@@ -26,7 +26,7 @@ export const runtime = "nodejs";
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -44,7 +44,7 @@ export async function POST(
         error: "Failed to rebuild mixer",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

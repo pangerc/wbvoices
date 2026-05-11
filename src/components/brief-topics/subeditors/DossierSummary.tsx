@@ -31,9 +31,7 @@ export function DossierSummary({
 }: DossierSummaryProps) {
   if (isLoading) {
     return (
-      <div className="text-xs text-gray-400 italic">
-        Loading brand dossier…
-      </div>
+      <div className="text-xs text-gray-400 italic">Loading brand dossier…</div>
     );
   }
 
@@ -42,7 +40,7 @@ export function DossierSummary({
   const slotCount =
     enrichmentSummary?.slotCount ?? dossier.meta.reportTypesPresent.length;
   const lastEnriched = formatRelative(
-    enrichmentSummary?.lastEnrichedAt ?? dossier.meta.lastEnrichedAt
+    enrichmentSummary?.lastEnrichedAt ?? dossier.meta.lastEnrichedAt,
   );
 
   if (dossier.meta.state === "empty") {

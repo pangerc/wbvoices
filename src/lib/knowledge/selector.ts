@@ -99,7 +99,7 @@ function countNonZeroScores(scores: IntentScores): number {
  * Get the intent with the highest score
  */
 function getHighestScoringIntent(
-  scores: IntentScores
+  scores: IntentScores,
 ): keyof IntentScores | null {
   const entries = Object.entries(scores) as [keyof IntentScores, number][];
   const nonZero = entries.filter(([, score]) => score > 0);

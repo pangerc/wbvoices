@@ -5,8 +5,9 @@ import dynamic from "next/dynamic";
 import type { ToneFormInitial } from "@/components/admin/ToneOfVoiceForm";
 
 const ToneOfVoiceForm = dynamic(
-  () => import("@/components/admin/ToneOfVoiceForm").then((m) => m.ToneOfVoiceForm),
-  { ssr: false }
+  () =>
+    import("@/components/admin/ToneOfVoiceForm").then((m) => m.ToneOfVoiceForm),
+  { ssr: false },
 );
 
 export default function EditTonePage({

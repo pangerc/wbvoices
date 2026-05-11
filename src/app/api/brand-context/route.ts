@@ -88,7 +88,7 @@ export interface BrandContextResponse {
 // ============ Per-kind handlers ============
 
 async function handleSfAccount(
-  accountId: string
+  accountId: string,
 ): Promise<BrandContextResponse> {
   const bundle = await alaric.getSfClient(accountId);
 
@@ -122,7 +122,7 @@ const ALPHA2_RE = /^[A-Za-z]{2}$/;
 
 async function handleSearch(
   query: string,
-  opts: { clientPlatforms?: string[]; limit?: number; marketAlpha2?: string }
+  opts: { clientPlatforms?: string[]; limit?: number; marketAlpha2?: string },
 ): Promise<BrandContextResponse> {
   // Default to spotify-only filtering, matching the v3.5 picker UX. Pass
   // an empty array to skip the filter (the brief panel's "Show all" toggle).
@@ -145,7 +145,7 @@ async function handleSearch(
 
 async function handleGreenfield(
   email: string,
-  limit: number
+  limit: number,
 ): Promise<BrandContextResponse> {
   const redis = getRedisV3();
   const adIds = (await redis.get<string[]>(USER_ADS_KEY(email))) || [];
@@ -203,7 +203,7 @@ function effectiveSfId(brief: ProjectBrief | undefined): string | null {
 }
 
 function effectiveSfSnapshot(
-  brief: ProjectBrief | undefined
+  brief: ProjectBrief | undefined,
 ): BrandRef["salesforceAccountSnapshot"] {
   if (!brief) return null;
   return brief.brand?.salesforceAccountSnapshot ?? null;
@@ -239,16 +239,13 @@ export async function POST(req: NextRequest) {
   try {
     body = (await req.json()) as BrandContextRequest;
   } catch {
-    return NextResponse.json(
-      { error: "invalid JSON body" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
   if (!body || typeof body !== "object" || !("kind" in body)) {
     return NextResponse.json(
       { error: "missing 'kind' discriminator" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -260,7 +257,7 @@ export async function POST(req: NextRequest) {
         if (!body.accountId || typeof body.accountId !== "string") {
           return NextResponse.json(
             { error: "accountId required for kind=sf-account" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         const result = await handleSfAccount(body.accountId);
@@ -271,7 +268,7 @@ export async function POST(req: NextRequest) {
         if (!body.query || body.query.trim().length < 2) {
           return NextResponse.json(
             { error: "query must be at least 2 characters" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         let limit: number | undefined;
@@ -308,7 +305,7 @@ export async function POST(req: NextRequest) {
             error: "spotify-ad-manager kind not yet implemented",
             kind: body.kind,
           },
-          { status: 501 }
+          { status: 501 },
         );
       }
 
@@ -318,27 +315,24 @@ export async function POST(req: NextRequest) {
         const _exhaustive: never = body;
         return NextResponse.json(
           { error: "unknown kind", got: _exhaustive },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
   } catch (err) {
     if (err instanceof AuthError) {
-      return NextResponse.json(
-        { error: err.message },
-        { status: err.status }
-      );
+      return NextResponse.json({ error: err.message }, { status: err.status });
     }
     if (err instanceof AlaricRequestError) {
       return NextResponse.json(
         { error: err.message, status: err.status },
-        { status: err.status === 401 ? 502 : err.status }
+        { status: err.status === 401 ? 502 : err.status },
       );
     }
     console.error("[/api/brand-context] failed:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "brand-context failed" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

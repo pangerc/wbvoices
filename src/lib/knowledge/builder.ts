@@ -43,7 +43,7 @@ const MODULE_REGISTRY = {
  * iteration flows that forgot to load the parent version's snapshot).
  */
 function getVoiceModulesForProvider(
-  provider?: string
+  provider?: string,
 ): (keyof typeof MODULE_REGISTRY)[] {
   switch (provider) {
     case "elevenlabs":
@@ -62,12 +62,12 @@ function getVoiceModulesForProvider(
       if (provider === undefined) {
         console.warn(
           "[getVoiceModulesForProvider] Called without provider context — " +
-          "falling back to ElevenLabs guidance. This is a regression surface: " +
-          "iteration flows should thread KnowledgeContext from the parent version."
+            "falling back to ElevenLabs guidance. This is a regression surface: " +
+            "iteration flows should thread KnowledgeContext from the parent version.",
         );
       } else {
         console.warn(
-          `[getVoiceModulesForProvider] Unknown provider "${provider}" — falling back to ElevenLabs guidance.`
+          `[getVoiceModulesForProvider] Unknown provider "${provider}" — falling back to ElevenLabs guidance.`,
         );
       }
       return ["elevenlabs-voice"];
@@ -211,7 +211,7 @@ For iteration: read state, change only the streams the user asked about, preserv
  */
 export function buildSystemPrompt(
   userMessage: string,
-  context?: KnowledgeContext
+  context?: KnowledgeContext,
 ): string {
   const intent = detectIntent(userMessage);
 
@@ -298,7 +298,7 @@ ${moduleContent}`;
  */
 export function buildSystemPromptWithIntent(
   intent: IntentType,
-  context?: KnowledgeContext
+  context?: KnowledgeContext,
 ): string {
   const moduleIds = MODULE_MAPPING[intent];
 
@@ -319,7 +319,7 @@ export function buildSystemPromptWithIntent(
  */
 export function getModuleContent(
   intent: IntentType,
-  context?: KnowledgeContext
+  context?: KnowledgeContext,
 ): string {
   const moduleIds = MODULE_MAPPING[intent];
 
@@ -336,7 +336,7 @@ export function getModuleContent(
  */
 export function getModulesById(
   moduleIds: (keyof typeof MODULE_REGISTRY)[],
-  context?: KnowledgeContext
+  context?: KnowledgeContext,
 ): string {
   return moduleIds
     .map((id) => {

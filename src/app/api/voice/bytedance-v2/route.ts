@@ -5,6 +5,6 @@ import { NextRequest } from "next/server";
 import { createProvider } from "@/lib/providers";
 
 export async function POST(req: NextRequest) {
-  const provider = createProvider('voice', 'bytedance');
+  const provider = createProvider("voice", "bytedance");
   return provider.handleRequest(req);
 }

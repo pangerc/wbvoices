@@ -84,7 +84,11 @@ async function listAds(adFilter: string | undefined): Promise<string[]> {
 
 async function scanAd(adId: string, args: Args, stats: Stats): Promise<void> {
   const redis = getRedisV3();
-  const versionIds = (await redis.lrange(AD_KEYS.versions(adId, "voices"), 0, -1)) as VersionId[];
+  const versionIds = (await redis.lrange(
+    AD_KEYS.versions(adId, "voices"),
+    0,
+    -1,
+  )) as VersionId[];
   if (!versionIds || versionIds.length === 0) return;
 
   for (const versionId of versionIds) {
@@ -102,7 +106,8 @@ async function scanAd(adId: string, args: Args, stats: Stats): Promise<void> {
       stats.tracksScanned++;
 
       const hasDuration =
-        typeof track.generatedDuration === "number" && track.generatedDuration > 0;
+        typeof track.generatedDuration === "number" &&
+        track.generatedDuration > 0;
       if (hasDuration) {
         stats.tracksAlreadyHad++;
         continue;
@@ -118,7 +123,7 @@ async function scanAd(adId: string, args: Args, stats: Stats): Promise<void> {
         const duration = await measureDuration(url);
         stats.tracksMeasured++;
         console.log(
-          `  [${adId}/${versionId}/#${i}] measured ${duration.toFixed(2)}s  (${track.voice?.name ?? "unknown"})`
+          `  [${adId}/${versionId}/#${i}] measured ${duration.toFixed(2)}s  (${track.voice?.name ?? "unknown"})`,
         );
         if (args.write) {
           track.generatedDuration = duration;
@@ -127,7 +132,7 @@ async function scanAd(adId: string, args: Args, stats: Stats): Promise<void> {
       } catch (err) {
         stats.tracksFailed++;
         console.warn(
-          `  [${adId}/${versionId}/#${i}] FAILED: ${err instanceof Error ? err.message : String(err)}`
+          `  [${adId}/${versionId}/#${i}] FAILED: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }

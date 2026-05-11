@@ -29,7 +29,10 @@ export class InstructionTemplatesService {
     if (opts?.activeOnly) {
       return base
         .where(eq(instructionTemplates.isActive, true))
-        .orderBy(asc(instructionTemplates.sortOrder), desc(instructionTemplates.createdAt));
+        .orderBy(
+          asc(instructionTemplates.sortOrder),
+          desc(instructionTemplates.createdAt),
+        );
     }
     return base.orderBy(desc(instructionTemplates.createdAt));
   }
@@ -66,7 +69,7 @@ export class InstructionTemplatesService {
 
   async update(
     id: string,
-    input: Partial<InstructionTemplateInput>
+    input: Partial<InstructionTemplateInput>,
   ): Promise<InstructionTemplate | null> {
     const [row] = await db
       .update(instructionTemplates)

@@ -23,7 +23,7 @@ function highlightTags(code: string): string {
 
   return escaped.replace(
     /(\[[^\]]+\])/g,
-    '<span class="text-gray-500">$1</span>'
+    '<span class="text-gray-500">$1</span>',
   );
 }
 
@@ -50,7 +50,9 @@ export function HighlightedScriptTextarea({
       <div
         className="relative bg-white/5 backdrop-blur-sm rounded-xl border transition-all duration-200"
         style={{
-          borderColor: isFocused ? "rgba(47, 125, 250, 0.7)" : "rgba(255, 255, 255, 0.1)",
+          borderColor: isFocused
+            ? "rgba(47, 125, 250, 0.7)"
+            : "rgba(255, 255, 255, 0.1)",
           boxShadow: isFocused ? "0 0 0 1px rgba(47, 125, 250, 0.5)" : "none",
         }}
       >

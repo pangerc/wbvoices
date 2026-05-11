@@ -73,7 +73,7 @@ export function anchorFromDrop(
   draggedSlotId: SlotId,
   dropSeconds: number,
   others: ReadonlyArray<DropReferenceClip>,
-  options: AnchorFromDropOptions = {}
+  options: AnchorFromDropOptions = {},
 ): Anchor {
   let dropT = Math.max(0, dropSeconds);
 
@@ -111,9 +111,8 @@ function pickBestAnchor(
   draggedSlotId: SlotId,
   dropT: number,
   others: ReadonlyArray<DropReferenceClip>,
-  options: AnchorFromDropOptions
+  options: AnchorFromDropOptions,
 ): Anchor {
-
   const candidates = others.filter((c) => c.slotId !== draggedSlotId);
   const edgeSnap = options.edgeSnapSeconds ?? DEFAULT_EDGE_SNAP_SECONDS;
   const alignSnap = options.alignSnapSeconds ?? DEFAULT_ALIGN_SNAP_SECONDS;
@@ -195,9 +194,10 @@ function pickBestAnchor(
     }
 
     // Rule 4: atFraction
-    const fraction = clip.duration > 0
-      ? Math.max(0, Math.min(1, relativeIntoClip / clip.duration))
-      : 0;
+    const fraction =
+      clip.duration > 0
+        ? Math.max(0, Math.min(1, relativeIntoClip / clip.duration))
+        : 0;
     return { kind: "atFraction", slotId: clip.slotId, fraction };
   }
 
@@ -216,7 +216,7 @@ function pickBestAnchor(
 function wouldCreateCycle(
   draggedSlotId: SlotId,
   startSlot: SlotId,
-  existingRefs: Readonly<Record<SlotId, SlotId | undefined>> | undefined
+  existingRefs: Readonly<Record<SlotId, SlotId | undefined>> | undefined,
 ): boolean {
   if (startSlot === draggedSlotId) return true; // self-reference
   if (!existingRefs) return false;

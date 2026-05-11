@@ -10,12 +10,14 @@
 Per-user identity via NextAuth.js v5. Magic links (Resend) are the primary sign-in method; Google OAuth is an optional secondary provider that activates when credentials are configured.
 
 **What changed from the old system:**
+
 - Password login → magic link email + optional Google OAuth
 - Single shared session → per-user identity (email)
 - All ads visible to everyone → users see only their own ads
 - Admin pages open to all → admin-only access
 
 **What stays the same:**
+
 - Redis ad schema (same keys, just different `owner` value)
 - Public `/preview/*` routes (no auth required)
 - All voice/music/SFX generation flows
@@ -34,6 +36,7 @@ User enters their company email, receives a sign-in link, clicks it, authenticat
 - Custom HTML email template in `src/auth.ts` (dark theme, branded)
 
 **DNS requirements for `alephcreative.cloud`:**
+
 - DKIM (verified in Resend)
 - SPF (MX + TXT on `send` subdomain)
 - DMARC (`_dmarc` TXT record: `v=DMARC1; p=none;`)
@@ -59,11 +62,13 @@ Activates when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` env vars are set. A
 > **What we need:** An OAuth 2.0 Client ID (Web application type) for our internal audio ad generation tool.
 >
 > **OAuth consent screen:**
+>
 > - Type: **Internal** (visible only to Workspace users)
 > - App name: WB Creative Audio Studio
 > - Scopes: `openid`, `email`, `profile` (basic sign-in only)
 >
 > **Credentials:**
+>
 > - Application type: Web application
 > - Authorized redirect URIs:
 >   - `https://alephcreative.cloud/api/auth/callback/google`
@@ -87,6 +92,7 @@ Activates when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` env vars are set. A
 ### Domain Allowlist
 
 Enforced in the `signIn` callback — rejects any email not matching:
+
 - `@alephholding.com`
 - `@byselva.com`
 - `@alephdigital.com`
@@ -101,17 +107,17 @@ Enforced in the `signIn` callback — rejects any email not matching:
 session.user = {
   email: "user@alephholding.com",
   name: "User Name",
-  image: "https://...",  // Google avatar (null for magic link users)
-  role: "user" | "admin"
-}
+  image: "https://...", // Google avatar (null for magic link users)
+  role: "user" | "admin",
+};
 ```
 
 ### Database Tables (Neon — `dark-band-57504937`)
 
-| Table | Purpose |
-|-------|---------|
-| `users` | User profiles + custom `role` column |
-| `accounts` | OAuth provider links (Google) |
+| Table                 | Purpose                                       |
+| --------------------- | --------------------------------------------- |
+| `users`               | User profiles + custom `role` column          |
+| `accounts`            | OAuth provider links (Google)                 |
 | `verification_tokens` | Magic link tokens (short-lived, auto-cleaned) |
 
 No `sessions` table needed (JWT strategy). Schema defined in `src/lib/db/schema.ts`.
@@ -140,14 +146,14 @@ ads:all → ["ad-id-1", "ad-id-2", ...]  // global index
 
 ### Access Rules
 
-| Action | User | Admin |
-|--------|------|-------|
-| List own ads | `ads:by_user:{email}` | `ads:by_user:{email}` |
-| List all ads | — | `ads:all` via `?all=true` (includes legacy) |
-| View/edit ad | Owner only | Any ad |
-| Delete ad | Owner only | Any ad |
-| Admin pages | Blocked (redirect to `/`) | Full access |
-| Public preview | Anyone | Anyone |
+| Action         | User                      | Admin                                       |
+| -------------- | ------------------------- | ------------------------------------------- |
+| List own ads   | `ads:by_user:{email}`     | `ads:by_user:{email}`                       |
+| List all ads   | —                         | `ads:all` via `?all=true` (includes legacy) |
+| View/edit ad   | Owner only                | Any ad                                      |
+| Delete ad      | Owner only                | Any ad                                      |
+| Admin pages    | Blocked (redirect to `/`) | Full access                                 |
+| Public preview | Anyone                    | Anyone                                      |
 
 ### Legacy Ads
 
@@ -157,17 +163,17 @@ Existing ads with `owner: "universal-session"` are **not migrated**. They remain
 
 ## Key Files
 
-| Area | File |
-|------|------|
-| NextAuth config | `src/auth.ts` |
-| Catch-all route | `src/app/api/auth/[...nextauth]/route.ts` |
-| Middleware | `src/middleware.ts` |
-| Auth helpers | `src/lib/auth-helpers.ts` |
-| DB schema | `src/lib/db/schema.ts` |
-| Type augmentation | `src/types/next-auth.d.ts` |
-| Sign-in page | `src/app/auth/signin/page.tsx` |
-| Login form | `src/components/LoginForm.tsx` |
-| Session provider | `src/components/AuthProvider.tsx` |
+| Area              | File                                      |
+| ----------------- | ----------------------------------------- |
+| NextAuth config   | `src/auth.ts`                             |
+| Catch-all route   | `src/app/api/auth/[...nextauth]/route.ts` |
+| Middleware        | `src/middleware.ts`                       |
+| Auth helpers      | `src/lib/auth-helpers.ts`                 |
+| DB schema         | `src/lib/db/schema.ts`                    |
+| Type augmentation | `src/types/next-auth.d.ts`                |
+| Sign-in page      | `src/app/auth/signin/page.tsx`            |
+| Login form        | `src/components/LoginForm.tsx`            |
+| Session provider  | `src/components/AuthProvider.tsx`         |
 
 ---
 
@@ -190,19 +196,19 @@ GOOGLE_CLIENT_SECRET=xxx
 
 ## Route Protection Matrix
 
-| Route Pattern | Auth Required | Role Required |
-|--------------|---------------|---------------|
-| `/preview/*` | No | — |
-| `/api/auth/*` | No (NextAuth handles) | — |
-| `/auth/signin` | No | — |
-| `/admin/*` | Yes | `admin` |
-| `/api/admin/*` | Yes | `admin` |
-| `/ad/*` | Yes | any |
-| `/api/ads/*` | Yes | any (ownership checked per-ad) |
-| `/api/ai/*` | Yes | any |
-| `/api/voice/*` | Yes | any |
-| `/api/music/*` | Yes | any |
-| Everything else | Yes | any |
+| Route Pattern   | Auth Required         | Role Required                  |
+| --------------- | --------------------- | ------------------------------ |
+| `/preview/*`    | No                    | —                              |
+| `/api/auth/*`   | No (NextAuth handles) | —                              |
+| `/auth/signin`  | No                    | —                              |
+| `/admin/*`      | Yes                   | `admin`                        |
+| `/api/admin/*`  | Yes                   | `admin`                        |
+| `/ad/*`         | Yes                   | any                            |
+| `/api/ads/*`    | Yes                   | any (ownership checked per-ad) |
+| `/api/ai/*`     | Yes                   | any                            |
+| `/api/voice/*`  | Yes                   | any                            |
+| `/api/music/*`  | Yes                   | any                            |
+| Everything else | Yes                   | any                            |
 
 ---
 

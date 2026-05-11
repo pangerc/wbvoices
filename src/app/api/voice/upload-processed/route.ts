@@ -1,7 +1,7 @@
 export const runtime = "edge";
 
 import { NextRequest, NextResponse } from "next/server";
-import { put } from '@vercel/blob';
+import { put } from "@vercel/blob";
 
 /**
  * Upload processed audio to Vercel Blob
@@ -10,15 +10,16 @@ import { put } from '@vercel/blob';
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const audioFile = formData.get('audio') as Blob;
-    const voiceId = formData.get('voiceId') as string || 'unknown';
-    const provider = formData.get('provider') as string || 'processed';
-    const projectId = formData.get('projectId') as string || `processed-${Date.now()}`;
+    const audioFile = formData.get("audio") as Blob;
+    const voiceId = (formData.get("voiceId") as string) || "unknown";
+    const provider = (formData.get("provider") as string) || "processed";
+    const projectId =
+      (formData.get("projectId") as string) || `processed-${Date.now()}`;
 
     if (!audioFile) {
       return NextResponse.json(
-        { error: 'No audio file provided' },
-        { status: 400 }
+        { error: "No audio file provided" },
+        { status: 400 },
       );
     }
 
@@ -29,8 +30,8 @@ export async function POST(req: NextRequest) {
 
     // Upload to Vercel Blob
     const blob = await put(filename, audioFile, {
-      access: 'public',
-      contentType: 'audio/wav',
+      access: "public",
+      contentType: "audio/wav",
     });
 
     console.log(`✅ Processed audio uploaded to blob: ${blob.url}`);
@@ -41,10 +42,10 @@ export async function POST(req: NextRequest) {
       size: audioFile.size,
     });
   } catch (error) {
-    console.error('❌ Failed to upload processed audio:', error);
+    console.error("❌ Failed to upload processed audio:", error);
     return NextResponse.json(
-      { error: 'Failed to upload processed audio' },
-      { status: 500 }
+      { error: "Failed to upload processed audio" },
+      { status: 500 },
     );
   }
 }

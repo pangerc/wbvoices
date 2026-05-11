@@ -5,7 +5,7 @@ declare global {
   }
 }
 
-import { calculateLUFS, normalizeToSpotifySpec } from './audio-processing';
+import { calculateLUFS, normalizeToSpotifySpec } from "./audio-processing";
 
 export type TrackTiming = {
   id: string;
@@ -70,7 +70,7 @@ export async function createMix(
   voiceUrls: string[],
   musicUrl: string | null,
   soundFxUrls: string[] = [],
-  timingInfo: TrackTiming[] = []
+  timingInfo: TrackTiming[] = [],
 ): Promise<{ blob: Blob }> {
   console.log("Creating mix with timingInfo:", timingInfo);
 
@@ -92,7 +92,7 @@ export async function createMix(
       loadAudioBuffer(url, offlineCtx).then((buffer) => {
         audioBuffersMap.set(url, buffer);
         console.log(`Loaded voice audio: ${url}`);
-      })
+      }),
     );
   }
 
@@ -102,7 +102,7 @@ export async function createMix(
       loadAudioBuffer(musicUrl, offlineCtx).then((buffer) => {
         audioBuffersMap.set(musicUrl, buffer);
         console.log(`Loaded music audio: ${musicUrl}`);
-      })
+      }),
     );
   }
 
@@ -112,7 +112,7 @@ export async function createMix(
       loadAudioBuffer(url, offlineCtx).then((buffer) => {
         audioBuffersMap.set(url, buffer);
         console.log(`Loaded sound effect audio: ${url}`);
-      })
+      }),
     );
   }
 
@@ -143,7 +143,7 @@ export async function createMix(
   if (timingInfo.length > 0) {
     // Sort timing info by start time to ensure correct playback order
     const sortedTimingInfo = [...timingInfo].sort(
-      (a, b) => a.startTime - b.startTime
+      (a, b) => a.startTime - b.startTime,
     );
 
     sortedTimingInfo.forEach((info) => {
@@ -164,7 +164,7 @@ export async function createMix(
       const playDuration = Math.min(
         audioBuffer.duration - sourceOffset,
         trimmedLen,
-        info.duration || audioBuffer.duration
+        info.duration || audioBuffer.duration,
       );
       const endTime = info.startTime + playDuration;
 
@@ -180,15 +180,14 @@ export async function createMix(
           ? info.integratedLufs
           : measureLufsLazy(audioBuffer, info.url);
       const normalizationDb =
-        typeof integratedLufs === "number"
-          ? targetLufs - integratedLufs
-          : 0;
+        typeof integratedLufs === "number" ? targetLufs - integratedLufs : 0;
       const userTrimDb = typeof info.gainDb === "number" ? info.gainDb : 0;
       const totalDb = clampDb(normalizationDb + userTrimDb);
       // Silence pass-through: if the patch sender wanted the track muted
       // (handled today by sending gain=0 in the legacy path), preserve
       // that by treating "explicit zero gainDb under -36" as silence.
-      const linearGain = userTrimDb <= MIN_PER_STEM_GAIN_DB ? 0 : dbToLinear(totalDb);
+      const linearGain =
+        userTrimDb <= MIN_PER_STEM_GAIN_DB ? 0 : dbToLinear(totalDb);
 
       trackTimings.set(info.url, {
         start: info.startTime,
@@ -201,7 +200,7 @@ export async function createMix(
 
       maxEndTime = Math.max(maxEndTime, endTime);
       console.log(
-        `Scheduled ${info.type} at ${info.startTime}s, offset: ${sourceOffset}s, duration: ${playDuration}s, end: ${endTime}s, normDb=${normalizationDb.toFixed(1)} userDb=${userTrimDb.toFixed(1)} total=${totalDb.toFixed(1)}dB`
+        `Scheduled ${info.type} at ${info.startTime}s, offset: ${sourceOffset}s, duration: ${playDuration}s, end: ${endTime}s, normDb=${normalizationDb.toFixed(1)} userDb=${userTrimDb.toFixed(1)} total=${totalDb.toFixed(1)}dB`,
       );
     });
   } else {
@@ -270,7 +269,7 @@ export async function createMix(
       end: timing.end,
       gain: timing.gain,
       type: timing.type,
-    }))
+    })),
   );
 
   // Minimum per-edge fade to avoid DC-offset clicks on hard cuts.
@@ -293,29 +292,32 @@ export async function createMix(
       const FADEOUT_DURATION = 2.0;
       const fadeOutStartTime = Math.max(
         timing.start + MICRO_FADE,
-        timing.end - FADEOUT_DURATION
+        timing.end - FADEOUT_DURATION,
       );
 
       gainNode.gain.setValueAtTime(0.0001, timing.start);
       gainNode.gain.exponentialRampToValueAtTime(
         Math.max(timing.gain, 0.0001),
-        timing.start + MICRO_FADE
+        timing.start + MICRO_FADE,
       );
       gainNode.gain.setValueAtTime(timing.gain, fadeOutStartTime);
       gainNode.gain.exponentialRampToValueAtTime(0.0001, timing.end);
 
       console.log(
-        `Applied fade-out to music track from ${fadeOutStartTime}s to ${timing.end}s`
+        `Applied fade-out to music track from ${fadeOutStartTime}s to ${timing.end}s`,
       );
     } else {
       // Voice + SFX: symmetric micro-fades at both edges to prevent clicks.
       // Using setTargetAtTime / linearRampToValueAtTime keeps the envelope cheap.
       const fadeOutStart = Math.max(
         timing.start + MICRO_FADE,
-        timing.end - MICRO_FADE
+        timing.end - MICRO_FADE,
       );
       gainNode.gain.setValueAtTime(0, timing.start);
-      gainNode.gain.linearRampToValueAtTime(timing.gain, timing.start + MICRO_FADE);
+      gainNode.gain.linearRampToValueAtTime(
+        timing.gain,
+        timing.start + MICRO_FADE,
+      );
       gainNode.gain.setValueAtTime(timing.gain, fadeOutStart);
       gainNode.gain.linearRampToValueAtTime(0, timing.end);
     }
@@ -331,7 +333,7 @@ export async function createMix(
     // maxEndTime bookkeeping and the rendered wav length).
     source.start(timing.start, timing.sourceOffset, timing.playDuration);
     console.log(
-      `Started ${timing.type} at ${timing.start}s offset=${timing.sourceOffset}s dur=${timing.playDuration}s gain=${timing.gain}`
+      `Started ${timing.type} at ${timing.start}s offset=${timing.sourceOffset}s dur=${timing.playDuration}s gain=${timing.gain}`,
     );
   }
 
@@ -340,7 +342,9 @@ export async function createMix(
   const renderedBuffer = await offlineCtx.startRendering();
 
   // Apply loudness normalization to meet Spotify specifications
-  console.log('Applying loudness normalization to -16 LUFS with -2.0 dBTP peak limit...');
+  console.log(
+    "Applying loudness normalization to -16 LUFS with -2.0 dBTP peak limit...",
+  );
   const normalizedBuffer = normalizeToSpotifySpec(renderedBuffer);
 
   // Convert normalized AudioBuffer to WAV
@@ -380,7 +384,7 @@ function measureLufsLazy(buffer: AudioBuffer, url: string): number | undefined {
 
 async function loadAudioBuffer(
   url: string,
-  audioContext: OfflineAudioContext
+  audioContext: OfflineAudioContext,
 ): Promise<AudioBuffer> {
   const response = await fetch(url);
   const arrayBuffer = await response.arrayBuffer();
@@ -390,13 +394,13 @@ async function loadAudioBuffer(
 
 function audioBufferToWav(
   audioBuffer: AudioBuffer,
-  duration: number
+  duration: number,
 ): Promise<Blob> {
   return new Promise((resolve) => {
     // Calculate the actual length to use (in samples)
     const lengthInSamples = Math.min(
       audioBuffer.length,
-      Math.ceil(duration * audioBuffer.sampleRate)
+      Math.ceil(duration * audioBuffer.sampleRate),
     );
 
     // Create a new AudioContext for Web Audio API

@@ -11,9 +11,9 @@ import type {
 const InstructionTemplateForm = dynamic(
   () =>
     import("@/components/admin/InstructionTemplateForm").then(
-      (m) => m.InstructionTemplateForm
+      (m) => m.InstructionTemplateForm,
     ),
-  { ssr: false }
+  { ssr: false },
 );
 
 export default function EditInstructionTemplatePage({
@@ -22,7 +22,9 @@ export default function EditInstructionTemplatePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const [initial, setInitial] = useState<InstructionTemplateFormInitial | null>(null);
+  const [initial, setInitial] = useState<InstructionTemplateFormInitial | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -59,7 +61,9 @@ export default function EditInstructionTemplatePage({
         });
       } catch (err) {
         if (!abortController.signal.aborted) {
-          setError(err instanceof Error ? err.message : "Failed to load template");
+          setError(
+            err instanceof Error ? err.message : "Failed to load template",
+          );
         }
       }
     })();

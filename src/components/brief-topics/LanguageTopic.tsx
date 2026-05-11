@@ -14,11 +14,7 @@ import {
   ArrowTopRightOnSquareIcon,
   MicrophoneIcon,
 } from "@heroicons/react/24/outline";
-import {
-  GlassyCombobox,
-  GlassyListbox,
-  ProviderSelectionModal,
-} from "../ui";
+import { GlassyCombobox, GlassyListbox, ProviderSelectionModal } from "../ui";
 import type { CampaignFormat, Provider } from "@/types";
 import { getFlagCode, type Language } from "@/utils/language";
 import { useBriefOptions, useLanguageOptions } from "@/hooks/useBriefOptions";
@@ -127,8 +123,7 @@ export function LanguageTopic({
   // auto-selected provider FOR so we don't loop on user re-picks.
   const lastAutoSelectedLanguageRef = useRef<string | null>(null);
   useEffect(() => {
-    const optionsMatchLanguage =
-      languageOptions?.language === selectedLanguage;
+    const optionsMatchLanguage = languageOptions?.language === selectedLanguage;
     const alreadyAutoSelected =
       lastAutoSelectedLanguageRef.current === selectedLanguage;
 

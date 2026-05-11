@@ -61,8 +61,8 @@ TAG USAGE STRATEGY - CONTEXT-AWARE APPROACH:
 ElevenLabs V3 benefits from thoughtful tag usage. The density and types of tags should match your creative intent.
 
 ${
-      pacing === "fast"
-        ? `
+  pacing === "fast"
+    ? `
 🚀 [rapid-fire] + [fast] TAG BOMBARDMENT MODE (pacing=fast):
 Since this ad requires FAST pacing, use [rapid-fire] and [fast] tags aggressively:
 - PRIORITIZE [rapid-fire] tag - it saves 2-4 seconds and creates urgent delivery
@@ -71,28 +71,28 @@ Since this ad requires FAST pacing, use [rapid-fire] and [fast] tags aggressivel
 - Target 5-7 tags total per sentence (including mood tags)
 - [rapid-fire] and [fast] tags have MULTIPLICATIVE effect when combined - use them liberally
 - Example: "[excited][rapid-fire][fast][fast]Check this out! [rapid-fire][energetic]It's amazing! [fast][fast][happy]Don't wait!"`
-        : `
+    : `
 ⚖️ MODERATE TAG MODE (pacing=normal):
 Use tags moderately for natural, balanced delivery:
 - Use [fast] tags sparingly (1-2 per sentence) only when natural urgency is needed
 - Target 2-4 tags total per sentence
 - Focus on mood and emotion rather than pace control
 - Example: "[laughs][happy]You'll love this! [excited]Our new product is here."`
-    }
+}
 
 ${
-      (context.accent && context.accent !== "neutral") || context.region
-        ? `
+  (context.accent && context.accent !== "neutral") || context.region
+    ? `
 ACCENT TAG USAGE:
 This ad requires a specific accent/region: ${context.accent || ""}${context.region ? ` from ${context.region}` : ""}
 - Place accent tag ONCE at the start of each speaker's first line
 - Format: [${context.accent || "regional"} accent]
 - Example: "[${context.accent || "regional"} accent][happy]Hola! This is how we speak here."`
-        : `
+    : `
 TAG STRUCTURE:
 Begin your text directly with emotional and delivery tags.
 Example: "[happy][excited]Your text starts here..." or "[laughs][curious]Opening line..."`
-    }
+}
 
 TAG STACKING BEHAVIOR:
 - [rapid-fire] tag: USE LIBERALLY for fast pacing - saves 2-4 seconds per ad. Combine with [fast] for maximum effect.
@@ -132,8 +132,8 @@ IMPORTANT: If a voice's personality description includes traits like "calm and c
 - More tags = more expressive delivery, but only when contextually appropriate
 
 ${
-      pacing === "fast"
-        ? `🌟 EXAMPLES WITH PERSONALITY AWARENESS (fast pacing):
+  pacing === "fast"
+    ? `🌟 EXAMPLES WITH PERSONALITY AWARENESS (fast pacing):
 
 Example 1 - Warm, Friendly voice (Rachel):
 "description": "excited",
@@ -142,7 +142,7 @@ Example 1 - Warm, Friendly voice (Rachel):
 Example 2 - Professional, Authoritative voice (Michael):
 "description": "professional",
 "text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[confident][rapid-fire][fast][fast]Introducing our solution. [rapid-fire][serious]Proven results. [rapid-fire][authoritative]Act now."`
-        : `🌟 EXAMPLES WITH PERSONALITY AWARENESS (normal pacing):
+    : `🌟 EXAMPLES WITH PERSONALITY AWARENESS (normal pacing):
 
 Example 1 - Warm, Friendly voice (Rachel):
 "description": "cheerful",
@@ -155,7 +155,7 @@ Example 2 - Professional, Authoritative voice (Michael):
 Example 3 - Calm, Soothing voice (Sarah):
 "description": "calm",
 "text": "${context.accent && context.accent !== "neutral" ? `[${context.accent} accent]` : ""}[gentle]Take a moment for yourself... [soft][sighs]You deserve this. [whispers]Pure relaxation."`
-    }
+}
 
 KEY PRINCIPLES:
 1. [rapid-fire] is CRITICAL for fast pacing - saves 2-4 seconds and creates urgent delivery

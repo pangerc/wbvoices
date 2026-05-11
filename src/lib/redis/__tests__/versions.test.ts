@@ -46,19 +46,19 @@ describe("AD_KEYS", () => {
 
   it("should generate correct versions key", () => {
     expect(AD_KEYS.versions(mockAdId, "voices")).toBe(
-      `ad:${mockAdId}:voices:versions`
+      `ad:${mockAdId}:voices:versions`,
     );
   });
 
   it("should generate correct active key", () => {
     expect(AD_KEYS.active(mockAdId, "music")).toBe(
-      `ad:${mockAdId}:music:active`
+      `ad:${mockAdId}:music:active`,
     );
   });
 
   it("should generate correct version key", () => {
     expect(AD_KEYS.version(mockAdId, "sfx", "v1")).toBe(
-      `ad:${mockAdId}:sfx:v:v1`
+      `ad:${mockAdId}:sfx:v:v1`,
     );
   });
 
@@ -72,7 +72,7 @@ describe("createVersion", () => {
     const versionId = await createVersion(
       mockAdId,
       "voices",
-      mockVoiceVersionDraft
+      mockVoiceVersionDraft,
     );
 
     expect(versionId).toBe("v1");
@@ -97,12 +97,12 @@ describe("createVersion", () => {
     const voiceV1 = await createVersion(
       mockAdId,
       "voices",
-      mockVoiceVersionDraft
+      mockVoiceVersionDraft,
     );
     const musicV1 = await createVersion(
       mockAdId,
       "music",
-      mockMusicVersionDraft
+      mockMusicVersionDraft,
     );
     const sfxV1 = await createVersion(mockAdId, "sfx", mockSfxVersionDraft);
 
@@ -115,7 +115,7 @@ describe("createVersion", () => {
     const voiceV2 = await createVersion(
       mockAdId,
       "voices",
-      mockVoiceVersionDraft
+      mockVoiceVersionDraft,
     );
     expect(voiceV2).toBe("v2");
 
@@ -162,7 +162,11 @@ describe("getVersion", () => {
 
     await createVersion(mockAdId, "voices", testData);
 
-    const version = await getVersion(mockAdId, "voices", "v1") as VoiceVersion | null;
+    const version = (await getVersion(
+      mockAdId,
+      "voices",
+      "v1",
+    )) as VoiceVersion | null;
 
     expect(version).toEqual(testData);
     expect(version?.voiceTracks[0].text).toBe("Custom test text");
@@ -242,9 +246,9 @@ describe("setActiveVersion", () => {
   });
 
   it("should throw error when activating non-existent version", async () => {
-    await expect(
-      setActiveVersion(mockAdId, "voices", "v999")
-    ).rejects.toThrow("Cannot activate non-existent version");
+    await expect(setActiveVersion(mockAdId, "voices", "v999")).rejects.toThrow(
+      "Cannot activate non-existent version",
+    );
   });
 
   it("should allow switching active version", async () => {
@@ -278,7 +282,10 @@ describe("freezeVersion", () => {
   });
 
   it("should be a no-op for already frozen versions", async () => {
-    await createVersion(mockAdId, "voices", { ...mockVoiceVersionDraft, status: "frozen" });
+    await createVersion(mockAdId, "voices", {
+      ...mockVoiceVersionDraft,
+      status: "frozen",
+    });
 
     // Already frozen
     await freezeVersion(mockAdId, "voices", "v1");
@@ -289,9 +296,9 @@ describe("freezeVersion", () => {
   });
 
   it("should throw error when freezing non-existent version", async () => {
-    await expect(
-      freezeVersion(mockAdId, "voices", "v999")
-    ).rejects.toThrow("Cannot freeze non-existent version");
+    await expect(freezeVersion(mockAdId, "voices", "v999")).rejects.toThrow(
+      "Cannot freeze non-existent version",
+    );
   });
 });
 
@@ -303,7 +310,11 @@ describe("updateVersion", () => {
       generatedUrls: ["https://example.com/audio.mp3"],
     });
 
-    const version = await getVersion(mockAdId, "voices", "v1") as VoiceVersion | null;
+    const version = (await getVersion(
+      mockAdId,
+      "voices",
+      "v1",
+    )) as VoiceVersion | null;
     expect(version?.generatedUrls).toEqual(["https://example.com/audio.mp3"]);
   });
 
@@ -325,7 +336,7 @@ describe("updateVersion", () => {
 
   it("should throw error when updating non-existent version", async () => {
     await expect(
-      updateVersion(mockAdId, "voices", "v999", { status: "frozen" })
+      updateVersion(mockAdId, "voices", "v999", { status: "frozen" }),
     ).rejects.toThrow("Version not found");
   });
 });

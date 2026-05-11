@@ -73,7 +73,10 @@ export function MarketPicker({ value, onChange, disabled }: MarketPickerProps) {
       value.trim().length > 0 &&
       !markets.some((m) => m.code === value)
     ) {
-      return [...alaricOptions, { value, label: `${value} (legacy)`, flag: value }];
+      return [
+        ...alaricOptions,
+        { value, label: `${value} (legacy)`, flag: value },
+      ];
     }
     return alaricOptions;
   }, [markets, value]);
@@ -88,7 +91,8 @@ export function MarketPicker({ value, onChange, disabled }: MarketPickerProps) {
       if (opt.label.toLowerCase().includes(q)) return true;
       if (opt.value.toLowerCase().includes(q)) return true;
       const market = markets.find((m) => m.code === opt.value);
-      if (market?.aliases?.some((a) => a.toLowerCase().includes(q))) return true;
+      if (market?.aliases?.some((a) => a.toLowerCase().includes(q)))
+        return true;
       return false;
     });
   }, [allOptions, markets, query]);

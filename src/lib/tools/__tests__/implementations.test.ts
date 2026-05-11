@@ -29,11 +29,7 @@ import {
   createSfxDraft,
 } from "../implementations";
 import { getVersion, freezeVersion } from "@/lib/redis/versions";
-import type {
-  VoiceVersion,
-  MusicVersion,
-  SfxVersion,
-} from "@/types/versions";
+import type { VoiceVersion, MusicVersion, SfxVersion } from "@/types/versions";
 
 const ADID = "test-ad-reconcile";
 
@@ -55,7 +51,11 @@ describe("createVoiceDraft slot lineage", () => {
     expect(result.status).toBe("draft");
     expect(result.reconciliation).toBeUndefined();
 
-    const stored = (await getVersion(ADID, "voices", result.versionId)) as VoiceVersion;
+    const stored = (await getVersion(
+      ADID,
+      "voices",
+      result.versionId,
+    )) as VoiceVersion;
     expect(stored.voiceTracks).toHaveLength(2);
     expect(stored.voiceTracks[0].slotId).toBeTruthy();
     expect(stored.voiceTracks[1].slotId).toBeTruthy();
@@ -72,7 +72,11 @@ describe("createVoiceDraft slot lineage", () => {
         { voiceId: "b", text: "line 2" },
       ],
     });
-    const parent = (await getVersion(ADID, "voices", first.versionId)) as VoiceVersion;
+    const parent = (await getVersion(
+      ADID,
+      "voices",
+      first.versionId,
+    )) as VoiceVersion;
     const parentSlotIds = parent.voiceTracks.map((t) => t.slotId);
     // Freeze so the second createVoiceDraft's resolveParentVersionId can find it.
     await freezeVersion(ADID, "voices", first.versionId);
@@ -86,7 +90,11 @@ describe("createVoiceDraft slot lineage", () => {
       ],
     });
 
-    const child = (await getVersion(ADID, "voices", second.versionId)) as VoiceVersion;
+    const child = (await getVersion(
+      ADID,
+      "voices",
+      second.versionId,
+    )) as VoiceVersion;
     expect(child.voiceTracks.map((t) => t.slotId)).toEqual(parentSlotIds);
     expect(child.parentVersionId).toBe(first.versionId);
 
@@ -101,7 +109,11 @@ describe("createVoiceDraft slot lineage", () => {
       adId: ADID,
       tracks: [{ voiceId: "a", text: "line 1" }],
     });
-    const firstVersion = (await getVersion(ADID, "voices", first.versionId)) as VoiceVersion;
+    const firstVersion = (await getVersion(
+      ADID,
+      "voices",
+      first.versionId,
+    )) as VoiceVersion;
     const originalSlotId = firstVersion.voiceTracks[0].slotId;
     await freezeVersion(ADID, "voices", first.versionId);
 
@@ -113,7 +125,11 @@ describe("createVoiceDraft slot lineage", () => {
       ],
     });
 
-    const child = (await getVersion(ADID, "voices", second.versionId)) as VoiceVersion;
+    const child = (await getVersion(
+      ADID,
+      "voices",
+      second.versionId,
+    )) as VoiceVersion;
     expect(child.voiceTracks[0].slotId).toBe(originalSlotId);
     expect(child.voiceTracks[1].slotId).toBeTruthy();
     expect(child.voiceTracks[1].slotId).not.toBe(originalSlotId);
@@ -131,7 +147,11 @@ describe("createVoiceDraft slot lineage", () => {
         { voiceId: "b", text: "drop" },
       ],
     });
-    const firstVersion = (await getVersion(ADID, "voices", first.versionId)) as VoiceVersion;
+    const firstVersion = (await getVersion(
+      ADID,
+      "voices",
+      first.versionId,
+    )) as VoiceVersion;
     const keptSlot = firstVersion.voiceTracks[0].slotId;
     const droppedSlot = firstVersion.voiceTracks[1].slotId;
     await freezeVersion(ADID, "voices", first.versionId);
@@ -141,7 +161,11 @@ describe("createVoiceDraft slot lineage", () => {
       tracks: [{ voiceId: "a", text: "keep" }],
     });
 
-    const child = (await getVersion(ADID, "voices", second.versionId)) as VoiceVersion;
+    const child = (await getVersion(
+      ADID,
+      "voices",
+      second.versionId,
+    )) as VoiceVersion;
     expect(child.voiceTracks).toHaveLength(1);
     expect(child.voiceTracks[0].slotId).toBe(keptSlot);
 
@@ -156,7 +180,11 @@ describe("createVoiceDraft slot lineage", () => {
       adId: ADID,
       tracks: [{ voiceId: "a", text: "v1" }],
     });
-    const firstVersion = (await getVersion(ADID, "voices", first.versionId)) as VoiceVersion;
+    const firstVersion = (await getVersion(
+      ADID,
+      "voices",
+      first.versionId,
+    )) as VoiceVersion;
     await freezeVersion(ADID, "voices", first.versionId);
 
     const forked = await createVoiceDraft({
@@ -165,9 +193,13 @@ describe("createVoiceDraft slot lineage", () => {
       tracks: [{ voiceId: "a", text: "fresh start" }],
     });
 
-    const forkedVersion = (await getVersion(ADID, "voices", forked.versionId)) as VoiceVersion;
+    const forkedVersion = (await getVersion(
+      ADID,
+      "voices",
+      forked.versionId,
+    )) as VoiceVersion;
     expect(forkedVersion.voiceTracks[0].slotId).not.toBe(
-      firstVersion.voiceTracks[0].slotId
+      firstVersion.voiceTracks[0].slotId,
     );
     expect(forkedVersion.parentVersionId).toBeUndefined();
     expect(forked.reconciliation).toBeUndefined();
@@ -178,24 +210,26 @@ describe("createSfxDraft slot lineage", () => {
   it("preserves slot ids across equal-count regeneration", async () => {
     const first = await createSfxDraft({
       adId: ADID,
-      prompts: [
-        { description: "whoosh" },
-        { description: "ding" },
-      ],
+      prompts: [{ description: "whoosh" }, { description: "ding" }],
     });
-    const firstVersion = (await getVersion(ADID, "sfx", first.versionId)) as SfxVersion;
+    const firstVersion = (await getVersion(
+      ADID,
+      "sfx",
+      first.versionId,
+    )) as SfxVersion;
     const parentSlotIds = firstVersion.soundFxPrompts.map((p) => p.slotId);
     await freezeVersion(ADID, "sfx", first.versionId);
 
     const second = await createSfxDraft({
       adId: ADID,
-      prompts: [
-        { description: "new whoosh" },
-        { description: "new ding" },
-      ],
+      prompts: [{ description: "new whoosh" }, { description: "new ding" }],
     });
 
-    const child = (await getVersion(ADID, "sfx", second.versionId)) as SfxVersion;
+    const child = (await getVersion(
+      ADID,
+      "sfx",
+      second.versionId,
+    )) as SfxVersion;
     expect(child.soundFxPrompts.map((p) => p.slotId)).toEqual(parentSlotIds);
     expect(second.reconciliation!.preserved).toHaveLength(2);
   });
@@ -219,7 +253,11 @@ describe("createVoiceDraft anchor translation (stage 4)", () => {
         },
       ],
     });
-    const version = (await getVersion(ADID, "voices", result.versionId)) as VoiceVersion;
+    const version = (await getVersion(
+      ADID,
+      "voices",
+      result.versionId,
+    )) as VoiceVersion;
     expect(version.voiceTracks[1].anchor).toEqual({
       kind: "relativeTo",
       slotId: version.voiceTracks[0].slotId!,
@@ -243,7 +281,11 @@ describe("createVoiceDraft anchor translation (stage 4)", () => {
         },
       ],
     });
-    const version = (await getVersion(ADID, "voices", result.versionId)) as VoiceVersion;
+    const version = (await getVersion(
+      ADID,
+      "voices",
+      result.versionId,
+    )) as VoiceVersion;
     expect(version.voiceTracks[0].anchor).toBeUndefined();
   });
 });
@@ -255,7 +297,11 @@ describe("createSfxDraft anchor translation (stage 4)", () => {
       adId: ADID,
       tracks: [{ voiceId: "a", text: "voice one" }],
     });
-    const voiceVersion = (await getVersion(ADID, "voices", voiceResult.versionId)) as VoiceVersion;
+    const voiceVersion = (await getVersion(
+      ADID,
+      "voices",
+      voiceResult.versionId,
+    )) as VoiceVersion;
     const voiceSlot = voiceVersion.voiceTracks[0].slotId!;
     await freezeVersion(ADID, "voices", voiceResult.versionId);
     const { setActiveVersion } = await import("@/lib/redis/versions");
@@ -275,7 +321,11 @@ describe("createSfxDraft anchor translation (stage 4)", () => {
       ],
     });
 
-    const sfxVersion = (await getVersion(ADID, "sfx", sfxResult.versionId)) as SfxVersion;
+    const sfxVersion = (await getVersion(
+      ADID,
+      "sfx",
+      sfxResult.versionId,
+    )) as SfxVersion;
     expect(sfxVersion.soundFxPrompts[0].anchor).toEqual({
       kind: "relativeTo",
       slotId: voiceSlot,
@@ -291,7 +341,11 @@ describe("createMusicDraft slot lineage", () => {
       prompt: "upbeat pop",
       duration: 30,
     });
-    const firstVersion = (await getVersion(ADID, "music", first.versionId)) as MusicVersion;
+    const firstVersion = (await getVersion(
+      ADID,
+      "music",
+      first.versionId,
+    )) as MusicVersion;
     const slotId = firstVersion.slotId;
     expect(slotId).toBeTruthy();
     await freezeVersion(ADID, "music", first.versionId);
@@ -302,7 +356,11 @@ describe("createMusicDraft slot lineage", () => {
       duration: 30,
     });
 
-    const child = (await getVersion(ADID, "music", second.versionId)) as MusicVersion;
+    const child = (await getVersion(
+      ADID,
+      "music",
+      second.versionId,
+    )) as MusicVersion;
     expect(child.slotId).toBe(slotId);
     expect(second.reconciliation!.preserved).toEqual([
       { slotId: slotId!, ordinalIndex: 0 },

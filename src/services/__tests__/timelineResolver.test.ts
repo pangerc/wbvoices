@@ -11,13 +11,25 @@ import type { AnchorEntry } from "@/types/versions";
 
 // ---------- Test helpers ----------
 
-function voice(id: string, duration: number, extra: Partial<SlotState> = {}): SlotState {
+function voice(
+  id: string,
+  duration: number,
+  extra: Partial<SlotState> = {},
+): SlotState {
   return { slotId: id, type: "voice", sourceDuration: duration, ...extra };
 }
-function music(id: string, duration: number, extra: Partial<SlotState> = {}): SlotState {
+function music(
+  id: string,
+  duration: number,
+  extra: Partial<SlotState> = {},
+): SlotState {
   return { slotId: id, type: "music", sourceDuration: duration, ...extra };
 }
-function sfx(id: string, duration: number, extra: Partial<SlotState> = {}): SlotState {
+function sfx(
+  id: string,
+  duration: number,
+  extra: Partial<SlotState> = {},
+): SlotState {
   return { slotId: id, type: "soundfx", sourceDuration: duration, ...extra };
 }
 
@@ -73,7 +85,12 @@ describe("resolveTimeline — anchor primitives", () => {
       anchors: {
         v1: llmAnchor({ anchor: { kind: "absolute", t: 0 } }),
         v2: llmAnchor({
-          anchor: { kind: "relativeTo", slotId: "v1", edge: "end", offset: 0.2 },
+          anchor: {
+            kind: "relativeTo",
+            slotId: "v1",
+            edge: "end",
+            offset: 0.2,
+          },
         }),
       },
     };
@@ -86,7 +103,12 @@ describe("resolveTimeline — anchor primitives", () => {
       anchors: {
         v1: llmAnchor({ anchor: { kind: "absolute", t: 0 } }),
         v2: llmAnchor({
-          anchor: { kind: "relativeTo", slotId: "v1", edge: "end", offset: -0.15 },
+          anchor: {
+            kind: "relativeTo",
+            slotId: "v1",
+            edge: "end",
+            offset: -0.15,
+          },
         }),
       },
     };
@@ -156,7 +178,9 @@ describe("resolveTimeline — anchor primitives", () => {
         }),
       },
     };
-    expect(track(resolveTimeline(input), "punctuator").startTime).toBeCloseTo(4);
+    expect(track(resolveTimeline(input), "punctuator").startTime).toBeCloseTo(
+      4,
+    );
   });
 
   it("atFraction clamps fraction to [0,1]", () => {
@@ -164,7 +188,9 @@ describe("resolveTimeline — anchor primitives", () => {
       slots: [voice("v1", 5), sfx("s", 0.3)],
       anchors: {
         v1: llmAnchor({ anchor: { kind: "absolute", t: 0 } }),
-        s: llmAnchor({ anchor: { kind: "atFraction", slotId: "v1", fraction: 2 } }),
+        s: llmAnchor({
+          anchor: { kind: "atFraction", slotId: "v1", fraction: 2 },
+        }),
       },
     };
     expect(track(resolveTimeline(input), "s").startTime).toBe(5); // clamped to f=1
@@ -267,7 +293,7 @@ describe("resolveTimeline — push layout", () => {
       expect(track(r, "v2").startTime).toBe(4);
       expect(warn).toHaveBeenCalled();
       expect(
-        warn.mock.calls.some((c) => String(c[0]).includes("layout:\"push\""))
+        warn.mock.calls.some((c) => String(c[0]).includes('layout:"push"')),
       ).toBe(true);
     } finally {
       warn.mockRestore();
@@ -383,9 +409,7 @@ describe("resolveTimeline — orphans", () => {
     const r = resolveTimeline(input);
     expect(track(r, "s1").startTime).toBe(0);
     expect(
-      r.warnings.find(
-        (w) => w.kind === "orphanAnchor" && w.slotId === "s1"
-      )
+      r.warnings.find((w) => w.kind === "orphanAnchor" && w.slotId === "s1"),
     ).toMatchObject({ kind: "orphanAnchor", missingRef: "ghost" });
   });
 });
@@ -408,7 +432,10 @@ describe("resolveTimeline — cycles", () => {
     expect(track(r, "b").startTime).toBe(0);
     const cycleWarning = r.warnings.find((w) => w.kind === "anchorCycle");
     expect(cycleWarning).toBeDefined();
-    expect((cycleWarning as { cycle: string[] }).cycle.sort()).toEqual(["a", "b"]);
+    expect((cycleWarning as { cycle: string[] }).cycle.sort()).toEqual([
+      "a",
+      "b",
+    ]);
   });
 });
 
@@ -427,10 +454,7 @@ describe("resolveTimeline — disclaimer", () => {
 
   it("disclaimer voice overlapping a non-disclaimer voice emits violation warning", () => {
     const input: ResolverInput = {
-      slots: [
-        voice("v1", 5),
-        voice("legal", 3, { isDisclaimer: true }),
-      ],
+      slots: [voice("v1", 5), voice("legal", 3, { isDisclaimer: true })],
       anchors: {
         v1: llmAnchor({ anchor: { kind: "absolute", t: 0 } }),
         legal: llmAnchor({ anchor: { kind: "absolute", t: 3 } }),
@@ -439,17 +463,14 @@ describe("resolveTimeline — disclaimer", () => {
     const r = resolveTimeline(input);
     expect(
       r.warnings.find(
-        (w) => w.kind === "disclaimerViolation" && w.slotId === "legal"
-      )
+        (w) => w.kind === "disclaimerViolation" && w.slotId === "legal",
+      ),
     ).toBeDefined();
   });
 
   it("disclaimer placed after all voices does NOT emit violation", () => {
     const input: ResolverInput = {
-      slots: [
-        voice("v1", 4),
-        voice("legal", 3, { isDisclaimer: true }),
-      ],
+      slots: [voice("v1", 4), voice("legal", 3, { isDisclaimer: true })],
       anchors: {
         v1: llmAnchor({ anchor: { kind: "absolute", t: 0 } }),
         legal: llmAnchor({
@@ -458,7 +479,9 @@ describe("resolveTimeline — disclaimer", () => {
       },
     };
     const r = resolveTimeline(input);
-    expect(r.warnings.filter((w) => w.kind === "disclaimerViolation")).toEqual([]);
+    expect(r.warnings.filter((w) => w.kind === "disclaimerViolation")).toEqual(
+      [],
+    );
   });
 });
 
@@ -491,7 +514,7 @@ describe("resolveTimeline — format duration", () => {
       formatDuration: 15,
     };
     expect(
-      resolveTimeline(input).warnings.filter((w) => w.kind === "overBudget")
+      resolveTimeline(input).warnings.filter((w) => w.kind === "overBudget"),
     ).toEqual([]);
   });
 });
@@ -541,11 +564,7 @@ describe("getSpeedupCap", () => {
 describe("resolveTimeline — voiceActiveIntervals", () => {
   it("returns sorted intervals for all voice tracks", () => {
     const input: ResolverInput = {
-      slots: [
-        voice("v2", 3),
-        voice("v1", 4),
-        music("m1", 30),
-      ],
+      slots: [voice("v2", 3), voice("v1", 4), music("m1", 30)],
       anchors: {
         v1: llmAnchor({ anchor: { kind: "absolute", t: 0 } }),
         v2: llmAnchor({
@@ -586,10 +605,20 @@ describe("resolveTimeline — realistic 30s ad scenario", () => {
           anchor: { kind: "relativeTo", slotId: "opener", edge: "end" },
         }),
         v2: llmAnchor({
-          anchor: { kind: "relativeTo", slotId: "v1", edge: "end", offset: 0.1 },
+          anchor: {
+            kind: "relativeTo",
+            slotId: "v1",
+            edge: "end",
+            offset: 0.1,
+          },
         }),
         v3: llmAnchor({
-          anchor: { kind: "relativeTo", slotId: "v2", edge: "end", offset: 0.1 },
+          anchor: {
+            kind: "relativeTo",
+            slotId: "v2",
+            edge: "end",
+            offset: 0.1,
+          },
         }),
         // Music bed simultaneous with first voice start
         bed: llmAnchor({

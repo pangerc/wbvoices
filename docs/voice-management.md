@@ -32,15 +32,15 @@ Provider APIs → voiceProviderService → admin/voice-cache → Redis Towers �
 
 ```typescript
 type UnifiedVoice = {
-  id: string;                    // Provider-specific ID
+  id: string; // Provider-specific ID
   provider: ActualProvider;
-  catalogueId: string;          // Redis key: "voice:{provider}:{id}"
+  catalogueId: string; // Redis key: "voice:{provider}:{id}"
   name: string;
   displayName: string;
   gender: "male" | "female" | "neutral";
   language: Language;
   accent: string;
-  personality?: string;          // Currently auto-extracted
+  personality?: string; // Currently auto-extracted
   age?: string;
   styles?: string[];
   capabilities?: {
@@ -51,7 +51,7 @@ type UnifiedVoice = {
   sampleUrl?: string;
   useCase?: string;
   lastUpdated: number;
-}
+};
 ```
 
 ## Proposed Architecture: Dual-Layer Overlay System
@@ -93,6 +93,7 @@ type UnifiedVoice = {
 ### Database: PostgreSQL on Neon
 
 **Why PostgreSQL?**
+
 - Vercel-native integration
 - Serverless scaling
 - Connection pooling built-in
@@ -100,6 +101,7 @@ type UnifiedVoice = {
 - Strong consistency for approval workflows
 
 **Why Neon specifically?**
+
 - Native Vercel integration
 - Serverless (no always-on costs)
 - Built-in connection pooling
@@ -108,6 +110,7 @@ type UnifiedVoice = {
 ### ORM: Drizzle
 
 **Why Drizzle?**
+
 - TypeScript-first (better than Prisma for our codebase)
 - Edge runtime compatible
 - Lightweight
@@ -122,8 +125,8 @@ Core table for custom voice attributes:
 
 ```typescript
 interface VoiceMetadata {
-  id: string;                          // UUID
-  voiceKey: string;                    // "{provider}:{voiceId}" - unique
+  id: string; // UUID
+  voiceKey: string; // "{provider}:{voiceId}" - unique
   provider: Provider;
   voiceId: string;
 
@@ -135,19 +138,19 @@ interface VoiceMetadata {
   customUseCase?: string;
 
   // Quality ratings
-  qualityRating?: number;              // 1-5 scale
+  qualityRating?: number; // 1-5 scale
   qualityNotes?: string;
 
   // Administrative
-  isHidden: boolean;                   // Hide from UI
-  isPremium: boolean;                  // Premium tier voice
+  isHidden: boolean; // Hide from UI
+  isPremium: boolean; // Premium tier voice
 
   // Audit fields
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
   updatedBy: string;
-  version: number;                     // Optimistic locking
+  version: number; // Optimistic locking
 }
 ```
 
@@ -157,11 +160,11 @@ Language/region/accent blacklist matrix with flexible scoping:
 
 ```typescript
 interface VoiceBlacklist {
-  voiceKey: string;                    // "{provider}:{voiceId}" - Composite PK part
-  language: Language;                  // Composite PK part
-  accent: string;                      // Composite PK part (use "*" for language-wide)
+  voiceKey: string; // "{provider}:{voiceId}" - Composite PK part
+  language: Language; // Composite PK part
+  accent: string; // Composite PK part (use "*" for language-wide)
 
-  reason?: string;                     // Why this voice is blacklisted
+  reason?: string; // Why this voice is blacklisted
 
   createdAt: Date;
   updatedAt: Date;
@@ -184,7 +187,7 @@ interface VoiceBlacklist {
 
 **Future Enhancements:**
 
-```typescript
+````typescript
 // Future full schema with quality assessment
 interface VoiceBlacklist {
   // ... existing fields ...
@@ -208,7 +211,7 @@ interface VoiceCollection {
   updatedAt: Date;
   createdBy: string;
 }
-```
+````
 
 #### VoiceAuditLog
 
@@ -217,9 +220,9 @@ Complete audit trail:
 ```typescript
 interface VoiceAuditLog {
   id: string;
-  entityType: 'metadata' | 'approval' | 'collection';
+  entityType: "metadata" | "approval" | "collection";
   entityId: string;
-  action: 'create' | 'update' | 'delete';
+  action: "create" | "update" | "delete";
   oldValue?: any;
   newValue?: any;
   userId: string;
@@ -233,65 +236,83 @@ interface VoiceAuditLog {
 
 ```typescript
 // src/lib/db/schema.ts
-import { pgTable, uuid, text, timestamp, index, primaryKey } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  index,
+  primaryKey,
+} from "drizzle-orm/pg-core";
 
 // Simplified metadata table for MVP
-export const voiceMetadata = pgTable('voice_metadata', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  voiceKey: text('voice_key').notNull().unique(), // "{provider}:{voiceId}"
-  provider: text('provider').notNull(),
-  voiceId: text('voice_id').notNull(),
+export const voiceMetadata = pgTable(
+  "voice_metadata",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    voiceKey: text("voice_key").notNull().unique(), // "{provider}:{voiceId}"
+    provider: text("provider").notNull(),
+    voiceId: text("voice_id").notNull(),
 
-  // Administrative flags (simplified for MVP)
-  isHidden: text('is_hidden').notNull().default('false'), // 'true' | 'false'
+    // Administrative flags (simplified for MVP)
+    isHidden: text("is_hidden").notNull().default("false"), // 'true' | 'false'
 
-  // Audit fields
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => ({
-  voiceKeyIdx: index('voice_key_idx').on(table.voiceKey),
-  providerIdx: index('provider_idx').on(table.provider),
-}));
+    // Audit fields
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    voiceKeyIdx: index("voice_key_idx").on(table.voiceKey),
+    providerIdx: index("provider_idx").on(table.provider),
+  }),
+);
 
 // Blacklist table with composite PK (no FK to metadata for simplicity)
 // BLACKLIST LOGIC: Presence in table = hidden, Absence = visible
-export const voiceBlacklist = pgTable('voice_blacklist', {
-  voiceKey: text('voice_key').notNull(), // Direct reference to voice
+export const voiceBlacklist = pgTable(
+  "voice_blacklist",
+  {
+    voiceKey: text("voice_key").notNull(), // Direct reference to voice
 
-  language: text('language').notNull(),
-  accent: text('accent').notNull(),
+    language: text("language").notNull(),
+    accent: text("accent").notNull(),
 
-  reason: text('reason'), // Why this voice is blacklisted for this market
+    reason: text("reason"), // Why this voice is blacklisted for this market
 
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.voiceKey, table.language, table.accent] }),
-  voiceKeyIdx: index('blacklist_voice_key_idx').on(table.voiceKey),
-  languageAccentIdx: index('blacklist_language_accent_idx').on(table.language, table.accent),
-}));
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.voiceKey, table.language, table.accent] }),
+    voiceKeyIdx: index("blacklist_voice_key_idx").on(table.voiceKey),
+    languageAccentIdx: index("blacklist_language_accent_idx").on(
+      table.language,
+      table.accent,
+    ),
+  }),
+);
 ```
 
 **Future Full Schema** (for reference - not yet implemented):
 
 ```typescript
 // Future: Add custom metadata fields
-export const voiceMetadata = pgTable('voice_metadata', {
+export const voiceMetadata = pgTable("voice_metadata", {
   // ... existing fields ...
-  customPersonality: text('custom_personality'),
-  customDescription: text('custom_description'),
-  customTags: jsonb('custom_tags').$type<string[]>(),
-  qualityRating: integer('quality_rating'),
-  isPremium: text('is_premium').default('false'),
+  customPersonality: text("custom_personality"),
+  customDescription: text("custom_description"),
+  customTags: jsonb("custom_tags").$type<string[]>(),
+  qualityRating: integer("quality_rating"),
+  isPremium: text("is_premium").default("false"),
   // ... etc
 });
 
 // Future: Add quality assessment fields
-export const voiceBlacklist = pgTable('voice_blacklist', {
+export const voiceBlacklist = pgTable("voice_blacklist", {
   // ... existing fields ...
-  pronunciationQuality: integer('pronunciation_quality'),
-  naturalness: integer('naturalness'),
-  blacklistedBy: text('blacklisted_by'),
+  pronunciationQuality: integer("pronunciation_quality"),
+  naturalness: integer("naturalness"),
+  blacklistedBy: text("blacklisted_by"),
   // ... etc
 });
 ```
@@ -306,13 +327,18 @@ The existing `VoiceCatalogueService` will be enhanced (not replaced) with merge 
 class VoiceCatalogueServiceV2 extends VoiceCatalogueService {
   private metadataService: VoiceMetadataService;
 
-  async getEnhancedVoice(provider: Provider, voiceId: string): Promise<EnhancedVoice> {
+  async getEnhancedVoice(
+    provider: Provider,
+    voiceId: string,
+  ): Promise<EnhancedVoice> {
     // 1. Get base voice from Redis (existing logic)
     const baseVoice = await this.getVoice(provider, voiceId);
     if (!baseVoice) return null;
 
     // 2. Get metadata overrides from PostgreSQL
-    const metadata = await this.metadataService.getMetadata(`${provider}:${voiceId}`);
+    const metadata = await this.metadataService.getMetadata(
+      `${provider}:${voiceId}`,
+    );
 
     // 3. Merge with overrides taking precedence
     return {
@@ -323,7 +349,7 @@ class VoiceCatalogueServiceV2 extends VoiceCatalogueService {
       qualityRating: metadata?.qualityRating,
       isPremium: metadata?.isPremium || false,
       isHidden: metadata?.isHidden || false,
-      approvals: metadata?.approvals || []
+      approvals: metadata?.approvals || [],
     };
   }
 
@@ -332,50 +358,54 @@ class VoiceCatalogueServiceV2 extends VoiceCatalogueService {
     const baseVoices = await this.getVoicesForProvider(
       filters.provider,
       filters.language,
-      filters.accent
+      filters.accent,
     );
 
     // 2. Bulk fetch metadata for performance
-    const voiceKeys = baseVoices.map(v => `${v.provider}:${v.id}`);
+    const voiceKeys = baseVoices.map((v) => `${v.provider}:${v.id}`);
     const metadataMap = await this.metadataService.bulkGetMetadata(voiceKeys);
 
     // 3. Enhance all voices
-    const enhanced = baseVoices.map(voice => {
+    const enhanced = baseVoices.map((voice) => {
       const metadata = metadataMap[`${voice.provider}:${voice.id}`];
       return {
         ...voice,
         personality: metadata?.customPersonality || voice.personality,
         // ... other overrides
-        approvals: metadata?.approvals || []
+        approvals: metadata?.approvals || [],
       };
     });
 
     // 4. Apply two-level blacklist filtering if required
     // BLACKLIST LOGIC: Filter OUT blacklisted voices
     if (filters.requireApproval) {
-      return enhanced.filter(voice => {
+      return enhanced.filter((voice) => {
         // Check language-wide blacklist (accent = "*")
-        const isLanguageWideBlacklisted = voice.blacklistEntries.some(entry =>
-          entry.language === filters.language && entry.accent === '*'
+        const isLanguageWideBlacklisted = voice.blacklistEntries.some(
+          (entry) =>
+            entry.language === filters.language && entry.accent === "*",
         );
         if (isLanguageWideBlacklisted) return false;
 
         // Check accent-specific blacklist
         const accentToCheck = filters.accent || voice.accent;
-        const isAccentBlacklisted = voice.blacklistEntries.some(entry =>
-          entry.language === filters.language && entry.accent === accentToCheck
+        const isAccentBlacklisted = voice.blacklistEntries.some(
+          (entry) =>
+            entry.language === filters.language &&
+            entry.accent === accentToCheck,
         );
         return !isAccentBlacklisted;
       });
     }
 
     // 5. Filter out globally hidden voices
-    return enhanced.filter(voice => !voice.isHidden);
+    return enhanced.filter((voice) => !voice.isHidden);
   }
 }
 ```
 
 **Performance Optimization:**
+
 - Bulk fetch metadata for voice lists (single DB query)
 - Cache metadata queries (short TTL, e.g., 5 minutes)
 - Proper database indexes on `voiceKey`, `language`, `accent`
@@ -408,9 +438,9 @@ Example implementation:
 
 ```typescript
 // src/app/api/admin/voice-blacklist/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { voiceMetadataService } from '@/services/voiceMetadataService';
-import { Language } from '@/types';
+import { NextRequest, NextResponse } from "next/server";
+import { voiceMetadataService } from "@/services/voiceMetadataService";
+import { Language } from "@/types";
 
 export async function POST(req: NextRequest) {
   try {
@@ -419,8 +449,8 @@ export async function POST(req: NextRequest) {
 
     if (!language || !accent) {
       return NextResponse.json(
-        { error: 'language and accent are required' },
-        { status: 400 }
+        { error: "language and accent are required" },
+        { status: 400 },
       );
     }
 
@@ -430,7 +460,7 @@ export async function POST(req: NextRequest) {
         voiceKey,
         language as Language,
         accent,
-        reason
+        reason,
       );
       return NextResponse.json({
         success: true,
@@ -444,7 +474,7 @@ export async function POST(req: NextRequest) {
       voiceKey,
       language as Language,
       accent,
-      reason
+      reason,
     );
 
     return NextResponse.json({
@@ -453,8 +483,11 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to blacklist voice' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to blacklist voice",
+      },
+      { status: 500 },
     );
   }
 }
@@ -550,6 +583,7 @@ POST   /api/admin/voices/collections
 ### Authentication
 
 Admin routes protected by:
+
 - Session-based auth check
 - Role-based access control (admin role required)
 - Audit logging of all actions
@@ -561,6 +595,7 @@ Admin routes protected by:
 **Scenario**: Voice removed from provider, metadata exists in database
 
 **Solution**:
+
 - Keep metadata (provider might restore voice)
 - Add `isOrphaned` computed field (voice not found in Redis)
 - Admin UI shows orphan indicator
@@ -571,6 +606,7 @@ Admin routes protected by:
 **Scenario**: Provider changes voice ID
 
 **Solution**:
+
 - Track by composite key `{provider}:{voiceId}`
 - Add alias mapping table for ID migrations
 - Migration tool in admin UI for bulk ID updates
@@ -580,6 +616,7 @@ Admin routes protected by:
 **Scenario**: OpenAI voice supports 10 languages, needs per-language approval
 
 **Solution**:
+
 - Create separate `VoiceApproval` record per language/accent combo
 - Track instruction templates per approval (e.g., "speak slowly" for certain languages)
 - Quality metrics tracked per language
@@ -589,6 +626,7 @@ Admin routes protected by:
 **Scenario**: Metadata changed, but cached data is stale
 
 **Solution**:
+
 - Metadata changes don't require Redis cache rebuild
 - Application-level caching with short TTL (5 minutes)
 - Version-based cache keys: `voice:v{version}:{provider}:{id}`
@@ -599,6 +637,7 @@ Admin routes protected by:
 **Scenario**: 10,000+ voices, slow metadata queries
 
 **Solution**:
+
 - Proper database indexes on frequently queried fields
 - Bulk metadata fetching (single query for voice lists)
 - Database connection pooling (Neon default)
@@ -620,6 +659,7 @@ Admin routes protected by:
 - [x] Write integration tests
 
 **Deliverables** (✅ Completed):
+
 - Working database with schema
 - `VoiceMetadataService` implementation
 - Enhanced `VoiceCatalogueService`
@@ -628,6 +668,7 @@ Admin routes protected by:
 **What Was Actually Built (MVP) - BLACKLIST APPROACH**:
 
 Simplified schema for faster delivery:
+
 - `voice_metadata` table: Basic structure with `voiceKey`, `provider`, `voiceId`, `isHidden` flag
 - `voice_blacklist` table: Language/accent blacklist matrix with composite PK
 - **BLACKLIST LOGIC**: Voices visible by default, only blacklisted voices hidden
@@ -635,12 +676,14 @@ Simplified schema for faster delivery:
 - Direct voice blacklist storage without metadata dependency
 
 API Routes:
+
 - `POST /api/admin/voice-blacklist` - Add to blacklist / hide voice (single or batch)
 - `GET /api/admin/voice-blacklist?voiceKey=...` - Get blacklist entries for voice
 - `GET /api/admin/voice-blacklist?language=...&accent=...` - Get all blacklisted voices
 - `DELETE /api/admin/voice-blacklist?voiceKey=...&language=...&accent=...` - Remove from blacklist / show voice
 
 Service Methods:
+
 - `addToBlacklist()` - Hide voice for language/accent (legacy method)
 - `addToBlacklistWithScope()` - Hide voice with scope control (language-wide or accent-specific)
 - `removeFromBlacklist()` - Show voice again
@@ -651,6 +694,7 @@ Service Methods:
 - `batchBlacklist()` - Blacklist multiple voices at once
 
 Integration:
+
 - `voiceCatalogueService.getVoicesForProvider()` - Added `requireApproval` parameter
 - `/api/voice-catalogue?...&requireApproval=true` - Filters OUT blacklisted voices
 - **BriefPanel** - Uses `requireApproval=true` when loading voices for LLM
@@ -661,6 +705,7 @@ Integration:
 - **End-to-end protection**: Blacklisted voices are filtered at every layer (database → API → UI → LLM)
 
 Admin UI:
+
 - `/admin/voice-manager` - Voice management interface
 - **Per-voice two-toggle system**:
   - Toggle 1: Language-wide blacklist (e.g., "All French")
@@ -676,6 +721,7 @@ Admin UI:
   - Shows same descriptions sent to LLM for voice selection
 
 **Test Results**:
+
 - ✅ Database connection working
 - ✅ Database migration completed (approval → blacklist)
 - ✅ All CRUD operations functional
@@ -702,6 +748,7 @@ Admin UI:
 - [ ] Implement voice search
 
 **Deliverables**:
+
 - Functional admin UI
 - Voice browser with filters
 - Metadata editor
@@ -720,6 +767,7 @@ Admin UI:
 - [ ] Create approval reports/analytics
 
 **Deliverables**:
+
 - Complete approval workflow
 - Audit trail
 - Batch operations
@@ -739,6 +787,7 @@ Admin UI:
 - [ ] Documentation
 
 **Deliverables**:
+
 - Collections feature
 - Import/export tools
 - Optimized performance
@@ -850,6 +899,7 @@ Admin UI:
 3. **Application Layer**: Both BriefPanel and ScripterPanel use filtered lists
 
 **Why this is bulletproof:**
+
 - LLM literally cannot select Roger - he's not in the prompt
 - UI dropdowns don't show Roger - he's filtered from the list
 - Even if someone manually entered Roger's ID, the voice wouldn't exist in the system
@@ -874,17 +924,20 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 ### 🔄 Architectural Decisions
 
 **Decision 1: Whitelist → Blacklist** (October 2025)
+
 - **OLD (Whitelist)**: Voices hidden by default, must manually approve each one
 - **NEW (Blacklist)**: Voices visible by default, only hide the bad ones
 - **Why?** Much simpler to manage - instead of approving hundreds of good voices, just blacklist the few bad ones.
 
 **Decision 2: Two-Level Blacklisting with Wildcard Accent** (October 2025)
+
 - **Language-wide**: Use `accent = "*"` to blacklist for all accents
 - **Accent-specific**: Use voice's own accent to blacklist for that accent only
 - **Why?** Users need flexibility: "Roger sounds terrible in ALL French" vs "Roger's Parisian accent is too strong"
 - **Implementation**: Per-voice two-toggle UI, wildcard in database, no schema changes needed
 
 **Decision 3: Remove OpenAI Quality Tier Filtering** (October 2025)
+
 - **OLD**: Non-English languages filtered to 5 "good" voices (alloy, echo, onyx, ash, sage marked "poor" and hidden)
 - **NEW**: All 11 OpenAI voices exposed for all languages
 - **Why?**
@@ -901,6 +954,7 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 ### ✅ Implemented
 
 **Database:**
+
 - Postgres on Neon (serverless)
 - Drizzle ORM with TypeScript types
 - Simplified schema (2 tables: `voice_metadata`, `voice_blacklist`)
@@ -908,6 +962,7 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 - Lazy connection initialization for serverless compatibility
 
 **Services:**
+
 - `VoiceMetadataService` - Full CRUD operations with two-level blacklist methods
   - `addToBlacklistWithScope()` - Language-wide or accent-specific
   - `bulkGetBlacklistedEnhanced()` - Optimized bulk fetch with scope separation
@@ -918,6 +973,7 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 - Bulk operations for performance
 
 **API:**
+
 - `/api/admin/voice-blacklist` - Complete CRUD for two-level blacklist management
   - `scope` parameter: `'language'` or `'accent'`
   - Wildcard accent `"*"` for language-wide operations
@@ -926,6 +982,7 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 - All endpoints tested and working
 
 **Admin UI:**
+
 - `/admin/voice-manager` - Voice management interface with per-voice controls
 - **Two independent toggles per voice:**
   - Language-wide toggle (e.g., "All French")
@@ -936,6 +993,7 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 - Clear visual feedback for both blacklist levels
 
 **Tests:**
+
 - End-to-end integration tests passing
 - Two-level blacklist filtering validated:
   - ✅ Language-wide blacklist filters all accents
@@ -977,6 +1035,7 @@ The key insight is treating the persistent layer as **enhancement metadata** rat
 ElevenLabs provides detailed voice descriptions on their website that are NOT exposed via API. These descriptions significantly enhance voice understanding:
 
 **Current LLM metadata (limited):**
+
 ```
 Roger (id: CwhRBWXzGAHq8TQ4Fs17-fr)
   Gender: Male
@@ -986,6 +1045,7 @@ Roger (id: CwhRBWXzGAHq8TQ4Fs17-fr)
 ```
 
 **With rich description:**
+
 ```
 Roger (id: CwhRBWXzGAHq8TQ4Fs17-fr)
   Gender: Male
@@ -1003,12 +1063,14 @@ Roger (id: CwhRBWXzGAHq8TQ4Fs17-fr)
 ### Why This Matters
 
 **Evidence of need:**
+
 1. Gender bug fix showed basic metadata was insufficient for proper voice selection
 2. Blacklist system proves voice quality varies significantly by use case
 3. LLM needs semantic context to match voice personality to creative brief
 4. Current metadata provides ~50 chars/voice; descriptions add ~200 chars (4x improvement)
 
 **Impact on voice selection:**
+
 - LLM can match voice tone to brand personality (warm vs. professional vs. energetic)
 - Better understanding of voice versatility (storytelling vs. promotional)
 - Semantic matching between creative brief and voice capabilities
@@ -1051,21 +1113,28 @@ Roger (id: CwhRBWXzGAHq8TQ4Fs17-fr)
 ```typescript
 // src/lib/db/schema.ts
 
-export const voiceDescriptions = pgTable('voice_descriptions', {
-  voiceKey: text('voice_key').primaryKey(),        // "{provider}:{voiceId}"
-  description: text('description').notNull(),
-  descriptionSource: text('description_source')
-    .notNull()
-    .default('scraped_2024'),
+export const voiceDescriptions = pgTable(
+  "voice_descriptions",
+  {
+    voiceKey: text("voice_key").primaryKey(), // "{provider}:{voiceId}"
+    description: text("description").notNull(),
+    descriptionSource: text("description_source")
+      .notNull()
+      .default("scraped_2024"),
 
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => ({
-  sourceIdx: index('voice_descriptions_source_idx').on(table.descriptionSource),
-}));
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    sourceIdx: index("voice_descriptions_source_idx").on(
+      table.descriptionSource,
+    ),
+  }),
+);
 ```
 
 **Why separate table:**
+
 - Cleaner separation of concerns (metadata vs descriptions)
 - Simpler schema without optional fields
 - Easier to delete/rebuild if needed
@@ -1074,13 +1143,14 @@ export const voiceDescriptions = pgTable('voice_descriptions', {
 ### Actual Implementation
 
 **1. VoiceDescriptionService** (new service)
+
 ```typescript
 // src/services/voiceDescriptionService.ts
 
 export class VoiceDescriptionService {
   // Bulk fetch for performance (single query)
   async bulkGetDescriptions(
-    voiceKeys: string[]
+    voiceKeys: string[],
   ): Promise<Record<string, string>> {
     if (voiceKeys.length === 0) return {};
 
@@ -1100,7 +1170,7 @@ export class VoiceDescriptionService {
   // Batch upsert for imports
   async batchUpsert(
     descriptions: Array<{ voiceKey: string; description: string }>,
-    source: string = "scraped_2024"
+    source: string = "scraped_2024",
   ): Promise<void> {
     // Insert in batches of 50 to avoid query size limits
     const batchSize = 50;
@@ -1129,6 +1199,7 @@ export class VoiceDescriptionService {
 ```
 
 **2. VoiceCatalogueService Enhancement** (overlay pattern)
+
 ```typescript
 // src/services/voiceCatalogueService.ts
 
@@ -1169,22 +1240,24 @@ async enrichWithDescriptions(voices: UnifiedVoice[]): Promise<UnifiedVoice[]> {
 ```
 
 **3. API Integration**
+
 ```typescript
 // src/app/api/voice-catalogue/route.ts (filtered-voices operation)
 
 // Enrich voices with descriptions before returning
 const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(
-  finalVoices as any[]
+  finalVoices as any[],
 );
 
 return NextResponse.json({
-  voices: enrichedVoices,  // Automatically includes descriptions!
+  voices: enrichedVoices, // Automatically includes descriptions!
   count: enrichedVoices.length,
   selectedProvider,
 });
 ```
 
 **4. Admin Import Endpoint**
+
 ```typescript
 // src/app/api/admin/import-descriptions/route.ts
 
@@ -1195,7 +1268,7 @@ export async function POST() {
     description: description as string,
   }));
 
-  await voiceDescriptionService.batchUpsert(batch, 'scraped_elevenlabs_2024');
+  await voiceDescriptionService.batchUpsert(batch, "scraped_elevenlabs_2024");
 
   const stats = await voiceDescriptionService.getStats();
   return NextResponse.json({
@@ -1207,6 +1280,7 @@ export async function POST() {
 ```
 
 **5. BasePromptStrategy** (no changes needed!)
+
 ```typescript
 // src/lib/prompt-strategies/BasePromptStrategy.ts
 // Already checks for voice.description - just works!
@@ -1227,24 +1301,28 @@ formatVoiceMetadata(voice: Voice, _context: PromptContext): string {
 ### Results
 
 **Coverage Achieved:**
+
 - 125 ElevenLabs voice descriptions imported
 - 92% coverage for French voices (23/25 enriched)
 - 2 missing voices are default/blacklisted (Alice, Jessica)
 - Automatic enrichment working across all languages
 
 **Performance Impact:**
+
 - Single bulk DB query per voice list request
 - Minimal latency added (~50-100ms per request)
 - No Redis cache changes needed
 - Graceful degradation if DB unavailable
 
 **LLM Prompt Enhancement:**
+
 - 4x increase in context per voice (~50 → ~200 chars)
 - Descriptions automatically appear as "Personality:" field
 - Token cost increase: acceptable (~4,000 → ~10,000 chars per brief)
 - No changes needed to existing prompt strategies
 
 **Data Quality:**
+
 - Source tracking: `scraped_elevenlabs_2024`
 - Repeatable import via admin API
 - Upsert logic allows re-scraping without duplicates
@@ -1309,11 +1387,14 @@ Added read-only voice description display to `/admin/voice-manager`:
 // src/app/api/voice-catalogue/route.ts (voices operation)
 
 // Enrich all return paths with descriptions
-const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(voices as any[]);
+const enrichedVoices = await voiceCatalogue.enrichWithDescriptions(
+  voices as any[],
+);
 return NextResponse.json(enrichedVoices);
 ```
 
 **Current State:**
+
 - ✅ Read-only display working in admin UI
 - ✅ Coverage visibility (badge indicates description exists)
 - ✅ Consistent with LLM data (same enrichment logic)
@@ -1322,12 +1403,14 @@ return NextResponse.json(enrichedVoices);
 ### Bugs Fixed
 
 **1. Upsert Bug** (Critical)
+
 - **Problem**: `batchUpsert` used `values[0].description` for all conflicts
 - **Impact**: Only first voice in each batch of 50 got correct description
 - **Fix**: Use `sql\`EXCLUDED.description\`` to reference incoming row value
 - **Result**: All 125 descriptions now update correctly
 
 **2. Enrichment Timing Bug** (Critical)
+
 - **Problem**: Suffix-stripping happened AFTER bulk query
 - **Impact**: Localized voices (e.g., `voice-id-fr`) couldn't match base IDs
 - **Fix**: Strip suffixes BEFORE building voiceKeys for query
@@ -1336,6 +1419,7 @@ return NextResponse.json(enrichedVoices);
 ### Trade-offs & Learnings
 
 **Pros (Validated):**
+
 - ✅ 4x more context for LLM voice selection
 - ✅ Uses existing dual-layer architecture cleanly
 - ✅ No changes needed to prompt strategies (automatic integration)
@@ -1344,6 +1428,7 @@ return NextResponse.json(enrichedVoices);
 - ✅ Repeatable import process via admin API
 
 **Cons (Actual):**
+
 - ⚠️ Token cost increase acceptable (~$0.01-0.02 per creative brief)
 - ⚠️ Maintenance burden: periodic re-scraping needed (quarterly)
 - ⚠️ Coverage limited to scraped voices (14% missing from Redis)
@@ -1352,11 +1437,13 @@ return NextResponse.json(enrichedVoices);
 ### Usage
 
 **Import/Re-import Descriptions:**
+
 ```bash
 curl -X POST http://localhost:3000/api/admin/import-descriptions
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -1372,6 +1459,7 @@ Response:
 ```
 
 **Check Enrichment Status:**
+
 ```bash
 # Check if specific voices have descriptions
 curl "http://localhost:3000/api/admin/check-descriptions?ids=OPCL81coXM3AEo8gUxHM,H0Es1EyjnIrTdY0BEF0V"
@@ -1379,11 +1467,13 @@ curl "http://localhost:3000/api/admin/check-descriptions?ids=OPCL81coXM3AEo8gUxH
 
 **Verify in LLM Prompts:**
 Generate a creative and check console logs:
+
 ```
 🎨 Enriched 23/25 voices with descriptions
 ```
 
 Descriptions automatically appear in LLM prompts as:
+
 ```
 Maxime Lavaud - French young man (id: OPCL81coXM3AEo8gUxHM)
   Gender: Male
@@ -1393,16 +1483,19 @@ Maxime Lavaud - French young man (id: OPCL81coXM3AEo8gUxHM)
 ### Next Steps
 
 **Completed (October 2024):**
+
 - ✅ Admin UI read-only description display in `/admin/voice-manager`
 - ✅ Coverage badge to identify enriched voices
 - ✅ API enrichment in `voices` operation
 
 **Short-term:**
+
 1. Monitor LLM voice selection quality with descriptions
 2. Gather user feedback on voice matching accuracy
 3. Re-scrape quarterly to catch new/updated voices
 
 **Future Enhancements:**
+
 1. **Manual description editing** - Build UI for editing/overriding descriptions
 2. **Multi-provider coverage** - ~~Scrape descriptions for Lovo, OpenAI, Qwen~~ OpenAI completed (October 2025)
 3. **AI-generated descriptions** - Generate descriptions for voices missing from scrape
@@ -1416,35 +1509,41 @@ Maxime Lavaud - French young man (id: OPCL81coXM3AEo8gUxHM)
 **Source**: Vocal range classification table with authoritative gender assignments based on vocal range (soprano, alto, tenor, baritone, bass).
 
 **Gender Corrections Applied**:
+
 - **alloy**: male → **female** (contralto)
 - **fable**: male → **female** (alto)
 - **sage**: male → **female** (soprano_2)
 
 **Final Gender Distribution**:
+
 - Male: 5 voices (ash, ballad, echo, onyx, verse)
 - Female: 6 voices (alloy, coral, fable, nova, sage, shimmer)
 
 **Coverage**: 11/11 voices (100%)
 
 **Key Characteristics**:
+
 - Vocal range classifications provide objective gender indicators
 - Accent handling notes ("not great with accents" for alloy/ash)
 - Direction responsiveness ratings (how well voice responds to instructions)
 - Practical descriptions of voice character
 
 **Implementation**:
+
 - Gender metadata corrected in `src/services/voiceProviderService.ts`
 - Rich descriptions stored in `data/openai-voice-descriptions.json`
 - Imported via `scripts/import-openai-descriptions.ts`
 - Source tag: `openai_vocal_ranges_2024`
 
 **Usage**:
+
 ```bash
 # Import OpenAI descriptions
 npx tsx scripts/import-openai-descriptions.ts
 ```
 
 **Impact**:
+
 - ✅ French voice selection now accurate (female voices correctly labeled)
 - ✅ LLM receives vocal range and accent handling information
 - ✅ Direction responsiveness helps match voices to creative needs
@@ -1453,6 +1552,7 @@ npx tsx scripts/import-openai-descriptions.ts
 ### 🎯 Usage
 
 **Blacklist a voice for ALL accents (language-wide):**
+
 ```bash
 curl -X POST http://localhost:3000/api/admin/voice-blacklist \
   -H "Content-Type: application/json" \
@@ -1460,6 +1560,7 @@ curl -X POST http://localhost:3000/api/admin/voice-blacklist \
 ```
 
 **Blacklist a voice for specific accent only:**
+
 ```bash
 curl -X POST http://localhost:3000/api/admin/voice-blacklist \
   -H "Content-Type: application/json" \
@@ -1467,16 +1568,19 @@ curl -X POST http://localhost:3000/api/admin/voice-blacklist \
 ```
 
 **Remove language-wide blacklist:**
+
 ```bash
 curl -X DELETE "http://localhost:3000/api/admin/voice-blacklist?voiceKey=elevenlabs:voice-id&language=fr&accent=*"
 ```
 
 **Remove accent-specific blacklist:**
+
 ```bash
 curl -X DELETE "http://localhost:3000/api/admin/voice-blacklist?voiceKey=elevenlabs:voice-id&language=fr&accent=parisian"
 ```
 
 **Query visible voices (excluding blacklisted):**
+
 ```bash
 # Without accent - filters language-wide AND voice's own accent blacklists
 curl "http://localhost:3000/api/voice-catalogue?operation=voices&provider=elevenlabs&language=fr&requireApproval=true"
@@ -1486,16 +1590,19 @@ curl "http://localhost:3000/api/voice-catalogue?operation=voices&provider=eleven
 ```
 
 **Check language-wide blacklisted voices:**
+
 ```bash
 curl "http://localhost:3000/api/admin/voice-blacklist?language=fr&accent=*"
 ```
 
 **Check accent-specific blacklisted voices:**
+
 ```bash
 curl "http://localhost:3000/api/admin/voice-blacklist?language=fr&accent=parisian"
 ```
 
 **Admin UI:**
+
 - Visit `/admin/voice-manager` to manage voices visually
 - Each voice has TWO independent toggles:
   - **Left toggle**: "All French" (language-wide blacklist)
@@ -1504,5 +1611,6 @@ curl "http://localhost:3000/api/admin/voice-blacklist?language=fr&accent=parisia
 - Green = visible, Red = hidden
 
 See test scripts for more examples:
+
 - `test-real-voices.sh` - Live integration tests (updated for blacklist)
 - `demo-approval-system.sh` - Interactive demo (updated for blacklist)
