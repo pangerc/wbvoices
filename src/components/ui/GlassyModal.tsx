@@ -1,17 +1,13 @@
-import React, { Fragment, ReactNode } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { Fragment, ReactNode } from "react";
+import { twMerge } from "tailwind-merge";
 
-interface GlassyModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title?: string;
-  description?: string;
-  children: ReactNode;
-  maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl";
-}
+/** Supported size caps for the modal panel; maps 1:1 to a Tailwind `max-w-*` utility via {@link MAX_WIDTH_CLASSES}. */
+export type MaxWidth = "sm" | "md" | "lg" | "xl" | "2xl";
 
-const maxWidthClasses = {
+/** Lookup that resolves a {@link MaxWidth} value to the Tailwind utility used to cap the panel width. */
+export const MAX_WIDTH_CLASSES: Record<MaxWidth, string> = {
   sm: "max-w-sm",
   md: "max-w-md",
   lg: "max-w-lg",
@@ -19,6 +15,23 @@ const maxWidthClasses = {
   "2xl": "max-w-2xl",
 };
 
+/** Props for {@link GlassyModal}: open state, close handler, optional header content, body, and width cap. */
+type GlassyModalProps = {
+  /** Whether the modal is currently visible. Controlled by the parent. */
+  isOpen: boolean;
+  /** Called when the user dismisses the modal (backdrop click, Escape, or close button). */
+  onClose: () => void;
+  /** Optional heading shown at the top of the panel. Omit to skip the title row entirely. */
+  title?: string;
+  /** Optional supporting copy shown beneath the title. Requires `title` to be set to look correct. */
+  description?: string;
+  /** Body content rendered inside the panel below the header. */
+  children: ReactNode;
+  /** Tailwind `max-w-*` cap for the panel. Defaults to `"lg"`. */
+  maxWidth?: MaxWidth;
+};
+
+/** Frosted-glass dialog built on Headless UI: animated backdrop + centered panel with optional title/description header and a close button. */
 export function GlassyModal({
   isOpen,
   onClose,
@@ -54,7 +67,10 @@ export function GlassyModal({
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel
-                className={`w-full ${maxWidthClasses[maxWidth]} transform overflow-hidden rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 p-6 text-left align-middle shadow-xl transition-all`}
+                className={twMerge(
+                  "w-full transform overflow-hidden rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 p-6 text-left align-middle shadow-xl transition-all",
+                  MAX_WIDTH_CLASSES[maxWidth],
+                )}
               >
                 <div className="flex justify-between items-start mb-4">
                   <div>
