@@ -13,18 +13,25 @@ import { useToneOfVoice } from "@/hooks/useToneOfVoice";
 import { useRouter } from "next/navigation";
 import { BrandDossier, MarketRow } from "@/lib/alaric-client";
 import { useAdBriefNotChanged } from "@/hooks/ad-brief-not-changed";
+import { GlassyModal } from "./ui/GlassyModal";
 
+/** Payload posted to `/api/ads/:adId/duplicate` to create a new ad copied from an existing one, optionally overriding its brief. */
 export type CreateAd = {
+  /** Display name for the new ad. Defaults to `"Copy of <source ad name>"` in the popup. */
   name: string;
-  brief?: ProjectBrief;
+  /** Brief persisted on the new ad — built from the popup's form state, which is seeded from the source ad's brief and edited by the user before submit. */
+  brief: ProjectBrief;
 };
 
+/** Props for {@link DuplicateAdPopup}: the source ad to duplicate plus a close callback that optionally receives the freshly created ad. */
 export type DuplicateAdPopupProps = {
+  /** The ad being duplicated. Its brief seeds the form fields and its name is shown in the modal header. */
   ad: Ad;
-
+  /** Invoked when the modal is dismissed. Called with no args on cancel/backdrop/Escape, or with the newly created ad after a successful duplicate. */
   onClose: (ad?: Ad) => void;
 };
 
+/** Modal that lets the user duplicate an existing ad, editing its brief and title before creation. Submitting triggers either a plain duplicate or a duplicate-and-generate depending on whether the brief changed. */
 export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
   const router = useRouter();
 
@@ -317,110 +324,102 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
     [],
   );
 
-  const onClickBackdrop = () => {
+  const handleClose = () => {
     if (!isDuplicating) onClose();
   };
 
   return (
-    <>
-      <div
-        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 transition-opacity duration-300"
-        onClick={() => onClickBackdrop()}
-      />
-
-      <div className="fixed container overflow-y-auto z-60 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-        <div className="bg-zinc-900/50 rounded-md p-5 flex flex-col gap-4">
-          <div>
-            Duplicate ad <strong>"{ad.meta.name}"</strong>?
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Title
-            </label>
-            <input
-              value={name}
-              disabled={isDuplicating}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onDuplicate(ad, !isNotChanged);
-                if (e.key === "Escape") onClose();
-              }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full bg-white/10 text-white font-medium text-sm rounded p-3 outline-none ring-1 ring-blue-500/50 focus:ring-blue-500"
-              autoFocus
-            />
-          </div>
-          <div>
-            <BriefPanelBase
-              brand={brand}
-              onBrandChanged={setBrand}
-              region={selectedRegion}
-              onRegionChanged={setSelectedRegion}
-              onMarketChanged={handleMarketChanged}
-              dossier={dossier}
-              isLoadingDossier={isLoadingDossier}
-              enrichmentSummary={enrichmentSummary}
-              legacyBrandVoice={legacyBrandVoice}
-              isGenerating={false}
-              creativeBrief={creativeBrief}
-              onCreativeBriefChanged={setCreativeBrief}
-              creativeAngle={creativeAngle}
-              onCreativeAngleChanged={setCreativeAngle}
-              tone={selectedTone}
-              onToneChanged={setSelectedTone}
-              toneOptions={toneOptions}
-              toneInstructions={toneInstructions}
-              voiceInstructions={voiceInstructions}
-              onVoiceInstructionsChanged={setVoiceInstructions}
-              campaignFormat={campaignFormat}
-              onCampaignFormatChanged={setCampaignFormat}
-              pacing={selectedPacing}
-              onPacingChanged={setSelectedPacing}
-              cta={selectedCTA}
-              onCTAChanged={setSelectedCTA}
-              adDuration={adDuration}
-              onAdDurationChanged={setAdDuration}
-              provider={selectedProvider}
-              onProviderChanged={setSelectedProvider}
-              voiceCounts={voiceCounts}
-              dialogReady={dialogReady}
-              referenceUrlsText={referenceUrlsText}
-              onReferenceUrlsTextChanged={setReferenceUrlsText}
-              forbiddenWords={forbiddenWords}
-              onForbiddenWordsChanged={setForbiddenWords}
-              providedScript={providedScript}
-              onProvidedScriptChanged={setProvidedScript}
-              showAngleNudge={showAngleNudge}
-              language={selectedLanguage}
-              onLanguageChanged={setSelectedLanguage}
-              accent={selectedAccent}
-              onAccentChanged={setSelectedAccent}
-              onLanguageOptionsResolved={handleLanguageOptionsResolved}
-              error={error}
-            />
-          </div>
-          <div className="flex justify-between">
-            <button
-              disabled={isDuplicating}
-              onClick={() => onClose()}
-              className="px-6 py-3 bg-wb-blue hover:bg-wb-blue/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              disabled={isDuplicating}
-              onClick={() => onDuplicate(ad, !isNotChanged)}
-              className="px-6 py-3 bg-wb-blue hover:bg-wb-blue/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
-            >
-              {isDuplicating
-                ? "Duplicating..."
-                : isNotChanged
-                  ? "Duplicate"
-                  : "Duplicate & Generate"}
-            </button>
-          </div>
+    <GlassyModal
+      isOpen
+      onClose={handleClose}
+      title="Duplicate Ad"
+      description={`Create a copy of "${ad.meta.name}".`}
+      maxWidth="5xl"
+    >
+      <div className="flex flex-col gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Title
+          </label>
+          <input
+            value={name}
+            disabled={isDuplicating}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onDuplicate(ad, !isNotChanged);
+            }}
+            className="w-full bg-white/10 text-white font-medium text-sm rounded p-3 outline-none ring-1 ring-blue-500/50 focus:ring-blue-500"
+            autoFocus
+          />
+        </div>
+        <BriefPanelBase
+          brand={brand}
+          onBrandChanged={setBrand}
+          region={selectedRegion}
+          onRegionChanged={setSelectedRegion}
+          onMarketChanged={handleMarketChanged}
+          dossier={dossier}
+          isLoadingDossier={isLoadingDossier}
+          enrichmentSummary={enrichmentSummary}
+          legacyBrandVoice={legacyBrandVoice}
+          isGenerating={false}
+          creativeBrief={creativeBrief}
+          onCreativeBriefChanged={setCreativeBrief}
+          creativeAngle={creativeAngle}
+          onCreativeAngleChanged={setCreativeAngle}
+          tone={selectedTone}
+          onToneChanged={setSelectedTone}
+          toneOptions={toneOptions}
+          toneInstructions={toneInstructions}
+          voiceInstructions={voiceInstructions}
+          onVoiceInstructionsChanged={setVoiceInstructions}
+          campaignFormat={campaignFormat}
+          onCampaignFormatChanged={setCampaignFormat}
+          pacing={selectedPacing}
+          onPacingChanged={setSelectedPacing}
+          cta={selectedCTA}
+          onCTAChanged={setSelectedCTA}
+          adDuration={adDuration}
+          onAdDurationChanged={setAdDuration}
+          provider={selectedProvider}
+          onProviderChanged={setSelectedProvider}
+          voiceCounts={voiceCounts}
+          dialogReady={dialogReady}
+          referenceUrlsText={referenceUrlsText}
+          onReferenceUrlsTextChanged={setReferenceUrlsText}
+          forbiddenWords={forbiddenWords}
+          onForbiddenWordsChanged={setForbiddenWords}
+          providedScript={providedScript}
+          onProvidedScriptChanged={setProvidedScript}
+          showAngleNudge={showAngleNudge}
+          language={selectedLanguage}
+          onLanguageChanged={setSelectedLanguage}
+          accent={selectedAccent}
+          onAccentChanged={setSelectedAccent}
+          onLanguageOptionsResolved={handleLanguageOptionsResolved}
+          error={error}
+        />
+        <div className="flex justify-between">
+          <button
+            disabled={isDuplicating}
+            onClick={() => onClose()}
+            className="px-6 py-3 bg-wb-blue hover:bg-wb-blue/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            disabled={isDuplicating}
+            onClick={() => onDuplicate(ad, !isNotChanged)}
+            className="px-6 py-3 bg-wb-blue hover:bg-wb-blue/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
+          >
+            {isDuplicating
+              ? "Duplicating..."
+              : isNotChanged
+                ? "Duplicate"
+                : "Duplicate & Generate"}
+          </button>
         </div>
       </div>
-    </>
+    </GlassyModal>
   );
 };
