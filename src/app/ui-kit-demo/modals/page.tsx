@@ -185,19 +185,32 @@ export default function UiKitDemoModalPage() {
         </p>
       </GlassyModal>
 
-      <GlassyModal isOpen={openDemo === "noHeader"} onClose={close}>
-        <div className="flex items-start gap-3">
-          <div className="rounded-full bg-wb-blue/20 p-2 border border-wb-blue/40">
-            <SparklesIcon className="w-5 h-5 text-wb-blue" />
+      <GlassyModal
+        isOpen={openDemo === "noHeader"}
+        onClose={close}
+        header={
+          <div className="flex items-start gap-3">
+            <div className="rounded-full bg-wb-blue/20 p-2 border border-wb-blue/40">
+              <SparklesIcon className="w-5 h-5 text-wb-blue" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">
+                Custom header
+              </h3>
+              <p className="text-sm text-gray-400 mt-1">
+                Pass a ReactNode via the{" "}
+                <code className="text-wb-blue">header</code> prop for fully
+                custom header layouts — the close button still appears in the
+                corner.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white">Custom header</h3>
-            <p className="text-sm text-gray-400 mt-1">
-              Skip the built-in header entirely and render your own layout
-              inside children — the close button still appears in the corner.
-            </p>
-          </div>
-        </div>
+        }
+      >
+        <p className="text-sm text-gray-300">
+          Body content lives below the custom header, just like the
+          title/description variant.
+        </p>
       </GlassyModal>
 
       <GlassyModal
@@ -205,7 +218,6 @@ export default function UiKitDemoModalPage() {
         onClose={close}
         title="Voice configuration"
         description="Tune the voice used for this ad's voiceover."
-        maxWidth="xl"
       >
         <div className="space-y-4">
           <Field label="Voice name">
@@ -238,7 +250,6 @@ export default function UiKitDemoModalPage() {
         onClose={close}
         title="Delete this ad?"
         description="This action is permanent. The mix, script, and assets will be removed."
-        maxWidth="sm"
       >
         <div className="mt-2 flex items-start gap-3 rounded-lg border border-wb-red/30 bg-wb-red/10 p-3">
           <ExclamationTriangleIcon className="w-5 h-5 text-wb-red shrink-0 mt-0.5" />
@@ -257,7 +268,6 @@ export default function UiKitDemoModalPage() {
         onClose={close}
         title="Release notes"
         description="A taste of what scrolling looks like inside the overlay."
-        maxWidth="xl"
       >
         <div className="space-y-6">
           {RELEASE_NOTES.map((entry) => (
