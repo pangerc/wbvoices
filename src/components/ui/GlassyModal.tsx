@@ -1,4 +1,10 @@
-import { Dialog, Transition } from "@headlessui/react";
+import {
+  Dialog,
+  DialogPanel,
+  DialogTitle,
+  Transition,
+  TransitionChild,
+} from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { Fragment, ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
@@ -15,35 +21,57 @@ export const MAX_WIDTH_CLASSES: Record<MaxWidth, string> = {
   "2xl": "max-w-2xl",
 };
 
-/** Props for {@link GlassyModal}: open state, close handler, optional header content, body, and width cap. */
-type GlassyModalProps = {
+/** Base props shared by every header variant — open state, close handler, body, and width cap. */
+type GlassyModalBaseProps = {
   /** Whether the modal is currently visible. Controlled by the parent. */
   isOpen: boolean;
   /** Called when the user dismisses the modal (backdrop click, Escape, or close button). */
   onClose: () => void;
-  /** Optional heading shown at the top of the panel. Omit to skip the title row entirely. */
-  title?: string;
-  /** Optional supporting copy shown beneath the title. Requires `title` to be set to look correct. */
-  description?: string;
   /** Body content rendered inside the panel below the header. */
   children: ReactNode;
   /** Tailwind `max-w-*` cap for the panel. Defaults to `"lg"`. */
   maxWidth?: MaxWidth;
 };
 
-/** Frosted-glass dialog built on Headless UI: animated backdrop + centered panel with optional title/description header and a close button. */
+/** Header variant using the built-in title/description layout. */
+type GlassyModalTextHeaderProps = {
+  /** Optional heading shown at the top of the panel. Omit to skip the title row entirely. */
+  title: string;
+  /** Optional supporting copy shown beneath the title. Requires `title` to be set to look correct. */
+  description?: string;
+  /** Mutually exclusive with `title`/`description`. */
+  header?: never;
+};
+
+/** Header variant supplying fully custom header content as a ReactNode. */
+type GlassyModalCustomHeaderProps = {
+  /** Custom header content rendered in place of the title/description block. */
+  header: ReactNode;
+  /** Mutually exclusive with `header`. */
+  title?: never;
+  /** Mutually exclusive with `header`. */
+  description?: never;
+};
+
+/** Props for {@link GlassyModal}: base props plus one of the two header variants. */
+type GlassyModalProps = GlassyModalBaseProps &
+  (GlassyModalTextHeaderProps | GlassyModalCustomHeaderProps);
+
+/** Frosted-glass dialog built on Headless UI: animated backdrop + centered panel with optional title/description (or custom ReactNode) header and a close button. */
 export function GlassyModal({
   isOpen,
   onClose,
   title,
   description,
+  header,
   children,
   maxWidth = "lg",
 }: GlassyModalProps) {
   return (
     <Transition appear show={isOpen} as={Fragment}>
+      {/* TODO: Do we need z-50 here? */}
       <Dialog as="div" className="relative z-50" onClose={onClose}>
-        <Transition.Child
+        <TransitionChild
           as={Fragment}
           enter="ease-out duration-300"
           enterFrom="opacity-0"
@@ -53,11 +81,11 @@ export function GlassyModal({
           leaveTo="opacity-0"
         >
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
-        </Transition.Child>
+        </TransitionChild>
 
         <div className="fixed inset-0 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4 text-center">
-            <Transition.Child
+            <TransitionChild
               as={Fragment}
               enter="ease-out duration-300"
               enterFrom="opacity-0 scale-95"
@@ -66,7 +94,7 @@ export function GlassyModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel
+              <DialogPanel
                 className={twMerge(
                   "w-full transform overflow-hidden rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 p-6 text-left align-middle shadow-xl transition-all",
                   MAX_WIDTH_CLASSES[maxWidth],
@@ -74,18 +102,22 @@ export function GlassyModal({
               >
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    {title && (
-                      <Dialog.Title
-                        as="h3"
-                        className="text-xl font-bold text-white mb-1"
-                      >
-                        {title}
-                      </Dialog.Title>
-                    )}
-                    {description && (
-                      <Dialog.Description className="text-sm text-gray-300">
-                        {description}
-                      </Dialog.Description>
+                    {header ?? (
+                      <>
+                        {title && (
+                          <DialogTitle
+                            as="h3"
+                            className="text-xl font-bold text-white mb-1"
+                          >
+                            {title}
+                          </DialogTitle>
+                        )}
+                        {description && (
+                          <Dialog.Description className="text-sm text-gray-300">
+                            {description}
+                          </Dialog.Description>
+                        )}
+                      </>
                     )}
                   </div>
                   <button
@@ -97,8 +129,8 @@ export function GlassyModal({
                 </div>
 
                 <div className="mt-4">{children}</div>
-              </Dialog.Panel>
-            </Transition.Child>
+              </DialogPanel>
+            </TransitionChild>
           </div>
         </div>
       </Dialog>

@@ -1,15 +1,12 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   GlassyModal,
   MAX_WIDTH_CLASSES,
   MaxWidth,
 } from "@/components/ui/GlassyModal";
-import {
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  SparklesIcon,
-} from "@heroicons/react/24/outline";
+import { CheckCircleIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { PropsWithChildren, ReactNode, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
@@ -85,80 +82,123 @@ const RELEASE_NOTES: ReleaseNote[] = [
   },
 ];
 
-/** Identifier of the currently open demo modal; each value corresponds to a single `<GlassyModal>` instance on the page. */
+/** Identifier of the currently open demo modal; each value corresponds to a single `<GlassyModal>` or `<ConfirmDialog>` instance on the page. */
 type DemoKey =
   | "basic"
   | "titleOnly"
   | "noHeader"
   | "rich"
-  | "confirm"
   | "scrollable"
+  | "confirmDefault"
+  | "confirmDanger"
+  | "confirmAsync"
   | MaxWidth;
 
-/** Demo page that showcases the {@link GlassyModal} component across header variants, content variants, and `maxWidth` values. */
+/** Demo page that showcases the modal primitives — {@link GlassyModal} and {@link ConfirmDialog} — each in their own main section. */
 export default function UiKitDemoModalPage() {
   const [openDemo, setOpenDemo] = useState<DemoKey | null>(null);
   const close = () => setOpenDemo(null);
+
+  const [isAsyncConfirming, setIsAsyncConfirming] = useState(false);
+  const handleAsyncConfirm = async () => {
+    setIsAsyncConfirming(true);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setIsAsyncConfirming(false);
+    close();
+  };
 
   return (
     <div className="relative max-w-5xl mx-auto">
       <section className="relative pt-12 pb-10">
         <Kicker>Overlay</Kicker>
-        <HeroTitle>GlassyModal</HeroTitle>
+        <HeroTitle>Modals</HeroTitle>
         <HeroDescription>
-          A frosted-glass dialog built on Headless UI. Use it for focused tasks,
-          confirmations, and short forms. Click any tile to preview a variant.
+          Frosted-glass overlays used for focused tasks, confirmations, and
+          short forms. Two pieces are wired up: the{" "}
+          <code className="text-wb-blue">GlassyModal</code> primitive and the
+          higher-level <code className="text-wb-blue">ConfirmDialog</code> built
+          on top of it.
         </HeroDescription>
       </section>
 
-      <section className="relative pb-12">
-        <SectionHeading>Variants</SectionHeading>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <DemoTile
-            title="Title + description"
-            description="The default header layout with a heading and supporting copy."
-            onClick={() => setOpenDemo("basic")}
-          />
-          <DemoTile
-            title="Title only"
-            description="Header collapses gracefully when description is omitted."
-            onClick={() => setOpenDemo("titleOnly")}
-          />
-          <DemoTile
-            title="No header"
-            description="Bring your own header inside children for fully custom layouts."
-            onClick={() => setOpenDemo("noHeader")}
-          />
-          <DemoTile
-            title="Rich content"
-            description="Inputs, lists, and actions composed inside the panel."
-            onClick={() => setOpenDemo("rich")}
-          />
-          <DemoTile
-            title="Confirmation flow"
-            description="Destructive action with explicit confirm/cancel buttons."
-            onClick={() => setOpenDemo("confirm")}
-          />
-          <DemoTile
-            title="Scrollable content"
-            description="Long bodies overflow the viewport — the overlay scrolls while the backdrop stays fixed."
-            onClick={() => setOpenDemo("scrollable")}
-          />
-        </div>
-      </section>
-
-      <section className="relative pb-16">
-        <SectionHeading>Max widths</SectionHeading>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {MAX_WIDTHS.map((width) => (
-            <WidthTile
-              key={width}
-              width={width}
-              onClick={() => setOpenDemo(width)}
+      <ComponentSection
+        title="GlassyModal"
+        description="The base dialog primitive. Frosted-glass panel with an animated backdrop, optional title/description (or fully custom ReactNode) header, and a built-in close button."
+      >
+        <div className="pb-12">
+          <SectionHeading>Variants</SectionHeading>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <DemoTile
+              title="Title + description"
+              description="The default header layout with a heading and supporting copy."
+              onClick={() => setOpenDemo("basic")}
             />
-          ))}
+            <DemoTile
+              title="Title only"
+              description="Header collapses gracefully when description is omitted."
+              onClick={() => setOpenDemo("titleOnly")}
+            />
+            <DemoTile
+              title="Custom header"
+              description="Pass a ReactNode via the header prop for fully custom header layouts."
+              onClick={() => setOpenDemo("noHeader")}
+            />
+            <DemoTile
+              title="Rich content"
+              description="Inputs, lists, and actions composed inside the panel."
+              onClick={() => setOpenDemo("rich")}
+            />
+            <DemoTile
+              title="Scrollable content"
+              description="Long bodies overflow the viewport — the overlay scrolls while the backdrop stays fixed."
+              onClick={() => setOpenDemo("scrollable")}
+            />
+          </div>
         </div>
-      </section>
+
+        <div>
+          <SectionHeading>Max widths</SectionHeading>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {MAX_WIDTHS.map((width) => (
+              <WidthTile
+                key={width}
+                width={width}
+                onClick={() => setOpenDemo(width)}
+              />
+            ))}
+          </div>
+        </div>
+      </ComponentSection>
+
+      <ComponentSection
+        title="ConfirmDialog"
+        description="A small, focused dialog for yes/no confirmations. Replaces window.confirm() with something that fits the rest of the UI."
+      >
+        <p className="mb-8 text-sm text-gray-400">
+          Higher-order abstraction on top of{" "}
+          <code className="text-wb-blue">GlassyModal</code> — pre-bakes the
+          title, message, cancel/confirm buttons, and an in-flight state.
+        </p>
+
+        <SectionHeading>Variants</SectionHeading>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <DemoTile
+            title="Default"
+            description="Neutral confirmation for non-destructive actions like saving changes."
+            onClick={() => setOpenDemo("confirmDefault")}
+          />
+          <DemoTile
+            title="Danger"
+            description="Red confirm button for irreversible actions like deleting an ad."
+            onClick={() => setOpenDemo("confirmDanger")}
+          />
+          <DemoTile
+            title="Async (in-flight)"
+            description="Confirm runs an awaited callback — buttons disable and the label flips to Working…"
+            onClick={() => setOpenDemo("confirmAsync")}
+          />
+        </div>
+      </ComponentSection>
 
       <GlassyModal
         isOpen={openDemo === "basic"}
@@ -185,19 +225,32 @@ export default function UiKitDemoModalPage() {
         </p>
       </GlassyModal>
 
-      <GlassyModal isOpen={openDemo === "noHeader"} onClose={close}>
-        <div className="flex items-start gap-3">
-          <div className="rounded-full bg-wb-blue/20 p-2 border border-wb-blue/40">
-            <SparklesIcon className="w-5 h-5 text-wb-blue" />
+      <GlassyModal
+        isOpen={openDemo === "noHeader"}
+        onClose={close}
+        header={
+          <div className="flex items-start gap-3">
+            <div className="rounded-full bg-wb-blue/20 p-2 border border-wb-blue/40">
+              <SparklesIcon className="w-5 h-5 text-wb-blue" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">
+                Custom header
+              </h3>
+              <p className="text-sm text-gray-400 mt-1">
+                Pass a ReactNode via the{" "}
+                <code className="text-wb-blue">header</code> prop for fully
+                custom header layouts — the close button still appears in the
+                corner.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white">Custom header</h3>
-            <p className="text-sm text-gray-400 mt-1">
-              Skip the built-in header entirely and render your own layout
-              inside children — the close button still appears in the corner.
-            </p>
-          </div>
-        </div>
+        }
+      >
+        <p className="text-sm text-gray-300">
+          Body content lives below the custom header, just like the
+          title/description variant.
+        </p>
       </GlassyModal>
 
       <GlassyModal
@@ -205,7 +258,6 @@ export default function UiKitDemoModalPage() {
         onClose={close}
         title="Voice configuration"
         description="Tune the voice used for this ad's voiceover."
-        maxWidth="xl"
       >
         <div className="space-y-4">
           <Field label="Voice name">
@@ -234,30 +286,10 @@ export default function UiKitDemoModalPage() {
       </GlassyModal>
 
       <GlassyModal
-        isOpen={openDemo === "confirm"}
-        onClose={close}
-        title="Delete this ad?"
-        description="This action is permanent. The mix, script, and assets will be removed."
-        maxWidth="sm"
-      >
-        <div className="mt-2 flex items-start gap-3 rounded-lg border border-wb-red/30 bg-wb-red/10 p-3">
-          <ExclamationTriangleIcon className="w-5 h-5 text-wb-red shrink-0 mt-0.5" />
-          <p className="text-sm text-gray-200">
-            You won't be able to recover this ad once it's deleted.
-          </p>
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <SecondaryButton onClick={close}>Cancel</SecondaryButton>
-          <DestructiveButton onClick={close}>Delete</DestructiveButton>
-        </div>
-      </GlassyModal>
-
-      <GlassyModal
         isOpen={openDemo === "scrollable"}
         onClose={close}
         title="Release notes"
         description="A taste of what scrolling looks like inside the overlay."
-        maxWidth="xl"
       >
         <div className="space-y-6">
           {RELEASE_NOTES.map((entry) => (
@@ -283,6 +315,41 @@ export default function UiKitDemoModalPage() {
         </div>
         <PrimaryActionRow onClose={close} confirmLabel="Mark as read" />
       </GlassyModal>
+
+      <ConfirmDialog
+        isOpen={openDemo === "confirmDefault"}
+        title="Save changes?"
+        message="Your edits to the script and voice configuration will be persisted to this ad's latest version."
+        confirmLabel="Save"
+        onConfirm={close}
+        onCancel={close}
+      />
+
+      <ConfirmDialog
+        isOpen={openDemo === "confirmDanger"}
+        title="Delete this ad?"
+        message={
+          <>
+            This action is permanent. The mix, script, and generated assets will
+            be removed and{" "}
+            <strong className="text-white">cannot be recovered</strong>.
+          </>
+        }
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={close}
+        onCancel={close}
+      />
+
+      <ConfirmDialog
+        isOpen={openDemo === "confirmAsync"}
+        title="Regenerate the mix?"
+        message="We'll re-run music + SFX generation and rebuild the final mix. This usually takes 10–20 seconds."
+        confirmLabel="Regenerate"
+        isConfirming={isAsyncConfirming}
+        onConfirm={handleAsyncConfirm}
+        onCancel={close}
+      />
 
       {MAX_WIDTHS.map((width) => (
         <GlassyModal
@@ -324,6 +391,29 @@ function SectionHeading({ children }: PropsWithChildren) {
     <h2 className="text-sm uppercase tracking-widest text-gray-500 mb-4">
       {children}
     </h2>
+  );
+}
+
+/** Props for {@link ComponentSection}: a top-level component section with a large heading, a supporting paragraph, and arbitrary children rendered beneath. */
+type ComponentSectionProps = PropsWithChildren<{
+  /** Large heading shown at the top of the section (e.g., a component name). */
+  title: ReactNode;
+  /** Supporting paragraph rendered under the title to summarize the component. */
+  description: ReactNode;
+}>;
+
+/** Top-level page section dedicated to a single component. Separated from the previous section by a top border so the two components are visually distinct. */
+function ComponentSection({
+  title,
+  description,
+  children,
+}: ComponentSectionProps) {
+  return (
+    <section className="relative pb-16 pt-10 border-t border-white/10">
+      <h2 className="text-3xl font-bold text-white mb-2">{title}</h2>
+      <p className="text-sm text-gray-400 mb-8 max-w-2xl">{description}</p>
+      {children}
+    </section>
   );
 }
 
@@ -399,7 +489,7 @@ function Field({ label, children }: FieldProps) {
   );
 }
 
-/** Shared props for the action buttons in this page ({@link PrimaryButton}, {@link SecondaryButton}, {@link DestructiveButton}). */
+/** Shared props for the action buttons in this page ({@link PrimaryButton}, {@link SecondaryButton}). */
 type ButtonProps = PropsWithChildren<{
   /** Invoked when the button is clicked. */
   onClick: () => void;
@@ -432,22 +522,6 @@ function SecondaryButton({ onClick, children, className }: ButtonProps) {
       onClick={onClick}
       className={twMerge(
         "rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-white/10 transition-colors",
-        className,
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** Red-tinted button used to signal an irreversible action like deletion. */
-function DestructiveButton({ onClick, children, className }: ButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={twMerge(
-        "rounded-lg bg-wb-red px-4 py-2 text-sm font-semibold text-white hover:bg-wb-red/80 transition-colors",
         className,
       )}
     >
