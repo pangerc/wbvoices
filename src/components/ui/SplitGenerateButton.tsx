@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import { useRef, useState } from "react";
 
 interface SplitGenerateButtonProps {
   onAutoGenerate: () => void;

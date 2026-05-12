@@ -28,6 +28,7 @@
  */
 
 import { getRedisV3 } from "@/lib/redis-v3";
+import { withAdLock } from "@/lib/redis/adLock";
 import {
   AD_KEYS,
   createVersion,
@@ -37,7 +38,6 @@ import {
   setActiveVersion,
   updateVersion,
 } from "@/lib/redis/versions";
-import { withAdLock } from "@/lib/redis/adLock";
 import {
   anchorFromMusicVersion,
   anchorFromSoundFxPrompt,

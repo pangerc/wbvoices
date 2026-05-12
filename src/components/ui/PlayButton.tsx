@@ -1,5 +1,4 @@
-import React from "react";
-import { PlayIcon, PauseIcon } from "@heroicons/react/24/solid";
+import { PauseIcon, PlayIcon } from "@heroicons/react/24/solid";
 
 interface PlayButtonProps {
   isPlaying: boolean;

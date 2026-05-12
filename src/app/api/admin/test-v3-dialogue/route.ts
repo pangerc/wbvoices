@@ -11,9 +11,9 @@
  * }
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { uploadVoiceToBlob } from "@/utils/blob-storage";
 import { stripElevenLabsIdSuffix } from "@/lib/providers/elevenlabsIdUtils";
+import { uploadVoiceToBlob } from "@/utils/blob-storage";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 

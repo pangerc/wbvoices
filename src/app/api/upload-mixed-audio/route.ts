@@ -1,8 +1,8 @@
 export const runtime = "nodejs";
 export const maxDuration = 60; // Allow up to 60 seconds for upload
 
-import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {

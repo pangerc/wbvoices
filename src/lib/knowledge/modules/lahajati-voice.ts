@@ -17,7 +17,7 @@
  * Arabic ad into the wooden structured mode. This module fixes that.
  */
 
-import { KnowledgeModule, KnowledgeContext } from "../types";
+import { KnowledgeContext, KnowledgeModule } from "../types";
 
 export const lahajatiVoiceModule: KnowledgeModule = {
   id: "lahajati-voice",

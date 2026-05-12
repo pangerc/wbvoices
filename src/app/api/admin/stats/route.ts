@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server";
-import { NextRequest } from "next/server";
 import { getRedis } from "@/lib/redis";
 import { getRedisV3 } from "@/lib/redis-v3";
+import { NextRequest, NextResponse } from "next/server";
 
 function parseMonth(m: string | null): {
   start: number;

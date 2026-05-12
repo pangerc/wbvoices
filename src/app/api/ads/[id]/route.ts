@@ -4,9 +4,9 @@
  * DELETE /api/ads/{adId} - Delete an ad and all associated data
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { AuthError, requireAuth, verifyAdAccess } from "@/lib/auth-helpers";
 import { deleteAd, getAdMetadata, setAdMetadata } from "@/lib/redis/versions";
-import { requireAuth, verifyAdAccess, AuthError } from "@/lib/auth-helpers";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";

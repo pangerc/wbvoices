@@ -8,15 +8,15 @@
  *   - Cache is bypassed on drafts.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createMockRedis } from "@/test/utils";
 import {
   mockAdId,
   mockVoiceTrack,
   mockVoiceVersionFrozen,
 } from "@/test/fixtures/versions";
-import type { MixerVersion, VoiceVersion } from "@/types/versions";
+import { createMockRedis } from "@/test/utils";
 import type { ProjectBrief } from "@/types";
+import type { MixerVersion, VoiceVersion } from "@/types/versions";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let mockRedis: ReturnType<typeof createMockRedis>;
 
@@ -26,7 +26,6 @@ vi.mock("../../redis-v3", () => ({
 
 import {
   createVersion,
-  getActiveVersion,
   getVersion,
   setActiveVersion,
   setAdMetadata,

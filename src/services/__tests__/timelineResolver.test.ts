@@ -1,13 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import type { AnchorEntry } from "@/types/versions";
+import { describe, expect, it, vi } from "vitest";
 import {
-  resolveTimeline,
-  getSpeedupCap,
   AUTO_SPEEDUP_CAPS,
   DEFAULT_SPEEDUP_CAP,
-  type SlotState,
+  getSpeedupCap,
+  resolveTimeline,
   type ResolverInput,
+  type SlotState,
 } from "../timelineResolver";
-import type { AnchorEntry } from "@/types/versions";
 
 // ---------- Test helpers ----------
 

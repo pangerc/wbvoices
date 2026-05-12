@@ -1,17 +1,16 @@
 "use client";
 
-import React from "react";
-import type { VoiceVersion } from "@/types/versions";
 import {
+  Tooltip,
+  TruncatedText,
   VersionIterationInput,
   VersionLineage,
-  TruncatedText,
-  Tooltip,
 } from "@/components/ui";
-import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { highlightElevenLabsTags } from "@/lib/highlightElevenLabsTags";
-import { useShallow } from "zustand/react/shallow";
+import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
+import type { VoiceVersion } from "@/types/versions";
 import { PlayIcon, StopIcon } from "@heroicons/react/24/outline";
+import { useShallow } from "zustand/react/shallow";
 
 export interface VoiceVersionContentProps {
   version: VoiceVersion;

@@ -1,5 +1,5 @@
-import { create } from "zustand";
 import { Project, ProjectBrief, ProjectMetadata } from "@/types";
+import { create } from "zustand";
 
 // Universal session ID - everyone shares the same project history for testing
 function getUserSessionId(): string {

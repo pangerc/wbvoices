@@ -1,11 +1,11 @@
 import { db } from "@/lib/db";
 import {
-  voiceMetadata,
   voiceBlacklist,
+  voiceMetadata,
   type VoiceBlacklist,
 } from "@/lib/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
 import { Language } from "@/types";
+import { and, eq, inArray } from "drizzle-orm";
 
 /**
  * Service for managing voice metadata and blacklist

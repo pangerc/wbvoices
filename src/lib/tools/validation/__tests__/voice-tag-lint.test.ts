@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { lintVoiceTracks, type LintableTrack } from "../voice-tag-lint";
 import type { Voice } from "@/types";
+import { describe, expect, it } from "vitest";
+import { lintVoiceTracks, type LintableTrack } from "../voice-tag-lint";
 
 function v(overrides: Partial<Voice> = {}): Voice {
   return {

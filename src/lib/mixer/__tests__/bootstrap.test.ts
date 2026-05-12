@@ -15,8 +15,6 @@
  *     legacy-translation path (not a parallel implementation).
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createMockRedis } from "@/test/utils";
 import {
   mockAdId,
   mockMusicVersionFrozen,
@@ -26,12 +24,14 @@ import {
   mockVoiceVersionDraft,
   mockVoiceVersionFrozen,
 } from "@/test/fixtures/versions";
+import { createMockRedis } from "@/test/utils";
 import type {
   MixerVersion,
   MusicVersion,
   SfxVersion,
   VoiceVersion,
 } from "@/types/versions";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let mockRedis: ReturnType<typeof createMockRedis>;
 

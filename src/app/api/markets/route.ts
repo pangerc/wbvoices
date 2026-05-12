@@ -23,9 +23,9 @@
  * to legacy `selectedRegion` semantics.
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-helpers";
 import { alaric, AlaricRequestError } from "@/lib/alaric-client";
+import { requireAuth } from "@/lib/auth-helpers";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 

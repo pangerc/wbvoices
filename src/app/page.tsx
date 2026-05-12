@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { generateProjectId } from "@/utils/projectId";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 export default function HomePage() {
   const router = useRouter();

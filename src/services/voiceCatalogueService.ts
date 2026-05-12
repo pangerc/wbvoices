@@ -1,9 +1,9 @@
 import { redis } from "@/lib/redis";
-import { Provider, Language } from "@/types";
-import { accentRegions, normalizeLanguageCode } from "@/utils/language";
-import { voiceMetadataService } from "./voiceMetadataService";
-import { voiceDescriptionService } from "./voiceDescriptionService";
+import { Language, Provider } from "@/types";
 import { getBlacklistLookupKeys } from "@/utils/blacklistKeys";
+import { accentRegions, normalizeLanguageCode } from "@/utils/language";
+import { voiceDescriptionService } from "./voiceDescriptionService";
+import { voiceMetadataService } from "./voiceMetadataService";
 
 // Actual provider types (excluding "any")
 type ActualProvider = Exclude<Provider, "any">;

@@ -4,10 +4,10 @@
  * POST /api/ads/{adId}/mixer/remove-stream - Remove a stream from the mixer
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { clearActiveVersion } from "@/lib/redis/versions";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
+import { clearActiveVersion } from "@/lib/redis/versions";
 import type { StreamType } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";

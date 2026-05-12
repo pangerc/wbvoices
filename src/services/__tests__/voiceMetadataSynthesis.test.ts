@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import type { UnifiedVoice } from "../voiceCatalogueService";
 import {
   synthesizeMetadata,
   voiceMatchesFilters,
 } from "../voiceMetadataSynthesis";
-import type { UnifiedVoice } from "../voiceCatalogueService";
 
 function makeVoice(overrides: Partial<UnifiedVoice> = {}): UnifiedVoice {
   return {

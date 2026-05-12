@@ -20,17 +20,22 @@
  * frozen mixer versions is intentionally unused.
  */
 
+import { bootstrapLegacyMixer } from "@/lib/mixer/bootstrap";
+import { withAdLock } from "@/lib/redis/adLock";
 import {
   createVersion,
   getActiveVersion,
+  getAdMetadata,
   getAllVersionsWithData,
   getVersion,
   setActiveVersion,
   updateVersion,
-  getAdMetadata,
 } from "@/lib/redis/versions";
-import { withAdLock } from "@/lib/redis/adLock";
-import { bootstrapLegacyMixer } from "@/lib/mixer/bootstrap";
+import {
+  resolveTimeline,
+  type ResolvedTimeline,
+  type SlotState,
+} from "@/services/timelineResolver";
 import {
   Anchor,
   CachedResolverOutput,
@@ -46,11 +51,6 @@ import {
   VersionId,
   VoiceVersion,
 } from "@/types/versions";
-import {
-  resolveTimeline,
-  type ResolvedTimeline,
-  type SlotState,
-} from "@/services/timelineResolver";
 
 /**
  * Rebuild mixer state.

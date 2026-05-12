@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
-import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
-import { MixerTrack, useMixerStore } from "@/store/mixerStore";
 import { useWaveform } from "@/hooks/useWaveform";
+import { MixerTrack, useMixerStore } from "@/store/mixerStore";
+import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 // Helper function to clean track labels
 export function cleanTrackLabel(label: string): string {

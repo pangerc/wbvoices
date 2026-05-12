@@ -4,14 +4,14 @@
  * POST /api/ads/{adId}/music/{versionId}/freeze - Freeze a music version and send to mixer
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { rebuildMixer } from "@/lib/mixer/rebuilder";
 import {
-  setActiveVersion,
   freezeVersion,
   getVersion,
+  setActiveVersion,
 } from "@/lib/redis/versions";
-import { rebuildMixer } from "@/lib/mixer/rebuilder";
 import { FreezeVersionResponse } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";

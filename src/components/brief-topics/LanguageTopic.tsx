@@ -9,15 +9,15 @@
  * duration moved out to CreativeTopic per the v4 layout spec.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useBriefOptions, useLanguageOptions } from "@/hooks/useBriefOptions";
+import type { CampaignFormat, Provider } from "@/types";
+import { getFlagCode, type Language } from "@/utils/language";
 import {
   ArrowTopRightOnSquareIcon,
   MicrophoneIcon,
 } from "@heroicons/react/24/outline";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GlassyCombobox, GlassyListbox, ProviderSelectionModal } from "../ui";
-import type { CampaignFormat, Provider } from "@/types";
-import { getFlagCode, type Language } from "@/utils/language";
-import { useBriefOptions, useLanguageOptions } from "@/hooks/useBriefOptions";
 
 export interface LanguageTopicProps {
   selectedLanguage: Language;

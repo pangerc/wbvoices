@@ -3,9 +3,9 @@
  * canonical 86-market mapping to the brief panel.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { GET } from "../route";
 import { createMockRequest } from "@/test/utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GET } from "../route";
 
 vi.mock("@/lib/auth-helpers", () => ({
   requireAuth: vi.fn(async () => ({ email: "test@alephdigital.com" })),

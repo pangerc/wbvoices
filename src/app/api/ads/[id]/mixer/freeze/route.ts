@@ -9,7 +9,6 @@
  * variant UX; for stage-8d a plain timestamp suffices if omitted.
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { getMixerState } from "@/lib/mixer/rebuilder";
 import { withAdLock } from "@/lib/redis/adLock";
 import {
@@ -18,6 +17,7 @@ import {
   updateVersion,
 } from "@/lib/redis/versions";
 import type { MixerVersion } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 

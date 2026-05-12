@@ -1,21 +1,20 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
 import { ScripterPanel } from "@/components/ScripterPanel";
-import type {
-  VoiceVersion,
-  VersionId,
-  VoiceTrackGenerationStatus,
-} from "@/types/versions";
-import type { VoiceTrack, Provider } from "@/types";
-import { generateAndPersistTrack } from "@/lib/voice-utils";
-import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
-import {
-  useVoicePlaybackState,
-  usePlaybackActions,
-} from "@/hooks/useAudioPlayback";
 import { VersionIterationInput } from "@/components/ui";
 import type { DraftState } from "@/components/ui/DraftAccordion";
+import {
+  usePlaybackActions,
+  useVoicePlaybackState,
+} from "@/hooks/useAudioPlayback";
+import { generateAndPersistTrack } from "@/lib/voice-utils";
+import type { Provider, VoiceTrack } from "@/types";
+import type {
+  VersionId,
+  VoiceTrackGenerationStatus,
+  VoiceVersion,
+} from "@/types/versions";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Migrate old format (generatedUrls[]) to new format (voiceTracks[].generatedUrl)

@@ -1,14 +1,14 @@
 "use client";
 
-import React, { ReactNode } from "react";
-import * as Accordion from "@radix-ui/react-accordion";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import type { CreatedBy, VersionId, VersionStatus } from "@/types/versions";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { EllipsisVerticalIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { DocumentDuplicateIcon } from "@heroicons/react/24/solid";
+import * as Accordion from "@radix-ui/react-accordion";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { ReactNode } from "react";
+import { RequestChangeIcon, SendToMixerIcon } from "./AccordionIcons";
 import { AccordionPlayButton } from "./AccordionPlayButton";
-import { SendToMixerIcon, RequestChangeIcon } from "./AccordionIcons";
-import type { VersionId, VersionStatus, CreatedBy } from "@/types/versions";
 
 export interface BaseVersionItem {
   id: VersionId;

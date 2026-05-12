@@ -3,17 +3,17 @@
  * POST /api/ads/[id]/mixer/rebuild
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
-import { POST } from "../route";
 import { createVersion, setActiveVersion } from "@/lib/redis/versions";
 import {
   mockAdId,
-  mockVoiceVersionDraft,
   mockMusicVersionDraft,
+  mockVoiceVersionDraft,
 } from "@/test/fixtures/versions";
 import { createMockRedis } from "@/test/utils";
-import type { VoiceVersion, MusicVersion } from "@/types/versions";
+import type { MusicVersion, VoiceVersion } from "@/types/versions";
+import { NextRequest } from "next/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { POST } from "../route";
 
 // Mock Redis V3
 vi.mock("@/lib/redis-v3", () => ({

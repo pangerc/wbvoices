@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
 import { Language } from "@/types";
+import { useEffect, useState } from "react";
 
 export type RegionConfig = {
   region: "apac" | "americas" | "europe";

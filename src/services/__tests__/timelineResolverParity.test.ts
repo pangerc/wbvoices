@@ -9,15 +9,15 @@
  * resolver swap won't regress existing ads' voice timing.
  */
 
-import { describe, it, expect } from "vitest";
+import type { MixerTrack } from "@/store/mixerStore";
+import type { AnchorEntry } from "@/types/versions";
+import { describe, expect, it } from "vitest";
+import { LegacyTimelineCalculator } from "../legacyTimelineCalculator";
 import {
   resolveTimeline,
   type ResolverInput,
   type SlotState,
 } from "../timelineResolver";
-import { LegacyTimelineCalculator } from "../legacyTimelineCalculator";
-import type { MixerTrack } from "@/store/mixerStore";
-import type { AnchorEntry } from "@/types/versions";
 
 const NATURAL_OVERLAP = 0.15; // matches LegacyTimelineCalculator's NATURAL_VOICE_OVERLAP
 

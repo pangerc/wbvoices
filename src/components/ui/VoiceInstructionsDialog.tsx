@@ -1,11 +1,11 @@
-import React, { useState, Fragment, useEffect } from "react";
-import { Dialog, Transition } from "@headlessui/react";
-import { TrashIcon } from "@heroicons/react/24/outline";
-import { Provider } from "@/types";
 import {
   getElevenLabsPresetSpeed,
   getProviderSpeedRange,
 } from "@/lib/voice-presets";
+import { Provider } from "@/types";
+import { Dialog, Transition } from "@headlessui/react";
+import { TrashIcon } from "@heroicons/react/24/outline";
+import { Fragment, useEffect, useState } from "react";
 
 // Types for Lahajati metadata
 type LahajatiDialectOption = {

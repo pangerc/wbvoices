@@ -1,5 +1,5 @@
-import useSWR from "swr";
 import type { Anchor, MixerState, SlotId } from "@/types/versions";
+import useSWR from "swr";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 

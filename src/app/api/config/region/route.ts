@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { getRegionConfig } from "@/lib/config";
+import { NextResponse } from "next/server";
 
 /**
  * API endpoint to provide region configuration to client-side components

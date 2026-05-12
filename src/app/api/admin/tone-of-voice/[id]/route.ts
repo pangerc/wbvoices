@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
 import { suggestedTonesService } from "@/services/suggestedTonesService";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   _req: NextRequest,

@@ -1,5 +1,5 @@
-import useSWR from "swr";
 import type { VersionStreamResponse } from "@/types/versions";
+import useSWR from "swr";
 
 export type StreamType = "voices" | "music" | "sfx";
 

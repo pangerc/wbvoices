@@ -23,7 +23,7 @@
  */
 
 import type { Voice } from "@/types";
-import { resolveAccentForLint, canonicalAccentTag } from "./accent-policy";
+import { canonicalAccentTag, resolveAccentForLint } from "./accent-policy";
 
 const OPENING_STACK_MAX = 8;
 

@@ -16,7 +16,7 @@
  * them, the agent doesn't need to know they will appear.
  */
 
-import { KnowledgeModule, KnowledgeContext } from "../types";
+import { KnowledgeContext, KnowledgeModule } from "../types";
 
 export const elevenlabsVoiceModule: KnowledgeModule = {
   id: "elevenlabs-voice",

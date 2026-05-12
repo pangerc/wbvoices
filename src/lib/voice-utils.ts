@@ -8,7 +8,7 @@
  * - Combined: generateAndPersistTrack() - does both
  */
 
-import type { VoiceTrack, Provider } from "@/types";
+import type { Provider, VoiceTrack } from "@/types";
 import { applyTimeStretch } from "@/utils/audio-processing";
 
 // ============ Provider Resolution ============

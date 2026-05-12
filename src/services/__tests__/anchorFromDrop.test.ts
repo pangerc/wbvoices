@@ -15,7 +15,7 @@
  *   - Zero-duration reference clip degrades gracefully.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { DropReferenceClip } from "../anchorFromDrop";
 import { anchorFromDrop } from "../anchorFromDrop";
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { reconcileSlots } from "../slotReconciliation";
 
 // Deterministic id minter for tests — produces id-0, id-1, ... in call order.

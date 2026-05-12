@@ -1,6 +1,6 @@
+import { ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 import { GlassyModal } from "./GlassyModal";
-import { ReactNode } from "react";
 
 /** Props for {@link ConfirmDialog}: controlled open state, header copy, message body, button labels/variant, and the confirm/cancel callbacks. */
 export type ConfirmDialogProps = {

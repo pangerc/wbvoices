@@ -1,39 +1,39 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Header } from "@/components/Header";
 import { MatrixBackground } from "@/components";
-import {
-  VersionAccordion,
-  DraftAccordion,
-  EmptyStreamState,
-} from "@/components/ui";
-import type { DraftState } from "@/components/ui/DraftAccordion";
-import { VoiceVersionContent } from "@/components/version-content/VoiceVersionContent";
-import { MusicVersionContent } from "@/components/version-content/MusicVersionContent";
-import { SfxVersionContent } from "@/components/version-content/SfxVersionContent";
-import { VoiceDraftEditor } from "@/components/draft-editors/VoiceDraftEditor";
-import { MusicDraftEditor } from "@/components/draft-editors/MusicDraftEditor";
-import { SfxDraftEditor } from "@/components/draft-editors/SfxDraftEditor";
 import {
   BriefPanelV4,
   type StreamUpdateEvent,
 } from "@/components/BriefPanelV4";
+import { MusicDraftEditor } from "@/components/draft-editors/MusicDraftEditor";
+import { SfxDraftEditor } from "@/components/draft-editors/SfxDraftEditor";
+import { VoiceDraftEditor } from "@/components/draft-editors/VoiceDraftEditor";
+import { Header } from "@/components/Header";
 import { MixerPanel } from "@/components/MixerPanel";
 import { PreviewPanel } from "@/components/PreviewPanel";
-import { useMixerStore } from "@/store/mixerStore";
-import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
-import { useUIStore } from "@/store/uiStore";
-import { useStreamOperations } from "@/hooks/useStreamOperations";
+import {
+  DraftAccordion,
+  EmptyStreamState,
+  VersionAccordion,
+} from "@/components/ui";
+import type { DraftState } from "@/components/ui/DraftAccordion";
+import { MusicVersionContent } from "@/components/version-content/MusicVersionContent";
+import { SfxVersionContent } from "@/components/version-content/SfxVersionContent";
+import { VoiceVersionContent } from "@/components/version-content/VoiceVersionContent";
 import { useMixerData } from "@/hooks/useMixerData";
+import { useStreamOperations } from "@/hooks/useStreamOperations";
+import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
+import { useMixerStore } from "@/store/mixerStore";
+import { useUIStore } from "@/store/uiStore";
+import type { ProjectBrief } from "@/types";
 import type {
-  VoiceVersion,
   MusicVersion,
   SfxVersion,
   VersionId,
+  VoiceVersion,
 } from "@/types/versions";
-import type { ProjectBrief } from "@/types";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 export default function AdWorkspace() {
   const params = useParams();

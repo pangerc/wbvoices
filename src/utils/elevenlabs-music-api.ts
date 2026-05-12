@@ -1,5 +1,5 @@
-import { MusicTrack } from "@/types";
 import { ErrorDetails } from "@/lib/providers/BaseAudioProvider";
+import { MusicTrack } from "@/types";
 
 interface ErrorWithDetails extends Error {
   details?: ErrorDetails;

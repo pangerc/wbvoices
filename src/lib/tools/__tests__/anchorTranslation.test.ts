@@ -1,16 +1,16 @@
-import { describe, it, expect } from "vitest";
+import type { SoundFxPrompt, VoiceTrack } from "@/types";
+import type { Anchor, MusicVersion } from "@/types/versions";
+import { describe, expect, it } from "vitest";
 import {
+  anchorFromMusicVersion,
+  anchorFromSoundFxPrompt,
+  anchorFromVoiceTrack,
   parseTrackRef,
   resolveTrackRef,
   translateAnchorInput,
-  anchorFromVoiceTrack,
-  anchorFromSoundFxPrompt,
-  anchorFromMusicVersion,
-  type OrdinalRefs,
   type AnchorInput,
+  type OrdinalRefs,
 } from "../anchorTranslation";
-import type { VoiceTrack, SoundFxPrompt } from "@/types";
-import type { MusicVersion, Anchor } from "@/types/versions";
 
 // ---------- parseTrackRef ----------
 

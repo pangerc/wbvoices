@@ -1,12 +1,11 @@
-import React from "react";
 import {
   Combobox,
-  ComboboxInput,
   ComboboxButton,
-  ComboboxOptions,
+  ComboboxInput,
   ComboboxOption,
+  ComboboxOptions,
 } from "@headlessui/react";
-import { ChevronUpDownIcon, CheckIcon } from "@heroicons/react/16/solid";
+import { CheckIcon, ChevronUpDownIcon } from "@heroicons/react/16/solid";
 
 export interface ComboboxItem<T> {
   value: T;

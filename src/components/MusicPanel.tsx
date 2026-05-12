@@ -1,23 +1,20 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
-import { MusicProvider, LibraryMusicTrack, MusicPrompts } from "@/types";
-import { migrateMusicPrompt } from "@/utils/music-prompt-validator";
+import { LibraryMusicTrack, MusicPrompts, MusicProvider } from "@/types";
+import { useParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  GlassyTextarea,
+  GenerateIcon,
+  GlassTab,
+  GlassTabBar,
+  GlassyInput,
   GlassyOptionPicker,
   GlassySlider,
-  GlassyInput,
-  ResetButton,
-  GenerateButton,
-  GlassTabBar,
-  GlassTab,
-  Tooltip,
-  GenerateIcon,
-  UploadIcon,
+  GlassyTextarea,
   LibraryIcon,
   LoadingSpinner,
+  Tooltip,
+  UploadIcon,
 } from "./ui";
 import { FileUpload, useFileUpload } from "./ui/FileUpload";
-import { useParams } from "next/navigation";
 
 type MusicMode = "generate" | "upload" | "library";
 

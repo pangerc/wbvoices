@@ -11,26 +11,26 @@
  * Redis remains source of truth - events are notifications, not state.
  */
 
-import { NextRequest } from "next/server";
-import { runAgentLoop } from "@/lib/tool-calling";
-import { getLanguageName } from "@/utils/language";
-import { internalFetch } from "@/utils/internal-fetch";
-import {
-  setAdMetadata,
-  getAdMetadata,
-  getVersion,
-  setActiveVersion,
-} from "@/lib/redis/versions";
-import { ensureAdExists } from "@/lib/redis/ensureAd";
-import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
 import {
   prefetchBriefEnrichments,
   renderEnrichmentSections,
 } from "@/lib/brief-enrichment";
-import { instructionTemplatesService } from "@/services/instructionTemplatesService";
+import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
+import { ensureAdExists } from "@/lib/redis/ensureAd";
+import {
+  getAdMetadata,
+  getVersion,
+  setActiveVersion,
+  setAdMetadata,
+} from "@/lib/redis/versions";
+import { runAgentLoop } from "@/lib/tool-calling";
+import { instructionTemplatesService } from "@/services/instructionTemplatesService";
 import type { ProjectBrief } from "@/types";
-import type { VoiceVersion, MusicVersion, SfxVersion } from "@/types/versions";
+import type { MusicVersion, SfxVersion, VoiceVersion } from "@/types/versions";
+import { internalFetch } from "@/utils/internal-fetch";
+import { getLanguageName } from "@/utils/language";
+import { NextRequest } from "next/server";
 
 /**
  * Extract brand name from client description for fallback ad title.

@@ -1,5 +1,3 @@
-import React from "react";
-
 interface AutoModeToggleProps {
   enabled: boolean;
   onChange: (enabled: boolean) => void;

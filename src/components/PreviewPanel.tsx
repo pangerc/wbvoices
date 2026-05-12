@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import Image from "next/image";
-import { GlassyInput, GenerateButton } from "./ui";
-import { FileUpload, useFileUpload } from "./ui/FileUpload";
-import { SpotifyPreview } from "./SpotifyPreview";
 import { useMixerStore } from "@/store/mixerStore";
+import Image from "next/image";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { SpotifyPreview } from "./SpotifyPreview";
+import { GenerateButton, GlassyInput } from "./ui";
+import { FileUpload, useFileUpload } from "./ui/FileUpload";
 
 interface PreviewPanelProps {
   projectId?: string;

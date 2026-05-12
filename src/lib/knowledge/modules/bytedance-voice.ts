@@ -6,7 +6,7 @@
  * - voiceInstructions mapped to context_texts (free-text style direction)
  */
 
-import { KnowledgeModule, KnowledgeContext } from "../types";
+import { KnowledgeContext, KnowledgeModule } from "../types";
 
 export const bytedanceVoiceModule: KnowledgeModule = {
   id: "bytedance-voice",

@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
-import { voiceCatalogue } from "@/services/voiceCatalogueService";
 import { redis } from "@/lib/redis";
+import { voiceCatalogue } from "@/services/voiceCatalogueService";
+import { NextResponse } from "next/server";
 
 export async function GET() {
   try {

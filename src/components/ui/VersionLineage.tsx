@@ -7,8 +7,6 @@
 
 "use client";
 
-import React from "react";
-
 interface VersionLineageProps {
   requestText?: string;
   parentVersionId?: string;

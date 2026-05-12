@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getRedisV3 } from "@/lib/redis-v3";
-import { getVersion, AD_KEYS } from "@/lib/redis/versions";
-import { internalFetch, getBaseUrl } from "@/utils/internal-fetch";
-import type { MusicVersion } from "@/types/versions";
+import { AD_KEYS, getVersion } from "@/lib/redis/versions";
 import type { MusicProvider } from "@/types";
+import type { MusicVersion } from "@/types/versions";
+import { getBaseUrl, internalFetch } from "@/utils/internal-fetch";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   request: NextRequest,

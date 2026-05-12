@@ -6,17 +6,17 @@
  * - POST: Create a new pronunciation dictionary
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { getRedis } from "@/lib/redis";
+import { PronunciationDictionary, PronunciationRule } from "@/types";
 import {
+  PronunciationRule as ApiPronunciationRule,
   createDictionary,
   listDictionaries,
-  PronunciationRule as ApiPronunciationRule,
-  PronunciationRuleType,
   PhoneticAlphabet,
+  PronunciationRuleType,
   validateRules,
 } from "@/utils/elevenlabs-pronunciation";
-import { PronunciationDictionary, PronunciationRule } from "@/types";
-import { getRedis } from "@/lib/redis";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 

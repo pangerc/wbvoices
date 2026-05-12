@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
 import { voiceDescriptionService } from "@/services/voiceDescriptionService";
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Debug endpoint to check specific voice descriptions in the database
