@@ -1,5 +1,6 @@
 import { ProjectBrief } from "@/types";
 import {
+  ArrowRightIcon,
   ChatBubbleOvalLeftEllipsisIcon,
   ClockIcon,
   DocumentDuplicateIcon,
@@ -225,12 +226,32 @@ export function HistoryDrawer({
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — also hosts the call-to-action hint so first-time users
+          immediately notice the drawer is where they need to act. The hint is
+          right-aligned with padding ≈ drawer width and `pointer-events-none`
+          so clicks still pass through to dismiss. Hidden on mobile (drawer
+          takes the full screen). */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300"
           onClick={onClose}
-        />
+        >
+          {activeTab === "ads" && ads.length > 0 && (
+            <div className="pointer-events-none hidden sm:flex absolute inset-0 items-center justify-end pr-[26rem]">
+              <div className="flex items-center gap-4 text-white/45 max-w-md">
+                <p className="text-2xl font-medium leading-snug text-right">
+                  Click an ad in the sidebar
+                  <br />
+                  to view its details
+                </p>
+                <ArrowRightIcon
+                  className="w-10 h-10 shrink-0 animate-pulse"
+                  strokeWidth={1.5}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Drawer */}
@@ -431,6 +452,7 @@ export function HistoryDrawer({
                   ))}
                 </div>
               )}
+
             </>
           )}
 
