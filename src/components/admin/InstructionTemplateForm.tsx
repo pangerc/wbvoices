@@ -15,25 +15,41 @@ import { GlassyInput } from "@/components/ui/GlassyInput";
 import { GlassyTextarea } from "@/components/ui/GlassyTextarea";
 import { GlassyListbox } from "@/components/ui/GlassyListbox";
 import { Switch } from "@/components/ui/Switch";
+import {
+  CATEGORIES,
+  PACINGS,
+  type TemplateCategory,
+  type TemplatePacing,
+} from "@/lib/instructionTemplateValidation";
 
-export type TemplateCategory =
-  | "duration"
-  | "audience"
-  | "experience"
-  | "general";
-export type TemplatePacing = "" | "fast" | "normal";
+// Form-only union: "" represents the "no default" UI state, normalised to
+// null on submit. The server type stays as `TemplatePacing` (no empty).
+export type TemplatePacingFormValue = TemplatePacing | "";
 
-const CATEGORY_OPTIONS: { value: TemplateCategory; label: string }[] = [
-  { value: "duration", label: "Duration" },
-  { value: "audience", label: "Audience" },
-  { value: "experience", label: "Experience" },
-  { value: "general", label: "General" },
-];
+// Re-export so existing consumers (edit page) don't change their import path.
+export type { TemplateCategory };
 
-const PACING_OPTIONS: { value: TemplatePacing; label: string }[] = [
+// Labels are UI-only — runtime allowlist lives in the validation module.
+// Using `Record<TemplateCategory, ...>` makes a missing label a compile error
+// if CATEGORIES gains a new entry without the form being updated.
+const CATEGORY_LABELS: Record<TemplateCategory, string> = {
+  duration: "Duration",
+  audience: "Audience",
+  experience: "Experience",
+  general: "General",
+};
+const CATEGORY_OPTIONS = CATEGORIES.map((value) => ({
+  value,
+  label: CATEGORY_LABELS[value],
+}));
+
+const PACING_LABELS: Record<TemplatePacing, string> = {
+  fast: "Fast",
+  normal: "Normal",
+};
+const PACING_OPTIONS: { value: TemplatePacingFormValue; label: string }[] = [
   { value: "", label: "No default — keep brief's pacing" },
-  { value: "fast", label: "Fast" },
-  { value: "normal", label: "Normal" },
+  ...PACINGS.map((value) => ({ value, label: PACING_LABELS[value] })),
 ];
 
 // Mirrors src/lib/document-extraction.ts limits — keep them in sync.
@@ -48,7 +64,7 @@ export type InstructionTemplateFormInitial = {
   category: TemplateCategory;
   systemInstructions: string;
   exampleOutput: string;
-  defaultPacing: TemplatePacing;
+  defaultPacing: TemplatePacingFormValue;
   defaultCta: string;
   defaultDurationSeconds: number | null;
   defaultMusicStyle: string;
@@ -76,7 +92,7 @@ export function InstructionTemplateForm({
   const [exampleOutput, setExampleOutput] = useState(
     initial?.exampleOutput ?? "",
   );
-  const [defaultPacing, setDefaultPacing] = useState<TemplatePacing>(
+  const [defaultPacing, setDefaultPacing] = useState<TemplatePacingFormValue>(
     initial?.defaultPacing ?? "",
   );
   const [defaultCta, setDefaultCta] = useState(initial?.defaultCta ?? "");
@@ -425,7 +441,7 @@ export function InstructionTemplateForm({
             <GlassyListbox
               label="Default pacing"
               value={defaultPacing}
-              onChange={(v) => setDefaultPacing(v as TemplatePacing)}
+              onChange={(v) => setDefaultPacing(v as TemplatePacingFormValue)}
               options={PACING_OPTIONS}
             />
           </div>

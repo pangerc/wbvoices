@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import type {
   InstructionTemplateFormInitial,
   TemplateCategory,
-  TemplatePacing,
+  TemplatePacingFormValue,
 } from "@/components/admin/InstructionTemplateForm";
 
 const InstructionTemplateForm = dynamic(
@@ -39,7 +39,7 @@ export default function EditInstructionTemplatePage({
         const data = await res.json();
         if (abortController.signal.aborted) return;
         const rawPacing = data.template.defaultPacing ?? "";
-        const pacing: TemplatePacing =
+        const pacing: TemplatePacingFormValue =
           rawPacing === "fast" || rawPacing === "normal" ? rawPacing : "";
         setInitial({
           id: data.template.id,
