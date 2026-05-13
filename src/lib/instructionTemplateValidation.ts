@@ -3,13 +3,24 @@
 // the category/pacing/duration contracts can't drift between create and
 // update.
 
-export const ALLOWED_CATEGORIES = new Set([
+// The literal tuples below are the single source of truth for the runtime
+// allowlist (used by API validators) AND the TS union (used by the admin
+// form + edit page). Adding a value here propagates to both sides at
+// compile time — no chance for the form options and the server allowlist
+// to drift apart.
+export const CATEGORIES = [
   "duration",
   "audience",
   "experience",
   "general",
-]);
-export const ALLOWED_PACINGS = new Set(["fast", "normal"]);
+] as const;
+export type TemplateCategory = (typeof CATEGORIES)[number];
+export const ALLOWED_CATEGORIES = new Set<string>(CATEGORIES);
+
+export const PACINGS = ["fast", "normal"] as const;
+export type TemplatePacing = (typeof PACINGS)[number];
+export const ALLOWED_PACINGS = new Set<string>(PACINGS);
+
 export const MAX_DURATION_SECONDS = 600;
 export const MAX_TEXT_FIELD_CHARS = 2000;
 

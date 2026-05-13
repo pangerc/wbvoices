@@ -42,6 +42,12 @@ export default function UiKitDemoPage() {
             title="Modals"
             description="Dialogs, drawers, and confirmation flows."
           />
+          <DemoLinkCard
+            href="/ui-kit-demo/creative-templates"
+            kicker="Brief panel"
+            title="Creative Templates"
+            description="Card grid for picking a creative-strategy preset. Empty, compact, and many-items states."
+          />
           <ComingSoonCard
             title="More demos"
             description="Buttons, inputs, timeline tracks, and the rest of the kit will land here."

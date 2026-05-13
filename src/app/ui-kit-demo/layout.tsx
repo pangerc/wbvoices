@@ -17,6 +17,7 @@ type Page = {
 const pages: Page[] = [
   { title: "Home", href: "/ui-kit-demo" },
   { title: "Modals", href: "/ui-kit-demo/modals" },
+  { title: "Creative Templates", href: "/ui-kit-demo/creative-templates" },
 ];
 
 /** Layout for the UI Kit demo section: fixed left sidebar with the page list, scrollable main content on the right. */
