@@ -6,11 +6,11 @@
  * DELETE /api/ads/{adId}/voices/{versionId} - Delete version
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { getVersion, deleteVersion, AD_KEYS } from "@/lib/redis/versions";
-import { getRedisV3 } from "@/lib/redis-v3";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
+import { getRedisV3 } from "@/lib/redis-v3";
+import { AD_KEYS, deleteVersion, getVersion } from "@/lib/redis/versions";
 import type { VoiceVersion } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";

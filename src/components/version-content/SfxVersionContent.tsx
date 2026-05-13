@@ -1,7 +1,6 @@
-import React from "react";
-import type { SfxVersion } from "@/types/versions";
-import type { SoundFxPlacementIntent } from "@/types";
 import { VersionIterationInput, VersionLineage } from "@/components/ui";
+import type { SoundFxPlacementIntent } from "@/types";
+import type { SfxVersion } from "@/types/versions";
 
 export interface SfxVersionContentProps {
   version: SfxVersion;

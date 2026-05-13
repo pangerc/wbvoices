@@ -1,11 +1,11 @@
-import { useStreamData, type StreamType } from "./useStreamData";
-import { mutate as globalMutate } from "swr";
 import type {
-  VoiceVersion,
   MusicVersion,
   SfxVersion,
   VersionId,
+  VoiceVersion,
 } from "@/types/versions";
+import { mutate as globalMutate } from "swr";
+import { useStreamData, type StreamType } from "./useStreamData";
 
 /**
  * Parameterized hook for stream CRUD operations.

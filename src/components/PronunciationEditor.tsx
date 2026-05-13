@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { TrashIcon } from "@heroicons/react/24/outline";
 import { PronunciationRule } from "@/types";
+import { TrashIcon } from "@heroicons/react/24/outline";
+import React, { useEffect, useState } from "react";
 
 const DICTIONARY_NAME = "Global Brand Pronunciations";
 const STORAGE_KEY = "pronunciation_rules";

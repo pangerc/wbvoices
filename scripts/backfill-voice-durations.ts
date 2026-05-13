@@ -26,7 +26,7 @@ import { config } from "dotenv";
 import * as mm from "music-metadata";
 import { getRedisV3 } from "../src/lib/redis-v3";
 import { AD_KEYS } from "../src/lib/redis/versions";
-import type { VoiceVersion, VersionId } from "../src/types/versions";
+import type { VersionId, VoiceVersion } from "../src/types/versions";
 
 config();
 

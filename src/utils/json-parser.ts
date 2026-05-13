@@ -1,5 +1,5 @@
-import { VoiceTrack, MusicPrompts, SoundFxPlacementIntent } from "@/types";
 import type { SoundFxPrompt } from "@/types";
+import { MusicPrompts, SoundFxPlacementIntent, VoiceTrack } from "@/types";
 
 // Define interfaces for the JSON structure
 interface ScriptVoiceItem {

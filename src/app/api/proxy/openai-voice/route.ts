@@ -1,8 +1,8 @@
 export const runtime = "edge";
 
-import { NextRequest, NextResponse } from "next/server";
-import { createProvider } from "@/lib/providers";
 import { getRegionConfig } from "@/lib/config";
+import { createProvider } from "@/lib/providers";
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Americas Proxy Server for OpenAI Voice Generation

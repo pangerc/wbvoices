@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getRedisV3 } from "@/lib/redis-v3";
-import { getVersion, AD_KEYS } from "@/lib/redis/versions";
+import { AD_KEYS, getVersion } from "@/lib/redis/versions";
 import type { VoiceVersion } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   request: NextRequest,

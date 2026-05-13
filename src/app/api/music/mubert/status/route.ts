@@ -1,7 +1,7 @@
 export const runtime = "edge";
 
-import { NextRequest, NextResponse } from "next/server";
 import { createProvider } from "@/lib/providers";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   const provider = createProvider("music", "mubert");

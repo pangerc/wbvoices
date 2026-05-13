@@ -6,13 +6,13 @@
 
 import { config } from "dotenv";
 import { getRedisV3 } from "../src/lib/redis-v3";
-import { generateProjectId } from "../src/utils/projectId";
+import type { Voice } from "../src/types";
 import type {
-  VoiceVersion,
   MusicVersion,
   SfxVersion,
+  VoiceVersion,
 } from "../src/types/versions";
-import type { Voice } from "../src/types";
+import { generateProjectId } from "../src/utils/projectId";
 
 config();
 

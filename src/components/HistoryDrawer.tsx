@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useAuth } from "./AuthProvider";
-import { signOut } from "next-auth/react";
-import { formatDistanceToNow } from "date-fns";
-import {
-  XMarkIcon,
-  ClockIcon,
-  TrashIcon,
-  PencilSquareIcon,
-  DocumentDuplicateIcon,
-  ChatBubbleOvalLeftEllipsisIcon,
-} from "@heroicons/react/24/outline";
-import { DuplicateAdPopup } from "./DuplicateAdPopup";
 import { ProjectBrief } from "@/types";
+import {
+  ChatBubbleOvalLeftEllipsisIcon,
+  ClockIcon,
+  DocumentDuplicateIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+import { formatDistanceToNow } from "date-fns";
+import { signOut } from "next-auth/react";
+import React, { useEffect, useRef, useState } from "react";
+import { useAuth } from "./AuthProvider";
+import { DuplicateAdPopup } from "./DuplicateAdPopup";
 
 export type Ad = {
   adId: string;

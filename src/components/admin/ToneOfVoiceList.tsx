@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { PencilIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { SuggestedTone } from "@/lib/db/schema";
+import { PencilIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 type ApiTone = Omit<SuggestedTone, "createdAt" | "updatedAt"> & {
   createdAt: string;

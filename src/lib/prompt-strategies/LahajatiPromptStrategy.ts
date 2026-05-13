@@ -1,5 +1,5 @@
+import { CampaignFormat, Voice } from "@/types";
 import { BasePromptStrategy, PromptContext } from "./BasePromptStrategy";
-import { Voice, CampaignFormat } from "@/types";
 
 /**
  * Lahajati Strategy - Arabic TTS specialist with dialect and performance style control

@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
+import { NextResponse } from "next/server";
 
 // Use Node.js runtime for proper Redis access
 // export const runtime = 'edge'; // REMOVED - Edge Runtime causes env var issues

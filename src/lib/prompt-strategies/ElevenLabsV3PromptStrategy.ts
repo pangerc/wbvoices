@@ -1,5 +1,5 @@
+import { CampaignFormat, Voice } from "@/types";
 import { BasePromptStrategy, PromptContext } from "./BasePromptStrategy";
-import { Voice, CampaignFormat } from "@/types";
 
 /**
  * ElevenLabs V3 Strategy - Combines baseline tone presets with emotional tags

@@ -1,14 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { TrashIcon, PlayIcon } from "@heroicons/react/24/outline";
-import { SoundFxPrompt, SoundFxPlacementIntent } from "@/types";
-import {
-  GlassyTextarea,
-  GlassySlider,
-  GlassyListbox,
-  ResetButton,
-  GenerateButton,
-  Tooltip,
-} from "./ui";
+import { SoundFxPlacementIntent, SoundFxPrompt } from "@/types";
+import { PlayIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { useEffect, useState } from "react";
+import { GlassyListbox, GlassySlider, GlassyTextarea, Tooltip } from "./ui";
 
 type VoiceTrackPreview = {
   name: string;

@@ -9,11 +9,11 @@
  * - parentVersionId: version being iterated from (for lineage tracking)
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { continueConversation } from "@/lib/tool-calling";
 import { hasConversation } from "@/lib/redis/conversation";
-import { updateVersionMetadata, setActiveVersion } from "@/lib/redis/versions";
+import { setActiveVersion, updateVersionMetadata } from "@/lib/redis/versions";
+import { continueConversation } from "@/lib/tool-calling";
 import type { ContentStreamType } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 const STREAM_NAMES: Record<ContentStreamType, string> = {
   voices: "VOICE",

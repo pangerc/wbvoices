@@ -12,19 +12,19 @@
  *   - Volumes survive a subsequent read — the UI's slider state round-trips.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createMockRedis } from "@/test/utils";
 import {
   mockAdId,
   mockMusicVersionFrozen,
   mockVoiceTrack,
   mockVoiceVersionFrozen,
 } from "@/test/fixtures/versions";
+import { createMockRedis } from "@/test/utils";
 import type {
   MixerVersion,
   MusicVersion,
   VoiceVersion,
 } from "@/types/versions";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let mockRedis: ReturnType<typeof createMockRedis>;
 

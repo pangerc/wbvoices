@@ -1,12 +1,12 @@
 import {
+  boolean,
+  index,
+  integer,
   pgTable,
-  uuid,
+  primaryKey,
   text,
   timestamp,
-  integer,
-  index,
-  primaryKey,
-  boolean,
+  uuid,
 } from "drizzle-orm/pg-core";
 
 /**

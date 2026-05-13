@@ -19,9 +19,9 @@
  * ByteDance emotion tag) and the caller must skip pass-2 for them.
  */
 
-import OpenAI from "openai";
-import type { Voice } from "@/types";
 import type { KnowledgeContext } from "@/lib/knowledge/types";
+import type { Voice } from "@/types";
+import OpenAI from "openai";
 import { resolveAccentForLint } from "./accent-policy";
 
 export interface TagWeaverOptions {

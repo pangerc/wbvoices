@@ -1,17 +1,17 @@
 "use client";
 
-import * as Accordion from "@radix-ui/react-accordion";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import {
-  EllipsisVerticalIcon,
   DocumentPlusIcon,
+  EllipsisVerticalIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { LockClosedIcon } from "@heroicons/react/24/solid";
+import * as Accordion from "@radix-ui/react-accordion";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { RequestChangeIcon, SendToMixerIcon } from "./AccordionIcons";
 import { AccordionPlayButton } from "./AccordionPlayButton";
 import { Tooltip } from "./Tooltip";
-import { SendToMixerIcon, RequestChangeIcon } from "./AccordionIcons";
 
 export type DraftState = "editing" | "changed" | "ready" | "generating";
 

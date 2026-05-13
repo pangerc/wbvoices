@@ -1,8 +1,7 @@
-import React from "react";
-import Image from "next/image";
-import { GlassTabBar, GlassTab } from "./ui";
-import { HistoryDrawer, useHistoryDrawer } from "./HistoryDrawer";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
+import Image from "next/image";
+import { HistoryDrawer, useHistoryDrawer } from "./HistoryDrawer";
+import { GlassTab, GlassTabBar } from "./ui";
 
 type HeaderProps = {
   selectedTab: number;

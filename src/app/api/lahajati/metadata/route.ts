@@ -3,13 +3,13 @@
  * Returns dialects and performance styles for UI dropdowns and LLM context
  */
 
-import { NextResponse } from "next/server";
 import {
-  lahajatiDialectService,
   ArabicDialect,
+  lahajatiDialectService,
 } from "@/services/lahajatiDialectService";
 import { lahajatiPerformanceService } from "@/services/lahajatiPerformanceService";
 import { LahajatiPerformance } from "@/services/voiceProviderService";
+import { NextResponse } from "next/server";
 
 // English translations for common Arabic dialect suffixes
 const DIALECT_EN_MAP: Record<string, string> = {

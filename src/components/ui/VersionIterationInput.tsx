@@ -7,8 +7,8 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
 import type { StreamType } from "@/types/versions";
+import React, { useEffect, useRef, useState } from "react";
 import { GlassyModal } from "./GlassyModal";
 
 // AI Redo Spark icon for "Request a change"

@@ -1,8 +1,8 @@
 export const runtime = "edge";
 
-import { NextRequest } from "next/server";
 import { createProvider } from "@/lib/providers";
 import { listDictionaries } from "@/utils/elevenlabs-pronunciation";
+import { NextRequest } from "next/server";
 
 const GLOBAL_DICTIONARY_NAME = "Global Brand Pronunciations";
 

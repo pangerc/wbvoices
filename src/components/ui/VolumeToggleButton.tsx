@@ -1,5 +1,3 @@
-import React from "react";
-
 interface VolumeToggleButtonProps {
   isOpen: boolean;
   onClick: () => void;

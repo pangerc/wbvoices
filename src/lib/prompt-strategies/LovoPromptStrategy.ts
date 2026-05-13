@@ -1,5 +1,5 @@
+import { CampaignFormat, Voice } from "@/types";
 import { BasePromptStrategy, PromptContext } from "./BasePromptStrategy";
-import { Voice, CampaignFormat } from "@/types";
 
 /**
  * Lovo Strategy - Style is baked into voice selection (e.g., "Ava (Cheerful)" vs "Ava (Serious)")

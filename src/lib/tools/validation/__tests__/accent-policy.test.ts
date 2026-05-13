@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { resolveAccentForLint, canonicalAccentTag } from "../accent-policy";
+import { describe, expect, it } from "vitest";
+import { canonicalAccentTag, resolveAccentForLint } from "../accent-policy";
 
 describe("resolveAccentForLint", () => {
   it("returns lowercase accent for real names", () => {

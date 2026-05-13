@@ -22,9 +22,9 @@
  */
 
 import type {
-  VoiceTrack,
-  SoundFxPrompt,
   SoundFxPlacementIntent,
+  SoundFxPrompt,
+  VoiceTrack,
 } from "@/types";
 import type { Anchor, MusicVersion } from "@/types/versions";
 

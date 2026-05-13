@@ -1,10 +1,10 @@
 import { db } from "@/lib/db";
 import {
   instructionTemplates,
-  type InstructionTemplate,
   type InsertInstructionTemplate,
+  type InstructionTemplate,
 } from "@/lib/db/schema";
-import { eq, asc, desc } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 
 export type InstructionTemplateInput = Pick<
   InsertInstructionTemplate,

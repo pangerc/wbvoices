@@ -1,5 +1,3 @@
-import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 import {
   extractTextFromFile,
   FileTooLargeError,
@@ -8,6 +6,8 @@ import {
   UnsupportedFormatError,
   type ExtractionResult,
 } from "@/lib/document-extraction";
+import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 
 // nodejs runtime is load-bearing: mammoth/pdf-parse/xlsx are CJS and won't
 // run on Edge.

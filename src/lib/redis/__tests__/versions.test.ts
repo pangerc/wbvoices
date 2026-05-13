@@ -2,29 +2,29 @@
  * Tests for Redis version management operations
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  createVersion,
-  getVersion,
-  listVersions,
-  getAllVersionsWithData,
-  getActiveVersion,
-  setActiveVersion,
-  freezeVersion,
-  updateVersion,
-  deleteVersion,
-  setAdMetadata,
-  getAdMetadata,
-  AD_KEYS,
-} from "../versions";
-import {
-  mockVoiceVersionDraft,
+  mockAdId,
   mockMusicVersionDraft,
   mockSfxVersionDraft,
-  mockAdId,
+  mockVoiceVersionDraft,
 } from "@/test/fixtures/versions";
 import { createMockRedis } from "@/test/utils";
 import type { AdMetadata, VoiceVersion } from "@/types/versions";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  AD_KEYS,
+  createVersion,
+  deleteVersion,
+  freezeVersion,
+  getActiveVersion,
+  getAdMetadata,
+  getAllVersionsWithData,
+  getVersion,
+  listVersions,
+  setActiveVersion,
+  setAdMetadata,
+  updateVersion,
+} from "../versions";
 
 // Mock the Redis V3 module
 vi.mock("../../redis-v3", () => ({

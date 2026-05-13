@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
-import { voiceDescriptionService } from "@/services/voiceDescriptionService";
 import descriptions from "@/../data/voice-descriptions.json";
+import { voiceDescriptionService } from "@/services/voiceDescriptionService";
+import { NextResponse } from "next/server";
 
 /**
  * Admin API for importing voice descriptions from scraped data

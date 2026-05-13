@@ -29,18 +29,18 @@
  * brand entry, not blocked.
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, AuthError } from "@/lib/auth-helpers";
 import {
   alaric,
   AlaricRequestError,
   type BrandDossier,
   type SfAccountSearchResult,
 } from "@/lib/alaric-client";
+import { AuthError, requireAuth } from "@/lib/auth-helpers";
 import { getRedisV3 } from "@/lib/redis-v3";
 import { getAdMetadataBatch } from "@/lib/redis/versions";
 import type { BrandRef, ProjectBrief } from "@/types";
 import type { AdMetadata } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 

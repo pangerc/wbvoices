@@ -1,25 +1,19 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useRef,
-} from "react";
-import { useParams, useRouter } from "next/navigation";
 import {
   CampaignFormat,
-  SoundFxPrompt,
-  ProjectBrief,
-  MusicProvider,
-  MusicPrompts,
-  VoiceTrack,
   Language,
-  Voice,
-  Provider,
+  MusicPrompts,
+  MusicProvider,
   Pacing,
+  ProjectBrief,
+  Provider,
+  SoundFxPrompt,
+  Voice,
+  VoiceTrack,
 } from "@/types";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // Type for LLM response data that needs to be saved
 type LLMResponseData = {
@@ -51,23 +45,23 @@ function migrateSoundFxData(project: {
 }
 
 import {
-  ScripterPanel,
+  MatrixBackground,
   MixerPanel,
   MusicPanel,
-  SoundFxPanel,
   PreviewPanel,
-  MatrixBackground,
+  ScripterPanel,
+  SoundFxPanel,
 } from "@/components";
 import { BriefPanelV3 } from "@/components/BriefPanelV3";
 import { Header } from "@/components/Header";
-import { useMixerStore } from "@/store/mixerStore";
-import { useVoiceManagerV2 } from "@/hooks/useVoiceManagerV2";
 import { useFormManager } from "@/hooks/useFormManager";
-import { useProjectHistoryStore } from "@/store/projectHistoryStore";
-import { AudioService } from "@/services/audioService";
-import { generateProjectId } from "@/utils/projectId";
-import { hasRegionalAccents, getLanguageRegions } from "@/utils/language";
+import { useVoiceManagerV2 } from "@/hooks/useVoiceManagerV2";
 import { ErrorDetails } from "@/lib/providers/BaseAudioProvider";
+import { AudioService } from "@/services/audioService";
+import { useMixerStore } from "@/store/mixerStore";
+import { useProjectHistoryStore } from "@/store/projectHistoryStore";
+import { getLanguageRegions, hasRegionalAccents } from "@/utils/language";
+import { generateProjectId } from "@/utils/projectId";
 
 export default function ProjectWorkspace() {
   const params = useParams();

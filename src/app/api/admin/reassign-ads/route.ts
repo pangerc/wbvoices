@@ -12,10 +12,10 @@
  * - owner: filter by current owner (defaults to "universal-session")
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { getRedisV3 } from "@/lib/redis-v3";
 import { getAdMetadataBatch, setAdMetadata } from "@/lib/redis/versions";
 import type { AdMetadata } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 

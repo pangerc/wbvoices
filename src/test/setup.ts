@@ -3,7 +3,7 @@
  * Runs before all tests
  */
 
-import { beforeAll, afterEach, afterAll } from "vitest";
+import { afterAll, afterEach, beforeAll } from "vitest";
 import { server } from "./mocks/server";
 
 // Start MSW server before all tests

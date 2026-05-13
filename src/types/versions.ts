@@ -6,17 +6,17 @@
  * version history with active pointers.
  */
 
+import type { KnowledgeContext } from "@/lib/knowledge/types";
 import {
-  VoiceTrack,
   MusicPrompts,
   MusicProvider,
-  SoundFxPrompt,
   ProjectBrief,
+  SoundFxPrompt,
+  VoiceTrack,
 } from "./index";
-import type { KnowledgeContext } from "@/lib/knowledge/types";
 
 // Re-export types needed by tests
-export type { VoiceTrack, SoundFxPrompt };
+export type { SoundFxPrompt, VoiceTrack };
 
 // ============ Version Identifiers ============
 

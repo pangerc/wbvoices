@@ -10,8 +10,8 @@
  *   npx tsx scripts/import-voice-descriptions.ts
  */
 
-import "dotenv/config";
 import { voiceDescriptionService } from "@/services/voiceDescriptionService";
+import "dotenv/config";
 import descriptions from "../data/voice-descriptions.json";
 
 async function importDescriptions() {

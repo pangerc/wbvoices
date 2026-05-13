@@ -5,7 +5,7 @@
  * Defaults to full context when unsure.
  */
 
-import { IntentType, IntentScores } from "./types";
+import { IntentScores, IntentType } from "./types";
 
 const INTENT_KEYWORDS: Record<keyof IntentScores, string[]> = {
   voice_edit: [
