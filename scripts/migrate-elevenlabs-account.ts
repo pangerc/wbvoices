@@ -16,12 +16,12 @@
  *   pnpm tsx scripts/migrate-elevenlabs-account.ts [--dry-run]
  */
 
+import { db } from "@/lib/db";
+import { voiceBlacklist, voiceDescriptions } from "@/lib/db/schema";
 import "dotenv/config";
+import { sql } from "drizzle-orm";
 import fs from "node:fs";
 import path from "node:path";
-import { sql } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { voiceDescriptions, voiceBlacklist } from "@/lib/db/schema";
 
 type ElevenVoice = {
   voice_id: string;

@@ -1,5 +1,3 @@
-import { NextRequest, NextResponse } from "next/server";
-import { instructionTemplatesService } from "@/services/instructionTemplatesService";
 import {
   ALLOWED_CATEGORIES,
   isValidationError,
@@ -7,6 +5,8 @@ import {
   normaliseDefaultPacing,
   normaliseOptionalText,
 } from "@/lib/instructionTemplateValidation";
+import { instructionTemplatesService } from "@/services/instructionTemplatesService";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   _req: NextRequest,

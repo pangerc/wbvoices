@@ -1,5 +1,5 @@
+import { SoundFxPrompt, VoiceTrack } from "@/types";
 import { useState } from "react";
-import { VoiceTrack, SoundFxPrompt } from "@/types";
 
 export interface Track {
   url: string;

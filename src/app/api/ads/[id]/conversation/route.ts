@@ -5,8 +5,8 @@
  * Filters out system prompts, tool results, and empty assistant messages.
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { getConversation } from "@/lib/redis/conversation";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   req: NextRequest,

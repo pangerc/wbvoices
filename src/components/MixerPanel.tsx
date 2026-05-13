@@ -1,13 +1,13 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import { createMix, TrackTiming } from "@/utils/audio-mixer";
-import { useMixerStore, MixerTrack } from "@/store/mixerStore";
-import { useMixerData } from "@/hooks/useMixerData";
-import { TimelineTrack, TimelineTrackData } from "@/components/TimelineTrack";
-import { ResetButton } from "@/components/ui/ResetButton";
-import { PlayButton } from "@/components/ui/PlayButton";
 import { LoudnessMeter } from "@/components/LoudnessMeter";
-import { useParams } from "next/navigation";
+import { TimelineTrack, TimelineTrackData } from "@/components/TimelineTrack";
+import { PlayButton } from "@/components/ui/PlayButton";
+import { ResetButton } from "@/components/ui/ResetButton";
+import { useMixerData } from "@/hooks/useMixerData";
+import { MixerTrack, useMixerStore } from "@/store/mixerStore";
+import { createMix, TrackTiming } from "@/utils/audio-mixer";
 import { uploadMixedAudioToBlob } from "@/utils/blob-storage";
+import { useParams } from "next/navigation";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 type MixerPanelProps = {
   isGeneratingVoice?: boolean;

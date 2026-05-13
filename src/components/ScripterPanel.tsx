@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from "react";
-import { PlayIcon, StopIcon } from "@heroicons/react/24/solid";
-import { Cog6ToothIcon } from "@heroicons/react/24/outline";
-import { Voice, VoiceTrack, Provider } from "@/types";
-import type { VoiceTrackGenerationStatus } from "@/types/versions";
 import { getEffectiveProvider } from "@/lib/voice-utils";
+import { Provider, Voice, VoiceTrack } from "@/types";
+import type { VoiceTrackGenerationStatus } from "@/types/versions";
+import { Cog6ToothIcon } from "@heroicons/react/24/outline";
+import { PlayIcon, StopIcon } from "@heroicons/react/24/solid";
+import React, { useEffect, useState } from "react";
 import {
   HighlightedScriptTextarea,
+  LoadingSpinner,
+  Tooltip,
   VoiceCombobox,
   VoiceInstructionsDialog,
-  Tooltip,
-  LoadingSpinner,
 } from "./ui";
 type ScripterPanelProps = {
   voiceTracks: VoiceTrack[];

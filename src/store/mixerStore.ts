@@ -1,12 +1,12 @@
-import { create } from "zustand";
 import type { SoundFxPlacementIntent } from "@/types";
 import type {
   AnchorOrigin,
-  MixerState as RedisMixerState,
   MixerVersionSummary,
+  MixerState as RedisMixerState,
   VersionId,
   VersionStatus,
 } from "@/types/versions";
+import { create } from "zustand";
 
 // Unified Track type for the mixer
 export type MixerTrack = {

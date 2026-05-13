@@ -1,20 +1,20 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { GlassyInput } from "@/components/ui/GlassyInput";
+import { GlassyListbox } from "@/components/ui/GlassyListbox";
+import { GlassyTextarea } from "@/components/ui/GlassyTextarea";
+import { Switch } from "@/components/ui/Switch";
 import {
+  DocumentIcon,
+  PaperClipIcon,
   PencilIcon,
   PlusIcon,
   SparklesIcon,
-  PaperClipIcon,
   XMarkIcon,
-  DocumentIcon,
 } from "@heroicons/react/24/outline";
-import { GlassyInput } from "@/components/ui/GlassyInput";
-import { GlassyTextarea } from "@/components/ui/GlassyTextarea";
-import { GlassyListbox } from "@/components/ui/GlassyListbox";
-import { Switch } from "@/components/ui/Switch";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 
 export type TemplateCategory =
   | "duration"

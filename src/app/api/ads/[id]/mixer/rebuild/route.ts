@@ -4,8 +4,8 @@
  * POST /api/ads/{adId}/mixer/rebuild - Force mixer rebuild
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";

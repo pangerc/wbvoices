@@ -12,8 +12,8 @@
  * re-pick to promote to a real alpha-2.
  */
 
-import { useEffect, useMemo, useState } from "react";
 import type { MarketRow } from "@/lib/alaric-client";
+import { useEffect, useMemo, useState } from "react";
 import { GlassyCombobox } from "../../ui";
 
 export interface MarketPickerProps {

@@ -7,17 +7,17 @@
  * - Loop avoidance (CoT maintained via previous_response_id)
  */
 
-import { OpenAIAdapter } from "./adapters/OpenAIAdapter";
+import { buildIterationSystemPrompt } from "@/lib/knowledge";
+import type { KnowledgeContext } from "@/lib/knowledge/types";
+import { getConversation, saveConversation } from "@/lib/redis/conversation";
+import { getActiveVersion, getVersion } from "@/lib/redis/versions";
 import { TOOL_DEFINITIONS } from "@/lib/tools/definitions";
 import { executeToolCalls } from "@/lib/tools/executor";
-import { getConversation, saveConversation } from "@/lib/redis/conversation";
-import { buildIterationSystemPrompt } from "@/lib/knowledge";
-import { getActiveVersion, getVersion } from "@/lib/redis/versions";
-import type { KnowledgeContext } from "@/lib/knowledge/types";
 import type { VoiceVersion } from "@/types/versions";
+import { OpenAIAdapter } from "./adapters/OpenAIAdapter";
 import type {
-  ConversationMessage,
   AgentResult,
+  ConversationMessage,
   ModelStreamEvent,
   ReasoningEffort,
 } from "./types";

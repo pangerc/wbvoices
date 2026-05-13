@@ -3,8 +3,8 @@
  * Helper functions for testing
  */
 
-import RedisMock from "ioredis-mock";
 import type { Redis } from "@upstash/redis";
+import RedisMock from "ioredis-mock";
 
 /**
  * Create a mock Redis instance for testing

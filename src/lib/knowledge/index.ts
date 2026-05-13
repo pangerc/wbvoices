@@ -18,27 +18,27 @@
 
 // Types
 export type {
-  KnowledgeModule,
-  KnowledgeContext,
-  IntentType,
   IntentScores,
+  IntentType,
+  KnowledgeContext,
+  KnowledgeModule,
 } from "./types";
 
 // Intent detection
-export { detectIntent, describeIntent } from "./selector";
+export { describeIntent, detectIntent } from "./selector";
 
 // Prompt building
 export {
+  buildIterationSystemPrompt,
   buildSystemPrompt,
   buildSystemPromptWithIntent,
-  buildIterationSystemPrompt,
   getModuleContent,
   getModulesById,
 } from "./builder";
 
 // Individual modules (for direct access if needed)
-export { elevenlabsVoiceModule } from "./modules/elevenlabs-voice";
-export { openaiVoiceModule } from "./modules/openai-voice";
-export { musicGenerationModule } from "./modules/music-generation";
-export { sfxGenerationModule } from "./modules/sfx-generation";
 export { creativeAlignmentModule } from "./modules/creative-alignment";
+export { elevenlabsVoiceModule } from "./modules/elevenlabs-voice";
+export { musicGenerationModule } from "./modules/music-generation";
+export { openaiVoiceModule } from "./modules/openai-voice";
+export { sfxGenerationModule } from "./modules/sfx-generation";

@@ -6,9 +6,9 @@
  * with the BrandContextResponse type.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createMockRedis, createMockRequest } from "@/test/utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../route";
-import { createMockRequest, createMockRedis } from "@/test/utils";
 
 vi.mock("@/lib/auth-helpers", () => ({
   requireAuth: vi.fn(async () => ({ email: "test@alephdigital.com" })),

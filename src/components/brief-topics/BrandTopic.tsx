@@ -7,11 +7,11 @@
  * source.
  */
 
-import type { BrandRef } from "@/types";
 import type { BrandDossier, MarketRow } from "@/lib/alaric-client";
+import type { BrandRef } from "@/types";
 import { BrandPickerSubeditor } from "./subeditors/BrandPickerSubeditor";
-import { MarketPicker } from "./subeditors/MarketPicker";
 import { DossierSummary } from "./subeditors/DossierSummary";
+import { MarketPicker } from "./subeditors/MarketPicker";
 
 export interface BrandTopicProps {
   brand: BrandRef | null;

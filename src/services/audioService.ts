@@ -1,17 +1,17 @@
 import {
+  MusicProvider,
+  Pacing,
   Provider,
+  SoundFxPrompt,
   Voice,
   VoiceTrack,
-  MusicProvider,
-  SoundFxPrompt,
-  Pacing,
 } from "@/types";
 // Beatoven removed - trial expired and poor quality
+import { MixerTrack, useMixerStore } from "@/store/mixerStore";
+import { applyTimeStretch } from "@/utils/audio-processing";
+import { generateMusicWithElevenLabs } from "@/utils/elevenlabs-music-api";
 import { generateMusicWithLoudly } from "@/utils/loudly-api";
 import { generateMusicWithMubert } from "@/utils/mubert-api";
-import { generateMusicWithElevenLabs } from "@/utils/elevenlabs-music-api";
-import { useMixerStore, MixerTrack } from "@/store/mixerStore";
-import { applyTimeStretch } from "@/utils/audio-processing";
 
 export class AudioService {
   static async generateVoiceAudio(

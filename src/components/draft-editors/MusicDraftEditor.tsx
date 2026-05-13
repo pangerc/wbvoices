@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
 import { MusicPanel } from "@/components/MusicPanel";
-import type { MusicVersion, VersionId } from "@/types/versions";
-import type { MusicProvider } from "@/types";
-import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
+import { VersionIterationInput } from "@/components/ui";
+import type { DraftState } from "@/components/ui/DraftAccordion";
 import {
   useMusicDraftState,
   usePlaybackActions,
 } from "@/hooks/useAudioPlayback";
-import { VersionIterationInput } from "@/components/ui";
-import type { DraftState } from "@/components/ui/DraftAccordion";
+import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
+import type { MusicProvider } from "@/types";
+import type { MusicVersion, VersionId } from "@/types/versions";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 export interface MusicDraftEditorProps {
   adId: string;

@@ -11,12 +11,12 @@
  * Usage: pnpm tsx scripts/create-test-ad.ts
  */
 
+import type { Voice } from "../src/types";
 import type {
-  VoiceVersion,
   MusicVersion,
   SfxVersion,
+  VoiceVersion,
 } from "../src/types/versions";
-import type { Voice } from "../src/types";
 
 // ========== REALISTIC TEST DATA ==========
 

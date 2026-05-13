@@ -12,17 +12,16 @@
  * - ad:{adId}:{streamType}:counter - Atomic counter for version ID generation (Redis STRING)
  */
 
-import { getRedisV3 } from "../redis-v3";
 import {
-  VersionId,
-  StreamType,
-  VoiceVersion,
+  AdMetadata,
+  MixerVersion,
   MusicVersion,
   SfxVersion,
-  MixerVersion,
-  AdMetadata,
-  MixerState,
+  StreamType,
+  VersionId,
+  VoiceVersion,
 } from "@/types/versions";
+import { getRedisV3 } from "../redis-v3";
 
 /**
  * Union of version payload shapes stored per stream. Mixer-stream versions

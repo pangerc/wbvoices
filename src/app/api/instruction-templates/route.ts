@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { instructionTemplatesService } from "@/services/instructionTemplatesService";
+import { NextResponse } from "next/server";
 
 export async function GET() {
   try {

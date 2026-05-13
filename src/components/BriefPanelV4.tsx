@@ -25,6 +25,7 @@
  * complexity for the field count we have. Auto-save still debounces.
  */
 
+import { useCreativeTemplates } from "@/hooks/useCreativeTemplates";
 import { useToneOfVoice } from "@/hooks/useToneOfVoice";
 import type { BrandDossier, MarketRow } from "@/lib/alaric-client";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
@@ -37,7 +38,6 @@ import type {
 } from "@/types";
 import type { Language } from "@/utils/language";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useCreativeTemplates } from "@/hooks/useCreativeTemplates";
 import { BriefPanelBase } from "./BriefPanelBase";
 
 // ============================================================

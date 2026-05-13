@@ -5,16 +5,16 @@
  * The LLM always: read_ad_state → search if needed → write drafts
  */
 
-import { IntentType, KnowledgeContext } from "./types";
-import { detectIntent } from "./selector";
-import { elevenlabsVoiceModule } from "./modules/elevenlabs-voice";
-import { openaiVoiceModule } from "./modules/openai-voice";
-import { simpleVoiceModule } from "./modules/simple-voice";
 import { bytedanceVoiceModule } from "./modules/bytedance-voice";
+import { creativeAlignmentModule } from "./modules/creative-alignment";
+import { elevenlabsVoiceModule } from "./modules/elevenlabs-voice";
 import { lahajatiVoiceModule } from "./modules/lahajati-voice";
 import { musicGenerationModule } from "./modules/music-generation";
+import { openaiVoiceModule } from "./modules/openai-voice";
 import { sfxGenerationModule } from "./modules/sfx-generation";
-import { creativeAlignmentModule } from "./modules/creative-alignment";
+import { simpleVoiceModule } from "./modules/simple-voice";
+import { detectIntent } from "./selector";
+import { IntentType, KnowledgeContext } from "./types";
 
 /**
  * Module registry - maps module IDs to implementations

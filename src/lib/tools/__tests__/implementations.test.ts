@@ -7,8 +7,8 @@
  * separately in slotReconciliation.test.ts — this file exercises the wiring.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockRedis } from "@/test/utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock Redis before importing anything that depends on it.
 let mockRedis: ReturnType<typeof createMockRedis>;
@@ -23,13 +23,13 @@ vi.mock("@/services/voiceCatalogueService", () => ({
   },
 }));
 
+import { freezeVersion, getVersion } from "@/lib/redis/versions";
+import type { MusicVersion, SfxVersion, VoiceVersion } from "@/types/versions";
 import {
-  createVoiceDraft,
   createMusicDraft,
   createSfxDraft,
+  createVoiceDraft,
 } from "../implementations";
-import { getVersion, freezeVersion } from "@/lib/redis/versions";
-import type { VoiceVersion, MusicVersion, SfxVersion } from "@/types/versions";
 
 const ADID = "test-ad-reconcile";
 

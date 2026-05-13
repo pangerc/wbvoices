@@ -4,12 +4,12 @@
 
 // Types
 export type {
-  ConversationMessage,
-  MessageRole,
-  ReasoningEffort,
   AdapterRequest,
   AdapterResponse,
   AgentResult,
+  ConversationMessage,
+  MessageRole,
+  ReasoningEffort,
   ToolCall,
   ToolDefinition,
   ToolResult,
@@ -20,7 +20,7 @@ export { OpenAIAdapter } from "./adapters/OpenAIAdapter";
 
 // Agent Executor
 export {
-  runAgentLoop,
   continueConversation,
+  runAgentLoop,
   type AgentExecutorOptions,
 } from "./AgentExecutor";

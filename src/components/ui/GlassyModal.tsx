@@ -10,7 +10,15 @@ import { Fragment, ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 
 /** Supported size caps for the modal panel; maps 1:1 to a Tailwind `max-w-*` utility via {@link MAX_WIDTH_CLASSES}. */
-export type MaxWidth = "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl";
+export type MaxWidth =
+  | "sm"
+  | "md"
+  | "lg"
+  | "xl"
+  | "2xl"
+  | "3xl"
+  | "4xl"
+  | "5xl";
 
 /** Lookup that resolves a {@link MaxWidth} value to the Tailwind utility used to cap the panel width. */
 export const MAX_WIDTH_CLASSES: Record<MaxWidth, string> = {

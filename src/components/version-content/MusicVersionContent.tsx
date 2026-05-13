@@ -1,6 +1,5 @@
-import React from "react";
-import type { MusicVersion } from "@/types/versions";
 import { VersionIterationInput, VersionLineage } from "@/components/ui";
+import type { MusicVersion } from "@/types/versions";
 
 export interface MusicVersionContentProps {
   version: MusicVersion;

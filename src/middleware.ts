@@ -1,6 +1,6 @@
+import { authConfig } from "@/auth.config";
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
-import { authConfig } from "@/auth.config";
 
 // Edge-safe auth wrapper: `authConfig` has no DB adapter, so this bundle
 // contains only JWT decode logic (no postgres / Drizzle). The full `auth()`

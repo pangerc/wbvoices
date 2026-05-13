@@ -7,10 +7,10 @@
  * Only works for ads owned by "universal-session" or "default-session".
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { AuthError, requireAuth } from "@/lib/auth-helpers";
 import { getRedisV3 } from "@/lib/redis-v3";
 import { getAdMetadata, setAdMetadata } from "@/lib/redis/versions";
-import { requireAuth, AuthError } from "@/lib/auth-helpers";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 

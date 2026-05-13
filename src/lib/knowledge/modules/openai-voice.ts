@@ -5,7 +5,7 @@
  * Uses freeform voiceInstructions for each voice
  */
 
-import { KnowledgeModule, KnowledgeContext } from "../types";
+import { KnowledgeContext, KnowledgeModule } from "../types";
 
 export const openaiVoiceModule: KnowledgeModule = {
   id: "openai-voice",

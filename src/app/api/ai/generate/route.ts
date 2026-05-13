@@ -17,18 +17,18 @@
  * - SFX: Short, English descriptions
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { runAgentLoop } from "@/lib/tool-calling";
-import { getLanguageName } from "@/utils/language";
-import { setAdMetadata, getAdMetadata } from "@/lib/redis/versions";
-import { ensureAdExists } from "@/lib/redis/ensureAd";
-import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
 import {
   prefetchBriefEnrichments,
   renderEnrichmentSections,
 } from "@/lib/brief-enrichment";
+import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
+import { ensureAdExists } from "@/lib/redis/ensureAd";
+import { getAdMetadata, setAdMetadata } from "@/lib/redis/versions";
+import { runAgentLoop } from "@/lib/tool-calling";
 import { instructionTemplatesService } from "@/services/instructionTemplatesService";
 import type { ProjectBrief } from "@/types";
+import { getLanguageName } from "@/utils/language";
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Extract brand name from client description for fallback ad title.

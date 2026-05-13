@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { isNotChanged } from "../ad-brief-not-changed";
 import { ProjectBrief } from "@/types";
+import { describe, expect, it } from "vitest";
+import { isNotChanged } from "../ad-brief-not-changed";
 
 const brief: ProjectBrief = {
   clientDescription: "description",

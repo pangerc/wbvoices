@@ -31,7 +31,7 @@
  * — alaric being unreachable should never block a generation.
  */
 
-import { createHmac, createHash } from "crypto";
+import { createHash, createHmac } from "crypto";
 
 /** Identifies this app to alaric's HMAC verifier. Bound into every signed
  *  payload so a leaked ACA secret can't be replayed against future sibling

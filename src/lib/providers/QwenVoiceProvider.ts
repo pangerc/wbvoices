@@ -1,11 +1,11 @@
-import {
-  BaseAudioProvider,
-  ValidationResult,
-  AuthCredentials,
-  ProviderResponse,
-} from "./BaseAudioProvider";
 import { uploadVoiceToBlob } from "@/utils/blob-storage";
 import { NextResponse } from "next/server";
+import {
+  AuthCredentials,
+  BaseAudioProvider,
+  ProviderResponse,
+  ValidationResult,
+} from "./BaseAudioProvider";
 
 export class QwenVoiceProvider extends BaseAudioProvider {
   readonly providerName = "qwen";

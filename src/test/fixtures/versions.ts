@@ -4,11 +4,11 @@
  */
 
 import type {
-  VoiceVersion,
   MusicVersion,
   SfxVersion,
-  VoiceTrack,
   SoundFxPrompt,
+  VoiceTrack,
+  VoiceVersion,
 } from "@/types/versions";
 
 /**

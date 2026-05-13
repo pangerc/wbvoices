@@ -1,7 +1,7 @@
 export const runtime = "edge";
 
-import { NextRequest, NextResponse } from "next/server";
 import { getRegionConfig } from "@/lib/config";
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * APAC Proxy Client for OpenAI Voice Generation

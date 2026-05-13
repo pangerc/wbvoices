@@ -5,13 +5,12 @@
  * GET  /api/ads - List user's ads (or all ads for admin with ?all=true)
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { AuthError, requireAuth } from "@/lib/auth-helpers";
 import { getRedisV3 } from "@/lib/redis-v3";
-import { setAdMetadata, getAdMetadataBatch } from "@/lib/redis/versions";
+import { getAdMetadataBatch, setAdMetadata } from "@/lib/redis/versions";
 import { AdMetadata } from "@/types/versions";
 import { generateProjectId } from "@/utils/projectId";
-import { requireAuth } from "@/lib/auth-helpers";
-import { AuthError } from "@/lib/auth-helpers";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { loadWaveformPeaks } from "@/utils/waveform";
+import { useEffect, useState } from "react";
 
 /**
  * React hook that lazily loads + caches waveform peaks for a given URL.

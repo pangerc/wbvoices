@@ -1,6 +1,5 @@
-import React from "react";
 import { Listbox } from "@headlessui/react";
-import { ChevronUpDownIcon, CheckIcon } from "@heroicons/react/16/solid";
+import { CheckIcon, ChevronUpDownIcon } from "@heroicons/react/16/solid";
 
 export type ToneOption = {
   value: string;

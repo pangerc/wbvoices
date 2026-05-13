@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
-import dynamic from "next/dynamic";
 import type {
   InstructionTemplateFormInitial,
   TemplateCategory,
   TemplatePacing,
 } from "@/components/admin/InstructionTemplateForm";
+import dynamic from "next/dynamic";
+import { use, useEffect, useState } from "react";
 
 const InstructionTemplateForm = dynamic(
   () =>

@@ -4,8 +4,8 @@ import { BrandRef, CampaignFormat, Language, Pacing, Provider } from "@/types";
 import { BrandTopic } from "./brief-topics/BrandTopic";
 import { CreativeTopic } from "./brief-topics/CreativeTopic";
 import { LanguageTopic } from "./brief-topics/LanguageTopic";
-import { CreativeTemplateGallery } from "./ui/CreativeTemplateGallery";
 import { ToneOption } from "./ui";
+import { CreativeTemplateGallery } from "./ui/CreativeTemplateGallery";
 
 export type BriefPanelBaseProps = {
   brand: BrandRef | null;

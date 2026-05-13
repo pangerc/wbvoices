@@ -14,14 +14,14 @@
  *     sf-account fetch to load the dossier badge under the picker.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { SfAccountSearchResult } from "@/lib/alaric-client";
+import type { BrandRef } from "@/types";
 import {
   ChevronDownIcon,
   MagnifyingGlassIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import type { BrandRef } from "@/types";
-import type { SfAccountSearchResult } from "@/lib/alaric-client";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface BrandPickerSubeditorProps {
   brand: BrandRef | null;

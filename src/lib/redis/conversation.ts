@@ -8,8 +8,8 @@
  * - ad:{adId}:conversation - Conversation messages (JSON array)
  */
 
-import { getRedisV3 } from "../redis-v3";
 import type { ConversationMessage } from "@/lib/tool-calling/types";
+import { getRedisV3 } from "../redis-v3";
 
 // ============ Key Builders ============
 

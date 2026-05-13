@@ -5,19 +5,19 @@
  * POST /api/ads/{adId}/voices - Create new voice version
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import {
-  listVersions,
-  getActiveVersion,
-  getAllVersionsWithData,
-  createVersion,
-} from "@/lib/redis/versions";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
 import {
-  VoiceVersion,
-  VersionStreamResponse,
+  createVersion,
+  getActiveVersion,
+  getAllVersionsWithData,
+  listVersions,
+} from "@/lib/redis/versions";
+import {
   CreateVersionResponse,
+  VersionStreamResponse,
+  VoiceVersion,
 } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";

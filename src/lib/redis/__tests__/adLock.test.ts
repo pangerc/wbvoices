@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockRedis } from "@/test/utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let mockRedis: ReturnType<typeof createMockRedis>;
 
@@ -7,7 +7,7 @@ vi.mock("../../redis-v3", () => ({
   getRedisV3: () => mockRedis,
 }));
 
-import { withAdLock, AdLockTimeoutError } from "../adLock";
+import { AdLockTimeoutError, withAdLock } from "../adLock";
 
 beforeEach(async () => {
   mockRedis = createMockRedis();

@@ -10,8 +10,8 @@
  *   npx tsx scripts/import-openai-descriptions.ts
  */
 
-import "dotenv/config";
 import { voiceDescriptionService } from "@/services/voiceDescriptionService";
+import "dotenv/config";
 import descriptions from "../data/openai-voice-descriptions.json";
 
 async function importOpenAIDescriptions() {

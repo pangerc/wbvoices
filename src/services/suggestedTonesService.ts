@@ -1,10 +1,10 @@
 import { db } from "@/lib/db";
 import {
   suggestedTones,
-  type SuggestedTone,
   type InsertSuggestedTone,
+  type SuggestedTone,
 } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 export type SuggestedToneInput = Pick<
   InsertSuggestedTone,

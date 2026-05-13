@@ -21,9 +21,10 @@
  * every ad — measured regression in v3.5 production.
  */
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import type { CampaignFormat, Pacing, Provider } from "@/types";
 import { MicrophoneIcon } from "@heroicons/react/24/outline";
-import type { ToneOption } from "../ui/ToneSelector";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { twMerge } from "tailwind-merge";
 import {
   GlassTab,
   GlassTabBar,
@@ -35,13 +36,12 @@ import {
   ToneSelector,
   TurtleIcon,
 } from "../ui";
-import type { CampaignFormat, Pacing, Provider } from "@/types";
+import type { ToneOption } from "../ui/ToneSelector";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { VoiceInstructionsSubeditor } from "./subeditors/VoiceInstructionsSubeditor";
-import { ReferenceUrlsSubeditor } from "./subeditors/ReferenceUrlsSubeditor";
-import { ForbiddenWordsSubeditor } from "./subeditors/ForbiddenWordsSubeditor";
 import { CustomScriptSubeditor } from "./subeditors/CustomScriptSubeditor";
-import { twMerge } from "tailwind-merge";
+import { ForbiddenWordsSubeditor } from "./subeditors/ForbiddenWordsSubeditor";
+import { ReferenceUrlsSubeditor } from "./subeditors/ReferenceUrlsSubeditor";
+import { VoiceInstructionsSubeditor } from "./subeditors/VoiceInstructionsSubeditor";
 
 // Six campaign formats per the v3.5 prompting rewrite. Listbox surface
 // (was a 2-button toggle in v3.5 BriefPanelBase, but the type union was

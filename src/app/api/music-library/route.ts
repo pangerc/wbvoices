@@ -1,6 +1,6 @@
+import { PROJECT_KEYS, redis } from "@/lib/redis";
+import { LibraryMusicTrack, Project } from "@/types";
 import { NextRequest, NextResponse } from "next/server";
-import { redis, PROJECT_KEYS } from "@/lib/redis";
-import { Project, LibraryMusicTrack } from "@/types";
 
 // GET /api/music-library - Load all music tracks from user's projects
 export async function GET(request: NextRequest) {

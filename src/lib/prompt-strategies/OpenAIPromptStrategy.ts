@@ -1,5 +1,5 @@
-import { BasePromptStrategy, PromptContext } from "./BasePromptStrategy";
 import { CampaignFormat } from "@/types";
+import { BasePromptStrategy, PromptContext } from "./BasePromptStrategy";
 
 /**
  * OpenAI TTS Strategy - Uses freeform voiceInstructions for each voice

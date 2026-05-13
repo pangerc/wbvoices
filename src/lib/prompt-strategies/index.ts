@@ -1,15 +1,15 @@
 // Strategy interface and base class
 export {
-  type PromptStrategy,
+  BasePromptStrategy,
   type PromptContext,
   type PromptResult,
-  BasePromptStrategy,
+  type PromptStrategy,
 } from "./BasePromptStrategy";
 
 // Provider-specific strategies
 export { ElevenLabsV3PromptStrategy } from "./ElevenLabsV3PromptStrategy";
-export { OpenAIPromptStrategy } from "./OpenAIPromptStrategy";
 export { LovoPromptStrategy } from "./LovoPromptStrategy";
+export { OpenAIPromptStrategy } from "./OpenAIPromptStrategy";
 export { QwenPromptStrategy } from "./QwenPromptStrategy";
 
 // Factory

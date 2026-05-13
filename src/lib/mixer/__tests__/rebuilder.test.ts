@@ -2,19 +2,19 @@
  * Tests for Mixer Rebuilder Logic
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { rebuildMixer, getMixerState } from "../rebuilder";
-import { createVersion, setActiveVersion } from "../../redis/versions";
 import {
   mockAdId,
-  mockVoiceVersionDraft,
   mockMusicVersionDraft,
   mockSfxVersionDraft,
-  mockVoiceTrack,
   mockSoundFxPrompt,
+  mockVoiceTrack,
+  mockVoiceVersionDraft,
 } from "@/test/fixtures/versions";
 import { createMockRedis } from "@/test/utils";
-import type { VoiceVersion, MusicVersion, SfxVersion } from "@/types/versions";
+import type { MusicVersion, SfxVersion, VoiceVersion } from "@/types/versions";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createVersion, setActiveVersion } from "../../redis/versions";
+import { getMixerState, rebuildMixer } from "../rebuilder";
 
 // Mock Redis V3
 vi.mock("../../redis-v3", () => ({

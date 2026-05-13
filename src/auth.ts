@@ -1,10 +1,10 @@
-import NextAuth from "next-auth";
-import Resend from "next-auth/providers/resend";
+import { authConfig } from "@/auth.config";
+import { db, getDb } from "@/lib/db";
+import { accounts, users, verificationTokens } from "@/lib/db/schema";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { eq } from "drizzle-orm";
-import { db, getDb } from "@/lib/db";
-import { users, accounts, verificationTokens } from "@/lib/db/schema";
-import { authConfig } from "@/auth.config";
+import NextAuth from "next-auth";
+import Resend from "next-auth/providers/resend";
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
   .split(",")

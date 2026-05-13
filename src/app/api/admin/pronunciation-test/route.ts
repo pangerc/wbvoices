@@ -12,13 +12,13 @@
  * }
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { createProvider } from "@/lib/providers";
 import {
   createDictionary,
   PronunciationRule,
   removeRules,
 } from "@/utils/elevenlabs-pronunciation";
-import { createProvider } from "@/lib/providers";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 

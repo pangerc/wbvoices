@@ -1,5 +1,5 @@
+import { MusicPrompts, SoundFxPrompt, VoiceTrack } from "@/types";
 import { useState } from "react";
-import { VoiceTrack, SoundFxPrompt, MusicPrompts } from "@/types";
 
 export interface FormManagerState {
   // Voice editing state

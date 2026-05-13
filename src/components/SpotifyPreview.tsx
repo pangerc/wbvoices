@@ -1,12 +1,12 @@
 "use client";
-import React from "react";
-import Image from "next/image";
 import {
   ChevronDownIcon,
   EllipsisHorizontalIcon,
   ExclamationCircleIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
+import Image from "next/image";
+import React from "react";
 import { LoadingSpinner } from "./ui";
 
 export interface SpotifyPreviewProps {

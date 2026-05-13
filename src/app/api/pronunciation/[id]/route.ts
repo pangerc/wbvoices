@@ -6,17 +6,17 @@
  * - DELETE: Delete a dictionary by ID
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import {
-  getDictionary,
-  removeRules,
-  addRules,
-  PronunciationRule as ApiPronunciationRule,
-  PronunciationRuleType,
-  PhoneticAlphabet,
-} from "@/utils/elevenlabs-pronunciation";
 import { getRedis } from "@/lib/redis";
 import { PronunciationRule } from "@/types";
+import {
+  addRules,
+  PronunciationRule as ApiPronunciationRule,
+  getDictionary,
+  PhoneticAlphabet,
+  PronunciationRuleType,
+  removeRules,
+} from "@/utils/elevenlabs-pronunciation";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 

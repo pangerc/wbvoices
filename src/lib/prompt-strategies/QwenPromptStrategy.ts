@@ -1,5 +1,5 @@
-import { BasePromptStrategy, PromptContext } from "./BasePromptStrategy";
 import { CampaignFormat } from "@/types";
+import { BasePromptStrategy, PromptContext } from "./BasePromptStrategy";
 
 /**
  * Qwen Strategy - Direct voice control (similar to basic setup)

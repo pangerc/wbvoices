@@ -5,11 +5,11 @@
  * PATCH /api/ads/[id]/brief - Update advertisement brief
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { getAdMetadata, setAdMetadata } from "@/lib/redis/versions";
+import { AuthError, requireAuth } from "@/lib/auth-helpers";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
-import { requireAuth, AuthError } from "@/lib/auth-helpers";
+import { getAdMetadata, setAdMetadata } from "@/lib/redis/versions";
 import type { ProjectBrief } from "@/types";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";

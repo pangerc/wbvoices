@@ -4,12 +4,9 @@
  * Fetched dynamically during voice cache refresh
  */
 
-import { redis } from "@/lib/redis";
-import {
-  fetchLahajatiDialects,
-  LahajatiDialect,
-} from "@/services/voiceProviderService";
 import { buildDialectMappings } from "@/lib/providers/lahajatiDialectMapping";
+import { redis } from "@/lib/redis";
+import { fetchLahajatiDialects } from "@/services/voiceProviderService";
 
 const REDIS_KEY = "lahajati_dialects";
 

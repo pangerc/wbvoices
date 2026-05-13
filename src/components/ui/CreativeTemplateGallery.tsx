@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import type { CreativeTemplate } from "@/hooks/useCreativeTemplates";
 import {
+  EllipsisHorizontalCircleIcon,
   MagnifyingGlassIcon,
   XMarkIcon,
-  EllipsisHorizontalCircleIcon,
 } from "@heroicons/react/24/outline";
-import type { CreativeTemplate } from "@/hooks/useCreativeTemplates";
+import { useMemo, useState } from "react";
 
 type CreativeTemplateGalleryProps = {
   value: string | null;
