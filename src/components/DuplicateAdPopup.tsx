@@ -10,6 +10,7 @@ import {
 import { BriefPanelBase } from "./BriefPanelBase";
 import { useToneOfVoice } from "@/hooks/useToneOfVoice";
 import { useRouter } from "next/navigation";
+import { GlassyModal } from "./ui/GlassyModal";
 
 export type CreateAd = {
   name: string;
@@ -204,93 +205,89 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
     selectedProvider,
   ]);
 
-  const onClickBackdrop = () => {
+  const handleClose = () => {
     if (!isDuplicating) onClose();
   };
 
   return (
-    <>
-      <div
-        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 transition-opacity duration-300"
-        onClick={() => onClickBackdrop()}
-      />
-
-      <div className="fixed container overflow-y-auto z-60 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-        <div className="bg-zinc-900/50 rounded-md p-5 flex flex-col gap-4">
-          <div>
-            Duplicate ad <strong>"{ad.meta.name}"</strong>?
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Title
-            </label>
-            <input
-              value={name}
-              disabled={isDuplicating}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onDuplicate(ad, !isNotChanged);
-                if (e.key === "Escape") onClose();
-              }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full bg-white/10 text-white font-medium text-sm rounded p-3 outline-none ring-1 ring-blue-500/50 focus:ring-blue-500"
-              autoFocus
-            />
-          </div>
-          <div>
-            <BriefPanelBase
-              disabled={isDuplicating}
-              clientDescription={clientDescription}
-              onClientDescriptionChanged={setClientDescription}
-              creativeBrief={creativeBrief}
-              onCreativeBriefChanged={setCreativeBrief}
-              language={selectedLanguage}
-              onLanguageChanged={setSelectedLanguage}
-              campaignFormat={campaignFormat}
-              onCampaignFormatChanged={setCampaignFormat}
-              region={selectedRegion}
-              onRegionChanged={setSelectedRegion}
-              provider={selectedProvider}
-              onProviderChanged={setSelectedProvider}
-              accent={selectedAccent}
-              onAccentChanged={setSelectedAccent}
-              cta={selectedCTA}
-              onCTAChanged={setSelectedCTA}
-              pacing={selectedPacing}
-              onPacingChanged={setSelectedPacing}
-              toneOfVoice={selectedTone}
-              onToneOfVoiceChanged={setSelectedTone}
-              toneOfVoiceOptions={dbToneOptions}
-              toneOfVoiceList={dbToneInstructions}
-              voiceInstructions={voiceInstructions}
-              onVoiceInstructionsChanged={setVoiceInstructions}
-              adDuration={adDuration}
-              onAdDurationChanged={setAdDuration}
-              error={error}
-            />
-          </div>
-          <div className="flex justify-between">
-            <button
-              disabled={isDuplicating}
-              onClick={() => onClose()}
-              className="px-6 py-3 bg-wb-blue hover:bg-wb-blue/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              disabled={isDuplicating}
-              onClick={() => onDuplicate(ad, !isNotChanged)}
-              className="px-6 py-3 bg-wb-blue hover:bg-wb-blue/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
-            >
-              {isDuplicating
-                ? "Duplicating..."
-                : isNotChanged
-                  ? "Duplicate"
-                  : "Duplicate & Generate"}
-            </button>
-          </div>
+    <GlassyModal
+      isOpen
+      onClose={handleClose}
+      title="Duplicate ad"
+      description={`"${ad.meta.name}"`}
+      maxWidth="5xl"
+    >
+      <div className="flex flex-col gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Title
+          </label>
+          <input
+            value={name}
+            disabled={isDuplicating}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onDuplicate(ad, !isNotChanged);
+              if (e.key === "Escape") handleClose();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full bg-white/10 text-white font-medium text-sm rounded p-3 outline-none ring-1 ring-blue-500/50 focus:ring-blue-500"
+            autoFocus
+          />
+        </div>
+        <div>
+          <BriefPanelBase
+            disabled={isDuplicating}
+            clientDescription={clientDescription}
+            onClientDescriptionChanged={setClientDescription}
+            creativeBrief={creativeBrief}
+            onCreativeBriefChanged={setCreativeBrief}
+            language={selectedLanguage}
+            onLanguageChanged={setSelectedLanguage}
+            campaignFormat={campaignFormat}
+            onCampaignFormatChanged={setCampaignFormat}
+            region={selectedRegion}
+            onRegionChanged={setSelectedRegion}
+            provider={selectedProvider}
+            onProviderChanged={setSelectedProvider}
+            accent={selectedAccent}
+            onAccentChanged={setSelectedAccent}
+            cta={selectedCTA}
+            onCTAChanged={setSelectedCTA}
+            pacing={selectedPacing}
+            onPacingChanged={setSelectedPacing}
+            toneOfVoice={selectedTone}
+            onToneOfVoiceChanged={setSelectedTone}
+            toneOfVoiceOptions={dbToneOptions}
+            toneOfVoiceList={dbToneInstructions}
+            voiceInstructions={voiceInstructions}
+            onVoiceInstructionsChanged={setVoiceInstructions}
+            adDuration={adDuration}
+            onAdDurationChanged={setAdDuration}
+            error={error}
+          />
+        </div>
+        <div className="flex justify-between">
+          <button
+            disabled={isDuplicating}
+            onClick={handleClose}
+            className="px-6 py-3 bg-wb-blue hover:bg-wb-blue/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            disabled={isDuplicating}
+            onClick={() => onDuplicate(ad, !isNotChanged)}
+            className="px-6 py-3 bg-wb-blue hover:bg-wb-blue/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
+          >
+            {isDuplicating
+              ? "Duplicating..."
+              : isNotChanged
+                ? "Duplicate"
+                : "Duplicate & Generate"}
+          </button>
         </div>
       </div>
-    </>
+    </GlassyModal>
   );
 };
