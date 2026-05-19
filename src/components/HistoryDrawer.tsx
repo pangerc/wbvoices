@@ -97,7 +97,7 @@ export function HistoryDrawer({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/ads${isAdmin ? "?all=true" : ""}`);
+      const res = await fetch("/api/ads");
 
       if (res.ok) {
         const data = await res.json();
