@@ -1,6 +1,6 @@
 "use client";
 
-import { MatrixBackground } from "@/components";
+import { useBackgroundAnimator } from "@/components/animated-background/animated-background";
 import {
   BriefPanelV4,
   type StreamUpdateEvent,
@@ -324,6 +324,8 @@ export default function AdWorkspace() {
     }
   }, [searchParams]);
 
+  useBackgroundAnimator(isBriefGenerating || generatingMusic || generatingSfx);
+
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen bg-black text-white">
@@ -346,9 +348,6 @@ export default function AdWorkspace() {
       />
 
       <div className="flex-1 overflow-auto relative">
-        <MatrixBackground
-          isAnimating={isBriefGenerating || generatingMusic || generatingSfx}
-        />
         <div className="container mx-auto px-4 py-8 relative z-10">
           {/* Generation errors banner */}
           {generationErrors.length > 0 && (

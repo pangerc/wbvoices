@@ -1,3 +1,4 @@
+import { AnimatedBackground } from "@/components/animated-background/animated-background";
 import { ClientLayout } from "@/components/ClientLayout";
 import "flag-icons/css/flag-icons.min.css";
 import type { Metadata } from "next";
@@ -29,7 +30,10 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.png" sizes="any" />
       </head>
       <body className="font-sans antialiased">
-        <ClientLayout>{children}</ClientLayout>
+        <ClientLayout>
+          {children}
+          <AnimatedBackground />
+        </ClientLayout>
       </body>
     </html>
   );
