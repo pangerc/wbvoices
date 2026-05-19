@@ -9,6 +9,7 @@ import {
 import { CheckCircleIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { PropsWithChildren, ReactNode, useState } from "react";
 import { twMerge } from "tailwind-merge";
+import { Code } from "../internal/code";
 
 /** All supported {@link MaxWidth} values, derived from the keys of {@link MAX_WIDTH_CLASSES}, used to render the "Max widths" tile grid. */
 const MAX_WIDTHS = Object.keys(MAX_WIDTH_CLASSES) as MaxWidth[];
@@ -114,10 +115,9 @@ export default function UiKitDemoModalPage() {
         <HeroTitle>Modals</HeroTitle>
         <HeroDescription>
           Frosted-glass overlays used for focused tasks, confirmations, and
-          short forms. Two pieces are wired up: the{" "}
-          <code className="text-wb-blue">GlassyModal</code> primitive and the
-          higher-level <code className="text-wb-blue">ConfirmDialog</code> built
-          on top of it.
+          short forms. Two pieces are wired up: the <Code>GlassyModal</Code>{" "}
+          primitive and the higher-level <Code>ConfirmDialog</Code> built on top
+          of it.
         </HeroDescription>
       </section>
 
@@ -175,9 +175,9 @@ export default function UiKitDemoModalPage() {
         description="A small, focused dialog for yes/no confirmations. Replaces window.confirm() with something that fits the rest of the UI."
       >
         <p className="mb-8 text-sm text-gray-400">
-          Higher-order abstraction on top of{" "}
-          <code className="text-wb-blue">GlassyModal</code> — pre-bakes the
-          title, message, cancel/confirm buttons, and an in-flight state.
+          Higher-order abstraction on top of <Code>GlassyModal</Code> —
+          pre-bakes the title, message, cancel/confirm buttons, and an in-flight
+          state.
         </p>
 
         <SectionHeading>Variants</SectionHeading>
@@ -220,8 +220,8 @@ export default function UiKitDemoModalPage() {
         title="Title only"
       >
         <p className="text-sm text-gray-300">
-          When <code className="text-wb-blue">description</code> is omitted, the
-          header tightens around the title.
+          When <Code>description</Code> is omitted, the header tightens around
+          the title.
         </p>
       </GlassyModal>
 
@@ -238,8 +238,7 @@ export default function UiKitDemoModalPage() {
                 Custom header
               </h3>
               <p className="text-sm text-gray-400 mt-1">
-                Pass a ReactNode via the{" "}
-                <code className="text-wb-blue">header</code> prop for fully
+                Pass a ReactNode via the <Code>header</Code> prop for fully
                 custom header layouts — the close button still appears in the
                 corner.
               </p>
@@ -361,9 +360,8 @@ export default function UiKitDemoModalPage() {
           maxWidth={width}
         >
           <p className="text-sm text-gray-300">
-            The panel grows up to{" "}
-            <code className="text-wb-blue">max-w-{width}</code> and stays
-            centered inside the viewport.
+            The panel grows up to <Code>max-w-{width}</Code> and stays centered
+            inside the viewport.
           </p>
         </GlassyModal>
       ))}

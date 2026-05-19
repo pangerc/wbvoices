@@ -3,6 +3,7 @@
 import { CreativeTemplateGallery } from "@/components/ui/CreativeTemplateGallery";
 import type { CreativeTemplate } from "@/hooks/useCreativeTemplates";
 import { PropsWithChildren, ReactNode, useState } from "react";
+import { Code } from "../internal/code";
 
 // Sample template fixtures used by the demo sections. Detached from the
 // production seeds so the demo stays stable if seed copy is reworded.
@@ -88,9 +89,9 @@ export default function CreativeTemplatesDemoPage() {
         <HeroTitle>Creative template gallery</HeroTitle>
         <HeroDescription>
           Card grid for picking an admin-managed creative template inside the
-          brief panel. The gallery hides itself when the list is empty, caps
-          the visible tiles at 5, and surfaces a search input when there are
-          more templates to discover.
+          brief panel. The gallery hides itself when the list is empty, caps the
+          visible tiles at 5, and surfaces a search input when there are more
+          templates to discover.
         </HeroDescription>
       </section>
 
@@ -123,9 +124,12 @@ export default function CreativeTemplatesDemoPage() {
 function EmptyState() {
   return (
     <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-sm text-gray-400">
-      <CreativeTemplateGallery value={null} onChange={() => {}} templates={[]} />
-      Gallery returned <code className="text-wb-blue">null</code> — nothing
-      rendered above this line.
+      <CreativeTemplateGallery
+        value={null}
+        onChange={() => {}}
+        templates={[]}
+      />
+      Gallery returned <Code>null</Code> — nothing rendered above this line.
     </div>
   );
 }

@@ -26,31 +26,122 @@ export default function UiKitDemoPage() {
 
       <section className="relative pb-12">
         <SectionHeading>Brand colors</SectionHeading>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <ColorSwatch label="wb-blue" value="#2f7dfa" color="blue" />
-          <ColorSwatch label="wb-green" value="#21dd92" color="green" />
-          <ColorSwatch label="wb-red" value="#fb5d4c" color="red" />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ColorSwatch label="wb-red" value="#fb5d4c" color="red" />
+            <ColorSwatch label="wb-green" value="#21dd92" color="green" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <ColorSwatch label="wb-blue" value="#2f7dfa" color="blue" />
+            <ColorSwatch
+              label="wb-blue-bright"
+              value="#0080ff"
+              color="blue-bright"
+            />
+            <ColorSwatch
+              label="wb-blue-dark"
+              value="#2467d3"
+              color="blue-dark"
+            />
+            <ColorSwatch
+              label="wb-blue-darkest"
+              value="#003790"
+              color="blue-darkest"
+            />
+            <ColorSwatch
+              label="wb-dark-blue"
+              value="#0d1522"
+              color="dark-blue"
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ColorSwatch label="wb-gray" value="#98a1b0" color="gray" />
+            <ColorSwatch
+              label="wb-almost-black"
+              value="#16171a"
+              color="almost-black"
+            />
+          </div>
         </div>
       </section>
 
       <section className="relative pb-12">
         <SectionHeading>Demos</SectionHeading>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <DemoLinkCard
-            href="/ui-kit-demo/modals"
-            kicker="Overlay"
-            title="Modals"
-            description="Dialogs, drawers, and confirmation flows."
-          />
-          <DemoLinkCard
-            href="/ui-kit-demo/creative-templates"
-            kicker="Brief panel"
-            title="Creative Templates"
-            description="Card grid for picking a creative-strategy preset. Empty, compact, and many-items states."
-          />
+        <div className="space-y-8">
+          <div>
+            <SubSectionHeading>Actions</SubSectionHeading>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DemoLinkCard
+                href="/ui-kit-demo/button"
+                kicker="Action"
+                title="Buttons"
+                description="The generic action affordance. Filled blue primary, ghost secondary, optional leading Heroicons icon."
+              />
+              <DemoLinkCard
+                href="/ui-kit-demo/icon-button"
+                kicker="Action"
+                title="Icon button"
+                description="Square, icon-only sibling of Button. Same blue/ghost variants, lines up cleanly next to a labeled Button."
+              />
+            </div>
+          </div>
+
+          <div>
+            <SubSectionHeading>Inputs</SubSectionHeading>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DemoLinkCard
+                href="/ui-kit-demo/search-input"
+                kicker="Input"
+                title="Search input"
+                description="Fixed-size search field with a leading magnifying glass icon and vertical divider."
+              />
+              <DemoLinkCard
+                href="/ui-kit-demo/selects"
+                kicker="Input"
+                title="Selects"
+                description="Frosted-glass Headless UI listbox with chevron trigger, blurred dropdown, and optional per-option flag icons."
+              />
+            </div>
+          </div>
+
+          <div>
+            <SubSectionHeading>Display</SubSectionHeading>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DemoLinkCard
+                href="/ui-kit-demo/card"
+                kicker="Surface"
+                title="Cards"
+                description="The almost-black surface primitive and the project tile composed on top of it."
+              />
+              <DemoLinkCard
+                href="/ui-kit-demo/tag"
+                kicker="Chip"
+                title="Tags"
+                description="Content-sized pill with a string label and a trailing X close affordance."
+              />
+            </div>
+          </div>
+
+          <div>
+            <SubSectionHeading>Patterns</SubSectionHeading>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DemoLinkCard
+                href="/ui-kit-demo/modals"
+                kicker="Overlay"
+                title="Modals"
+                description="Dialogs, drawers, and confirmation flows."
+              />
+              <DemoLinkCard
+                href="/ui-kit-demo/creative-templates"
+                kicker="Brief panel"
+                title="Creative Templates"
+                description="Card grid for picking a creative-strategy preset. Empty, compact, and many-items states."
+              />
+            </div>
+          </div>
           <ComingSoonCard
             title="More demos"
-            description="Buttons, inputs, timeline tracks, and the rest of the kit will land here."
+            description="Inputs, timeline tracks, and the rest of the kit will land here."
           />
         </div>
       </section>
@@ -137,14 +228,40 @@ function SectionHeading({ children }: PropsWithChildren) {
   );
 }
 
-/** One of the project's three brand colors, used to drive `bg-wb-*` Tailwind utilities. */
-type BrandColor = "red" | "green" | "blue";
+/** Smaller, dimmer sibling of {@link SectionHeading} used to label sub-groups inside a section. */
+function SubSectionHeading({ children }: PropsWithChildren) {
+  return (
+    <h3 className="text-xs uppercase tracking-widest text-gray-600 mb-3">
+      {children}
+    </h3>
+  );
+}
+
+/** One of the colors in the project's `wb-*` brand palette, used to drive `bg-wb-*` Tailwind utilities. */
+type BrandColor =
+  | "red"
+  | "green"
+  | "blue"
+  | "blue-bright"
+  | "blue-dark"
+  | "blue-darkest"
+  | "gray"
+  | "dark-gray-blue"
+  | "dark-blue"
+  | "almost-black";
 
 /** Lookup that resolves a {@link BrandColor} to its Tailwind background utility. */
 const BRAND_BG_CLASS: Record<BrandColor, string> = {
   red: "bg-wb-red",
   green: "bg-wb-green",
   blue: "bg-wb-blue",
+  "blue-bright": "bg-wb-blue-bright",
+  "blue-dark": "bg-wb-blue-dark",
+  "blue-darkest": "bg-wb-blue-darkest",
+  gray: "bg-wb-gray",
+  "dark-gray-blue": "bg-wb-dark-gray-blue",
+  "dark-blue": "bg-wb-dark-blue",
+  "almost-black": "bg-wb-almost-black",
 };
 
 /** Props for {@link ColorSwatch}: a human label, its hex value, and which brand color to render. */
@@ -162,7 +279,7 @@ function ColorSwatch({ label, value, color }: ColorSwatchProps) {
   return (
     <div className="group relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden">
       <div className={twMerge("h-24", BRAND_BG_CLASS[color])} />
-      <div className="p-4 flex items-center justify-between">
+      <div className="p-4 flex flex-col gap-1">
         <span className="font-medium">{label}</span>
         <span className="font-mono text-xs text-gray-400">{value}</span>
       </div>

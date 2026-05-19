@@ -452,7 +452,6 @@ export function HistoryDrawer({
                   ))}
                 </div>
               )}
-
             </>
           )}
 
