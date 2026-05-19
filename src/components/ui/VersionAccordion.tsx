@@ -8,7 +8,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ReactNode } from "react";
 import { RequestChangeIcon, SendToMixerIcon } from "./AccordionIcons";
-import { AccordionPlayButton } from "./AccordionPlayButton";
+import { AccordionPlayButton } from "./buttons";
 
 export interface BaseVersionItem {
   id: VersionId;

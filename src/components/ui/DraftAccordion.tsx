@@ -10,7 +10,7 @@ import { LockClosedIcon } from "@heroicons/react/24/solid";
 import * as Accordion from "@radix-ui/react-accordion";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { RequestChangeIcon, SendToMixerIcon } from "./AccordionIcons";
-import { AccordionPlayButton } from "./AccordionPlayButton";
+import { AccordionPlayButton } from "./buttons";
 import { Tooltip } from "./Tooltip";
 
 export type DraftState = "editing" | "changed" | "ready" | "generating";
