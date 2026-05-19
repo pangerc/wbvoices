@@ -8,7 +8,7 @@ import {
 import { MusicDraftEditor } from "@/components/draft-editors/MusicDraftEditor";
 import { SfxDraftEditor } from "@/components/draft-editors/SfxDraftEditor";
 import { VoiceDraftEditor } from "@/components/draft-editors/VoiceDraftEditor";
-import { Header } from "@/components/Header";
+import { ProjectHeader } from "@/components/Header/ProjectHeader";
 import { MixerPanel } from "@/components/MixerPanel";
 import { PreviewPanel } from "@/components/PreviewPanel";
 import {
@@ -337,7 +337,7 @@ export default function AdWorkspace() {
 
   return (
     <div className="flex flex-col h-screen bg-black text-white">
-      <Header
+      <ProjectHeader
         selectedTab={selectedTab}
         onTabChange={handleTabChange}
         onNewProject={handleNewAd}
