@@ -22,6 +22,7 @@ import { SfxVersionContent } from "@/components/version-content/SfxVersionConten
 import { VoiceVersionContent } from "@/components/version-content/VoiceVersionContent";
 import { useMixerData } from "@/hooks/useMixerData";
 import { useStreamOperations } from "@/hooks/useStreamOperations";
+import { ChatSidebar } from "@/components/ChatSidebar";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useMixerStore } from "@/store/mixerStore";
 import { useUIStore } from "@/store/uiStore";
@@ -62,6 +63,34 @@ export default function AdWorkspace() {
 
   // Accordion state from store
   const { openAccordion, setOpenAccordion } = useUIStore();
+  // hasGenerated: true once any stream has at least one version. The chat
+  // endpoint rejects with 400 before that — the panel uses this to render
+  // the no-generation guard instead of a usable input.
+  const hasGenerated = Boolean(
+    (voice.data?.versions?.length ?? 0) > 0 ||
+      (music.data?.versions?.length ?? 0) > 0 ||
+      (sfx.data?.versions?.length ?? 0) > 0,
+  );
+
+  // Context-strip stats. `Take v{n}` is the position (1-indexed, oldest →
+  // newest) of the active voice version in the version list — same rule as
+  // VersionAccordion's chronological labelling.
+  const voiceVersionsOldestFirst = voice.data?.versions
+    ? [...voice.data.versions].reverse()
+    : [];
+  const activeVoiceIdx = voice.data?.active
+    ? voiceVersionsOldestFirst.indexOf(voice.data.active)
+    : -1;
+  const versionLabel =
+    activeVoiceIdx >= 0 ? `Take v${activeVoiceIdx + 1}` : undefined;
+  const activeVoiceVersion = voice.data?.active
+    ? (voice.data.versionsData[voice.data.active] as VoiceVersion | undefined)
+    : undefined;
+  const voiceTrackCount = activeVoiceVersion?.voiceTracks?.length ?? 0;
+  const musicTrackCount = music.data?.active ? 1 : 0;
+  const totalDurationSeconds = mixerData?.totalDuration
+    ? Math.round(mixerData.totalDuration)
+    : null;
 
   // Reset accordion state when navigating to a different ad
   useEffect(() => {
@@ -345,7 +374,12 @@ export default function AdWorkspace() {
         projectName={adName}
       />
 
-      <div className="flex-1 overflow-auto relative">
+      {/* Workspace + docked panel share a flex-row below the header so the
+          panel sits underneath the tab strip exactly like design.png shows. */}
+      <div className="flex-1 flex flex-row min-h-0">
+      <div
+        className="flex-1 overflow-auto relative"
+      >
         <MatrixBackground
           isAnimating={isBriefGenerating || generatingMusic || generatingSfx}
         />
@@ -734,6 +768,18 @@ export default function AdWorkspace() {
           {/* Preview - Tab 5 */}
           {selectedTab === 5 && <PreviewPanel projectId={adId} />}
         </div>
+      </div>
+
+        <ChatSidebar
+          adId={adId}
+          hasGenerated={hasGenerated}
+          contextStats={{
+            versionLabel,
+            durationSeconds: totalDurationSeconds,
+            voiceTrackCount,
+            musicTrackCount,
+          }}
+        />
       </div>
     </div>
   );
