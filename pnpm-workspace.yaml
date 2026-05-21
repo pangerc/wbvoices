@@ -1,0 +1,46 @@
+###
+# MITIGATING SUPPLY CHAIN ATTACKS
+# https://pnpm.io/supply-chain-security
+##
+
+# https://pnpm.io/supply-chain-security#block-risky-postinstall-scripts
+# We only allow builds (post-install hooks) for dependencies we trust
+#
+# More info: https://pnpm.io/settings#allowbuilds
+allowBuilds:
+  esbuild: true
+  msw: true
+  sharp: true
+  unrs-resolver: true
+
+# https://pnpm.io/supply-chain-security#prevent-exotic-transitive-dependencies
+# Prevent installation of dependencies that are not in the npm registry
+# but are loaded via URL of a git repository or of a tar archive
+#
+# More info: https://pnpm.io/settings#blockexoticsubdeps
+blockExoticSubdeps: true
+
+# https://pnpm.io/supply-chain-security#delay-dependency-updates
+# We will delay the update of a package to make sure the publisher was not compromised
+# and allowing the OSS ecosystem to catch it
+#
+# More info: https://pnpm.io/settings#minimumreleaseage
+minimumReleaseAge: 10080 # 1 week
+
+# https://pnpm.io/supply-chain-security#enforce-trust-with-trustpolicy
+# This relates to the trust not being down graded of a published package version
+#
+# More info: https://pnpm.io/settings#trustpolicy
+trustPolicy: no-downgrade
+
+# These dependencies (and version) do not have npm & github provenance attastations.
+# Thus they have a lower trust level and we need to exlude them from our trust policy
+#
+# More info:
+# - https://docs.npmjs.com/generating-provenance-statements
+# - https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations
+trustPolicyExclude:
+  - "next-auth@5.0.0-beta.30" # this is currently a beta release with no provenance attestation
+  - "undici@5.29.0" # only has continuous provenance attestation since version 7.1.0
+  - "eslint-import-resolver-typescript@3.10.1" # only has provenance attestation from 4.2.6
+  - "semver@6.3.1" # only has provenance attestations from version 7.5.1

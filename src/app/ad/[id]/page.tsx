@@ -1,6 +1,6 @@
 "use client";
 
-import { MatrixBackground } from "@/components";
+import { useBackgroundAnimator } from "@/components/animated-background/animated-background";
 import {
   BriefPanelV4,
   type StreamUpdateEvent,
@@ -8,7 +8,7 @@ import {
 import { MusicDraftEditor } from "@/components/draft-editors/MusicDraftEditor";
 import { SfxDraftEditor } from "@/components/draft-editors/SfxDraftEditor";
 import { VoiceDraftEditor } from "@/components/draft-editors/VoiceDraftEditor";
-import { Header } from "@/components/Header";
+import { ProjectHeader } from "@/components/Header/ProjectHeader";
 import { MixerPanel } from "@/components/MixerPanel";
 import { PreviewPanel } from "@/components/PreviewPanel";
 import {
@@ -35,6 +35,7 @@ import type {
 } from "@/types/versions";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { MatrixBackground } from "@/components/animated-background/MatrixBackground";
 
 export default function AdWorkspace() {
   const params = useParams();
@@ -353,6 +354,8 @@ export default function AdWorkspace() {
     }
   }, [searchParams]);
 
+  useBackgroundAnimator(isBriefGenerating || generatingMusic || generatingSfx);
+
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen bg-black text-white">
@@ -366,7 +369,7 @@ export default function AdWorkspace() {
 
   return (
     <div className="flex flex-col h-screen bg-black text-white">
-      <Header
+      <ProjectHeader
         selectedTab={selectedTab}
         onTabChange={handleTabChange}
         onNewProject={handleNewAd}
@@ -374,15 +377,11 @@ export default function AdWorkspace() {
         projectName={adName}
       />
 
-      {/* Workspace + docked panel share a flex-row below the header so the
-          panel sits underneath the tab strip exactly like design.png shows. */}
       <div className="flex-1 flex flex-row min-h-0">
       <div
         className="flex-1 overflow-auto relative"
       >
-        <MatrixBackground
-          isAnimating={isBriefGenerating || generatingMusic || generatingSfx}
-        />
+        <MatrixBackground />
         <div className="container mx-auto px-4 py-8 relative z-10">
           {/* Generation errors banner */}
           {generationErrors.length > 0 && (

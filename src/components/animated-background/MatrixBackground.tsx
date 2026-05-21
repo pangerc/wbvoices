@@ -1,16 +1,12 @@
 "use client";
 
+import { useIsBackgroundAnimated } from "@/components/animated-background/animated-background";
 import { useCallback, useEffect, useRef } from "react";
+import { twMerge } from "tailwind-merge";
 
-interface MatrixBackgroundProps {
-  isAnimating?: boolean;
-  className?: string;
-}
+export function MatrixBackground() {
+  const isAnimating = useIsBackgroundAnimated();
 
-export function MatrixBackground({
-  isAnimating = false,
-  className = "",
-}: MatrixBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | undefined>(undefined);
   const startTimeRef = useRef<number>(0);
@@ -225,11 +221,12 @@ export function MatrixBackground({
   return (
     <canvas
       ref={canvasRef}
-      className={`absolute inset-0 pointer-events-none ${className}`}
+      className={twMerge("z-0 absolute inset-0 pointer-events-none", "w-full")}
       style={{
-        zIndex: 0,
-        width: "100%",
-        height: "100%",
+        // FIXME: Improve showing the Header above the Background
+        // The Header component is 146 px in height
+        top: "146px",
+        height: "calc(100% - 146px)",
       }}
     />
   );

@@ -2,7 +2,6 @@ export { AuthProvider } from "./AuthProvider";
 export { ChatSidebar } from "./ChatSidebar";
 export { ClientLayout } from "./ClientLayout";
 export { LoginForm } from "./LoginForm";
-export { MatrixBackground } from "./MatrixBackground";
 export { MixerPanel } from "./MixerPanel";
 export { MusicPanel } from "./MusicPanel";
 export { PreviewPanel } from "./PreviewPanel";

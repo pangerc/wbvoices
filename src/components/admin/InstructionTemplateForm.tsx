@@ -5,6 +5,12 @@ import { GlassyListbox } from "@/components/ui/GlassyListbox";
 import { GlassyTextarea } from "@/components/ui/GlassyTextarea";
 import { Switch } from "@/components/ui/Switch";
 import {
+  CATEGORIES,
+  PACINGS,
+  type TemplateCategory,
+  type TemplatePacing,
+} from "@/lib/instructionTemplateValidation";
+import {
   DocumentIcon,
   PaperClipIcon,
   PencilIcon,
@@ -12,12 +18,6 @@ import {
   SparklesIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import {
-  CATEGORIES,
-  PACINGS,
-  type TemplateCategory,
-  type TemplatePacing,
-} from "@/lib/instructionTemplateValidation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";

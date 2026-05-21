@@ -16,6 +16,12 @@ type Page = {
 /** Static list of pages rendered as sidebar links, in display order. */
 const pages: Page[] = [
   { title: "Home", href: "/ui-kit-demo" },
+  { title: "Buttons", href: "/ui-kit-demo/button" },
+  { title: "Icon button", href: "/ui-kit-demo/icon-button" },
+  { title: "Cards", href: "/ui-kit-demo/card" },
+  { title: "Search input", href: "/ui-kit-demo/search-input" },
+  { title: "Selects", href: "/ui-kit-demo/selects" },
+  { title: "Tags", href: "/ui-kit-demo/tag" },
   { title: "Modals", href: "/ui-kit-demo/modals" },
   { title: "Creative Templates", href: "/ui-kit-demo/creative-templates" },
 ];

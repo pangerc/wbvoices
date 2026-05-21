@@ -2,7 +2,7 @@
 
 import { useDraftAccordionState } from "@/hooks/useAudioPlayback";
 import { PlayIcon, StopIcon } from "@heroicons/react/24/outline";
-import { Tooltip } from "./Tooltip";
+import { Tooltip } from "../Tooltip";
 
 interface AccordionPlayButtonProps {
   type: "voice" | "music" | "sfx";

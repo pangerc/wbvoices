@@ -8,6 +8,8 @@
 import { AuthError, requireAuth } from "@/lib/auth-helpers";
 import { getRedisV3 } from "@/lib/redis-v3";
 import { getAdMetadataBatch, setAdMetadata } from "@/lib/redis/versions";
+import { AdSearch, SearchableAd, searchAdList } from "@/projects/search";
+import { Language } from "@/types";
 import { AdMetadata } from "@/types/versions";
 import { generateProjectId } from "@/utils/projectId";
 import { NextRequest, NextResponse } from "next/server";
@@ -20,6 +22,41 @@ const USER_ADS_KEY = (ownerEmail: string) => `ads:by_user:${ownerEmail}`;
 
 // All ads index (for admin listing)
 const ALL_ADS_KEY = "ads:all";
+
+/**
+ * Takes a URL search parameters maps and extracts needed details
+ * like `name`, `client`, `market`, `language` and returns it for filtering.
+ *
+ * If no `skip` or `take` is given it returns `showAll: true`.
+ * Otherwise it defaults `skip` to `0` and `take` to `4`.
+ *
+ * @param searchParams that contain the search
+ * @returns
+ */
+const getSearch = (searchParams: URLSearchParams): AdSearch => {
+  // FIXME: Get search via some sort of input validation
+  const name = searchParams.get("name") ?? undefined;
+  const client = searchParams.get("client") ?? undefined;
+  const market = searchParams.get("market") ?? undefined;
+  const language = (searchParams.get("language") ?? undefined) as
+    | Language
+    | undefined;
+  const skip = searchParams.get("skip");
+  const take = searchParams.get("take");
+
+  if (!skip && !take) {
+    return { name, client, market, language, showAll: true };
+  } else {
+    return {
+      name,
+      client,
+      market,
+      language,
+      skip: Number(skip ?? 0),
+      take: Number(take ?? 4),
+    };
+  }
+};
 
 /**
  * POST /api/ads
@@ -85,18 +122,16 @@ export async function POST(request: NextRequest) {
  * GET /api/ads
  *
  * List ads for the authenticated user.
- * Admin users can pass ?all=true to see all ads.
  */
 export async function GET(request: NextRequest) {
   try {
     const { email, role } = await requireAuth();
-    const url = new URL(request.url);
-    const showAll = url.searchParams.get("all") === "true";
+    const search = getSearch(new URL(request.url).searchParams);
 
     const redis = getRedisV3();
     let adIds: string[];
 
-    if (showAll && role === "admin") {
+    if (role === "admin") {
       // Admin: show all ads (includes legacy universal-session ads)
       adIds = (await redis.get<string[]>(ALL_ADS_KEY)) || [];
       console.log(`📋 Admin loading ALL ads: ${adIds.length} total`);
@@ -110,7 +145,7 @@ export async function GET(request: NextRequest) {
     // Load metadata for all ads in a single batch call
     const metadataMap = await getAdMetadataBatch(adIds);
 
-    const ads = [];
+    const ads: Array<SearchableAd> = [];
     for (const adId of adIds) {
       const meta = metadataMap.get(adId);
       if (meta) {
@@ -118,10 +153,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Sort by last modified (newest first)
-    ads.sort((a, b) => b.meta.lastModified - a.meta.lastModified);
+    const filteredAds = searchAdList(ads, search);
 
-    return NextResponse.json({ ads });
+    return NextResponse.json({ ads: filteredAds });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json(

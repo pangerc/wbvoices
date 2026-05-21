@@ -15,8 +15,13 @@
   --color-wb-red: #fb5d4c;
   --color-wb-green: #21dd92;
   --color-wb-blue: #2f7dfa;
+  --color-wb-blue-bright: #0080ff;
   --color-wb-blue-dark: #2467d3;
   --color-wb-blue-darkest: #003790;
+  --color-wb-gray: #98a1b0;
+  --color-wb-dark-gray-blue: #363d48;
+  --color-wb-dark-blue: #0d1522;
+  --color-wb-almost-black: #16171a;
 }
 
 /*

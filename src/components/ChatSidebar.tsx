@@ -188,10 +188,6 @@ function Panel({ adId, hasGenerated, contextStats, onClose }: PanelProps) {
     setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // Docked = flex sibling of the workspace content below the header (so the
-  // panel sits beneath the tab strip per design.png, not over it). Expanded
-  // = fixed inset-0 overlay so it covers the whole viewport. Mobile defaults
-  // to a fullscreen overlay since there's no room for a sibling column.
   const asideClass = isExpanded
     ? "fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-md"
     : "fixed inset-0 z-40 flex flex-col bg-black/95 backdrop-blur-md sm:relative sm:inset-auto sm:z-auto sm:w-[400px] sm:flex-shrink-0 sm:bg-black/90 sm:border-l sm:border-white/10";

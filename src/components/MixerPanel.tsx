@@ -1,7 +1,6 @@
 import { LoudnessMeter } from "@/components/LoudnessMeter";
 import { TimelineTrack, TimelineTrackData } from "@/components/TimelineTrack";
-import { PlayButton } from "@/components/ui/PlayButton";
-import { ResetButton } from "@/components/ui/ResetButton";
+import { PlayButton, ResetButton } from "@/components/ui/buttons";
 import { useMixerData } from "@/hooks/useMixerData";
 import { MixerTrack, useMixerStore } from "@/store/mixerStore";
 import { createMix, TrackTiming } from "@/utils/audio-mixer";

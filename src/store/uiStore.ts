@@ -8,7 +8,7 @@ type UIState = {
   openAccordion: Record<StreamType, string | null>;
   setOpenAccordion: (stream: StreamType, id: string | null) => void;
 
-  // AAC-29 — AI Copilot panel open/closed. Lives in the store (vs local
+  // AI Copilot panel open/closed. Lives in the store (vs local
   // state in ChatSidebar) so the workspace can react to it and shrink its
   // content area when the panel is docked. Persisted to localStorage by the
   // panel itself.

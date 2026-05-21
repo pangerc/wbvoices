@@ -54,7 +54,6 @@ export function HistoryDrawer({
   const [editingName, setEditingName] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<TabType>("ads");
-  // AAC-29 — the standalone Chat tab is replaced by the docked ChatSidebar.
   // Clicking the tab opens that panel and closes this drawer.
   const setChatSidebarOpen = useUIStore((s) => s.setChatSidebarOpen);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -101,7 +100,7 @@ export function HistoryDrawer({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/ads${isAdmin ? "?all=true" : ""}`);
+      const res = await fetch("/api/ads");
 
       if (res.ok) {
         const data = await res.json();
@@ -458,7 +457,6 @@ export function HistoryDrawer({
                   ))}
                 </div>
               )}
-
             </>
           )}
 
