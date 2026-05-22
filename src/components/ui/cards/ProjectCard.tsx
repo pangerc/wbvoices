@@ -8,9 +8,9 @@ export type ProjectCardProps = {
   /** Project name shown at the top of the card. */
   title: string;
   /** Customer / brand the project belongs to (e.g., `"Spotify"`). Rendered in italic below the title. */
-  customer: string;
+  customer?: string;
   /** Market / region label (e.g., `"Saudi Arabia"`). */
-  market: string;
+  market?: string | null;
   /** Primary language of the ad (e.g., `"Modern Standard Arabic"`). */
   language: string;
   /** Timestamp of the project's last modification. Rendered as `MMM d yyyy` (e.g., `"Jan 1 2025"`) via `date-fns`. */
@@ -78,17 +78,21 @@ function ProjectCardBody({
         <h3 className="text-white text-[1.5625rem] font-bold leading-[normal]">
           {title}
         </h3>
-        <p className="text-white text-[1.25rem] font-medium italic leading-[normal] mt-1">
-          {customer}
-        </p>
+        {customer && (
+          <p className="text-white text-[1.25rem] font-medium italic leading-[normal] mt-1">
+            {customer}
+          </p>
+        )}
       </header>
 
       <footer className="mt-auto flex items-end justify-between gap-4">
         <div className="flex flex-col gap-2.5">
           <div className="flex flex-col">
-            <span className="text-white text-[0.75rem] font-normal leading-6">
-              Market: {market}
-            </span>
+            {market && (
+              <span className="text-white text-[0.75rem] font-normal leading-6">
+                Market: {market}
+              </span>
+            )}
             <span className="text-white text-[0.75rem] font-normal leading-6">
               Language: {language}
             </span>
