@@ -22,8 +22,10 @@ const pages: Page[] = [
   { title: "Search input", href: "/ui-kit-demo/search-input" },
   { title: "Selects", href: "/ui-kit-demo/selects" },
   { title: "Tags", href: "/ui-kit-demo/tag" },
+  { title: "Chat message", href: "/ui-kit-demo/chat-message" },
   { title: "Modals", href: "/ui-kit-demo/modals" },
   { title: "Creative Templates", href: "/ui-kit-demo/creative-templates" },
+  { title: "AI Copilot panel", href: "/ui-kit-demo/chat-copilot" },
 ];
 
 /** Layout for the UI Kit demo section: fixed left sidebar with the page list, scrollable main content on the right. */

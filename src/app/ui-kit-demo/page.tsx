@@ -119,6 +119,12 @@ export default function UiKitDemoPage() {
                 title="Tags"
                 description="Content-sized pill with a string label and a trailing X close affordance."
               />
+              <DemoLinkCard
+                href="/ui-kit-demo/chat-message"
+                kicker="Chat"
+                title="Chat message"
+                description="Bubble used by the AI Copilot panel. User vs assistant variants, attachments, applied-to line, pending, error, long-content collapse."
+              />
             </div>
           </div>
 
@@ -136,6 +142,12 @@ export default function UiKitDemoPage() {
                 kicker="Brief panel"
                 title="Creative Templates"
                 description="Card grid for picking a creative-strategy preset. Empty, compact, and many-items states."
+              />
+              <DemoLinkCard
+                href="/ui-kit-demo/chat-copilot"
+                kicker="AI"
+                title="AI Copilot panel"
+                description="The persistent chat panel docked in the ad workspace. Docked, expanded fullscreen, closed launcher, plus the no-generation and empty states."
               />
             </div>
           </div>
