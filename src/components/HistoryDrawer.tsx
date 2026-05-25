@@ -1,3 +1,4 @@
+import { useUIStore } from "@/store/uiStore";
 import { ProjectBrief } from "@/types";
 import {
   ArrowRightIcon,
@@ -53,6 +54,8 @@ export function HistoryDrawer({
   const [editingName, setEditingName] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<TabType>("ads");
+  // Clicking the tab opens that panel and closes this drawer.
+  const setChatSidebarOpen = useUIStore((s) => s.setChatSidebarOpen);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -289,13 +292,15 @@ export function HistoryDrawer({
               Ads{ads.length > 0 ? ` (${ads.length})` : ""}
             </button>
             <button
-              onClick={() => setActiveTab("chat")}
+              onClick={() => {
+                if (!currentAdId) return;
+                setChatSidebarOpen(true);
+                onClose();
+              }}
               disabled={!currentAdId}
-              className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-lg transition-all ${
-                activeTab === "chat"
-                  ? "bg-white/10 text-white"
-                  : "text-white/50 hover:text-white/70 hover:bg-white/5"
-              } ${!currentAdId ? "opacity-40 cursor-not-allowed" : ""}`}
+              className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-lg transition-all text-white/50 hover:text-white/70 hover:bg-white/5 ${
+                !currentAdId ? "opacity-40 cursor-not-allowed" : ""
+              }`}
             >
               Chat
             </button>

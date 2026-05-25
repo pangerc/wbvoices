@@ -1,4 +1,5 @@
 export { AuthProvider } from "./AuthProvider";
+export { ChatSidebar } from "./ChatSidebar";
 export { ClientLayout } from "./ClientLayout";
 export { LoginForm } from "./LoginForm";
 export { MixerPanel } from "./MixerPanel";

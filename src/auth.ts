@@ -27,10 +27,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Resend({
       from: process.env.AUTH_RESEND_FROM || "onboarding@resend.dev",
       async sendVerificationRequest({ identifier: email, url, provider }) {
+        const isDev = process.env.NODE_ENV !== "production";
         // Dev fallback: print the magic link to stdout so local sign-in works
         // even when AUTH_RESEND_KEY is invalid or the from-domain isn't verified.
-        // Added for DEV purposes because AUTH_RESEND_KEY became invalid
-        if (process.env.NODE_ENV !== "production") {
+        // The verification token has already been persisted to the DB by
+        // NextAuth's adapter by the time this callback runs, so the printed
+        // URL is fully usable on its own.
+        if (isDev) {
           const banner = "═".repeat(70);
           console.log(
             `\n${banner}\n🔐 DEV SIGN-IN LINK for ${email}\n${url}\n${banner}\n`,
@@ -38,7 +41,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
         const { Resend: ResendClient } = await import("resend");
         const resend = new ResendClient(process.env.AUTH_RESEND_KEY);
-        await resend.emails.send({
+        const sendEmail = () =>
+          resend.emails.send({
           from: provider.from!,
           to: email,
           subject: "Sign in to Aleph Creative Audio",
@@ -71,7 +75,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   </table>
 </body>
 </html>`,
-        });
+          });
+        // In dev, swallow Resend errors so a bad AUTH_RESEND_KEY or an
+        // unverified from-domain doesn't surface as "Failed to send sign-in
+        // link" in the UI — the magic-link URL was already logged above and
+        // the verification token is in the DB, so the user can still sign in.
+        // In production we let the error propagate normally so real send
+        // failures are visible.
+        if (isDev) {
+          try {
+            await sendEmail();
+          } catch (err) {
+            console.warn(
+              `[auth] Resend send failed in dev; magic link logged above is still valid. ` +
+                `Error: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        } else {
+          await sendEmail();
+        }
       },
     }),
   ],
