@@ -225,12 +225,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!language || !clientDescription || !creativeBrief || !campaignFormat) {
+    // `clientDescription` is optional — see /api/ai/generate-stream for the
+    // rationale. Keep this validation in lockstep with the streaming sibling.
+    const missing: string[] = [];
+    if (!language) missing.push("language");
+    if (!creativeBrief) missing.push("creativeBrief");
+    if (!campaignFormat) missing.push("campaignFormat");
+    if (missing.length > 0) {
       return NextResponse.json(
-        {
-          error:
-            "Missing required fields: language, clientDescription, creativeBrief, campaignFormat",
-        },
+        { error: `Missing required fields: ${missing.join(", ")}` },
         { status: 400 },
       );
     }

@@ -269,11 +269,18 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  if (!language || !clientDescription || !creativeBrief || !campaignFormat) {
+  // `clientDescription` is optional — it derives from `brand?.name` in the
+  // brief panel and stays empty for ads where the user just types a creative
+  // brief without picking a brand. The LLM has `creativeBrief` for context,
+  // so requiring both would block the simplest happy path.
+  const missing: string[] = [];
+  if (!language) missing.push("language");
+  if (!creativeBrief) missing.push("creativeBrief");
+  if (!campaignFormat) missing.push("campaignFormat");
+  if (missing.length > 0) {
     return new Response(
       JSON.stringify({
-        error:
-          "Missing required fields: language, clientDescription, creativeBrief, campaignFormat",
+        error: `Missing required fields: ${missing.join(", ")}`,
       }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
