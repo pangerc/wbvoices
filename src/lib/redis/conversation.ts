@@ -35,7 +35,7 @@ export async function getConversation(
   const redis = getRedisV3();
   const key = CONVERSATION_KEYS.conversation(adId);
 
-  const data = await redis.get(key);
+  const data = await redis.get<ConversationMessage[] | string>(key);
 
   if (!data) {
     return [];
