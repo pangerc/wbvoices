@@ -38,7 +38,7 @@ export function LoudnessMeter({ audioRef, isPlaying }: LoudnessMeterProps) {
   const [peakLufs, setPeakLufs] = useState<number | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const bufferRef = useRef<Float32Array | null>(null);
+  const bufferRef = useRef<Float32Array<ArrayBuffer> | null>(null);
   const rafRef = useRef<number | null>(null);
   const wiredElementRef = useRef<HTMLAudioElement | null>(null);
   // Peak-hold tracking lives in refs to avoid re-rendering on every frame —
