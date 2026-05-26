@@ -188,7 +188,7 @@ export async function getVersion(
   const redis = getRedisV3();
   const versionKey = AD_KEYS.version(adId, streamType, versionId);
 
-  const data = await redis.get(versionKey);
+  const data = await redis.get<AnyVersion | string>(versionKey);
 
   if (!data) {
     console.warn(
@@ -294,7 +294,7 @@ export async function getActiveVersionData<TStreamType extends StreamType>(
 
   if (activeId) {
     const versionId = AD_KEYS.version(adId, streamType, activeId);
-    const data = await redis.get(versionId);
+    const data = await redis.get<VersionFor<TStreamType> | string>(versionId);
 
     if (!data) {
       console.warn(
@@ -529,7 +529,7 @@ export async function getAdMetadata(adId: string): Promise<AdMetadata | null> {
   const redis = getRedisV3();
   const metaKey = AD_KEYS.meta(adId);
 
-  const data = await redis.get(metaKey);
+  const data = await redis.get<AdMetadata | string>(metaKey);
 
   if (!data) {
     return null;
@@ -631,7 +631,7 @@ export async function getPreviewData(
   const redis = getRedisV3();
   const previewKey = AD_KEYS.preview(adId);
 
-  const data = await redis.get(previewKey);
+  const data = await redis.get<PreviewData | string>(previewKey);
 
   if (!data) {
     return null;
