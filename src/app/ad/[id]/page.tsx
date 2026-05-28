@@ -778,6 +778,36 @@ export default function AdWorkspace() {
             voiceTrackCount,
             musicTrackCount,
           }}
+          onTurnLanded={(result) => {
+            // 1) Revalidate the SWR caches for whichever streams the agent
+            // produced a draft in. Without this the workspace tabs keep
+            // showing stale data until the user refocuses the window or
+            // remounts the page. The mixer is also mutated when any stream
+            // changed because it composes from all three.
+            const v = !!result.drafts.voices;
+            const m = !!result.drafts.music;
+            const s = !!result.drafts.sfx;
+            if (v) void voice.mutate();
+            if (m) void music.mutate();
+            if (s) void sfx.mutate();
+            if (v || m || s) void mutateMixer();
+
+            // 2) Auto-navigate the user to the tab that hosts the new draft
+            // so the change is visible without manual tab-switching. The
+            // user just asked the AI to do something — they expect to see
+            // it. Multi-stream changes land on Mix! since that's the only
+            // tab that surfaces all three streams in one view.
+            //   0 Brief · 1 Script · 2 Music · 3 FX · 4 Mix! · 5 Preview
+            const touched = (v ? 1 : 0) + (m ? 1 : 0) + (s ? 1 : 0);
+            let nextTab: number | null = null;
+            if (touched > 1) nextTab = 4;
+            else if (v) nextTab = 1;
+            else if (m) nextTab = 2;
+            else if (s) nextTab = 3;
+            if (nextTab !== null && nextTab !== selectedTab) {
+              setSelectedTab(nextTab);
+            }
+          }}
         />
       </div>
     </div>

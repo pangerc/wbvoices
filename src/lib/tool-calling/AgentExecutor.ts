@@ -64,6 +64,15 @@ export async function runAgentLoop(
 
   if (messages.length === 0 || messages[0].role !== "system") {
     messages = [{ role: "system", content: systemPrompt }, ...messages];
+  } else if (continueConvo) {
+    // Refresh the persisted system message with the freshly-built one so
+    // updates to prompt templates (knowledge modules, reply style, etc.)
+    // take effect on existing conversations. Without this, every ad would
+    // be permanently frozen to the prompt it was first generated with.
+    messages = [
+      { role: "system", content: systemPrompt },
+      ...messages.slice(1),
+    ];
   }
   messages.push({ role: "user", content: userMessage });
 

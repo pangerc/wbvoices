@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ChatAttachment = {
   // No url — files are extracted in-memory server-side and discarded; the
@@ -63,6 +63,20 @@ type SendMessageOptions = {
   files?: File[];
 };
 
+export type ChatTurnResult = {
+  // Stream IDs that received a new draft on this turn. Same shape as the
+  // chat endpoint's `result.drafts`. Empty/undefined for turns where the
+  // agent answered without mutating any stream.
+  drafts: { voices?: string; music?: string; sfx?: string };
+};
+
+export type UseChatSessionOptions = {
+  // Fires after every successful chat turn (not on errors). The page wires
+  // this to revalidate the SWR caches for the affected streams so the
+  // workspace tabs reflect the new draft without requiring a manual reload.
+  onTurnLanded?: (result: ChatTurnResult) => void;
+};
+
 // User messages in Redis include internal-build artefacts: the initial
 // generation prompt produced by `buildUserMessage`, the `## Reference
 // materials` block appended when files were attached, and the
@@ -91,10 +105,16 @@ function sanitiseUserMessageForDisplay(content: string): string | null {
  * it on every turn). This hook keeps the visible display log in React state
  * — refreshing the page clears the log; the Redis context survives.
  */
-export function useChatSession(adId: string) {
+export function useChatSession(adId: string, options?: UseChatSessionOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Keep the latest callback in a ref so updates don't invalidate
+  // sendMessage's identity. The hook would otherwise re-create sendMessage
+  // on every render, breaking memoisation downstream.
+  const onTurnLandedRef = useRef(options?.onTurnLanded);
+  onTurnLandedRef.current = options?.onTurnLanded;
 
   // Restore visible history on mount from the Redis-backed conversation. The
   // endpoint already filters out system prompts + verbose summaries, so what
@@ -225,6 +245,10 @@ export function useChatSession(adId: string) {
               : m,
           ),
         );
+        // Notify the workspace AFTER the local state update so consumers
+        // (page-level SWR revalidation) react against a UI that already
+        // reflects the assistant's reply.
+        onTurnLandedRef.current?.({ drafts: data.drafts ?? {} });
       } catch (err) {
         const errText =
           err instanceof Error ? err.message : "Network error.";
