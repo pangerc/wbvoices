@@ -11,7 +11,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
 import { ChatMessage } from "@/components/ui/ChatMessage";
-import { useChatSession } from "@/hooks/useChatSession";
+import { useChatSession, type ChatTurnResult } from "@/hooks/useChatSession";
 import { useUIStore } from "@/store/uiStore";
 
 export type ChatContextStats = {
@@ -32,6 +32,11 @@ type ChatSidebarProps = {
   // Stats line under the header — `Take v7 · 42s · 1 voice · 1 soundtrack`.
   // Strip is hidden when none of these are set.
   contextStats?: ChatContextStats;
+  // Fires after every successful chat turn with the drafts payload returned
+  // by the server. The workspace wires this to revalidate the SWR caches for
+  // the affected streams so new versions appear in the tabs without a
+  // manual reload.
+  onTurnLanded?: (result: ChatTurnResult) => void;
 };
 
 const STORAGE_KEY_OPEN = "aac29.chatSidebar.isOpen";
@@ -49,6 +54,7 @@ export function ChatSidebar({
   adId,
   hasGenerated,
   contextStats,
+  onTurnLanded,
 }: ChatSidebarProps) {
   const isOpen = useUIStore((s) => s.isChatSidebarOpen);
   const setIsOpen = useUIStore((s) => s.setChatSidebarOpen);
@@ -82,6 +88,13 @@ export function ChatSidebar({
     return null;
   }
 
+  // The chat backend rejects requests until the ad has a conversation in
+  // Redis, which only exists after first generation. Render nothing until
+  // then so users don't see a clickable bubble that opens a dead panel.
+  if (!hasGenerated) {
+    return null;
+  }
+
   if (!isOpen) {
     return <Launcher onClick={() => setIsOpen(true)} />;
   }
@@ -91,6 +104,7 @@ export function ChatSidebar({
       adId={adId}
       hasGenerated={hasGenerated}
       contextStats={contextStats}
+      onTurnLanded={onTurnLanded}
       onClose={() => setIsOpen(false)}
     />
   );
@@ -113,13 +127,23 @@ type PanelProps = {
   adId: string;
   hasGenerated: boolean;
   contextStats?: ChatContextStats;
+  onTurnLanded?: (result: ChatTurnResult) => void;
   onClose: () => void;
 };
 
-function Panel({ adId, hasGenerated, contextStats, onClose }: PanelProps) {
+function Panel({
+  adId,
+  hasGenerated,
+  contextStats,
+  onTurnLanded,
+  onClose,
+}: PanelProps) {
   const isExpanded = useUIStore((s) => s.isChatSidebarExpanded);
   const setExpanded = useUIStore((s) => s.setChatSidebarExpanded);
-  const { messages, isSending, sendMessage, retryLast } = useChatSession(adId);
+  const { messages, isSending, sendMessage, retryLast } = useChatSession(
+    adId,
+    { onTurnLanded },
+  );
   const [input, setInput] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
