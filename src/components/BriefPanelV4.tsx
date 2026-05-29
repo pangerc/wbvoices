@@ -747,8 +747,17 @@ export function BriefPanelV4({
     }
   };
 
+  // The auto-generate path mounts with `autoGenerate=true` from the
+  // `?auto_generate=1` query param. Without this ref-guard, React's
+  // StrictMode double-invokes effects in dev and fires two parallel
+  // POSTs to /api/ai/generate-stream — producing v1+v2 for every stream.
+  // Same guard the manual button gets implicitly via `disabled={isGenerating}`.
+  const autoGenFiredRef = useRef(false);
   useEffect(() => {
-    if (autoGenerate) handleGenerateCreative();
+    if (autoGenerate && !autoGenFiredRef.current) {
+      autoGenFiredRef.current = true;
+      handleGenerateCreative();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoGenerate]);
 
