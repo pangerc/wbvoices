@@ -1,20 +1,23 @@
 import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import Link from "next/link";
+import { Fragment, useMemo } from "react";
 import { Card } from "./Card";
 
 /** Props for {@link ProjectCard}: a dashboard tile that summarizes a single project and optionally links to its page. */
 export type ProjectCardProps = {
   /** Project name shown at the top of the card. */
-  title: string;
+  title?: string;
+  /** Adds underlines to highlight matches on the project title comming from a fuzzy search */
+  titleHighlights?: readonly number[];
   /** Customer / brand the project belongs to (e.g., `"Spotify"`). Rendered in italic below the title. */
   customer?: string;
   /** Market / region label (e.g., `"Saudi Arabia"`). */
   market?: string | null;
   /** Primary language of the ad (e.g., `"Modern Standard Arabic"`). */
-  language: string;
+  language?: string;
   /** Timestamp of the project's last modification. Rendered as `MMM d yyyy` (e.g., `"Jan 1 2025"`) via `date-fns`. */
-  lastUpdated: Date;
+  lastUpdated?: Date;
   /** Optional route the card navigates to when clicked. When provided, the card is wrapped in a Next.js `<Link>` and the whole surface becomes clickable (plus hover/focus affordances are enabled). When omitted, the card renders as a plain, non-interactive tile. */
   href?: string;
 };
@@ -28,6 +31,7 @@ export type ProjectCardProps = {
  */
 export function ProjectCard({
   title,
+  titleHighlights,
   customer,
   market,
   language,
@@ -37,6 +41,7 @@ export function ProjectCard({
   const body = (
     <ProjectCardBody
       title={title}
+      titleHighlights={titleHighlights}
       customer={customer}
       market={market}
       language={language}
@@ -67,6 +72,7 @@ type ProjectCardBodyProps = Omit<ProjectCardProps, "href">;
  */
 function ProjectCardBody({
   title,
+  titleHighlights,
   customer,
   market,
   language,
@@ -76,7 +82,11 @@ function ProjectCardBody({
     <Card className="flex flex-col gap-19.75 px-10 py-8 h-full transition-colors group-hover:border-white group-focus-visible:border-white">
       <header>
         <h3 className="text-white text-[1.5625rem] font-bold leading-[normal]">
-          {title}
+          {title ? (
+            <HighlighhtedText text={title} highlights={titleHighlights} />
+          ) : (
+            "Unknown"
+          )}
         </h3>
         {customer && (
           <p className="text-white text-[1.25rem] font-medium italic leading-[normal] mt-1">
@@ -94,11 +104,12 @@ function ProjectCardBody({
               </span>
             )}
             <span className="text-white text-[0.75rem] font-normal leading-6">
-              Language: {language}
+              Language: {language || "Unknown"}
             </span>
           </div>
           <span className="text-white text-[0.625rem] font-light leading-6">
-            Last updated: {format(lastUpdated, "MMM d yyyy")}
+            Last updated:{" "}
+            {lastUpdated ? format(lastUpdated, "MMM d yyyy") : "Unknown"}
           </span>
         </div>
         <ArrowRightIcon
@@ -107,5 +118,37 @@ function ProjectCardBody({
         />
       </footer>
     </Card>
+  );
+}
+
+type HighlighhtedTextProps = {
+  text: string;
+  highlights?: readonly number[];
+};
+
+function HighlighhtedText({ text, highlights }: HighlighhtedTextProps) {
+  if (!highlights || highlights.length === 0) {
+    return text;
+  }
+
+  const parts = useMemo(() => {
+    return [
+      text.slice(0, highlights[0]),
+      {
+        underline: text.slice(
+          highlights[0],
+          highlights[highlights.length - 1] + 1,
+        ),
+      },
+      text.slice(highlights[highlights.length - 1] + 1),
+    ] satisfies Array<string | { underline: string }>;
+  }, [text, highlights]);
+
+  return parts.map((p, i) =>
+    typeof p === "string" ? (
+      <Fragment key={i}>{p}</Fragment>
+    ) : (
+      <u key={i}>{p.underline}</u>
+    ),
   );
 }

@@ -5,10 +5,12 @@
  * GET  /api/ads - List user's ads (or all ads for admin with ?all=true)
  */
 
+import { NextJSONResponseFromIterator } from "@/core/next-responses";
+import { AdMetadataQuery, Ads } from "@/database/ads";
+import { Pagination } from "@/database/base";
 import { AuthError, requireAuth } from "@/lib/auth-helpers";
 import { getRedisV3 } from "@/lib/redis-v3";
-import { getAdMetadataBatch, setAdMetadata } from "@/lib/redis/versions";
-import { AdSearch, SearchableAd, searchAdList } from "@/projects/search";
+import { setAdMetadata } from "@/lib/redis/versions";
 import { Language } from "@/types";
 import { AdMetadata } from "@/types/versions";
 import { generateProjectId } from "@/utils/projectId";
@@ -33,7 +35,9 @@ const ALL_ADS_KEY = "ads:all";
  * @param searchParams that contain the search
  * @returns
  */
-const getSearch = (searchParams: URLSearchParams): AdSearch => {
+const getSearch = (
+  searchParams: URLSearchParams,
+): { query: AdMetadataQuery; pagination?: Pagination } => {
   // FIXME: Get search via some sort of input validation
   const name = searchParams.get("name") ?? undefined;
   const client = searchParams.get("client") ?? undefined;
@@ -44,18 +48,23 @@ const getSearch = (searchParams: URLSearchParams): AdSearch => {
   const skip = searchParams.get("skip");
   const take = searchParams.get("take");
 
-  if (!skip && !take) {
-    return { name, client, market, language, showAll: true };
-  } else {
-    return {
+  const pagination =
+    typeof skip === "string"
+      ? {
+          skip: Number(skip),
+          take: Number(take ?? 8),
+        }
+      : undefined;
+
+  return {
+    query: {
       name,
       client,
       market,
       language,
-      skip: Number(skip ?? 0),
-      take: Number(take ?? 4),
-    };
-  }
+    },
+    pagination,
+  };
 };
 
 /**
@@ -126,36 +135,18 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { email, role } = await requireAuth();
-    const search = getSearch(new URL(request.url).searchParams);
+    const { query, pagination } = getSearch(new URL(request.url).searchParams);
 
-    const redis = getRedisV3();
-    let adIds: string[];
-
-    if (role === "admin") {
-      // Admin: show all ads (includes legacy universal-session ads)
-      adIds = (await redis.get<string[]>(ALL_ADS_KEY)) || [];
-      console.log(`📋 Admin loading ALL ads: ${adIds.length} total`);
-    } else {
-      // Regular user: show only their ads
-      const userAdsKey = USER_ADS_KEY(email);
-      adIds = (await redis.get<string[]>(userAdsKey)) || [];
-      console.log(`📋 Loading ads for ${email}: ${adIds.length} found`);
-    }
-
-    // Load metadata for all ads in a single batch call
-    const metadataMap = await getAdMetadataBatch(adIds);
-
-    const ads: Array<SearchableAd> = [];
-    for (const adId of adIds) {
-      const meta = metadataMap.get(adId);
-      if (meta) {
-        ads.push({ adId, meta });
-      }
-    }
-
-    const filteredAds = searchAdList(ads, search);
-
-    return NextResponse.json({ ads: filteredAds });
+    return new NextJSONResponseFromIterator(
+      Ads.getInstance().getAdsMetadataByEmail({
+        email: role === "admin" ? undefined : email,
+        query,
+        opts: {
+          signal: request.signal,
+          ...pagination,
+        },
+      }),
+    );
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json(
@@ -168,7 +159,6 @@ export async function GET(request: NextRequest) {
       {
         error: "Failed to load ads",
         details: error instanceof Error ? error.message : String(error),
-        ads: [],
       },
       { status: 500 },
     );
