@@ -1,12 +1,12 @@
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
-import { HistoryDrawer, useHistoryDrawer } from "../HistoryDrawer";
-import { GlassTab, GlassTabBar } from "../ui";
+import { Button, GlassTab, GlassTabBar } from "../ui";
+import { HeadphonesIcon } from "../ui/icons/Headphones";
 import { Header } from "./Header";
 
 type ProjectHeaderProps = {
   selectedTab: number;
   onTabChange: (index: number) => void;
-  onNewProject: () => void;
+  onGoToDashboard: () => void;
   adId?: string;
   projectId?: string; // For backward compatibility with legacy pages
   isNewProject?: boolean;
@@ -325,14 +325,12 @@ function TabBarWithStates({
 export function ProjectHeader({
   selectedTab,
   onTabChange,
-  onNewProject,
+  onGoToDashboard,
   adId,
   projectId,
   isNewProject,
   projectName,
 }: ProjectHeaderProps) {
-  const { isOpen, toggle, close } = useHistoryDrawer();
-
   return (
     <Header>
       <div className="flex-1 mx-12">
@@ -344,67 +342,17 @@ export function ProjectHeader({
         </div>
       </div>
 
-      <div className="flex items-center gap-4 relative">
-        <button
-          onClick={onNewProject}
-          className="px-3 py-3 rounded-full flex items-center gap-2 text-gray-300 text-sm border transition-all duration-200 bg-wb-blue/10 backdrop-blur-sm border-wb-blue/20 hover:bg-wb-blue/20 hover:border-wb-blue/30 focus:outline-none focus:ring-1 focus:ring-wb-blue/50 whitespace-nowrap"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="shrink-0"
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 relative">
+          <Button
+            variant="outline"
+            rounded="2xl"
+            icon={HeadphonesIcon}
+            onClick={onGoToDashboard}
           >
-            <path
-              d="M9.5 1H3C2.46957 1 1.96086 1.21071 1.58579 1.58579C1.21071 1.96086 1 2.46957 1 3V13C1 13.5304 1.21071 14.0391 1.58579 14.4142C1.96086 14.7893 2.46957 15 3 15H11C11.5304 15 12.0391 14.7893 12.4142 14.4142C12.7893 14.0391 13 13.5304 13 13V4.5L9.5 1Z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M9.5 1V4.5H13"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span className="hidden xl:inline text-sm whitespace-nowrap">
-            New Ad
-          </span>
-        </button>
-
-        <button
-          onClick={toggle}
-          className="flex items-center text-white/70 text-sm hover:text-white transition-colors duration-200 group"
-        >
-          <span>My Ads</span>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="ml-1 shrink-0"
-          >
-            <path
-              d="M4 6L8 10L12 6"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-
-        <HistoryDrawer
-          isOpen={isOpen}
-          onClose={close}
-          currentAdId={adId || projectId}
-        />
+            My Projects
+          </Button>
+        </div>
       </div>
     </Header>
   );

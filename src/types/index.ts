@@ -162,6 +162,17 @@ export type LibraryMusicTrack = {
   duration?: number;
 };
 
+export type Ad = {
+  adId: string;
+  meta: {
+    name: string;
+    createdAt: number;
+    lastModified: number;
+    owner: string;
+    brief: ProjectBrief;
+  };
+};
+
 // Project History Types
 export type ProjectBrief = {
   clientDescription: string;

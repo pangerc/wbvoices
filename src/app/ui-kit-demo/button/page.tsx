@@ -107,8 +107,103 @@ export default function UiKitDemoButtonPage() {
         </Row>
         <Row>
           <Button variant="ghost">Cancel</Button>
-          <Button variant="blue" icon={SparklesIcon}>
+          <Button variant="ghost" icon={SparklesIcon}>
             Generate ad
+          </Button>
+        </Row>
+      </ComponentSection>
+
+      <ComponentSection
+        title="Button — outline"
+        description="Secondary filled call-to-action."
+      >
+        <Row>
+          <Button variant="outline">Cancel</Button>
+          <Button variant="outline" icon={ArrowRightIcon}>
+            Continue
+          </Button>
+          <Button variant="outline" icon={PlayIcon}>
+            Preview
+          </Button>
+        </Row>
+        <Row>
+          <Button variant="outline" disabled>
+            Disabled
+          </Button>
+          <Button variant="outline" icon={ArrowRightIcon} disabled>
+            Disabled with icon
+          </Button>
+        </Row>
+        <Row>
+          <Button variant="outline">Cancel</Button>
+          <Button variant="outline" icon={SparklesIcon}>
+            Generate ad
+          </Button>
+        </Row>
+      </ComponentSection>
+
+      <ComponentSection
+        title="Button — rounding"
+        description="How different types of buttons look rounded"
+      >
+        <Row>
+          <Button variant="blue" rounded="xs">
+            Blue extra-small rounding
+          </Button>
+          <Button variant="blue" rounded="sm">
+            Blue small rounding
+          </Button>
+          <Button variant="blue" rounded="md">
+            Blue medium rounding
+          </Button>
+          <Button variant="blue" rounded="lg">
+            Blue large rounding
+          </Button>
+          <Button variant="blue" rounded="xl">
+            Blue extra-large rounding
+          </Button>
+          <Button variant="blue" rounded="2xl">
+            Blue extra-extra-large rounding
+          </Button>
+        </Row>
+        <Row>
+          <Button variant="destructive" rounded="xs">
+            Destructive extra-small rounding
+          </Button>
+          <Button variant="destructive" rounded="sm">
+            Destructive small rounding
+          </Button>
+          <Button variant="destructive" rounded="md">
+            Destructive medium rounding
+          </Button>
+          <Button variant="destructive" rounded="lg">
+            Destructive large rounding
+          </Button>
+          <Button variant="destructive" rounded="xl">
+            Destructive extra-large rounding
+          </Button>
+          <Button variant="destructive" rounded="2xl">
+            Destructive extra-extra-large rounding
+          </Button>
+        </Row>
+        <Row>
+          <Button variant="outline" rounded="xs">
+            Outline extra-small rounding
+          </Button>
+          <Button variant="outline" rounded="sm">
+            Outline small rounding
+          </Button>
+          <Button variant="outline" rounded="md">
+            Outline medium rounding
+          </Button>
+          <Button variant="outline" rounded="lg">
+            Outline large rounding
+          </Button>
+          <Button variant="outline" rounded="xl">
+            Outline extra-large rounding
+          </Button>
+          <Button variant="outline" rounded="2xl">
+            Outline extra-extra-large rounding
           </Button>
         </Row>
       </ComponentSection>
