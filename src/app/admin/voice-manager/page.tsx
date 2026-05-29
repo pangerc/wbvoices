@@ -105,7 +105,7 @@ export default function VoiceManagerPage() {
     try {
       const response = await fetch("/api/voice-catalogue/languages");
       const data = await response.json();
-      setAvailableLanguages(data.languages || []);
+      setAvailableLanguages(data || []);
     } catch (error) {
       console.error("Failed to load languages:", error);
     }

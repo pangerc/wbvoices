@@ -9,7 +9,10 @@
  * duration moved out to CreativeTopic per the v4 layout spec.
  */
 
-import { useBriefOptions, useLanguageOptions } from "@/hooks/useBriefOptions";
+import {
+  useFilteredLanguageOptions,
+  useLanguageOptions,
+} from "@/hooks/languages";
 import type { CampaignFormat, Provider } from "@/types";
 import { getFlagCode, type Language } from "@/utils/language";
 import {
@@ -65,10 +68,10 @@ export function LanguageTopic({
   disabled,
 }: LanguageTopicProps) {
   const { languages: availableLanguages, isLoading: isLoadingLanguages } =
-    useBriefOptions();
+    useLanguageOptions();
 
   const { options: languageOptions, isLoading: isLoadingOptions } =
-    useLanguageOptions(
+    useFilteredLanguageOptions(
       selectedLanguage,
       campaignFormat,
       selectedRegion,

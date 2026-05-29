@@ -36,7 +36,7 @@ export async function GET() {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    return NextResponse.json({ languages });
+    return NextResponse.json(languages);
   } catch (error) {
     console.error("Failed to get languages:", error);
     return NextResponse.json(
