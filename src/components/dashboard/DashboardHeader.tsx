@@ -69,37 +69,35 @@ export function DashboardHeader({
 
   return (
     <>
-      <div className="container py-16 mx-auto relative z-10">
-        <div className="flex justify-between items-center h-full overflow-y-auto">
-          <DashboardHeaderTitle />
+      <div className="flex justify-between items-center overflow-y-auto py-16">
+        <DashboardHeaderTitle />
 
-          <div className="flex justify-between items-center gap-10">
-            {tags}
-            {smallFiltersButton ? (
-              <IconButton
-                aria-label="Filters"
-                variant="ghost"
-                icon={AdjustmentsHorizontalIcon}
-                onClick={() => showFiltersModal(true)}
-              />
-            ) : (
-              <Button
-                variant="ghost"
-                icon={AdjustmentsHorizontalIcon}
-                onClick={() => showFiltersModal(true)}
-              >
-                Filters
-              </Button>
-            )}
-            <SearchInput
-              value={search.name ?? ""}
-              onChange={(e) =>
-                onSearchChanged({
-                  name: e.currentTarget.value,
-                })
-              }
+        <div className="flex justify-between items-center gap-10">
+          {tags}
+          {smallFiltersButton ? (
+            <IconButton
+              aria-label="Filters"
+              variant="ghost"
+              icon={AdjustmentsHorizontalIcon}
+              onClick={() => showFiltersModal(true)}
             />
-          </div>
+          ) : (
+            <Button
+              variant="ghost"
+              icon={AdjustmentsHorizontalIcon}
+              onClick={() => showFiltersModal(true)}
+            >
+              Filters
+            </Button>
+          )}
+          <SearchInput
+            value={search.name ?? ""}
+            onChange={(e) =>
+              onSearchChanged({
+                name: e.currentTarget.value,
+              })
+            }
+          />
         </div>
       </div>
       {filtersModalVisible && (

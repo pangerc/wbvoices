@@ -89,7 +89,7 @@ export function Dashboard() {
   const isFilterEmpty = isFiltering && ads.length == 0;
 
   if (isFirstLoad) {
-    return <DashboardLoading />;
+    return <DashboardLoading showText />;
   }
 
   if (isDashboardEmpty) {
@@ -111,21 +111,27 @@ export function Dashboard() {
       ) : isFilterEmpty ? (
         <DashboardFilterNoAds onClearFilters={onClearFilters} />
       ) : (
-        <DashboardProjects
-          ads={ads}
-          isLoading={isLoading}
-          onNextPage={onNextPage}
-          reachedEnd={reachedEnd}
-        />
+        <>
+          <DashboardProjects
+            ads={ads}
+            isLoading={isLoading}
+            onNextPage={onNextPage}
+            reachedEnd={reachedEnd}
+          />
+          {isLoading && <DashboardLoading />}
+        </>
       )}
     </div>
   );
 }
 
-export function DashboardLoading() {
+type DashboardLoadingProps = { showText?: boolean };
+
+export function DashboardLoading({ showText = false }: DashboardLoadingProps) {
   return (
-    <div className="flex flex-1 justify-center items-center">
+    <div className="flex py-16 justify-center items-center gap-2">
       <Loading />
+      {showText && <div>Loading your projects</div>}
     </div>
   );
 }
@@ -141,8 +147,8 @@ export function DashboardNoAds() {
   };
 
   return (
-    <div className="flex flex-1 gap-16 justify-center items-center flex-col">
-      <div>You do not have any ads. Create an ad now.</div>
+    <div className="flex flex-1 gap-16 py-16 justify-center items-center flex-col">
+      <div>You do not have any projects. Create an ad now.</div>
       <Button variant="ghost" icon={PlusIcon} onClick={() => onNewAd()}>
         New Project
       </Button>
@@ -158,8 +164,8 @@ export function DashboardFilterNoAds({
   onClearFilters,
 }: DashboardFilterNoAdsProps) {
   return (
-    <div className="flex flex-1 gap-16 justify-center items-center flex-col">
-      <div>The filters returned no ads.</div>
+    <div className="flex flex-1 gap-16 py-16 justify-center items-center flex-col">
+      <div>The filters returned no projects.</div>
       <Button
         variant="ghost"
         icon={ArrowPathIcon}
