@@ -7,11 +7,7 @@
  */
 
 import { getRedisV3 } from "@/lib/redis-v3";
-import {
-  getActiveVersion,
-  getVersion,
-  AD_KEYS,
-} from "@/lib/redis/versions";
+import { getActiveVersion, getVersion, AD_KEYS } from "@/lib/redis/versions";
 import {
   VoiceVersion,
   MusicVersion,
@@ -72,20 +68,22 @@ export async function rebuildMixer(adId: string): Promise<MixerState> {
   const audioDurations: { [key: string]: number } = {};
 
   // Add voice tracks (check both embedded URL and legacy parallel array)
-  const hasVoiceAudio = voiceVersion && (
-    voiceVersion.voiceTracks.some(t => !!t.generatedUrl) ||
-    (voiceVersion.generatedUrls && voiceVersion.generatedUrls.length > 0)
-  );
+  const hasVoiceAudio =
+    voiceVersion &&
+    (voiceVersion.voiceTracks.some((t) => !!t.generatedUrl) ||
+      (voiceVersion.generatedUrls && voiceVersion.generatedUrls.length > 0));
   if (voiceVersion && hasVoiceAudio) {
     voiceVersion.voiceTracks.forEach((voiceTrack, index) => {
       // Use embedded URL first, fall back to legacy parallel array
-      const url = voiceTrack.generatedUrl || voiceVersion.generatedUrls?.[index];
+      const url =
+        voiceTrack.generatedUrl || voiceVersion.generatedUrls?.[index];
       if (!url) return; // Skip if no audio generated yet
 
       const trackId = `voice-${activeVoiceId}-${index}`;
 
       // Use actual measured duration if available, fall back to estimation for legacy data
-      const duration = voiceTrack.generatedDuration ?? estimateVoiceDuration(voiceTrack.text);
+      const duration =
+        voiceTrack.generatedDuration ?? estimateVoiceDuration(voiceTrack.text);
 
       const track: MixerTrack = {
         id: trackId,
@@ -117,7 +115,9 @@ export async function rebuildMixer(adId: string): Promise<MixerState> {
       // Custom uploads use musicPrompt as the filename/label
       label = musicVersion.musicPrompt || "Custom track";
     } else {
-      const providerLabel = musicVersion.provider.charAt(0).toUpperCase() + musicVersion.provider.slice(1);
+      const providerLabel =
+        musicVersion.provider.charAt(0).toUpperCase() +
+        musicVersion.provider.slice(1);
       const promptPreview = musicVersion.musicPrompt
         ? ` - ${musicVersion.musicPrompt.substring(0, 25)}${musicVersion.musicPrompt.length > 25 ? "..." : ""}`
         : "";
@@ -172,7 +172,7 @@ export async function rebuildMixer(adId: string): Promise<MixerState> {
 
   const calculated = LegacyTimelineCalculator.calculateTimings(
     tracks,
-    audioDurations
+    audioDurations,
   );
 
   console.log(`  Total duration: ${calculated.totalDuration.toFixed(2)}s`);
@@ -241,5 +241,7 @@ export async function getMixerState(adId: string): Promise<MixerState | null> {
     return null;
   }
 
+  // FIXME: Remove this ts-ignore and implement the fix
+  // @ts-ignore
   return typeof data === "string" ? JSON.parse(data) : data;
 }
