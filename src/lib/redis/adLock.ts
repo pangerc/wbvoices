@@ -58,6 +58,53 @@ export interface AdLockOptions {
  * executes op, releases the lock even if op throws. Throws AdLockTimeoutError
  * if the lock can't be acquired within `timeoutMs`.
  */
+/**
+ * Fail-fast, long-lived lock for "first-time generation in progress" — the
+ * companion to the existing-versions check in /api/ai/generate-stream. The
+ * version check has a race window between `listVersions() === 0` and the
+ * agent loop actually writing v1; two concurrent POSTs can both pass the
+ * length check and both create version sets. This lock closes that window:
+ * the second POST's SETNX fails fast (no wait, no retry) and we return 409.
+ *
+ * Separate key from `withAdLock` (`ad:{id}:lock:generating` vs `:lock`) so
+ * tool-level write locks acquired during the agent loop don't collide.
+ *
+ * @returns the token string if acquired, or null if another generation
+ *   already holds the lock. Caller must pass the token to
+ *   `releaseGenerationLock` when generation finishes (success or failure).
+ */
+export async function tryAcquireGenerationLock(
+  adId: string,
+  ttlSec = 300,
+): Promise<string | null> {
+  const redis = getRedisV3();
+  const key = `ad:${adId}:lock:generating`;
+  const token =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const acquired = await redis.set(key, token, { nx: true, ex: ttlSec });
+  return acquired === "OK" ? token : null;
+}
+
+/**
+ * Release a generation lock acquired with `tryAcquireGenerationLock`.
+ * The Lua CAS-delete ensures we only release our own token — a generation
+ * that overshoots TTL can't accidentally release a successor's lock.
+ */
+export async function releaseGenerationLock(
+  adId: string,
+  token: string,
+): Promise<void> {
+  const redis = getRedisV3();
+  const key = `ad:${adId}:lock:generating`;
+  try {
+    await redis.eval(RELEASE_SCRIPT, [key], [token]);
+  } catch (err) {
+    console.warn(`[adLock] Generation-lock release failed for ${adId}:`, err);
+  }
+}
+
 export async function withAdLock<T>(
   adId: string,
   op: () => Promise<T>,

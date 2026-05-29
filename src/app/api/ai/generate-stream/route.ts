@@ -17,10 +17,15 @@ import {
 } from "@/lib/brief-enrichment";
 import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
+import {
+  releaseGenerationLock,
+  tryAcquireGenerationLock,
+} from "@/lib/redis/adLock";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
 import {
   getAdMetadata,
   getVersion,
+  listVersions,
   setActiveVersion,
   setAdMetadata,
 } from "@/lib/redis/versions";
@@ -283,6 +288,41 @@ export async function POST(req: NextRequest) {
         error: `Missing required fields: ${missing.join(", ")}`,
       }),
       { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  // Idempotency guard: this route is for first-time generation only. Once
+  // any stream has a version, further changes must go through the chat
+  // route (which creates lineage-tracked drafts). Without this check, a
+  // double-fire from the UI (StrictMode replay, double-click, retry) used
+  // to produce v1+v2 across all streams with no parent linkage.
+  const existingVoices = await listVersions(adId, "voices");
+  if (existingVoices.length > 0) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "Ad already has generated content. Use the AI Copilot chat to iterate.",
+        code: "ALREADY_GENERATED",
+        existingVersions: existingVoices,
+      }),
+      { status: 409, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  // The version check above has a race window: two simultaneous POSTs can
+  // both see zero versions before either has written v1. This SETNX lock
+  // closes the window — the second POST's acquisition fails fast and we
+  // return 409 immediately. TTL covers worst-case generation runtime; the
+  // background IIFE releases the lock in its finally.
+  const generationLockToken = await tryAcquireGenerationLock(adId);
+  if (generationLockToken === null) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "A generation is already in progress for this ad. Wait for it to finish.",
+        code: "GENERATION_IN_PROGRESS",
+      }),
+      { status: 409, headers: { "Content-Type": "application/json" } },
     );
   }
 
@@ -870,6 +910,9 @@ export async function POST(req: NextRequest) {
         message: error instanceof Error ? error.message : "Generation failed",
       });
     } finally {
+      // Release the generation lock before closing the stream so another
+      // POST can start immediately if this one failed early.
+      await releaseGenerationLock(adId, generationLockToken);
       try {
         await writer.close();
       } catch {
