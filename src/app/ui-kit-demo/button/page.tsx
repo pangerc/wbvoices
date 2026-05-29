@@ -59,6 +59,32 @@ export default function UiKitDemoButtonPage() {
       </ComponentSection>
 
       <ComponentSection
+        title="Button — destructive"
+        description="Primary filled call-to-action in the `wb-blue-bright` (#0080FF) design token. Padding is fixed at `1.72rem`/`0.81rem`, gap at `0.625rem`. Label-only or with a leading Heroicons icon."
+      >
+        <Row>
+          <Button variant="destructive">Generate</Button>
+          <Button variant="destructive" icon={SparklesIcon}>
+            Generate
+          </Button>
+          <Button variant="destructive" icon={PlayIcon}>
+            Play preview
+          </Button>
+          <Button variant="destructive" icon={PlusIcon}>
+            New project
+          </Button>
+        </Row>
+        <Row>
+          <Button variant="destructive" disabled>
+            Disabled
+          </Button>
+          <Button variant="destructive" icon={ArrowRightIcon} disabled>
+            Disabled with icon
+          </Button>
+        </Row>
+      </ComponentSection>
+
+      <ComponentSection
         title="Button — ghost"
         description="Text-only affordance — no background, no border. Hover and active states come from translucent white overlays. Pair next to a `blue` Button as a secondary action."
       >
