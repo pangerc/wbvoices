@@ -31,10 +31,7 @@ export type IconButtonProps = {
   icon: HeroIcon;
   /** Accessible label announced by assistive tech; required since the button has no visible text. */
   "aria-label": string;
-} & Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  "children" | "className" | "aria-label"
->;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "aria-label">;
 
 /** Tailwind class strings keyed by {@link IconButtonVariant}. Kept in sync with `Button`'s variant table. */
 const VARIANT_CLASSES: Record<IconButtonVariant, string> = {
@@ -54,6 +51,7 @@ export function IconButton({
   variant = "blue",
   icon: Icon,
   type = "button",
+  className,
   ...rest
 }: IconButtonProps) {
   return (
@@ -63,6 +61,7 @@ export function IconButton({
       className={twMerge(
         "inline-flex items-center justify-center p-[0.81rem] rounded-md font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 disabled:opacity-50 disabled:pointer-events-none",
         VARIANT_CLASSES[variant],
+        className,
       )}
     >
       <Icon aria-hidden className="w-5 h-5 shrink-0" />

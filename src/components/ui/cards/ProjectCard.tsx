@@ -1,7 +1,8 @@
-import { ArrowRightIcon } from "@heroicons/react/24/outline";
+import { ArrowRightIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import Link from "next/link";
 import { Fragment, useMemo } from "react";
+import { IconButton } from "../buttons";
 import { Card } from "./Card";
 
 /** Props for {@link ProjectCard}: a dashboard tile that summarizes a single project and optionally links to its page. */
@@ -20,6 +21,10 @@ export type ProjectCardProps = {
   lastUpdated?: Date;
   /** Optional route the card navigates to when clicked. When provided, the card is wrapped in a Next.js `<Link>` and the whole surface becomes clickable (plus hover/focus affordances are enabled). When omitted, the card renders as a plain, non-interactive tile. */
   href?: string;
+
+  onDelete: () => void;
+
+  onDuplicate: () => void;
 };
 
 /**
@@ -37,6 +42,8 @@ export function ProjectCard({
   language,
   lastUpdated,
   href,
+  onDelete,
+  onDuplicate,
 }: ProjectCardProps) {
   const body = (
     <ProjectCardBody
@@ -46,10 +53,12 @@ export function ProjectCard({
       market={market}
       language={language}
       lastUpdated={lastUpdated}
+      onDelete={onDelete}
+      onDuplicate={onDuplicate}
     />
   );
 
-  if (href === undefined) {
+  if (!href) {
     return body;
   }
 
@@ -77,23 +86,37 @@ function ProjectCardBody({
   market,
   language,
   lastUpdated,
+  onDelete,
+  onDuplicate,
 }: ProjectCardBodyProps) {
   return (
-    <Card className="flex flex-col gap-19.75 px-10 py-8 h-full transition-colors group-hover:border-white group-focus-visible:border-white">
-      <header>
-        <h3 className="text-white text-[1.5625rem] font-bold leading-[normal]">
-          {title ? (
-            <HighlighhtedText text={title} highlights={titleHighlights} />
-          ) : (
-            "Unknown"
+    <Card className="flex flex-col gap-19.75 px-10 py-8 h-full transition-colors group-hover:border-white ">
+      <div className="flex gap-4 justify-between items-start">
+        <header>
+          <h3 className="text-white text-[1.5625rem] font-bold leading-[normal]">
+            {title ? (
+              <HighlighhtedText text={title} highlights={titleHighlights} />
+            ) : (
+              "Unknown"
+            )}
+          </h3>
+          {customer && (
+            <p className="text-white text-[1.25rem] font-medium italic leading-[normal] mt-1">
+              {customer}
+            </p>
           )}
-        </h3>
-        {customer && (
-          <p className="text-white text-[1.25rem] font-medium italic leading-[normal] mt-1">
-            {customer}
-          </p>
-        )}
-      </header>
+        </header>
+        <IconButton
+          className="opacity-0 group-hover:opacity-100 transition-opacity"
+          aria-label={`Delete ${title}`}
+          icon={XCircleIcon}
+          variant="ghost"
+          onClick={(e) => {
+            e.preventDefault();
+            onDelete();
+          }}
+        />
+      </div>
 
       <footer className="mt-auto flex items-end justify-between gap-4">
         <div className="flex flex-col gap-2.5">
@@ -112,10 +135,22 @@ function ProjectCardBody({
             {lastUpdated ? format(lastUpdated, "MMM d yyyy") : "Unknown"}
           </span>
         </div>
-        <ArrowRightIcon
-          aria-hidden
-          className="w-6 h-6 shrink-0 text-white -rotate-45 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1 group-focus-visible:translate-x-1 group-focus-visible:-translate-y-1"
-        />
+        <div className="flex items-center">
+          {/* <IconButton
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            aria-label={`Delete ${title}`}
+            icon={DocumentDuplicateIcon}
+            variant="ghost"
+            onClick={(e) => {
+              e.preventDefault();
+              onDuplicate();
+            }}
+          /> */}
+          <ArrowRightIcon
+            aria-hidden
+            className="w-6 h-6 shrink-0 text-white -rotate-45"
+          />
+        </div>
       </footer>
     </Card>
   );

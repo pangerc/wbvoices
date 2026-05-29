@@ -8,6 +8,8 @@ type DashboardProjectsProps = {
   onNextPage: () => void;
   reachedEnd: boolean;
   isLoading: boolean;
+  onDelete: (id: string) => void;
+  onDuplicate: (id: string) => void;
 };
 
 export function DashboardProjects({
@@ -15,6 +17,8 @@ export function DashboardProjects({
   onNextPage,
   reachedEnd,
   isLoading,
+  onDelete,
+  onDuplicate,
 }: DashboardProjectsProps) {
   return (
     <>
@@ -42,6 +46,8 @@ export function DashboardProjects({
                   ? new Date(ad.meta?.lastModified)
                   : undefined
               }
+              onDelete={() => onDelete(ad.id)}
+              onDuplicate={() => onDuplicate(ad.id)}
             />
           ))
         )}

@@ -1,23 +1,22 @@
 "use client";
 
-import { adMetadataMatchQuery } from "@/common/search";
 import { AdMetadataQuery } from "@/database/ads";
-import { FuzzyResult, QueryResult } from "@/database/base";
+import { useAds } from "@/hooks/ads";
 import { useDedupedValue } from "@/hooks/deduped-value";
-import { Query, useQuery } from "@/hooks/query";
-import { AdMetadata } from "@/types/versions";
+import { Query } from "@/hooks/query";
 import { generateProjectId } from "@/utils/projectId";
 import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Button } from "../ui";
+import { Button, ConfirmDialog } from "../ui";
 import { Loading } from "../ui/Loading";
 import { DashboardHeader } from "./DashboardHeader";
 import { DashboardProjects } from "./DashboardProjects";
 
-const DEFAULT_AD_PAGE = 8;
+const DEFAULT_AD_PAGE = 2;
 
 export function Dashboard() {
+  const [deleteId, setDeleteId] = useState<string>();
   const [searchParams, setSearchParams] = useState<AdMetadataQuery>({});
   const [skip, setSkip] = useState(0);
 
@@ -32,42 +31,9 @@ export function Dashboard() {
     ),
   );
 
-  const {
-    data: ads,
-    isLoading,
-    isFirstLoad,
-    reachedEnd,
-  } = useQuery<QueryResult<AdMetadata>>({
-    url: "/api/ads",
-    query: query,
-    eager: (data) =>
-      data
-        .reduce((acc, item) => {
-          if (!item.meta) {
-            return acc;
-          }
-
-          const match = adMetadataMatchQuery(item.meta, searchParams);
-
-          if (match) {
-            let fuzzy: FuzzyResult | undefined;
-
-            if (typeof match !== "boolean") {
-              fuzzy = match;
-            }
-
-            if (match) {
-              item.fuzzy = fuzzy;
-            }
-
-            acc.push(item);
-          }
-
-          return acc;
-        }, [] as QueryResult<AdMetadata>[])
-        .sort((a, b) => (b.fuzzy?.score || 0) - (a.fuzzy?.score || 0)),
-    deps: [query],
-    initial: [],
+  const { ads, isLoading, isFirstLoad, reachedEnd, remove } = useAds({
+    searchParams,
+    skip,
   });
 
   const onNextPage = () => {
@@ -78,13 +44,24 @@ export function Dashboard() {
     setSearchParams({});
   };
 
+  const onDeleteStart = (id: string) => {
+    setDeleteId(id);
+  };
+
+  const handleDelete = async (deleteId: string) => {
+    remove(deleteId);
+    setDeleteId(undefined);
+  };
+
+  const onDuplicate = () => {};
+
   const isFiltering =
     searchParams.name ||
     searchParams.client ||
     searchParams.market ||
     searchParams.language;
 
-  const isDashboardEmpty = !isFiltering && ads.length === 0 && !isLoading;
+  const isDashboardEmpty = !isFiltering && ads.length === 0 && isFirstLoad;
 
   const isFilterEmpty = isFiltering && ads.length == 0;
 
@@ -97,31 +74,57 @@ export function Dashboard() {
     return <DashboardNoAds />;
   }
 
+  const deleteTitle = ads.find((a) => a.id === deleteId)?.meta?.name || "";
+
   return (
-    <div className="container pb-4 mx-auto z-10">
-      <DashboardHeader
-        search={searchParams}
-        onSearchChanged={(change) => {
-          setSearchParams((sp) => ({ ...sp, ...change }));
-          setSkip(0);
+    <>
+      <div className="container pb-4 mx-auto z-10">
+        <DashboardHeader
+          search={searchParams}
+          onSearchChanged={(change) => {
+            setSearchParams((sp) => ({ ...sp, ...change }));
+            setSkip(0);
+          }}
+        />
+        {ads.length === 0 && isLoading ? (
+          <DashboardLoading />
+        ) : isFilterEmpty ? (
+          <DashboardFilterNoAds onClearFilters={onClearFilters} />
+        ) : (
+          <>
+            <DashboardProjects
+              ads={ads}
+              isLoading={isLoading}
+              onNextPage={onNextPage}
+              reachedEnd={reachedEnd}
+              onDelete={onDeleteStart}
+              onDuplicate={onDuplicate}
+            />
+            {isLoading && <DashboardLoading />}
+          </>
+        )}
+      </div>
+      <ConfirmDialog
+        isOpen={!!deleteId}
+        title="Delete project"
+        message={
+          <>
+            Delete{" "}
+            <span className="font-semibold text-white">
+              &ldquo;{deleteTitle}&rdquo;
+            </span>{" "}
+            project? This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete"
+        variant="danger"
+        isConfirming={!!!deleteId && isLoading}
+        onConfirm={() => {
+          handleDelete(deleteId!);
         }}
+        onCancel={() => setDeleteId(undefined)}
       />
-      {ads.length === 0 && isLoading ? (
-        <DashboardLoading />
-      ) : isFilterEmpty ? (
-        <DashboardFilterNoAds onClearFilters={onClearFilters} />
-      ) : (
-        <>
-          <DashboardProjects
-            ads={ads}
-            isLoading={isLoading}
-            onNextPage={onNextPage}
-            reachedEnd={reachedEnd}
-          />
-          {isLoading && <DashboardLoading />}
-        </>
-      )}
-    </div>
+    </>
   );
 }
 
