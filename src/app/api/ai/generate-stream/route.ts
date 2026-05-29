@@ -35,7 +35,7 @@ import type { ProjectBrief } from "@/types";
 import type { MusicVersion, SfxVersion, VoiceVersion } from "@/types/versions";
 import { internalFetch } from "@/utils/internal-fetch";
 import { getLanguageName } from "@/utils/language";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Extract brand name from client description for fallback ad title.
@@ -268,10 +268,7 @@ export async function POST(req: NextRequest) {
 
   // Validate required fields
   if (!adId) {
-    return new Response(JSON.stringify({ error: "adId is required" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return NextResponse.json({ error: "adId is required" }, { status: 400 });
   }
 
   // `clientDescription` is optional — it derives from `brand?.name` in the
@@ -283,11 +280,9 @@ export async function POST(req: NextRequest) {
   if (!creativeBrief) missing.push("creativeBrief");
   if (!campaignFormat) missing.push("campaignFormat");
   if (missing.length > 0) {
-    return new Response(
-      JSON.stringify({
-        error: `Missing required fields: ${missing.join(", ")}`,
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
+    return NextResponse.json(
+      { error: `Missing required fields: ${missing.join(", ")}` },
+      { status: 400 },
     );
   }
 
@@ -298,14 +293,14 @@ export async function POST(req: NextRequest) {
   // to produce v1+v2 across all streams with no parent linkage.
   const existingVoices = await listVersions(adId, "voices");
   if (existingVoices.length > 0) {
-    return new Response(
-      JSON.stringify({
+    return NextResponse.json(
+      {
         error:
           "Ad already has generated content. Use the AI Copilot chat to iterate.",
         code: "ALREADY_GENERATED",
         existingVersions: existingVoices,
-      }),
-      { status: 409, headers: { "Content-Type": "application/json" } },
+      },
+      { status: 409 },
     );
   }
 
@@ -316,13 +311,13 @@ export async function POST(req: NextRequest) {
   // background IIFE releases the lock in its finally.
   const generationLockToken = await tryAcquireGenerationLock(adId);
   if (generationLockToken === null) {
-    return new Response(
-      JSON.stringify({
+    return NextResponse.json(
+      {
         error:
           "A generation is already in progress for this ad. Wait for it to finish.",
         code: "GENERATION_IN_PROGRESS",
-      }),
-      { status: 409, headers: { "Content-Type": "application/json" } },
+      },
+      { status: 409 },
     );
   }
 
