@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     const response = await alaric.getMarkets(
       showAll ? {} : { platform: "spotify" },
     );
-    return NextResponse.json(response, {
+    return NextResponse.json(response.markets, {
       // Mirror alaric's caching posture so our edge layer can also benefit
       // when called from the brief panel multiple times in quick succession.
       headers: {
