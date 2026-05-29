@@ -1,3 +1,4 @@
+import { Loading } from "@/components/ui/Loading";
 import { useAuth } from "@/hooks/auth";
 import { PropsWithChildren } from "react";
 
@@ -10,7 +11,7 @@ export function LoadingProvider({ children }: PropsWithChildren) {
       <div className="flex flex-col h-screen bg-black text-white">
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
-            <div className="animate-spin w-8 h-8 border-2 border-white/20 border-t-white rounded-full mx-auto mb-4"></div>
+            <Loading />
             <p className="text-lg">Setting up your creative workspace...</p>
           </div>
         </div>
