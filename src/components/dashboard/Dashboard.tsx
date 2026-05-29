@@ -8,6 +8,7 @@ import { generateProjectId } from "@/utils/projectId";
 import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { DuplicateAdPopup } from "../DuplicateAdPopup";
 import { Button, ConfirmDialog } from "../ui";
 import { Loading } from "../ui/Loading";
 import { DashboardHeader } from "./DashboardHeader";
@@ -16,7 +17,9 @@ import { DashboardProjects } from "./DashboardProjects";
 const DEFAULT_AD_PAGE = 2;
 
 export function Dashboard() {
-  const [deleteId, setDeleteId] = useState<string>();
+  const [pendingDeleteId, setPendingDeleteId] = useState<string>();
+  const [pendingDuplicateId, setPendingDuplicateId] = useState<string>();
+
   const [searchParams, setSearchParams] = useState<AdMetadataQuery>({});
   const [skip, setSkip] = useState(0);
 
@@ -45,15 +48,17 @@ export function Dashboard() {
   };
 
   const onDeleteStart = (id: string) => {
-    setDeleteId(id);
+    setPendingDeleteId(id);
   };
 
   const handleDelete = async (deleteId: string) => {
     remove(deleteId);
-    setDeleteId(undefined);
+    setPendingDeleteId(undefined);
   };
 
-  const onDuplicate = () => {};
+  const onDuplicate = (id: string) => {
+    setPendingDuplicateId(id);
+  };
 
   const isFiltering =
     searchParams.name ||
@@ -74,7 +79,9 @@ export function Dashboard() {
     return <DashboardNoAds />;
   }
 
-  const deleteTitle = ads.find((a) => a.id === deleteId)?.meta?.name || "";
+  const deletedAdTitle =
+    ads.find((a) => a.id === pendingDeleteId)?.meta?.name || "";
+  const pendingDuplicatedAd = ads.find((a) => a.id === pendingDuplicateId);
 
   return (
     <>
@@ -105,25 +112,36 @@ export function Dashboard() {
         )}
       </div>
       <ConfirmDialog
-        isOpen={!!deleteId}
+        isOpen={!!pendingDeleteId}
         title="Delete project"
         message={
           <>
             Delete{" "}
             <span className="font-semibold text-white">
-              &ldquo;{deleteTitle}&rdquo;
+              &ldquo;{deletedAdTitle}&rdquo;
             </span>{" "}
             project? This cannot be undone.
           </>
         }
         confirmLabel="Delete"
         variant="danger"
-        isConfirming={!!!deleteId && isLoading}
+        isConfirming={!!!pendingDeleteId && isLoading}
         onConfirm={() => {
-          handleDelete(deleteId!);
+          handleDelete(pendingDeleteId!);
         }}
-        onCancel={() => setDeleteId(undefined)}
+        onCancel={() => setPendingDeleteId(undefined)}
       />
+      {pendingDuplicateId &&
+        pendingDuplicatedAd &&
+        pendingDuplicatedAd.meta && (
+          <DuplicateAdPopup
+            ad={{
+              adId: pendingDuplicateId,
+              meta: pendingDuplicatedAd?.meta,
+            }}
+            onClose={() => setPendingDuplicateId(undefined)}
+          />
+        )}
     </>
   );
 }
