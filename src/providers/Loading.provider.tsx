@@ -9,11 +9,9 @@ export function LoadingProvider({ children }: PropsWithChildren) {
     // Show loading state while creating new project
     return (
       <div className="flex flex-col h-screen bg-black text-white">
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <Loading />
-            <p className="text-lg">Setting up your creative workspace...</p>
-          </div>
+        <div className="flex items-center justify-center h-full gap-2">
+          <Loading />
+          <p className="text-lg">Setting up your creative workspace...</p>
         </div>
       </div>
     );

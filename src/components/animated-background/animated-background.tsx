@@ -53,8 +53,8 @@ export function AnimatedBackground({ children }: PropsWithChildren) {
         stopAnimation: () => setIsAnimating(false),
       }}
     >
-      {children}
       {show ? <MatrixBackground /> : null}
+      {children}
     </Context.Provider>
   );
 }
