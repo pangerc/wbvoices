@@ -12,8 +12,9 @@
  * re-pick to promote to a real alpha-2.
  */
 
+import { useMarkets } from "@/hooks/market";
 import type { MarketRow } from "@/lib/alaric-client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { GlassyCombobox } from "../../ui";
 
 export interface MarketPickerProps {
@@ -29,35 +30,10 @@ type MarketComboItem = {
 };
 
 export function MarketPicker({ value, onChange, disabled }: MarketPickerProps) {
-  const [markets, setMarkets] = useState<MarketRow[]>([]);
   const [showAll, setShowAll] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
+  const [eagerQuery, setEagerQuery] = useState("");
 
-  useEffect(() => {
-    const controller = new AbortController();
-    setIsLoading(true);
-    setError(null);
-    const url = showAll ? "/api/markets?showAll=true" : "/api/markets";
-    fetch(url, { signal: controller.signal })
-      .then((res) => {
-        if (!res.ok) throw new Error(`markets ${res.status}`);
-        return res.json();
-      })
-      .then((data: { markets: MarketRow[] }) => {
-        if (Array.isArray(data?.markets)) setMarkets(data.markets);
-      })
-      .catch((err) => {
-        if (err instanceof Error && err.name !== "AbortError") {
-          setError(err.message);
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false);
-      });
-    return () => controller.abort();
-  }, [showAll]);
+  const { markets, isLoading, error } = useMarkets({ eagerQuery, showAll });
 
   // Build the option list from alaric markets. If there's a legacy
   // selectedRegion value not in the alaric set, append it tagged so
@@ -85,7 +61,7 @@ export function MarketPicker({ value, onChange, disabled }: MarketPickerProps) {
   // Alaric's MarketRow.aliases field carries demonyms / native-language
   // names, so typing "slovenian" or "slovenija" both match Slovenia.
   const filteredOptions = useMemo<MarketComboItem[]>(() => {
-    const q = query.trim().toLowerCase();
+    const q = eagerQuery.trim().toLowerCase();
     if (!q) return allOptions;
     return allOptions.filter((opt) => {
       if (opt.label.toLowerCase().includes(q)) return true;
@@ -95,7 +71,7 @@ export function MarketPicker({ value, onChange, disabled }: MarketPickerProps) {
         return true;
       return false;
     });
-  }, [allOptions, markets, query]);
+  }, [allOptions, markets, eagerQuery]);
 
   const selectedItem = useMemo<MarketComboItem | null>(() => {
     if (!value) return null;
@@ -131,13 +107,13 @@ export function MarketPicker({ value, onChange, disabled }: MarketPickerProps) {
         value={selectedItem}
         onChange={handleChange}
         options={filteredOptions}
-        onQueryChange={setQuery}
+        onQueryChange={setEagerQuery}
         disabled={disabled || isLoading}
         loading={isLoading}
       />
       {error && (
         <p className="text-xs text-red-400 mt-1">
-          Markets unavailable: {error}
+          Markets unavailable: {error.message}
         </p>
       )}
     </div>
