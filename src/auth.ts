@@ -37,11 +37,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async sendVerificationRequest({ identifier: email, url, provider }) {
         const { Resend: ResendClient } = await import("resend");
         const resend = new ResendClient(process.env.AUTH_RESEND_KEY);
-        await resend.emails.send({
-          from: provider.from!,
-          to: email,
-          subject: "Sign in to Aleph Creative Audio",
-          html: `
+        await resend.emails
+          .send({
+            from: provider.from!,
+            to: email,
+            subject: "Sign in to Aleph Creative Audio",
+            html: `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -73,7 +74,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   </table>
 </body>
 </html>`,
-        });
+          })
+          .catch((e) =>
+            console.error("error sending magic link email to", email, e),
+          );
+
+        console.log("sent magic link email to", email);
       },
     }),
     // Google OAuth — only when credentials are configured
@@ -94,7 +100,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user }) {
       if (!user.email) return false;
       const email = user.email.toLowerCase();
-      return ALLOWED_DOMAINS.some((domain) => email.endsWith(domain)) || GUEST_EMAILS.includes(email);
+      return (
+        ALLOWED_DOMAINS.some((domain) => email.endsWith(domain)) ||
+        GUEST_EMAILS.includes(email)
+      );
     },
 
     async jwt({ token, user, trigger }) {
