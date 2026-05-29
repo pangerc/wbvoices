@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  PropsWithChildren,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { MatrixBackground } from "./MatrixBackground";
 
 const Context = createContext({
@@ -33,7 +39,7 @@ export function useIsBackgroundAnimated() {
   return state.isAnimating;
 }
 
-export function AnimatedBackground() {
+export function AnimatedBackground({ children }: PropsWithChildren) {
   const [show, setShow] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -47,6 +53,7 @@ export function AnimatedBackground() {
         stopAnimation: () => setIsAnimating(false),
       }}
     >
+      {children}
       {show ? <MatrixBackground /> : null}
     </Context.Provider>
   );
