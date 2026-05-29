@@ -15,7 +15,7 @@ export interface ComboboxItem<T> {
 
 export interface GlassyComboboxProps<T> {
   label?: string;
-  value: ComboboxItem<T> | null;
+  value?: ComboboxItem<T> | null | undefined;
   onChange: (value: ComboboxItem<T> | null) => void;
   options: ComboboxItem<T>[];
   onQueryChange?: (query: string) => void;

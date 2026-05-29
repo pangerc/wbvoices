@@ -7,7 +7,7 @@ import {
 import { twMerge } from "tailwind-merge";
 
 /** Visual style of a {@link Button}. */
-export type ButtonVariant = "blue" | "ghost";
+export type ButtonVariant = "blue" | "destructive" | "ghost";
 
 /** Heroicons-compatible icon: a component that renders an SVG element from `<svg>`-compatible props. */
 type HeroIcon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -39,6 +39,8 @@ export type ButtonProps = PropsWithChildren<
 
 /** Tailwind class strings keyed by {@link ButtonVariant}. */
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
+  destructive:
+    "bg-red-500 text-white hover:bg-red-500/80 active:bg-wb-red-bright/80",
   blue: "bg-wb-blue-bright text-white hover:bg-wb-blue-bright/90 active:bg-wb-blue-bright/80",
   ghost:
     "bg-transparent border-0 text-white hover:bg-white/5 active:bg-white/10",
