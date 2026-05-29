@@ -5,6 +5,7 @@ import { CacheItem, useQueryCache } from "@/providers/QueryCache.provider";
 import {
   DependencyList,
   RefObject,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -161,6 +162,22 @@ export function useQuery<TItem extends Item>({
     };
   }, deps);
 
+  const invalidate = useCallback((idOrCode: string) => {
+    for (let key in cacheRef.current) {
+      const cache = cacheRef.current[key];
+
+      cache.delete(idOrCode);
+
+      setData((data) =>
+        data.filter((item) => {
+          const idx = "id" in item ? item.id : item.code;
+
+          return idx !== idOrCode;
+        }),
+      );
+    }
+  }, []);
+
   let filtered = data;
 
   if (eager && filtered && cacheRef.current.all) {
@@ -181,6 +198,7 @@ export function useQuery<TItem extends Item>({
     isFirstLoad: isFirstLoadRef.current,
     error,
     reachedEnd,
+    invalidate,
   };
 }
 
