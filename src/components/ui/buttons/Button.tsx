@@ -7,10 +7,13 @@ import {
 import { twMerge } from "tailwind-merge";
 
 /** Visual style of a {@link Button}. */
-export type ButtonVariant = "blue" | "destructive" | "ghost";
+export type ButtonVariant = "blue" | "destructive" | "ghost" | "outline";
+
+/** Rounded style of a {@link Button}. */
+export type RoundedVariant = "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
 
 /** Heroicons-compatible icon: a component that renders an SVG element from `<svg>`-compatible props. */
-type HeroIcon = ComponentType<SVGProps<SVGSVGElement>>;
+type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
 /**
  * Props for {@link Button}: a generic action affordance with a visual variant
@@ -33,7 +36,8 @@ export type ButtonProps = PropsWithChildren<
      * `PlayIcon`). Pass the component itself, not a JSX element; it is rendered
      * as a 1.25rem (`w-5 h-5`) square and marked `aria-hidden`.
      */
-    icon?: HeroIcon;
+    icon?: Icon;
+    rounded?: RoundedVariant;
   } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "className">
 >;
 
@@ -44,6 +48,17 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   blue: "bg-wb-blue-bright text-white hover:bg-wb-blue-bright/90 active:bg-wb-blue-bright/80",
   ghost:
     "bg-transparent border-0 text-white hover:bg-white/5 active:bg-white/10",
+  outline: "border-1 border-wb-dark-blue-3 bg-wb-dark-blue-2",
+};
+
+/** Tailwind class strings keyed by {@link RoundedVariant}. */
+const VARIAND_ROUNDED: Record<RoundedVariant, string> = {
+  xs: "rounded-xs",
+  sm: "rounded-sm",
+  md: "rounded-md",
+  lg: "rounded-lg",
+  xl: "rounded-xl",
+  "2xl": "rounded-2xl",
 };
 
 /**
@@ -56,6 +71,7 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
  */
 export function Button({
   variant = "blue",
+  rounded = "md",
   icon: Icon,
   children,
   type = "button",
@@ -66,8 +82,9 @@ export function Button({
       {...rest}
       type={type}
       className={twMerge(
-        "inline-flex items-center justify-center gap-2.5 px-[1.72rem] py-[0.81rem] rounded-md font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 disabled:opacity-50 disabled:pointer-events-none",
+        "inline-flex items-center justify-center gap-2.5 px-[1.72rem] py-[0.81rem] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 disabled:opacity-50 disabled:pointer-events-none",
         VARIANT_CLASSES[variant],
+        rounded ? VARIAND_ROUNDED[rounded] : "",
       )}
     >
       {Icon && <Icon aria-hidden className="w-5 h-5 shrink-0" />}

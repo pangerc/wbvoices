@@ -222,7 +222,7 @@ export default function AdWorkspace() {
     setSelectedTab(index);
   };
 
-  const handleNewAd = () => {
+  const onGoToDashboard = () => {
     router.push("/");
   };
 
@@ -372,7 +372,7 @@ export default function AdWorkspace() {
       <ProjectHeader
         selectedTab={selectedTab}
         onTabChange={handleTabChange}
-        onNewProject={handleNewAd}
+        onGoToDashboard={onGoToDashboard}
         adId={adId}
         projectName={adName}
       />

@@ -28,19 +28,19 @@ export default function UiKitDemoPage() {
         <SectionHeading>Brand colors</SectionHeading>
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ColorSwatch label="wb-red" value="#fb5d4c" color="red" />
-            <ColorSwatch label="wb-green" value="#21dd92" color="green" />
+            <ColorSwatch label="wb-red" value="#FB5D4C" color="red" />
+            <ColorSwatch label="wb-green" value="#21DD92" color="green" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <ColorSwatch label="wb-blue" value="#2f7dfa" color="blue" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <ColorSwatch label="wb-blue" value="#2F7DFA" color="blue" />
             <ColorSwatch
               label="wb-blue-bright"
-              value="#0080ff"
+              value="#0080FF"
               color="blue-bright"
             />
             <ColorSwatch
               label="wb-blue-dark"
-              value="#2467d3"
+              value="#2467D3"
               color="blue-dark"
             />
             <ColorSwatch
@@ -50,15 +50,25 @@ export default function UiKitDemoPage() {
             />
             <ColorSwatch
               label="wb-dark-blue"
-              value="#0d1522"
+              value="#0D1522"
+              color="dark-blue"
+            />
+            <ColorSwatch
+              label="wb-dark-blue-2"
+              value="#1C3A6266"
+              color="dark-blue"
+            />
+            <ColorSwatch
+              label="wb-dark-blue-3"
+              value="#0080FF33"
               color="dark-blue"
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ColorSwatch label="wb-gray" value="#98a1b0" color="gray" />
+            <ColorSwatch label="wb-gray" value="#98A1B0" color="gray" />
             <ColorSwatch
               label="wb-almost-black"
-              value="#16171a"
+              value="#16171A"
               color="almost-black"
             />
           </div>
@@ -260,6 +270,8 @@ type BrandColor =
   | "gray"
   | "dark-gray-blue"
   | "dark-blue"
+  | "dark-blue-2"
+  | "dark-blue-3"
   | "almost-black";
 
 /** Lookup that resolves a {@link BrandColor} to its Tailwind background utility. */
@@ -273,6 +285,8 @@ const BRAND_BG_CLASS: Record<BrandColor, string> = {
   gray: "bg-wb-gray",
   "dark-gray-blue": "bg-wb-dark-gray-blue",
   "dark-blue": "bg-wb-dark-blue",
+  "dark-blue-2": "bg-wb-dark-blue-2",
+  "dark-blue-3": "bg-wb-dark-blue-3",
   "almost-black": "bg-wb-almost-black",
 };
 

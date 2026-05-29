@@ -2,6 +2,7 @@ import { useAdBriefNotChanged } from "@/hooks/ad-brief-not-changed";
 import { useToneOfVoice } from "@/hooks/useToneOfVoice";
 import { BrandDossier, MarketRow } from "@/lib/alaric-client";
 import {
+  Ad,
   BrandRef,
   CampaignFormat,
   Language,
@@ -12,7 +13,6 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BriefPanelBase } from "./BriefPanelBase";
-import { Ad } from "./HistoryDrawer";
 import { GlassyModal } from "./ui/GlassyModal";
 
 /** Payload posted to `/api/ads/:adId/duplicate` to create a new ad copied from an existing one, optionally overriding its brief. */
