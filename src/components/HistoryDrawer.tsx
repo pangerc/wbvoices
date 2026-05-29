@@ -1,3 +1,4 @@
+import { useAuth } from "@/hooks/auth";
 import { useUIStore } from "@/store/uiStore";
 import { ProjectBrief } from "@/types";
 import {
@@ -12,7 +13,6 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { signOut } from "next-auth/react";
 import React, { useEffect, useRef, useState } from "react";
-import { useAuth } from "./AuthProvider";
 import { DuplicateAdPopup } from "./DuplicateAdPopup";
 
 export type Ad = {
@@ -105,7 +105,7 @@ export function HistoryDrawer({
       if (res.ok) {
         const data = await res.json();
         console.log("🔍 HistoryDrawer received ads:", data.ads);
-        setAds(data.ads || []);
+        setAds(data || []);
       } else {
         const errorData = await res.json();
         console.error("🔍 HistoryDrawer API error:", errorData);
@@ -224,8 +224,6 @@ export function HistoryDrawer({
       setDeletingAdId(null);
     }
   };
-
-  console.log("ADS", ads.length);
 
   return (
     <>
