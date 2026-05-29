@@ -1,3 +1,5 @@
+"use client";
+
 import { Card, ProjectCard } from "@/components/ui/cards";
 import { PropsWithChildren, ReactNode } from "react";
 import { Code } from "../internal/code";
@@ -39,6 +41,8 @@ export default function UiKitDemoCardPage() {
             market="Saudi Arabia"
             language="Modern Standard Arabic"
             lastUpdated={new Date(Date.now() - 1000 * 60 * 60 * 2)}
+            onDelete={() => {}}
+            onDuplicate={() => {}}
           />
           <ProjectCard
             href="#"
@@ -47,6 +51,8 @@ export default function UiKitDemoCardPage() {
             market="United Arab Emirates"
             language="Khaleeji Arabic"
             lastUpdated={new Date(Date.now() - 1000 * 60 * 60 * 26)}
+            onDelete={() => {}}
+            onDuplicate={() => {}}
           />
           <ProjectCard
             href="#"
@@ -55,6 +61,8 @@ export default function UiKitDemoCardPage() {
             market="Saudi Arabia"
             language="Modern Standard Arabic"
             lastUpdated={new Date(Date.now() - 1000 * 60 * 60 * 24 * 45)}
+            onDelete={() => {}}
+            onDuplicate={() => {}}
           />
         </div>
       </ComponentSection>

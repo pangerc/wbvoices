@@ -1,4 +1,8 @@
-import { ArrowRightIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowRightIcon,
+  DocumentDuplicateIcon,
+  XCircleIcon,
+} from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import Link from "next/link";
 import { Fragment, useMemo } from "react";
@@ -136,7 +140,7 @@ function ProjectCardBody({
           </span>
         </div>
         <div className="flex items-center">
-          {/* <IconButton
+          <IconButton
             className="opacity-0 group-hover:opacity-100 transition-opacity"
             aria-label={`Delete ${title}`}
             icon={DocumentDuplicateIcon}
@@ -145,7 +149,7 @@ function ProjectCardBody({
               e.preventDefault();
               onDuplicate();
             }}
-          /> */}
+          />
           <ArrowRightIcon
             aria-hidden
             className="w-6 h-6 shrink-0 text-white -rotate-45"
