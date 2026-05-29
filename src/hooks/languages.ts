@@ -1,9 +1,10 @@
 import { VoiceCounts } from "@/services/voiceCatalogueService";
 import { CampaignFormat, Language, Provider } from "@/types";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "./query";
 
 export type LanguageOption = {
-  code: string;
+  code: Language;
   name: string;
 };
 
@@ -32,22 +33,11 @@ export type LanguageOptions = {
  * Load available languages once on mount.
  * This data is static and doesn't change per language selection.
  */
-export function useBriefOptions() {
-  const [languages, setLanguages] = useState<LanguageOption[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/voice-catalogue/languages")
-      .then((r) => r.json())
-      .then((data) => {
-        setLanguages(data.languages || []);
-        setIsLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to load languages:", err);
-        setIsLoading(false);
-      });
-  }, []); // Empty deps - only on mount
+export function useLanguageOptions() {
+  const { data: languages, isLoading } = useQuery<LanguageOption>({
+    url: "/api/voice-catalogue/languages",
+    once: true,
+  });
 
   return { languages, isLoading };
 }
@@ -61,7 +51,7 @@ export function useBriefOptions() {
  * PERF: Uses memoized params key to prevent unnecessary refetches when
  * unrelated state changes cause re-renders.
  */
-export function useLanguageOptions(
+export function useFilteredLanguageOptions(
   language: Language | null,
   campaignFormat: CampaignFormat,
   region?: string | null,

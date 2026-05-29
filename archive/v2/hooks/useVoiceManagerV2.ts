@@ -117,7 +117,7 @@ export function useVoiceManagerV2(): VoiceManagerV2State {
           return;
         }
 
-        const languages = data.languages || [];
+        const languages = data || [];
 
         if (languages.length === 0) {
           console.error(
