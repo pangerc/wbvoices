@@ -761,6 +761,13 @@ export function BriefPanelV4({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoGenerate]);
 
+  // We cannot generate a new project if we do not have the
+  // - creative brief
+  // - brand (via the name)
+  // or when we are already generating
+  const canTriggerGeneration =
+    !creativeBrief.trim() || !brand?.name || isGenerating;
+
   // ============================================================
   // Render
   // ============================================================
@@ -777,7 +784,7 @@ export function BriefPanelV4({
         </div>
         <button
           onClick={handleGenerateCreative}
-          disabled={!creativeBrief || isGenerating}
+          disabled={canTriggerGeneration}
           className="px-6 py-3 bg-wb-blue hover:bg-wb-blue/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
         >
           {isGenerating ? "Generating…" : "Generate Creative"}
