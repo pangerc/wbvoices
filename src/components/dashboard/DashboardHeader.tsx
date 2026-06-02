@@ -6,7 +6,6 @@ import { BrandRef } from "@/types";
 import { getFlagCode, getLanguageName, Language } from "@/utils/language";
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
 import { ReactNode, useMemo, useState } from "react";
-import { BrandPickerSubeditor } from "../brief-topics/subeditors/BrandPickerSubeditor";
 import {
   Button,
   ComboboxItem,
@@ -159,10 +158,12 @@ function FiltersModal({
   return (
     <GlassyModal isOpen onClose={onCancel} header="Filter dashboard projects">
       <div className="flex flex-col gap-6">
+        {/*
+        FIXME: Add Brand filtering back
         <div className="flex flex-col gap-2">
           <div>Client</div>
           <BrandPickerSubeditor brand={brand} onBrandChanged={setBrand} />
-        </div>
+        </div> */}
         <div className="flex flex-col gap-2">
           <div>Market</div>
           <MarketPicker value={market} onChange={setMarket} />
