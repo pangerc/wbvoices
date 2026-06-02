@@ -156,20 +156,20 @@ function FiltersModal({
   };
 
   return (
-    <GlassyModal isOpen onClose={onCancel} header="Filter dashboard projects">
+    <GlassyModal isOpen onClose={onCancel} title="Filter dashboard projects">
       <div className="flex flex-col gap-6">
         {/*
         FIXME: Add Brand filtering back
         <div className="flex flex-col gap-2">
-          <div>Client</div>
+          <div className="text-white">Client</div>
           <BrandPickerSubeditor brand={brand} onBrandChanged={setBrand} />
         </div> */}
         <div className="flex flex-col gap-2">
-          <div>Market</div>
+          <div className="text-white">Market</div>
           <MarketPicker value={market} onChange={setMarket} />
         </div>
         <div className="flex flex-col gap-2">
-          <div>Language</div>
+          <div className="text-white">Language</div>
           <LanguagePicker value={language} onChange={setLanguage} />
         </div>
         <div className="flex justify-between">
