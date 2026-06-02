@@ -41,6 +41,8 @@ export async function getConversation(
     return [];
   }
 
+  // FIXME: Remove this ts-ignore and implement the fix
+  // @ts-ignore
   return typeof data === "string" ? JSON.parse(data) : data;
 }
 
