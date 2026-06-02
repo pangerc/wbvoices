@@ -12,9 +12,9 @@ export default function UiKitDemoChatMessagePage() {
         <Kicker>Chat</Kicker>
         <HeroTitle>Chat message</HeroTitle>
         <HeroDescription>
-          Single chat bubble used by the AI Copilot panel. Renders user
-          messages on the right (blue tint), assistant replies on the left
-          (glass), with optional attachment chips, an
+          Single chat bubble used by the AI Copilot panel. Renders user messages
+          on the right (blue tint), assistant replies on the left (glass), with
+          optional attachment chips, an
           <code className="text-wb-blue">{` Applied to {scope}. `}</code>
           confirmation line, pending dots, error retry, and long-content
           collapse with a Show more / Show less toggle.
@@ -133,10 +133,9 @@ export default function UiKitDemoChatMessagePage() {
       >
         <Stack>
           <ChatMessage
-            message={mkAssistant(
-              "Chat failed (HTTP 500). Please try again.",
-              { status: "error" },
-            )}
+            message={mkAssistant("Chat failed (HTTP 500). Please try again.", {
+              status: "error",
+            })}
             onRetry={() => {}}
           />
         </Stack>
@@ -173,7 +172,9 @@ export default function UiKitDemoChatMessagePage() {
 
 function mkUser(
   content: string,
-  extras: Partial<Omit<ChatMessageModel, "id" | "role" | "content" | "timestamp">> = {},
+  extras: Partial<
+    Omit<ChatMessageModel, "id" | "role" | "content" | "timestamp">
+  > = {},
 ): ChatMessageModel {
   return {
     id: `demo-user-${Math.random().toString(36).slice(2, 8)}`,
@@ -186,7 +187,9 @@ function mkUser(
 
 function mkAssistant(
   content: string,
-  extras: Partial<Omit<ChatMessageModel, "id" | "role" | "content" | "timestamp">> = {},
+  extras: Partial<
+    Omit<ChatMessageModel, "id" | "role" | "content" | "timestamp">
+  > = {},
 ): ChatMessageModel {
   return {
     id: `demo-assistant-${Math.random().toString(36).slice(2, 8)}`,

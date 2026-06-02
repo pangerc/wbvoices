@@ -99,7 +99,9 @@ async function readInputs(req: NextRequest): Promise<ChatRequestInputs> {
     const stream = form.get("stream");
     const parentVersionId = form.get("parentVersionId");
     const freezeParent = form.get("freezeParent");
-    const files = form.getAll("files").filter((f): f is File => f instanceof File);
+    const files = form
+      .getAll("files")
+      .filter((f): f is File => f instanceof File);
 
     if (files.length > MAX_FILES_PER_REQUEST) {
       throw new Error(
@@ -124,9 +126,10 @@ async function readInputs(req: NextRequest): Promise<ChatRequestInputs> {
 
     return {
       message,
-      stream: typeof stream === "string" && stream
-        ? (stream as ContentStreamType)
-        : undefined,
+      stream:
+        typeof stream === "string" && stream
+          ? (stream as ContentStreamType)
+          : undefined,
       parentVersionId:
         typeof parentVersionId === "string" && parentVersionId
           ? parentVersionId
@@ -197,7 +200,9 @@ export async function POST(
     if (extractedRefs.length > 0) {
       console.log(
         `[/api/ads/${adId}/chat] With ${extractedRefs.length} attachment(s): ` +
-          extractedRefs.map((r) => `${r.filename}(${r.charsExtracted}c)`).join(", "),
+          extractedRefs
+            .map((r) => `${r.filename}(${r.charsExtracted}c)`)
+            .join(", "),
       );
     }
     if (stream) {

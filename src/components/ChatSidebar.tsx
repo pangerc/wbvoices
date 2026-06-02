@@ -1,5 +1,9 @@
 "use client";
 
+import { ChatMessage } from "@/components/ui/ChatMessage";
+import { AiCopilotLauncher } from "@/components/ui/buttons/AiCopilotLauncher";
+import { useChatSession, type ChatTurnResult } from "@/hooks/useChatSession";
+import { useUIStore } from "@/store/uiStore";
 import {
   ArrowsPointingInIcon,
   ArrowsPointingOutIcon,
@@ -9,10 +13,6 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
-import { ChatMessage } from "@/components/ui/ChatMessage";
-import { AiCopilotLauncher } from "@/components/ui/buttons/AiCopilotLauncher";
-import { useChatSession, type ChatTurnResult } from "@/hooks/useChatSession";
-import { useUIStore } from "@/store/uiStore";
 
 export type ChatContextStats = {
   // E.g. "Take v7" — derived from the active version's position in the
@@ -45,8 +45,7 @@ const STORAGE_KEY_OPEN = "aac29.chatSidebar.isOpen";
 // listed as accepted but the in-memory extractor currently rejects them
 // (UnsupportedFormatError) — limit is enforced server-side; the picker
 // keeps them so the browser file dialog filters consistently.
-const ATTACH_ACCEPT =
-  ".pdf,.docx,.md,.markdown,.txt,.csv,.xlsx,.xls,.xlsm";
+const ATTACH_ACCEPT = ".pdf,.docx,.md,.markdown,.txt,.csv,.xlsx,.xls,.xlsm";
 const MAX_ATTACH_BYTES = 20 * 1024 * 1024;
 const MAX_ATTACH_FILES = 10;
 
@@ -127,10 +126,9 @@ function Panel({
 }: PanelProps) {
   const isExpanded = useUIStore((s) => s.isChatSidebarExpanded);
   const setExpanded = useUIStore((s) => s.setChatSidebarExpanded);
-  const { messages, isSending, sendMessage, retryLast } = useChatSession(
-    adId,
-    { onTurnLanded },
-  );
+  const { messages, isSending, sendMessage, retryLast } = useChatSession(adId, {
+    onTurnLanded,
+  });
   const [input, setInput] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -160,8 +158,7 @@ function Panel({
     return () => window.removeEventListener("keydown", onKey);
   }, [isExpanded, setExpanded, onClose]);
 
-  const canSend =
-    hasGenerated && input.trim().length > 0 && !isSending;
+  const canSend = hasGenerated && input.trim().length > 0 && !isSending;
 
   const handleSend = () => {
     if (!canSend) return;
@@ -392,9 +389,7 @@ function InputBar({
         </ul>
       )}
 
-      {fileError && (
-        <p className="text-xs text-red-300">{fileError}</p>
-      )}
+      {fileError && <p className="text-xs text-red-300">{fileError}</p>}
 
       <div className="flex items-end gap-2">
         <button

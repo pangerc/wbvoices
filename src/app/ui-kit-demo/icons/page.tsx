@@ -13,10 +13,9 @@ export default function UiKitDemoIconsPage() {
         <Kicker>Display</Kicker>
         <HeroTitle>Icons</HeroTitle>
         <HeroDescription>
-          Project-specific vector glyphs that don't live in Heroicons. Each is
-          a fixed-size atom rendered inline — recolor or resize at the parent
-          if a variant is needed. All live under{" "}
-          <Code>@/components/ui/icons</Code>.
+          Project-specific vector glyphs that don't live in Heroicons. Each is a
+          fixed-size atom rendered inline — recolor or resize at the parent if a
+          variant is needed. All live under <Code>@/components/ui/icons</Code>.
         </HeroDescription>
       </section>
 

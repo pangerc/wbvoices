@@ -12,7 +12,7 @@
     "Courier New", monospace;
 
   /* Colors */
-  --color-wb-white-gray: #D0D5DD;
+  --color-wb-white-gray: #d0d5dd;
   --color-wb-red: #fb5d4c;
   --color-wb-green: #21dd92;
   --color-wb-blue: #2f7dfa;
@@ -22,8 +22,8 @@
   --color-wb-gray: #98a1b0;
   --color-wb-dark-gray-blue: #363d48;
   --color-wb-dark-blue: #0d1522;
-  --color-wb-dark-blue-2: #1C3A6266;
-  --color-wb-dark-blue-3: #0080FF33;
+  --color-wb-dark-blue-2: #1c3a6266;
+  --color-wb-dark-blue-3: #0080ff33;
   --color-wb-almost-black: #16171a;
 }
 

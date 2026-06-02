@@ -43,10 +43,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const resend = new ResendClient(process.env.AUTH_RESEND_KEY);
         const sendEmail = () =>
           resend.emails.send({
-          from: provider.from!,
-          to: email,
-          subject: "Sign in to Aleph Creative Audio",
-          html: `
+            from: provider.from!,
+            to: email,
+            subject: "Sign in to Aleph Creative Audio",
+            html: `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>

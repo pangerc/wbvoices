@@ -1,5 +1,7 @@
 "use client";
 
+import { ChatMessage } from "@/components/ui/ChatMessage";
+import type { ChatMessage as ChatMessageModel } from "@/hooks/useChatSession";
 import {
   ArrowsPointingInIcon,
   ArrowsPointingOutIcon,
@@ -8,8 +10,6 @@ import {
   PaperClipIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { ChatMessage } from "@/components/ui/ChatMessage";
-import type { ChatMessage as ChatMessageModel } from "@/hooks/useChatSession";
 import { PropsWithChildren, ReactNode } from "react";
 
 /**
@@ -30,9 +30,9 @@ export default function UiKitDemoChatCopilotPage() {
           workspace at ~400px wide,
           <strong className="text-white"> expanded</strong> to a fullscreen
           overlay, or
-          <strong className="text-white"> closed</strong> with a launcher
-          button floating in the bottom-right corner. The demo below renders
-          a faithful replica of the chrome — the live panel mounts in
+          <strong className="text-white"> closed</strong> with a launcher button
+          floating in the bottom-right corner. The demo below renders a faithful
+          replica of the chrome — the live panel mounts in
           <code className="text-wb-blue"> /ad/[id] </code> via
           <code className="text-wb-blue"> &lt;ChatSidebar&gt; </code>.
         </HeroDescription>
@@ -94,10 +94,7 @@ export default function UiKitDemoChatCopilotPage() {
 type PanelState = "docked" | "expanded";
 type GuardState = "messages" | "no-generation" | "empty";
 
-function PanelFrame({
-  wide,
-  children,
-}: PropsWithChildren<{ wide?: boolean }>) {
+function PanelFrame({ wide, children }: PropsWithChildren<{ wide?: boolean }>) {
   return (
     <div
       className={`rounded-2xl border border-white/10 overflow-hidden ${wide ? "h-[520px]" : "max-w-[420px] h-[520px]"}`}
@@ -304,4 +301,3 @@ function ComponentSection({
     </section>
   );
 }
-

@@ -51,9 +51,9 @@ function deriveAppliedTo(
   drafts: ChatResponseBody["drafts"],
 ): ChatMessage["appliedTo"] {
   if (!drafts) return undefined;
-  const touched = (
-    ["voices", "music", "sfx"] as const
-  ).filter((k) => Boolean(drafts[k]));
+  const touched = (["voices", "music", "sfx"] as const).filter((k) =>
+    Boolean(drafts[k]),
+  );
   if (touched.length === 0) return undefined;
   if (touched.length > 1) return "timeline";
   return touched[0] === "voices" ? "voice" : touched[0];
@@ -133,20 +133,22 @@ export function useChatSession(adId: string, options?: UseChatSessionOptions) {
         const data = (await res.json()) as {
           messages?: { role: string; content: string }[];
         };
-        if (!Array.isArray(data.messages) || data.messages.length === 0)
-          return;
+        if (!Array.isArray(data.messages) || data.messages.length === 0) return;
         if (ac.signal.aborted) return;
         const restored: ChatMessage[] = [];
         for (const m of data.messages) {
           if (m.role !== "user" && m.role !== "assistant") continue;
           const cleaned =
-            m.role === "user" ? sanitiseUserMessageForDisplay(m.content) : m.content;
+            m.role === "user"
+              ? sanitiseUserMessageForDisplay(m.content)
+              : m.content;
           if (cleaned === null || cleaned.length === 0) continue;
           restored.push({
             id: `restored-${restored.length}`,
             role: m.role,
             content: cleaned,
-            timestamp: Date.now() - (data.messages.length - restored.length) * 1000,
+            timestamp:
+              Date.now() - (data.messages.length - restored.length) * 1000,
           });
         }
         if (restored.length === 0) return;
@@ -250,8 +252,7 @@ export function useChatSession(adId: string, options?: UseChatSessionOptions) {
         // reflects the assistant's reply.
         onTurnLandedRef.current?.({ drafts: data.drafts ?? {} });
       } catch (err) {
-        const errText =
-          err instanceof Error ? err.message : "Network error.";
+        const errText = err instanceof Error ? err.message : "Network error.";
         setError(errText);
         setMessages((prev) =>
           prev.map((m) =>

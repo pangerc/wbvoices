@@ -1,15 +1,18 @@
 "use client";
 
+import type { ChatMessage as ChatMessageModel } from "@/hooks/useChatSession";
 import { DocumentIcon } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
-import type { ChatMessage as ChatMessageModel } from "@/hooks/useChatSession";
 
 type ChatMessageProps = {
   message: ChatMessageModel;
   onRetry?: () => void;
 };
 
-const APPLIED_TO_LABEL: Record<NonNullable<ChatMessageModel["appliedTo"]>, string> = {
+const APPLIED_TO_LABEL: Record<
+  NonNullable<ChatMessageModel["appliedTo"]>,
+  string
+> = {
   voice: "Applied to voice.",
   music: "Applied to music.",
   sfx: "Applied to sfx.",
@@ -22,9 +25,7 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
   const isError = message.status === "error";
 
   return (
-    <div
-      className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}
-    >
+    <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
       <div
         className={`max-w-[85%] rounded-xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
           isUser
@@ -82,10 +83,7 @@ function CollapsibleContent({ content }: { content: string }) {
 
   return (
     <>
-      <p
-        ref={ref}
-        className={expanded ? "" : "line-clamp-6"}
-      >
+      <p ref={ref} className={expanded ? "" : "line-clamp-6"}>
         {content}
       </p>
       {canExpand && (
