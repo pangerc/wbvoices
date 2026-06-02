@@ -66,13 +66,13 @@ export function Dashboard() {
     searchParams.market ||
     searchParams.language;
 
-  const isDashboardEmpty = !isFiltering && ads.length === 0 && isFirstLoad;
-
   const isFilterEmpty = isFiltering && ads.length == 0;
 
   if (isFirstLoad) {
     return <DashboardLoading showText />;
   }
+
+  const isDashboardEmpty = !isFiltering && ads.length === 0;
 
   if (isDashboardEmpty) {
     // If we are not filtering and we have zero ads, we need to show the welcome screen
