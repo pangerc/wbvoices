@@ -135,6 +135,12 @@ export default function UiKitDemoPage() {
                 title="Chat message"
                 description="Bubble used by the AI Copilot panel. User vs assistant variants, attachments, applied-to line, pending, error, long-content collapse."
               />
+              <DemoLinkCard
+                href="/ui-kit-demo/icons"
+                kicker="Display"
+                title="Icons"
+                description="Project-specific vector glyphs that live outside the Heroicons set — AiSparkleIcon, HeadphonesIcon, and friends."
+              />
             </div>
           </div>
 

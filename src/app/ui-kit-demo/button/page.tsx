@@ -2,6 +2,7 @@
 
 import {
   AccordionPlayButton,
+  AiCopilotLauncher,
   Button,
   GenerateButton,
   PlayButton,
@@ -256,6 +257,15 @@ export default function UiKitDemoButtonPage() {
         description="Tiny pill toggle used by the mixer's track strip to mute/unmute. Swaps between speaker and crossed-speaker SVGs based on the `isOpen` prop."
       >
         <VolumeToggleButtonDemo />
+      </ComponentSection>
+
+      <ComponentSection
+        title="AiCopilotLauncher"
+        description="Floating launcher pill that opens the AI Copilot chat. White pill with a leading sparkle icon and an `Ai Copilot` label, 122×46px, fixed `#0080FF` drop shadow. In production it is pinned to the viewport's bottom-right corner (`floating` defaults to true) — the inline demo below passes `floating={false}` so the pill renders in flow."
+      >
+        <Row>
+          <AiCopilotLauncher onClick={() => undefined} floating={false} />
+        </Row>
       </ComponentSection>
 
       <ComponentSection

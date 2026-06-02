@@ -3,7 +3,6 @@
 import {
   ArrowsPointingInIcon,
   ArrowsPointingOutIcon,
-  ChatBubbleLeftRightIcon,
   DocumentIcon,
   PaperAirplaneIcon,
   PaperClipIcon,
@@ -11,6 +10,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
 import { ChatMessage } from "@/components/ui/ChatMessage";
+import { AiCopilotLauncher } from "@/components/ui/buttons/AiCopilotLauncher";
 import { useChatSession, type ChatTurnResult } from "@/hooks/useChatSession";
 import { useUIStore } from "@/store/uiStore";
 
@@ -96,7 +96,7 @@ export function ChatSidebar({
   }
 
   if (!isOpen) {
-    return <Launcher onClick={() => setIsOpen(true)} />;
+    return <AiCopilotLauncher onClick={() => setIsOpen(true)} />;
   }
 
   return (
@@ -107,19 +107,6 @@ export function ChatSidebar({
       onTurnLanded={onTurnLanded}
       onClose={() => setIsOpen(false)}
     />
-  );
-}
-
-function Launcher({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Open AI Copilot"
-      className="fixed bottom-6 right-6 z-40 inline-flex items-center justify-center w-12 h-12 rounded-full bg-wb-blue/90 hover:bg-wb-blue text-white shadow-lg backdrop-blur-md transition-colors"
-    >
-      <ChatBubbleLeftRightIcon className="w-5 h-5" strokeWidth={1.75} />
-    </button>
   );
 }
 

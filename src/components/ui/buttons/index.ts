@@ -1,4 +1,5 @@
 export * from "./AccordionPlayButton";
+export * from "./AiCopilotLauncher";
 export * from "./Button";
 export * from "./GenerateButton";
 export * from "./IconButton";
