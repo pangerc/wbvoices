@@ -1,19 +1,41 @@
-import { Listbox } from "@headlessui/react";
+import {
+  Listbox,
+  ListboxButton,
+  ListboxOption,
+  ListboxOptions,
+} from "@headlessui/react";
 import { ChevronUpDownIcon } from "@heroicons/react/16/solid";
+import { twMerge } from "tailwind-merge";
 
+/** Props for {@link GlassyListbox}, a frosted-glass select built on Headless UI's `Listbox`. */
 export interface GlassyListboxProps<T> {
+  /** Optional block label rendered above the trigger. */
   label?: string;
+  /** Currently selected value. */
   value: T;
+  /** Called with the newly selected value. */
   onChange: (value: T) => void;
+  /** Options to render in the dropdown. */
   options: {
+    /** Underlying value carried by the option; surfaced via `onChange`. */
     value: T;
+    /** Human-readable text shown in the trigger and the dropdown row. */
     label: string;
-    flag?: string; // Optional flag code for languages
+    /** Optional `flag-icons` country code (e.g. `"us"`) rendered as a leading flag. */
+    flag?: string;
   }[];
+  /** Disables all interaction. */
   disabled?: boolean;
+  /** Shows a spinner and disables interaction while options load. */
   loading?: boolean;
 }
 
+/**
+ * Frosted-glass select built on Headless UI's `Listbox`. Active and selected
+ * styling are driven by Headless UI render-props (`focus`, `selected`), and the
+ * dropdown renders through Headless UI's portal via the `anchor` prop so it
+ * escapes ancestor `overflow`/stacking contexts.
+ */
 export function GlassyListbox<T extends string>({
   label,
   value,
@@ -27,7 +49,7 @@ export function GlassyListbox<T extends string>({
       {label && <label className="block mb-2 text-white">{label}</label>}
       <Listbox value={value} onChange={onChange} disabled={disabled || loading}>
         <div className="relative">
-          <Listbox.Button className="relative w-full cursor-default grid grid-cols-1 bg-white/10 backdrop-blur-sm py-3 pr-3 pl-4 text-left text-white rounded-xl focus:outline-none focus:ring-1 focus:ring-wb-blue/50 focus:ring-offset-0 focus:border-wb-blue/50 border border-white/10 transition-all duration-200 sm:text-sm/6">
+          <ListboxButton className="relative w-full cursor-default grid grid-cols-1 bg-white/10 backdrop-blur-sm py-3 pr-3 pl-4 text-left text-white rounded-xl focus:outline-none focus:ring-1 focus:ring-wb-blue/50 focus:ring-offset-0 focus:border-wb-blue/50 border border-white/10 transition-all duration-200 sm:text-sm/6">
             <span className="col-start-1 row-start-1 flex items-center gap-3 pr-6">
               {options.find((opt) => opt.value === value)?.flag && (
                 <span
@@ -69,41 +91,47 @@ export function GlassyListbox<T extends string>({
                 className="col-start-1 row-start-1 size-5 self-center justify-self-end text-gray-400/60 sm:size-4"
               />
             )}
-          </Listbox.Button>
+          </ListboxButton>
 
           {/* Dropdown options */}
-          <Listbox.Options className="absolute z-50 mt-1 w-full overflow-auto rounded-xl py-2 text-base shadow-lg focus:outline-hidden bg-gray-900/50 backdrop-blur-xl border border-white/20">
+          <ListboxOptions
+            anchor="bottom start"
+            transition
+            className="z-50 w-(--button-width) [--anchor-gap:0.25rem] rounded-xl py-2 text-base shadow-lg focus:outline-hidden bg-gray-900/50 backdrop-blur-xl border border-white/20 transition duration-100 ease-out data-closed:opacity-0"
+          >
             <div className="max-h-56 overflow-auto">
               {options.map((option) => (
-                <Listbox.Option
+                <ListboxOption
                   key={option.value as string}
                   value={option.value}
-                  className={({ active }) =>
-                    `cursor-default py-2 px-4 mx-1 my-0.5 rounded-lg select-none ${
-                      active ? "bg-wb-blue/30 text-white" : "text-gray-300"
-                    }`
+                  className={({ focus }) =>
+                    twMerge(
+                      "flex items-center gap-3 cursor-default py-2 px-4 mx-1 my-0.5 rounded-lg select-none text-gray-300",
+                      focus && "bg-wb-blue/30 text-white",
+                    )
                   }
                 >
                   {({ selected }) => (
-                    <div className="flex items-center gap-3">
+                    <>
                       {option.flag && (
                         <span
                           className={`fi fi-${option.flag} fis opacity-60`}
                         ></span>
                       )}
                       <span
-                        className={`block truncate ${
-                          selected ? "font-medium text-white" : "font-normal"
-                        }`}
+                        className={twMerge(
+                          "block truncate font-normal",
+                          selected && "font-medium text-white",
+                        )}
                       >
                         {option.label}
                       </span>
-                    </div>
+                    </>
                   )}
-                </Listbox.Option>
+                </ListboxOption>
               ))}
             </div>
-          </Listbox.Options>
+          </ListboxOptions>
         </div>
       </Listbox>
     </div>
