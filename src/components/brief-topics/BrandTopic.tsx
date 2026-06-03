@@ -80,7 +80,10 @@ export function BrandTopic({
           <label className="block text-sm font-medium text-gray-300 mb-2">
             Brand{" "}
             <span className="text-gray-500 font-normal">
-              (Salesforce search or freetext for greenfield)
+              (Salesforce search or freetext for greenfield — required)
+            </span>{" "}
+            <span className="text-wb-red" aria-hidden="true">
+              *
             </span>
           </label>
           <BrandPickerSubeditor
