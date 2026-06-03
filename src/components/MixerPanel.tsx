@@ -1511,10 +1511,17 @@ export function MixerPanel({
 
             {/* Time markers */}
             <div className="h-7 border-b border-white/20 mb-4 relative px-2">
-              {/* Create markers that properly span the entire duration */}
+              {/* One tick per second spans the whole duration. The tick lines
+                  always render (they give the ruler its texture), but the
+                  label text thins out on narrow screens to avoid overlap:
+                  - every 5s: always labelled (anchor labels)
+                  - other seconds: labelled only from `xl` up, where there's
+                    room for per-second granularity.
+                  Pure-CSS via responsive `hidden`/`block` — no JS measuring. */}
               {Array.from({ length: getTotalMarkers() }).map((_, i) => {
                 const seconds = i;
                 const percent = (seconds / displayDuration) * 100;
+                const isAnchorLabel = seconds % 5 === 0;
 
                 return (
                   <div
@@ -1522,7 +1529,11 @@ export function MixerPanel({
                     className="absolute top-0 h-3 border-l border-white/30"
                     style={{ left: `${percent}%` }}
                   >
-                    <div className="absolute top-3 text-xs text-gray-400 transform -translate-x-1/2">
+                    <div
+                      className={`absolute top-3 text-xs text-gray-400 transform -translate-x-1/2 ${
+                        isAnchorLabel ? "block" : "hidden xl:block"
+                      }`}
+                    >
                       {formatTime(seconds)}
                     </div>
                   </div>
