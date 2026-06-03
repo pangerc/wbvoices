@@ -2,24 +2,25 @@ import { adMetadataMatchQuery } from "@/common/search";
 import { AdMetadataQuery } from "@/database/ads";
 import { FuzzyResult, QueryResult } from "@/database/base";
 import { AdMetadata } from "@/types/versions";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useDedupedValue } from "./deduped-value";
 import { Query, useQuery } from "./query";
 
-const DEFAULT_AD_PAGE = 8;
+const PROJECTS_PER_PAGE = 8;
 
 type UseAdsProps = {
   searchParams?: AdMetadataQuery;
-  skip?: number;
 };
 
-export function useAds({ searchParams = {}, skip = 0 }: UseAdsProps = {}) {
+export function useAds({ searchParams = {} }: UseAdsProps = {}) {
+  const [skip, setSkip] = useState(0);
+
   const query = useDedupedValue<Query>(
     300,
     useMemo(
       () => ({
         searchParams,
-        pagination: { skip, take: DEFAULT_AD_PAGE },
+        pagination: { skip, take: PROJECTS_PER_PAGE },
       }),
       [searchParams, skip],
     ),
@@ -64,6 +65,11 @@ export function useAds({ searchParams = {}, skip = 0 }: UseAdsProps = {}) {
     initial: [],
   });
 
+  const next = useCallback(
+    (skip?: number) => setSkip((s) => skip ?? s + PROJECTS_PER_PAGE),
+    [setSkip],
+  );
+
   const remove = useCallback(
     async (id: string) => {
       invalidate(id);
@@ -75,5 +81,5 @@ export function useAds({ searchParams = {}, skip = 0 }: UseAdsProps = {}) {
     [invalidate],
   );
 
-  return { ads, isLoading, isFirstLoad, reachedEnd, remove };
+  return { ads, isLoading, isFirstLoad, reachedEnd, remove, next };
 }
