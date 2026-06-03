@@ -91,6 +91,7 @@ export function DashboardHeader({
           )}
           <SearchInput
             value={search.name ?? ""}
+            placeholder="Search project"
             onChange={(e) =>
               onSearchChanged({
                 name: e.currentTarget.value,
