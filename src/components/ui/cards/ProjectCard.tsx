@@ -111,7 +111,6 @@ function ProjectCardBody({
           )}
         </header>
         <IconButton
-          className="opacity-0 group-hover:opacity-100 transition-opacity"
           aria-label={`Delete ${title}`}
           icon={XCircleIcon}
           variant="ghost"
@@ -139,9 +138,8 @@ function ProjectCardBody({
             {lastUpdated ? format(lastUpdated, "MMM d yyyy") : "Unknown"}
           </span>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-4">
           <IconButton
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
             aria-label={`Delete ${title}`}
             icon={DocumentDuplicateIcon}
             variant="ghost"
@@ -152,7 +150,7 @@ function ProjectCardBody({
           />
           <ArrowRightIcon
             aria-hidden
-            className="w-6 h-6 shrink-0 text-white -rotate-45"
+            className="w-5 h-5 shrink-0 text-white -rotate-45"
           />
         </div>
       </footer>
