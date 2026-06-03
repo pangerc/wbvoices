@@ -2,46 +2,27 @@
 
 import { AdMetadataQuery } from "@/database/ads";
 import { useAds } from "@/hooks/ads";
-import { useDedupedValue } from "@/hooks/deduped-value";
-import { Query } from "@/hooks/query";
 import { generateProjectId } from "@/utils/projectId";
 import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { DuplicateAdPopup } from "../DuplicateAdPopup";
 import { Button, ConfirmDialog } from "../ui";
 import { Loading } from "../ui/Loading";
 import { DashboardHeader } from "./DashboardHeader";
 import { DashboardProjects } from "./DashboardProjects";
 
-const DEFAULT_AD_PAGE = 2;
+const DEFAULT_PROJECT_PER_PAGE = 8;
 
 export function Dashboard() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string>();
   const [pendingDuplicateId, setPendingDuplicateId] = useState<string>();
 
   const [searchParams, setSearchParams] = useState<AdMetadataQuery>({});
-  const [skip, setSkip] = useState(0);
 
-  const query = useDedupedValue<Query>(
-    300,
-    useMemo(
-      () => ({
-        searchParams,
-        pagination: { skip, take: DEFAULT_AD_PAGE },
-      }),
-      [searchParams, skip],
-    ),
-  );
-
-  const { ads, isLoading, isFirstLoad, reachedEnd, remove } = useAds({
+  const { ads, isLoading, isFirstLoad, reachedEnd, remove, next } = useAds({
     searchParams,
-    skip,
   });
-
-  const onNextPage = () => {
-    setSkip((s) => s + DEFAULT_AD_PAGE);
-  };
 
   const onClearFilters = () => {
     setSearchParams({});
@@ -90,7 +71,7 @@ export function Dashboard() {
           search={searchParams}
           onSearchChanged={(change) => {
             setSearchParams((sp) => ({ ...sp, ...change }));
-            setSkip(0);
+            next(0);
           }}
         />
         {ads.length === 0 && isLoading ? (
@@ -102,7 +83,7 @@ export function Dashboard() {
             <DashboardProjects
               ads={ads}
               isLoading={isLoading}
-              onNextPage={onNextPage}
+              onNextPage={next}
               reachedEnd={reachedEnd}
               onDelete={onDeleteStart}
               onDuplicate={onDuplicate}
