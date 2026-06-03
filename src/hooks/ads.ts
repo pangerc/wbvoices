@@ -59,7 +59,17 @@ export function useAds({ searchParams = {}, skip = 0 }: UseAdsProps = {}) {
 
           return acc;
         }, [] as QueryResult<AdMetadata>[])
-        .sort((a, b) => (b.fuzzy?.score || 0) - (a.fuzzy?.score || 0)),
+        .sort((a, b) => {
+          if (a.fuzzy && b.fuzzy) {
+            return b.fuzzy.score - a.fuzzy.score;
+          }
+
+          if (a.meta && b.meta) {
+            return b.meta.lastModified - a.meta.lastModified;
+          }
+
+          return a.id.localeCompare(b.id);
+        }),
     deps: [query],
     initial: [],
   });
