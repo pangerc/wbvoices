@@ -2,24 +2,25 @@ import { adMetadataMatchQuery } from "@/common/search";
 import { AdMetadataQuery } from "@/database/ads";
 import { FuzzyResult, QueryResult } from "@/database/base";
 import { AdMetadata } from "@/types/versions";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useDedupedValue } from "./deduped-value";
 import { Query, useQuery } from "./query";
 
-const DEFAULT_AD_PAGE = 8;
+const PROJECTS_PER_PAGE = 8;
 
 type UseAdsProps = {
   searchParams?: AdMetadataQuery;
-  skip?: number;
 };
 
-export function useAds({ searchParams = {}, skip = 0 }: UseAdsProps = {}) {
+export function useAds({ searchParams = {} }: UseAdsProps = {}) {
+  const [skip, setSkip] = useState(0);
+
   const query = useDedupedValue<Query>(
     300,
     useMemo(
       () => ({
         searchParams,
-        pagination: { skip, take: DEFAULT_AD_PAGE },
+        pagination: { skip, take: PROJECTS_PER_PAGE },
       }),
       [searchParams, skip],
     ),
@@ -59,10 +60,25 @@ export function useAds({ searchParams = {}, skip = 0 }: UseAdsProps = {}) {
 
           return acc;
         }, [] as QueryResult<AdMetadata>[])
-        .sort((a, b) => (b.fuzzy?.score || 0) - (a.fuzzy?.score || 0)),
+        .sort((a, b) => {
+          if (a.fuzzy && b.fuzzy) {
+            return b.fuzzy.score - a.fuzzy.score;
+          }
+
+          if (a.meta && b.meta) {
+            return b.meta.lastModified - a.meta.lastModified;
+          }
+
+          return a.id.localeCompare(b.id);
+        }),
     deps: [query],
     initial: [],
   });
+
+  const next = useCallback(
+    (skip?: number) => setSkip((s) => skip ?? s + PROJECTS_PER_PAGE),
+    [setSkip],
+  );
 
   const remove = useCallback(
     async (id: string) => {
@@ -75,5 +91,5 @@ export function useAds({ searchParams = {}, skip = 0 }: UseAdsProps = {}) {
     [invalidate],
   );
 
-  return { ads, isLoading, isFirstLoad, reachedEnd, remove };
+  return { ads, isLoading, isFirstLoad, reachedEnd, remove, next };
 }

@@ -300,6 +300,9 @@ export function CreativeTopic({
                 Creative brief{" "}
                 <span className="text-gray-500 font-normal text-xs">
                   (description of the ad — required)
+                </span>{" "}
+                <span className="text-wb-red" aria-hidden="true">
+                  *
                 </span>
               </label>
               <GlassyTextarea

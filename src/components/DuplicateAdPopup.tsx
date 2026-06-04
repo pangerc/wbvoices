@@ -13,6 +13,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BriefPanelBase } from "./BriefPanelBase";
+import { Button } from "./ui";
 import { GlassyModal } from "./ui/GlassyModal";
 
 /** Payload posted to `/api/ads/:adId/duplicate` to create a new ad copied from an existing one, optionally overriding its brief. */
@@ -403,24 +404,23 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
           error={error}
         />
         <div className="flex justify-between">
-          <button
+          <Button
+            variant="destructive"
             disabled={isDuplicating}
             onClick={() => onClose()}
-            className="px-6 py-3 bg-wb-blue hover:bg-wb-blue/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             disabled={isDuplicating}
             onClick={() => onDuplicate(ad, !isNotChanged)}
-            className="px-6 py-3 bg-wb-blue hover:bg-wb-blue/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
           >
             {isDuplicating
               ? "Duplicating..."
               : isNotChanged
                 ? "Duplicate"
                 : "Duplicate & Generate"}
-          </button>
+          </Button>
         </div>
       </div>
     </GlassyModal>
