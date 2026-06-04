@@ -13,7 +13,7 @@ export function useMarkets(props?: UseMarketsProps) {
 
   const query = useMemo(
     () => ({
-      searchParams: { showAll },
+      showAll,
     }),
     [showAll],
   );
@@ -40,7 +40,6 @@ export function useMarkets(props?: UseMarketsProps) {
     url: "/api/markets",
     once: true,
     query,
-    deps: [query],
     eager,
   });
 
