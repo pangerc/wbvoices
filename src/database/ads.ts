@@ -99,15 +99,11 @@ export class Ads extends Base {
     let skipped = 0;
     let taken = 0;
 
+    const metas: Array<{ id: string; meta: AdMetadata }> = [];
+
+    // First we need to take all the metas because we need to sort them later
+    // And we do not know who is first / last or in the middle
     for (const id of ids) {
-      if (opts?.signal?.aborted) {
-        return;
-      }
-
-      if (typeof opts?.take === "number" && taken === opts.take) {
-        return;
-      }
-
       // meta can be null, so we default to undefined
       // either we have something, or we do not
       const meta = await this.getAdMetadata(id);
@@ -117,6 +113,22 @@ export class Ads extends Base {
         // Or they have partially exist in an invalid state
         console.error("❌ Ad", id, "does not have meta field");
         continue;
+      }
+
+      metas.push({ id, meta });
+    }
+
+    // We need to sort them in descending order
+    // Last modified, first
+    metas.sort((a, b) => b.meta.lastModified - a.meta.lastModified);
+
+    for (const { id, meta } of metas) {
+      if (opts?.signal?.aborted) {
+        return;
+      }
+
+      if (typeof opts?.take === "number" && taken === opts.take) {
+        return;
       }
 
       if (query) {
