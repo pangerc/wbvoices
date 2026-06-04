@@ -64,7 +64,7 @@ export function IconButton({
         className,
       )}
     >
-      <Icon aria-hidden className="w-5 h-5 shrink-0" />
+      <Icon aria-hidden className="w-6 h-6 shrink-0" />
     </button>
   );
 }

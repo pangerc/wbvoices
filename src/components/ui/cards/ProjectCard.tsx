@@ -1,12 +1,10 @@
-import {
-  ArrowRightIcon,
-  DocumentDuplicateIcon,
-  XCircleIcon,
-} from "@heroicons/react/24/outline";
+import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import Link from "next/link";
 import { Fragment, useMemo } from "react";
 import { IconButton } from "../buttons";
+import { CloseIcon } from "../icons/CloseIcon";
+import { DuplicateIcon } from "../icons/DuplicateIcon";
 import { Card } from "./Card";
 
 /** Props for {@link ProjectCard}: a dashboard tile that summarizes a single project and optionally links to its page. */
@@ -112,7 +110,7 @@ function ProjectCardBody({
         </header>
         <IconButton
           aria-label={`Delete ${title}`}
-          icon={XCircleIcon}
+          icon={CloseIcon}
           variant="ghost"
           onClick={(e) => {
             e.preventDefault();
@@ -140,9 +138,8 @@ function ProjectCardBody({
         </div>
         <div className="flex items-center gap-4">
           <IconButton
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label={`Duplicate ${title}`}
-            icon={DocumentDuplicateIcon}
+            aria-label={`Delete ${title}`}
+            icon={DuplicateIcon}
             variant="ghost"
             onClick={(e) => {
               e.preventDefault();
