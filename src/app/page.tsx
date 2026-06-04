@@ -10,7 +10,7 @@ export default function DashboardPage() {
   return (
     <main className="flex flex-col h-screen bg-black text-white">
       <DashboardAppheader />
-      <div className="flex-1 overflow-auto relative grid grid-cols-1 grid-rows-1">
+      <div className="flex-1 overflow-auto relative">
         <Dashboard />
       </div>
     </main>
