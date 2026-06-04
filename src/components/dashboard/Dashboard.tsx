@@ -83,7 +83,7 @@ export function Dashboard() {
             <DashboardProjects
               ads={ads}
               isLoading={isLoading}
-              onNextPage={next}
+              onNextPage={() => next()}
               reachedEnd={reachedEnd}
               onDelete={onDeleteStart}
               onDuplicate={onDuplicate}

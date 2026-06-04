@@ -3,7 +3,6 @@
 import { FuzzyResult } from "@/database/base";
 import { CacheItem, useQueryCache } from "@/providers/QueryCache.provider";
 import {
-  DependencyList,
   RefObject,
   useCallback,
   useEffect,
@@ -11,13 +10,13 @@ import {
   useRef,
   useState,
 } from "react";
+import { useDedupedValue } from "./deduped-value";
+
+const ITEMS_PER_PAGE = 8;
 
 type Rule = "append" | "replace";
 
-export type Query = {
-  searchParams?: Record<string, string | number | boolean | undefined>;
-  pagination?: { skip: number; take: number };
-};
+export type Query = Record<string, string | number | boolean | undefined>;
 
 type Item = ({ id: string } | { code: string }) & { fuzzy?: FuzzyResult };
 
@@ -25,9 +24,16 @@ type UseQueryProps<TItem> = {
   url: string;
   once?: boolean;
   query?: Query;
-  deps?: DependencyList;
   eager?: (data: TItem[]) => TItem[];
   initial?: TItem[];
+};
+
+type State<TItem extends Item> = {
+  data: TItem[];
+  skip: number;
+  error?: Error;
+  isLoading: boolean;
+  reachedEnd: boolean;
 };
 
 export function useQuery<TItem extends Item>({
@@ -35,132 +41,156 @@ export function useQuery<TItem extends Item>({
   once = false,
   query,
   eager,
-  deps = [],
   initial = [],
 }: UseQueryProps<TItem>) {
   const { cacheRef } = useQueryCache<TItem>(url);
 
-  const [data, setData] = useState<TItem[]>(
-    () => Object.values(cacheRef.current.all) || initial,
-  );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error>();
-  const [reachedEnd, setReachedEnd] = useState(false);
+  const [state, setState] = useState<State<TItem>>(() => ({
+    data: Array.from(cacheRef.current.all.values()) || initial,
+    skip: 0,
+    error: undefined as Error | undefined,
+    isLoading: true,
+    reachedEnd: false,
+  }));
+
+  const isLoading = useDedupedValue(300, state.isLoading);
+  const reachedEnd = useDedupedValue(300, state.reachedEnd);
 
   /**
    * Stores the previous non-paginated URL so we can determine
    * whether the next request should append or replace data.
    */
   const oldQueryRef = useRef<Query>(null);
+  const oldSkipRef = useRef(0);
 
   const isFirstLoadRef = useRef(true);
 
+  const updateState = useCallback(
+    (
+      update:
+        | Partial<State<TItem>>
+        | ((update: State<TItem>) => Partial<State<TItem>>),
+    ) => {
+      setState((state) => {
+        const change = typeof update === "function" ? update(state) : update;
+
+        const changed = Object.entries(change).reduce((acc, [k, v]) => {
+          // @ts-ignore
+          const stateValue = state[k];
+
+          if (k in state && stateValue !== v) {
+            return true;
+          }
+
+          return acc;
+        }, false);
+
+        if (!changed) {
+          return state;
+        }
+
+        return {
+          ...state,
+          ...change,
+        };
+      });
+    },
+    [],
+  );
+
   useEffect(() => {
     if (once && isFirstLoadRef.current == false) {
-      setData(Object.values(cacheRef.current.all));
       return;
     }
 
     const controller = new AbortController();
 
-    setIsLoading(true);
+    updateState({ isLoading: true });
 
     let search: string[] = [];
 
     let changed = false;
     let nextPageRequested = false;
 
-    let urlWithoutPagination = "";
-
     if (query) {
-      if (query.searchParams) {
-        Object.entries(query.searchParams).forEach(([k, v]) => {
-          if (v !== undefined) {
-            search.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
-          }
-
-          if (
-            oldQueryRef.current?.searchParams &&
-            query.searchParams![k] !== oldQueryRef.current.searchParams![k]
-          ) {
-            changed = true;
-          }
-        });
-      }
-
-      urlWithoutPagination = `${url}?${search.join("&")}`;
-
-      if (query.pagination) {
-        Object.entries(query.pagination).forEach(([k, v]) => {
-          if (v !== undefined) {
-            search.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
-          }
-        });
-
-        if (
-          oldQueryRef.current?.pagination &&
-          (oldQueryRef.current.pagination.skip !== query.pagination.skip ||
-            oldQueryRef.current.pagination.take !== query.pagination.take)
-        ) {
-          nextPageRequested = true;
+      Object.entries(query).forEach(([k, v]) => {
+        if (v !== undefined) {
+          search.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
         }
-      }
+
+        if (oldQueryRef.current && query![k] !== oldQueryRef.current![k]) {
+          changed = true;
+        }
+      });
+    }
+
+    if (state.skip !== oldSkipRef.current) {
+      nextPageRequested = true;
     }
 
     if (!changed && !nextPageRequested && oldQueryRef.current) {
-      console.debug("useQuery: Nothign changed. Returning");
       // Nothing changed but a change was triggered
       // Returning now because the request would be useless
       return;
     }
 
-    const fetchUrl = `${url}?${search.join("&")}`;
+    const urlWithoutPagination = `${url}?${search.join("&")}`;
+
+    const urlCacheSize = cacheRef.current[urlWithoutPagination]?.size;
+    const take = urlCacheSize ? urlCacheSize + ITEMS_PER_PAGE : ITEMS_PER_PAGE;
+    const fetchUrl = `${urlWithoutPagination}&skip=${state.skip}&take=${take}`;
     const computedRule: Rule = changed
       ? "replace"
       : nextPageRequested
         ? "append"
         : "replace";
 
-    if (computedRule === "replace") {
-      setReachedEnd(false);
-    }
+    let reachedEnd = computedRule !== "replace";
 
     fetch(fetchUrl, { signal: controller.signal }).then(async (res) => {
-      const data = await res.json();
+      const data = (await res.json()) as TItem[];
 
       if (controller.signal.aborted) {
-        setIsLoading(false);
+        updateState({ isLoading: false });
         return;
       }
 
       if (query) {
         oldQueryRef.current = query;
+        oldSkipRef.current = state.skip;
       }
 
       if (res.ok) {
         updateCache(urlWithoutPagination, cacheRef, data);
 
-        if (computedRule === "replace") {
-          setData(data);
-        } else {
-          setData((oldData) => [...oldData, ...data]);
+        if (data.length > ITEMS_PER_PAGE) {
+          reachedEnd = true;
         }
 
-        if (query && query.pagination && data.length < query.pagination.take) {
-          setReachedEnd(true);
+        if (computedRule === "replace") {
+          updateState({ data, reachedEnd, isLoading: false });
+        } else {
+          updateState((state) => ({
+            data: [...state.data, ...data],
+            reachedEnd,
+            isLoading: false,
+          }));
         }
       } else {
-        setError(new Error("Something went wrong", { cause: data }));
+        updateState({
+          error: new Error("Something went wrong", { cause: data }),
+          isLoading: false,
+        });
       }
 
       isFirstLoadRef.current = false;
-      setIsLoading(false);
     });
 
     return () => {
+      updateState({ isLoading: false });
       controller.abort("Query dependencies changed too fast");
     };
-  }, deps);
+  }, [query, state.skip]);
 
   const invalidate = useCallback((idOrCode: string) => {
     for (let key in cacheRef.current) {
@@ -168,36 +198,43 @@ export function useQuery<TItem extends Item>({
 
       cache.delete(idOrCode);
 
-      setData((data) =>
-        data.filter((item) => {
+      updateState((state) => ({
+        data: state.data.filter((item) => {
           const idx = "id" in item ? item.id : item.code;
 
           return idx !== idOrCode;
         }),
-      );
+      }));
     }
   }, []);
 
-  let filtered = data;
+  const next = useCallback(
+    (skip?: number) =>
+      updateState((state) => ({ skip: skip ?? state.data.length })),
+    [],
+  );
+
+  let filtered = state.data;
 
   if (eager && filtered && cacheRef.current.all) {
-    filtered = eager(
-      useMemo(
-        () =>
+    filtered = useMemo(
+      () =>
+        eager(
           Array.from(cacheRef.current.all.values()).map((item) => ({
             ...item,
           })),
-        [data],
-      ),
+        ),
+      [eager, state.data],
     );
   }
 
   return {
-    data: filtered,
+    ...state,
     isLoading,
-    isFirstLoad: isFirstLoadRef.current,
-    error,
     reachedEnd,
+    data: filtered,
+    isFirstLoad: isFirstLoadRef.current,
+    next,
     invalidate,
   };
 }
