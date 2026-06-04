@@ -1170,6 +1170,33 @@ export function MixerPanel({
     );
   };
 
+  // Container-query breakpoint at which per-second labels are allowed to show.
+  // Sized to the label count so short and long ads both behave: ~46px per
+  // label is the comfortable center-to-center spacing for a "0:00" label.
+  // Below the chosen width the ruler falls back to every-5s anchor labels.
+  // The class strings are literal (not interpolated px) so Tailwind's scanner
+  // generates them; the bucket is just a lookup. `@min-[Npx]:block` is a
+  // container query — it measures the `@container` timeline, not the viewport.
+  const perSecondLabelCq = ((): string => {
+    // ~29px center-to-center is the tightest readable spacing for a small
+    // 10px "0:00" label. At this value a 40s ad (41 labels → 1189px) reveals
+    // per-second once the timeline reaches the @min-[1200px] bucket — i.e. on
+    // a normal maximised laptop (~1248px timeline) — while the sidebar-open /
+    // narrow case still falls back to every-5s.
+    const neededPx = getTotalMarkers() * 29;
+    if (neededPx <= 600) return "@min-[600px]:block";
+    if (neededPx <= 800) return "@min-[800px]:block";
+    if (neededPx <= 1000) return "@min-[1000px]:block";
+    if (neededPx <= 1200) return "@min-[1200px]:block";
+    if (neededPx <= 1400) return "@min-[1400px]:block";
+    if (neededPx <= 1600) return "@min-[1600px]:block";
+    if (neededPx <= 1800) return "@min-[1800px]:block";
+    if (neededPx <= 2000) return "@min-[2000px]:block";
+    // Beyond this the timeline never gets wide enough in practice, so
+    // per-second labels stay hidden and the every-5s view is the steady state.
+    return "@min-[2400px]:block";
+  })();
+
   // Render loading animation for a track
   const renderLoadingAnimation = (trackType: "voice" | "music" | "soundfx") => {
     let color = "bg-sky-300";
@@ -1301,13 +1328,18 @@ export function MixerPanel({
   };
 
   return (
-    <div className="py-8 text-white">
-      <div className="flex items-start justify-between gap-2 my-8">
+    // Vertical chrome above the timeline compacts on short viewports so the
+    // whole timeline (all tracks + total-duration line) fits without scrolling
+    // on 1366x768-class laptops (the 820px ceiling covers 768-tall viewports
+    // with or without browser chrome). Big screens keep the full-size hero.
+    // Pure CSS via height-based media-query variants — no JS measuring.
+    <div className="py-8 [@media(max-height:820px)]:py-3 text-white">
+      <div className="flex items-start justify-between gap-2 my-8 [@media(max-height:820px)]:my-2">
         <div>
-          <h1 className="text-4xl font-black mb-2">
+          <h1 className="text-4xl [@media(max-height:820px)]:text-2xl font-black mb-2">
             Make It All Come Together
           </h1>
-          <h2 className="font-medium mb-12">
+          <h2 className="font-medium mb-12 [@media(max-height:820px)]:mb-3">
             Preview and export your fully produced audio ad. Ready when you
             are.{" "}
           </h2>
@@ -1467,7 +1499,7 @@ export function MixerPanel({
             onPointerMove={handleTimelinePointerMove}
             onPointerUp={handleTimelinePointerUp}
             onPointerCancel={handleTimelinePointerUp}
-            className="relative bg-white/3 backdrop-blur-sm border border-white/10 rounded-2xl overflow-visible timeline cursor-pointer touch-none"
+            className="@container relative bg-white/3 backdrop-blur-sm border border-white/10 rounded-2xl overflow-visible timeline cursor-pointer touch-none"
           >
             {/* Format-horizon layer — red shading past the brief duration,
                 plus a dashed rule at the horizon itself. Wrapped in a rounded
@@ -1513,11 +1545,24 @@ export function MixerPanel({
             <div className="h-7 border-b border-white/20 mb-4 relative px-2">
               {/* One tick per second spans the whole duration. The tick lines
                   always render (they give the ruler its texture), but the
-                  label text thins out on narrow screens to avoid overlap:
+                  per-second LABELS thin out to avoid overlap:
                   - every 5s: always labelled (anchor labels)
-                  - other seconds: labelled only from `xl` up, where there's
-                    room for per-second granularity.
-                  Pure-CSS via responsive `hidden`/`block` — no JS measuring. */}
+                  - other seconds: labelled only once the timeline is wide
+                    enough that every label fits without colliding.
+
+                  "Wide enough" is duration-aware. A 15s ad has ~16 labels and
+                  fits per-second on a ~750px timeline; a 40s ad has ~41 labels
+                  and needs ~1900px. A single fixed breakpoint can't serve both
+                  — too low and long ads collide, too high and short ads stay
+                  sparse needlessly. So we size the threshold to the label count
+                  (`getTotalMarkers() * PER_SECOND_LABEL_PX`) and pick the
+                  matching container-query bucket below.
+
+                  Still pure-CSS via a container query on the `@container`
+                  parent (reacts to the timeline's own width, incl. the AI
+                  Copilot sidebar shrinking it) — only the *chosen breakpoint*
+                  is computed. The bucket class strings are literal so Tailwind
+                  generates them. */}
               {Array.from({ length: getTotalMarkers() }).map((_, i) => {
                 const seconds = i;
                 const percent = (seconds / displayDuration) * 100;
@@ -1530,8 +1575,8 @@ export function MixerPanel({
                     style={{ left: `${percent}%` }}
                   >
                     <div
-                      className={`absolute top-3 text-xs text-gray-400 transform -translate-x-1/2 ${
-                        isAnchorLabel ? "block" : "hidden xl:block"
+                      className={`absolute top-3 text-[10px] text-gray-400 transform -translate-x-1/2 ${
+                        isAnchorLabel ? "block" : `hidden ${perSecondLabelCq}`
                       }`}
                     >
                       {formatTime(seconds)}

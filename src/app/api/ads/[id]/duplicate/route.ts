@@ -38,18 +38,35 @@ export async function POST(
   const body = await request.json();
   const { name, brief } = body;
 
+  // When the caller intends to regenerate immediately (the "duplicate &
+  // generate" path, which redirects to ?auto_generate=1), copying the source's
+  // versions is both pointless and harmful: the fresh generation would be
+  // blocked by the generate-stream idempotency guard ("ALREADY_GENERATED").
+  // So in that mode we produce a clean-slate copy — brief/metadata only, no
+  // versions/conversation/preview — and let generation populate it. Plain
+  // duplication (regenerate=false) still makes a full, identical copy.
+  const regenerate = body.triggerGeneration === true;
+
   const newAdId = generateProjectId();
   console.log(
-    `🚀 [duplicate] Starting duplication ${duplicatedAdId} → ${newAdId} for ${email}`,
+    `🚀 [duplicate] Starting duplication ${duplicatedAdId} → ${newAdId} for ${email} (regenerate=${regenerate})`,
   );
 
   const [voices, music, sfx, mixer, conversation, preview] = await Promise.all([
-    getActiveVersionData(duplicatedAdId, "voices"),
-    getActiveVersionData(duplicatedAdId, "music"),
-    getActiveVersionData(duplicatedAdId, "sfx"),
-    getActiveVersionData(duplicatedAdId, "mixer"),
-    getConversation(duplicatedAdId),
-    getPreviewData(duplicatedAdId),
+    regenerate
+      ? Promise.resolve(null)
+      : getActiveVersionData(duplicatedAdId, "voices"),
+    regenerate
+      ? Promise.resolve(null)
+      : getActiveVersionData(duplicatedAdId, "music"),
+    regenerate
+      ? Promise.resolve(null)
+      : getActiveVersionData(duplicatedAdId, "sfx"),
+    regenerate
+      ? Promise.resolve(null)
+      : getActiveVersionData(duplicatedAdId, "mixer"),
+    regenerate ? Promise.resolve([]) : getConversation(duplicatedAdId),
+    regenerate ? Promise.resolve(null) : getPreviewData(duplicatedAdId),
   ] as const);
   console.log(
     `📥 [duplicate] Fetched source data — voices:${!!voices} music:${!!music} sfx:${!!sfx} mixer:${!!mixer} conversation:${!!conversation} preview:${!!preview}`,
@@ -127,15 +144,30 @@ export async function POST(
   // versioned stream — clone the active mixer version alongside content
   // streams so the duplicate's timeline + anchors render identically.
   //
-  const [voiceVersion, musicVersion, sfxVersion, mixerVersion] =
-    await Promise.all([
-      voices ? createVersion(newAdId, "voices", voices) : Promise.resolve(),
-      music ? createVersion(newAdId, "music", music) : Promise.resolve(),
-      sfx ? createVersion(newAdId, "sfx", sfx) : Promise.resolve(),
-      mixer ? createVersion(newAdId, "mixer", mixer) : Promise.resolve(),
-    ]);
+  // Content versions are created first because the cloned mixer's `pins`
+  // still reference the SOURCE ad's version IDs. We must remap them to the
+  // freshly-minted IDs before persisting the mixer — otherwise the duplicate
+  // renders an empty timeline (stale pins resolve to nothing → 0 tracks).
+  // Anchors key off slotIds (preserved by the content clone), so only pins
+  // need remapping.
+  //
+  const [voiceVersion, musicVersion, sfxVersion] = await Promise.all([
+    voices ? createVersion(newAdId, "voices", voices) : Promise.resolve(undefined),
+    music ? createVersion(newAdId, "music", music) : Promise.resolve(undefined),
+    sfx ? createVersion(newAdId, "sfx", sfx) : Promise.resolve(undefined),
+  ]);
+
+  let mixerVersion: string | undefined;
+  if (mixer) {
+    mixer.pins = {
+      voices: voiceVersion ?? mixer.pins?.voices ?? null,
+      music: musicVersion ?? mixer.pins?.music ?? null,
+      sfx: sfxVersion ?? mixer.pins?.sfx ?? null,
+    };
+    mixerVersion = await createVersion(newAdId, "mixer", mixer);
+  }
   console.log(
-    `🌱 [duplicate] Created versions — voices:${voiceVersion ?? "—"} music:${musicVersion ?? "—"} sfx:${sfxVersion ?? "—"} mixer:${mixerVersion ?? "—"}`,
+    `🌱 [duplicate] Created versions — voices:${voiceVersion ?? "—"} music:${musicVersion ?? "—"} sfx:${sfxVersion ?? "—"} mixer:${mixerVersion ?? "—"} (pins remapped)`,
   );
 
   //

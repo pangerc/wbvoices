@@ -140,7 +140,8 @@ function ProjectCardBody({
         </div>
         <div className="flex items-center gap-4">
           <IconButton
-            aria-label={`Delete ${title}`}
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            aria-label={`Duplicate ${title}`}
             icon={DocumentDuplicateIcon}
             variant="ghost"
             onClick={(e) => {
