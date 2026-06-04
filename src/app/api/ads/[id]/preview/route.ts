@@ -5,14 +5,14 @@
  * PATCH /api/ads/{adId}/preview - Update preview data (partial)
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { getMixerState } from "@/lib/mixer/rebuilder";
 import {
+  getAdMetadata,
   getPreviewData,
   setPreviewData,
-  getMixerState,
-  getAdMetadata,
   type PreviewData,
 } from "@/lib/redis/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
@@ -36,7 +36,7 @@ export const runtime = "nodejs";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -56,7 +56,9 @@ export async function GET(
     const extractBrandName = (description?: string): string => {
       if (!description) return "";
       const brandName = description
-        .split(/[.,]|(\s+is\s+)|(\s+offers\s+)|(\s+provides\s+)|(\s+sells\s+)/)[0]
+        .split(
+          /[.,]|(\s+is\s+)|(\s+offers\s+)|(\s+provides\s+)|(\s+sells\s+)/,
+        )[0]
         ?.trim();
       return brandName || "";
     };
@@ -65,13 +67,17 @@ export async function GET(
     const capitalizeText = (text: string): string => {
       return text
         .split(" ")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .map(
+          (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+        )
         .join(" ");
     };
 
     // Auto-fill from brief if preview data is empty
     const briefCTA = adMetadata?.brief?.selectedCTA?.replace(/-/g, " ") || "";
-    const briefBrandName = extractBrandName(adMetadata?.brief?.clientDescription);
+    const briefBrandName = extractBrandName(
+      adMetadata?.brief?.clientDescription,
+    );
 
     const response = {
       brandName:
@@ -82,8 +88,8 @@ export async function GET(
         previewData?.cta && previewData.cta !== "Learn More"
           ? previewData.cta
           : briefCTA
-          ? capitalizeText(briefCTA)
-          : "Learn More",
+            ? capitalizeText(briefCTA)
+            : "Learn More",
       destinationUrl: previewData?.destinationUrl || "",
       logoUrl: previewData?.logoUrl,
       visualUrl: previewData?.visualUrl,
@@ -98,7 +104,7 @@ export async function GET(
         error: "Failed to get preview data",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -113,7 +119,7 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -137,7 +143,7 @@ export async function PATCH(
         error: "Failed to update preview data",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

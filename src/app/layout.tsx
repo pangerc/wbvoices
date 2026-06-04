@@ -1,8 +1,9 @@
+import { AnimatedBackground } from "@/components/animated-background/animated-background";
+import { Providers } from "@/providers/Providers";
+import "flag-icons/css/flag-icons.min.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import "flag-icons/css/flag-icons.min.css";
-import { ClientLayout } from "@/components/ClientLayout";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,7 +30,9 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.png" sizes="any" />
       </head>
       <body className="font-sans antialiased">
-        <ClientLayout>{children}</ClientLayout>
+        <Providers>
+          <AnimatedBackground>{children}</AnimatedBackground>
+        </Providers>
       </body>
     </html>
   );

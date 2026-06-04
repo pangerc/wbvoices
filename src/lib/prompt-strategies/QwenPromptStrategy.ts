@@ -1,5 +1,5 @@
-import { BasePromptStrategy, PromptContext } from "./BasePromptStrategy";
 import { CampaignFormat } from "@/types";
+import { BasePromptStrategy, PromptContext } from "./BasePromptStrategy";
 
 /**
  * Qwen Strategy - Direct voice control (similar to basic setup)
@@ -8,7 +8,6 @@ import { CampaignFormat } from "@/types";
 export class QwenPromptStrategy extends BasePromptStrategy {
   readonly provider = "qwen" as const;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   buildStyleInstructions(_context: PromptContext): string {
     // No special style instructions - direct voice control
     return "";

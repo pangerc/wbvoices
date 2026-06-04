@@ -1,16 +1,16 @@
-import { NextResponse } from "next/server";
-import { voiceCatalogue, UnifiedVoice } from "@/services/voiceCatalogueService";
-import { normalizeLanguageCode } from "@/utils/language";
-import { normalizeAccent } from "@/utils/accents";
-import { Language } from "@/types";
-import {
-  fetchElevenLabsVoices,
-  fetchLovoVoices,
-  getOpenAIVoices,
-  fetchLahajatiVoices,
-} from "@/services/voiceProviderService";
 import { lahajatiDialectService } from "@/services/lahajatiDialectService";
 import { lahajatiPerformanceService } from "@/services/lahajatiPerformanceService";
+import { UnifiedVoice, voiceCatalogue } from "@/services/voiceCatalogueService";
+import {
+  fetchElevenLabsVoices,
+  fetchLahajatiVoices,
+  fetchLovoVoices,
+  getOpenAIVoices,
+} from "@/services/voiceProviderService";
+import { Language } from "@/types";
+import { normalizeAccent } from "@/utils/accents";
+import { normalizeLanguageCode } from "@/utils/language";
+import { NextResponse } from "next/server";
 
 // Use Node.js runtime for proper Redis access
 // export const runtime = 'edge'; // REMOVED - Edge Runtime causes env var issues
@@ -36,12 +36,10 @@ async function fetchAndNormalizeVoices() {
     const elevenlabsVoices = await fetchElevenLabsVoices();
 
     for (const voice of elevenlabsVoices) {
-      const normalizedLanguage = normalizeLanguageCode(
-        voice.language || "en"
-      );
+      const normalizedLanguage = normalizeLanguageCode(voice.language || "en");
       const normalizedAccent = normalizeAccent(
         voice.accent,
-        normalizedLanguage
+        normalizedLanguage,
       );
 
       voices.push({
@@ -70,7 +68,9 @@ async function fetchAndNormalizeVoices() {
       });
     }
 
-    console.log(`✅ ElevenLabs: ${elevenlabsVoices.length} voices (direct API call)`);
+    console.log(
+      `✅ ElevenLabs: ${elevenlabsVoices.length} voices (direct API call)`,
+    );
   } catch (error) {
     console.error("❌ Failed to fetch ElevenLabs voices:", error);
   }
@@ -87,22 +87,22 @@ async function fetchAndNormalizeVoices() {
       let accentToNormalize = voice.accent;
 
       // Lovo hides regional info in sampleUrl - extract it!
-      if (
-        voice.sampleUrl &&
-        voice.sampleUrl.includes("speaker-tts-samples")
-      ) {
+      if (voice.sampleUrl && voice.sampleUrl.includes("speaker-tts-samples")) {
         const urlMatch = voice.sampleUrl.match(/\/([a-z]{2}-[A-Z]{2})-/);
         if (urlMatch) {
           const originalLanguageCode = urlMatch[1];
           const regionCode = originalLanguageCode.split("-")[1];
           console.log(
-            `🔥 RESCUED REGIONAL ACCENT: ${originalLanguageCode} → ${regionCode} for voice ${voice.name}`
+            `🔥 RESCUED REGIONAL ACCENT: ${originalLanguageCode} → ${regionCode} for voice ${voice.name}`,
           );
           accentToNormalize = regionCode;
         }
       }
 
-      const normalizedAccent = normalizeAccent(accentToNormalize, normalizedLanguage);
+      const normalizedAccent = normalizeAccent(
+        accentToNormalize,
+        normalizedLanguage,
+      );
 
       voices.push({
         id: voice.id,
@@ -115,8 +115,8 @@ async function fetchAndNormalizeVoices() {
           voice.gender === "male"
             ? "male"
             : voice.gender === "female"
-            ? "female"
-            : "neutral",
+              ? "female"
+              : "neutral",
         language: normalizedLanguage as Language,
         accent: normalizedAccent,
         personality: voice.description || undefined,
@@ -307,7 +307,7 @@ async function fetchAndNormalizeVoices() {
   console.log(
     `✅ Qwen: ${qwenVoices.length * 2} voices (${qwenVoices.length} Chinese + ${
       qwenVoices.length
-    } English)`
+    } English)`,
   );
 
   // BYTEDANCE - TTS 2.0 only (emotion + style control)
@@ -507,9 +507,7 @@ async function fetchAndNormalizeVoices() {
     });
   }
 
-  console.log(
-    `ByteDance: ${bytedanceVoices.length} TTS 2.0 voices`
-  );
+  console.log(`ByteDance: ${bytedanceVoices.length} TTS 2.0 voices`);
 
   // LAHAJATI - Arabic dialect specialist (339 voices, 116 dialects)
   try {
@@ -543,7 +541,9 @@ async function fetchAndNormalizeVoices() {
       });
     }
 
-    console.log(`✅ Lahajati: ${lahajatiVoices.length} voices (Arabic dialects)`);
+    console.log(
+      `✅ Lahajati: ${lahajatiVoices.length} voices (Arabic dialects)`,
+    );
   } catch (error) {
     console.error("❌ Failed to fetch Lahajati voices:", error);
   }
@@ -559,14 +559,17 @@ export async function POST() {
     await voiceCatalogue.clearCache();
 
     // Rate limit delay helper for Lahajati API
-    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    const sleep = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
 
     // Step 2: Refresh Lahajati dialect and performance definitions from API
     // Add delays between operations to avoid rate limiting
     console.log("🔄 Refreshing Lahajati dialect definitions...");
     const dialectResult = await lahajatiDialectService.refresh();
     if (!dialectResult.success) {
-      console.warn("⚠️ Failed to refresh Lahajati dialects - using fallback mappings");
+      console.warn(
+        "⚠️ Failed to refresh Lahajati dialects - using fallback mappings",
+      );
     }
 
     // Wait before next Lahajati operation (10s cooldown to avoid rate limiting)
@@ -575,7 +578,9 @@ export async function POST() {
     console.log("🔄 Refreshing Lahajati performance styles...");
     const performanceResult = await lahajatiPerformanceService.refresh();
     if (!performanceResult.success) {
-      console.warn("⚠️ Failed to refresh Lahajati performances - ad-related styles may be limited");
+      console.warn(
+        "⚠️ Failed to refresh Lahajati performances - ad-related styles may be limited",
+      );
     }
 
     // Wait before fetching voices (which includes Lahajati voices) - 10s cooldown
@@ -589,13 +594,13 @@ export async function POST() {
         {
           error: "No voices fetched from any provider",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     // Step 4: Build the magnificent towers!
     console.log(
-      `🏗️ Building magnificent towers with ${voices.length} voices...`
+      `🏗️ Building magnificent towers with ${voices.length} voices...`,
     );
 
     await voiceCatalogue.buildTowers(voices);
@@ -633,7 +638,7 @@ export async function POST() {
         error: "Failed to populate voice cache",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -656,7 +661,7 @@ export async function GET() {
         error: "Failed to get cache stats",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -675,7 +680,7 @@ export async function DELETE() {
         error: "Failed to clear cache",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

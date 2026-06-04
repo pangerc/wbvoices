@@ -34,7 +34,7 @@ export const getLanguageFamily = (languageCode: string): string | null => {
 // Check if two language codes are in the same family
 export const areSameLanguageFamily = (
   code1: string,
-  code2: string
+  code2: string,
 ): boolean => {
   const family1 = getLanguageFamily(code1);
   const family2 = getLanguageFamily(code2);
@@ -52,7 +52,7 @@ export const areSameLanguageFamily = (
  */
 export const normalizeLanguageCode = (locale: string): string => {
   // Type guard: ensure locale is a string
-  if (typeof locale !== 'string' || !locale) {
+  if (typeof locale !== "string" || !locale) {
     return "en"; // Default fallback for non-string or empty values
   }
 
@@ -620,7 +620,7 @@ export const hasRegionalAccents = (languageCode: string): boolean => {
  * Get available regions for a language
  */
 export const getLanguageRegions = (
-  languageCode: string
+  languageCode: string,
 ): Array<{ code: string; displayName: string }> => {
   const normalizedCode = normalizeLanguageCode(languageCode);
   const [lang] = normalizedCode.split("-");
@@ -638,7 +638,7 @@ export const getLanguageRegions = (
  */
 export const getRegionalAccents = (
   languageCode: string,
-  regionCode: string
+  regionCode: string,
 ): string[] => {
   const normalizedCode = normalizeLanguageCode(languageCode);
   const [lang] = normalizedCode.split("-");

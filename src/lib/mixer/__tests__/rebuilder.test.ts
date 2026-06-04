@@ -2,51 +2,28 @@
  * Tests for Mixer Rebuilder Logic
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { rebuildMixer, getMixerState } from "../rebuilder";
-import { createVersion, setActiveVersion } from "../../redis/versions";
 import {
   mockAdId,
-  mockVoiceVersionDraft,
   mockMusicVersionDraft,
   mockSfxVersionDraft,
-  mockVoiceTrack,
   mockSoundFxPrompt,
+  mockVoiceTrack,
+  mockVoiceVersionDraft,
 } from "@/test/fixtures/versions";
 import { createMockRedis } from "@/test/utils";
-import type { VoiceVersion, MusicVersion, SfxVersion } from "@/types/versions";
+import type { MusicVersion, SfxVersion, VoiceVersion } from "@/types/versions";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createVersion, setActiveVersion } from "../../redis/versions";
+import { getMixerState, rebuildMixer } from "../rebuilder";
 
 // Mock Redis V3
 vi.mock("../../redis-v3", () => ({
   getRedisV3: () => mockRedis,
 }));
 
-// Mock LegacyTimelineCalculator
-vi.mock("@/services/legacyTimelineCalculator", () => ({
-  LegacyTimelineCalculator: {
-    calculateTimings: vi.fn((tracks, audioDurations) => {
-      // Simple mock that calculates sequential timing
-      let currentTime = 0;
-      const calculatedTracks = tracks.map((track: { id: string; type: string }) => {
-        const duration = audioDurations[track.id] || 3;
-        const startTime = currentTime;
-        currentTime += duration;
-
-        return {
-          id: track.id,
-          actualStartTime: startTime,
-          actualDuration: duration,
-          type: track.type,
-        };
-      });
-
-      return {
-        calculatedTracks,
-        totalDuration: currentTime,
-      };
-    }),
-  },
-}));
+// Post stage 7: rebuilder uses the real `resolveTimeline` — no mock needed.
+// The resolver is pure and fast; exercising it in tests gives better
+// coverage than a sequential-timing fake.
 
 let mockRedis: ReturnType<typeof createMockRedis>;
 

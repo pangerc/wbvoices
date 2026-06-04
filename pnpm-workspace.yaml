@@ -40,7 +40,7 @@ trustPolicy: no-downgrade
 # - https://docs.npmjs.com/generating-provenance-statements
 # - https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations
 trustPolicyExclude:
-  - 'next-auth@5.0.0-beta.30' # this is currently a beta release with no provenance attestation
-  - 'undici@5.29.0' # only has continuous provenance attestation since version 7.1.0
-  - 'eslint-import-resolver-typescript@3.10.1' # only has provenance attestation from 4.2.6
-  - 'semver@6.3.1' # only has provenance attestations from version 7.5.1
+  - "next-auth@5.0.0-beta.30" # this is currently a beta release with no provenance attestation
+  - "undici@5.29.0" # only has continuous provenance attestation since version 7.1.0
+  - "eslint-import-resolver-typescript@3.10.1" # only has provenance attestation from 4.2.6
+  - "semver@6.3.1" # only has provenance attestations from version 7.5.1

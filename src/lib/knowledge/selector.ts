@@ -5,7 +5,7 @@
  * Defaults to full context when unsure.
  */
 
-import { IntentType, IntentScores } from "./types";
+import { IntentScores, IntentType } from "./types";
 
 const INTENT_KEYWORDS: Record<keyof IntentScores, string[]> = {
   voice_edit: [
@@ -99,7 +99,7 @@ function countNonZeroScores(scores: IntentScores): number {
  * Get the intent with the highest score
  */
 function getHighestScoringIntent(
-  scores: IntentScores
+  scores: IntentScores,
 ): keyof IntentScores | null {
   const entries = Object.entries(scores) as [keyof IntentScores, number][];
   const nonZero = entries.filter(([, score]) => score > 0);

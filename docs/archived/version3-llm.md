@@ -32,6 +32,7 @@ The Version 3 LLM architecture replaces the current structured JSON output appro
 ### Problem 1: Brittle JSON Parsing
 
 **Current Flow:**
+
 ```
 Brief → LLM → JSON string → JSON.parse() → Hope it works
                               ↓
@@ -39,6 +40,7 @@ Brief → LLM → JSON string → JSON.parse() → Hope it works
 ```
 
 **Symptoms:**
+
 - JSON parsing failures when LLM includes markdown code blocks
 - Missing required fields cause crashes
 - No validation until entire generation completes
@@ -47,18 +49,21 @@ Brief → LLM → JSON string → JSON.parse() → Hope it works
 ### Problem 2: Token Waste
 
 **Current Approach:**
+
 - Send 50-100 voices in system prompt (10,000+ tokens)
 - Include all voice metadata (name, accent, style, age, use_case, etc.)
 - Repeat on every request (no caching)
 - LLM must process entire catalogue to pick 2-3 voices
 
 **Cost Impact:**
+
 - English markets: 50 voices × 200 tokens = 10,000 tokens/request
 - Most of that context is never used
 
 ### Problem 3: No Iteration Support
 
 **Current Limitation:**
+
 - Each generation **replaces** previous state
 - User says "make the music more upbeat" → Must regenerate entire ad
 - No way to refine specific aspects without starting over
@@ -67,6 +72,7 @@ Brief → LLM → JSON string → JSON.parse() → Hope it works
 ### Problem 4: Provider Lock-in
 
 **Current Issue:**
+
 - Tightly coupled to OpenAI JSON mode
 - Adding Qwen/KIMI requires duplicating prompt logic
 - Different providers have different JSON quirks
@@ -184,23 +190,24 @@ Brief → LLM: "I need to create an ad for Spotify Premium in Thai"
 **Redis Key:** `ad:{adId}:conversation`
 
 **Structure:**
+
 ```typescript
 type ConversationMessage =
-  | { role: "system", content: string, cached: true }
-  | { role: "user", content: string }
-  | { role: "assistant", content: string, tool_calls?: ToolCall[] }
-  | { role: "tool", tool_call_id: string, content: string }
+  | { role: "system"; content: string; cached: true }
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string; tool_calls?: ToolCall[] }
+  | { role: "tool"; tool_call_id: string; content: string };
 
 // Example conversation
 [
   {
     role: "system",
     content: "You are a creative ad generator...",
-    cached: true
+    cached: true,
   },
   {
     role: "user",
-    content: "Create a 30s Spotify Premium ad in Thai"
+    content: "Create a 30s Spotify Premium ad in Thai",
   },
   {
     role: "assistant",
@@ -211,15 +218,15 @@ type ConversationMessage =
         type: "function",
         function: {
           name: "search_voices",
-          arguments: '{"language":"thai","count":10}'
-        }
-      }
-    ]
+          arguments: '{"language":"thai","count":10}',
+        },
+      },
+    ],
   },
   {
     role: "tool",
     tool_call_id: "call_1",
-    content: '[{"id":"voice123","name":"Sarawut",...}]'
+    content: '[{"id":"voice123","name":"Sarawut",...}]',
   },
   {
     role: "assistant",
@@ -230,38 +237,39 @@ type ConversationMessage =
         type: "function",
         function: {
           name: "create_voice_draft",
-          arguments: '{"adId":"ad123","tracks":[...]}'
-        }
-      }
-    ]
+          arguments: '{"adId":"ad123","tracks":[...]}',
+        },
+      },
+    ],
   },
   {
     role: "tool",
     tool_call_id: "call_2",
-    content: '{"versionId":"v1","status":"draft"}'
+    content: '{"versionId":"v1","status":"draft"}',
   },
   {
     role: "assistant",
-    content: "Created voice draft v1. Review and activate when ready."
-  }
-]
+    content: "Created voice draft v1. Review and activate when ready.",
+  },
+];
 ```
 
 ### 3. Provider Adapter Layer
 
 **Unified Interface:**
+
 ```typescript
 interface ToolCallingProvider {
   callWithTools(
     messages: ConversationMessage[],
     tools: ToolDefinition[],
     options?: {
-      caching?: boolean,
-      streaming?: boolean
-    }
+      caching?: boolean;
+      streaming?: boolean;
+    },
   ): Promise<{
-    message: AssistantMessage,
-    toolCalls: ToolCall[]
+    message: AssistantMessage;
+    toolCalls: ToolCall[];
   }>;
 
   supportsStreaming: boolean;
@@ -282,12 +290,12 @@ class OpenAIAdapter implements ToolCallingProvider {
       model: "gpt-4",
       messages,
       tools,
-      tool_choice: "auto"
+      tool_choice: "auto",
     });
 
     return {
       message: response.choices[0].message,
-      toolCalls: response.choices[0].message.tool_calls || []
+      toolCalls: response.choices[0].message.tool_calls || [],
     };
   }
 }
@@ -299,40 +307,47 @@ class QwenAdapter implements ToolCallingProvider {
 
   async callWithTools(messages, tools, options) {
     // Use DashScope compatible mode
-    const response = await fetch("https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.DASHSCOPE_API_KEY}`,
-        "Content-Type": "application/json"
+    const response = await fetch(
+      "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.DASHSCOPE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "qwen-max",
+          messages,
+          tools,
+          stream: false, // Avoid parallel call bugs
+        }),
       },
-      body: JSON.stringify({
-        model: "qwen-max",
-        messages,
-        tools,
-        stream: false // Avoid parallel call bugs
-      })
-    });
+    );
 
     const data = await response.json();
 
     // Validate tool calls (Qwen sometimes malforms them)
-    const validatedCalls = this.validateToolCalls(data.choices[0].message.tool_calls);
+    const validatedCalls = this.validateToolCalls(
+      data.choices[0].message.tool_calls,
+    );
 
     return {
       message: data.choices[0].message,
-      toolCalls: validatedCalls
+      toolCalls: validatedCalls,
     };
   }
 
   private validateToolCalls(calls) {
     // Handle Qwen-specific edge cases
-    return calls?.map(call => ({
-      ...call,
-      function: {
-        ...call.function,
-        arguments: this.repairJSON(call.function.arguments)
-      }
-    })) || [];
+    return (
+      calls?.map((call) => ({
+        ...call,
+        function: {
+          ...call.function,
+          arguments: this.repairJSON(call.function.arguments),
+        },
+      })) || []
+    );
   }
 }
 
@@ -342,36 +357,43 @@ class KimiAdapter implements ToolCallingProvider {
   supportsCaching = true;
 
   async callWithTools(messages, tools, options) {
-    const response = await fetch("https://api.moonshot.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.MOONSHOT_API_KEY}`,
-        "Content-Type": "application/json"
+    const response = await fetch(
+      "https://api.moonshot.ai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.MOONSHOT_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "moonshot-v1-32k",
+          messages,
+          tools,
+        }),
       },
-      body: JSON.stringify({
-        model: "moonshot-v1-32k",
-        messages,
-        tools
-      })
-    });
+    );
 
     const data = await response.json();
 
     // Fix parallel call indexing issues
-    const reindexedCalls = this.reindexToolCalls(data.choices[0].message.tool_calls);
+    const reindexedCalls = this.reindexToolCalls(
+      data.choices[0].message.tool_calls,
+    );
 
     return {
       message: data.choices[0].message,
-      toolCalls: reindexedCalls
+      toolCalls: reindexedCalls,
     };
   }
 
   private reindexToolCalls(calls) {
     // KIMI sometimes messes up tool_call.index
-    return calls?.map((call, index) => ({
-      ...call,
-      index // Force correct sequential indexing
-    })) || [];
+    return (
+      calls?.map((call, index) => ({
+        ...call,
+        index, // Force correct sequential indexing
+      })) || []
+    );
   }
 }
 ```
@@ -381,7 +403,9 @@ class KimiAdapter implements ToolCallingProvider {
 ```typescript
 function getProvider(language: string, market: string): ToolCallingProvider {
   // Primary: Qwen for APAC/multilingual
-  if (["thai", "indonesian", "polish", "portuguese", "spanish"].includes(language)) {
+  if (
+    ["thai", "indonesian", "polish", "portuguese", "spanish"].includes(language)
+  ) {
     return new QwenAdapter();
   }
 
@@ -404,6 +428,7 @@ function getProvider(language: string, market: string): ToolCallingProvider {
 **Endpoint:** `POST /api/ai/generate` (refactored)
 
 **Request:**
+
 ```json
 {
   "adId": "ad-123",
@@ -418,6 +443,7 @@ function getProvider(language: string, market: string): ToolCallingProvider {
 ```
 
 **Flow:**
+
 1. Create conversation in Redis with system prompt (mark as cached)
 2. Add user message with brief
 3. Call LLM with tools enabled
@@ -430,6 +456,7 @@ function getProvider(language: string, market: string): ToolCallingProvider {
 6. Return conversation ID + created draft version IDs
 
 **Response:**
+
 ```json
 {
   "conversationId": "conv-123",
@@ -447,6 +474,7 @@ function getProvider(language: string, market: string): ToolCallingProvider {
 **Endpoint:** `POST /api/ads/[id]/chat` (new)
 
 **Request:**
+
 ```json
 {
   "message": "Make the music more upbeat and add a whoosh sound effect at the start",
@@ -455,6 +483,7 @@ function getProvider(language: string, market: string): ToolCallingProvider {
 ```
 
 **Flow:**
+
 1. Load conversation history from Redis
 2. Append new user message
 3. Call LLM with tools + conversation history (cached!)
@@ -467,6 +496,7 @@ function getProvider(language: string, market: string): ToolCallingProvider {
 7. Return new draft versions
 
 **Response:**
+
 ```json
 {
   "drafts": {
@@ -484,6 +514,7 @@ function getProvider(language: string, market: string): ToolCallingProvider {
 ### What Gets Cached
 
 **System Prompt (Always Cached):**
+
 ```typescript
 const systemPrompt = `You are an expert audio ad creative director...
 
@@ -504,11 +535,12 @@ Guidelines:
 messages.push({
   role: "system",
   content: systemPrompt,
-  cached: true // OpenAI/Qwen cache this
+  cached: true, // OpenAI/Qwen cache this
 });
 ```
 
 **Conversation History (Incrementally Cached):**
+
 ```typescript
 // Turn 1: 2500 tokens cached
 [system prompt + tools] → cached
@@ -521,11 +553,13 @@ messages.push({
 ```
 
 **Token Savings:**
+
 - OpenAI: 50% discount on cached tokens (90% for extended cache)
 - Qwen: KV cache support (similar savings)
 - Moonshot: 2M token context window with caching
 
 **Example Cost Calculation:**
+
 ```
 Without caching:
 - Turn 1: 3000 tokens × $0.01 = $0.03
@@ -565,17 +599,20 @@ Assistant: (looks back at conversation history)
 ```
 
 **Benefits:**
+
 - Natural conversational UX
 - No extra latency for state fetching
 - LLM has full creative context
 - User can reference previous iterations naturally
 
 **Trade-offs:**
+
 - Token usage grows with conversation length
 - Need conversation summarization after ~10-15 turns
 - Must store conversation persistently
 
 **Backup Tool:** `get_current_state(adId)`
+
 - LLM can call if conversation is too long
 - Returns active draft IDs + brief summaries
 - Refreshes LLM's understanding
@@ -595,6 +632,7 @@ Assistant: (looks back at conversation history)
 ### Phase 1: Tool Infrastructure (Days 1-4)
 
 #### Step 1.1: Tool Type System
+
 **File:** `src/lib/tools/types.ts`
 
 Create TypeScript interfaces for the tool calling system:
@@ -693,6 +731,7 @@ export interface CurrentStateResult {
 ```
 
 #### Step 1.2: Tool Definitions
+
 **File:** `src/lib/tools/definitions.ts`
 
 Create OpenAI-compatible tool schemas:
@@ -705,48 +744,51 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     type: "function",
     function: {
       name: "search_voices",
-      description: "Search voice database by language, gender, accent, or style. Use this to find suitable voices instead of asking user for voice list.",
+      description:
+        "Search voice database by language, gender, accent, or style. Use this to find suitable voices instead of asking user for voice list.",
       parameters: {
         type: "object",
         properties: {
           language: {
             type: "string",
-            description: "Language code (e.g., 'thai', 'indonesian', 'polish')"
+            description: "Language code (e.g., 'thai', 'indonesian', 'polish')",
           },
           gender: {
             type: "string",
             enum: ["male", "female"],
-            description: "Voice gender filter (optional)"
+            description: "Voice gender filter (optional)",
           },
           accent: {
             type: "string",
-            description: "Accent filter (optional, e.g., 'US', 'British')"
+            description: "Accent filter (optional, e.g., 'US', 'British')",
           },
           style: {
             type: "string",
-            description: "Voice style filter (optional, e.g., 'calm', 'energetic')"
+            description:
+              "Voice style filter (optional, e.g., 'calm', 'energetic')",
           },
           count: {
             type: "number",
             description: "Number of voices to return (default: 10)",
-            default: 10
-          }
+            default: 10,
+          },
         },
-        required: ["language"]
-      }
-    }
+        required: ["language"],
+      },
+    },
   },
   {
     type: "function",
     function: {
       name: "create_voice_draft",
-      description: "Create a new voice track version draft in Redis. This writes directly to the version stream.",
+      description:
+        "Create a new voice track version draft in Redis. This writes directly to the version stream.",
       parameters: {
         type: "object",
         properties: {
           adId: {
             type: "string",
-            description: "The ad ID to create draft for"
+            description: "The ad ID to create draft for",
           },
           tracks: {
             type: "array",
@@ -754,18 +796,28 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             items: {
               type: "object",
               properties: {
-                voiceId: { type: "string", description: "Voice ID from search_voices" },
+                voiceId: {
+                  type: "string",
+                  description: "Voice ID from search_voices",
+                },
                 text: { type: "string", description: "Text to be spoken" },
-                playAfter: { type: "string", description: "What this plays after (e.g., 'start', 'track-0')" },
-                overlap: { type: "number", description: "Overlap in seconds (can be negative for gap)" }
+                playAfter: {
+                  type: "string",
+                  description:
+                    "What this plays after (e.g., 'start', 'track-0')",
+                },
+                overlap: {
+                  type: "number",
+                  description: "Overlap in seconds (can be negative for gap)",
+                },
               },
-              required: ["voiceId", "text"]
-            }
-          }
+              required: ["voiceId", "text"],
+            },
+          },
         },
-        required: ["adId", "tracks"]
-      }
-    }
+        required: ["adId", "tracks"],
+      },
+    },
   },
   {
     type: "function",
@@ -780,16 +832,16 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           provider: {
             type: "string",
             enum: ["loudly", "mubert"],
-            description: "Music provider (default: loudly)"
+            description: "Music provider (default: loudly)",
           },
           duration: {
             type: "number",
-            description: "Duration in seconds"
-          }
+            description: "Duration in seconds",
+          },
         },
-        required: ["adId", "prompt"]
-      }
-    }
+        required: ["adId", "prompt"],
+      },
+    },
   },
   {
     type: "function",
@@ -805,7 +857,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             items: {
               type: "object",
               properties: {
-                description: { type: "string", description: "Sound effect description" },
+                description: {
+                  type: "string",
+                  description: "Sound effect description",
+                },
                 placement: {
                   type: "object",
                   description: "Where to place the SFX",
@@ -813,42 +868,47 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                     type: {
                       type: "string",
                       enum: ["start", "end", "afterVoice"],
-                      description: "Placement type"
+                      description: "Placement type",
                     },
                     index: {
                       type: "number",
-                      description: "Voice track index (only for afterVoice)"
-                    }
-                  }
+                      description: "Voice track index (only for afterVoice)",
+                    },
+                  },
                 },
-                duration: { type: "number", description: "Duration in seconds" }
+                duration: {
+                  type: "number",
+                  description: "Duration in seconds",
+                },
               },
-              required: ["description"]
-            }
-          }
+              required: ["description"],
+            },
+          },
         },
-        required: ["adId", "prompts"]
-      }
-    }
+        required: ["adId", "prompts"],
+      },
+    },
   },
   {
     type: "function",
     function: {
       name: "get_current_state",
-      description: "Get current active/draft version IDs and summaries for an ad. Use this if conversation is too long and you need to refresh context.",
+      description:
+        "Get current active/draft version IDs and summaries for an ad. Use this if conversation is too long and you need to refresh context.",
       parameters: {
         type: "object",
         properties: {
-          adId: { type: "string", description: "The ad ID" }
+          adId: { type: "string", description: "The ad ID" },
         },
-        required: ["adId"]
-      }
-    }
-  }
+        required: ["adId"],
+      },
+    },
+  },
 ];
 ```
 
 #### Step 1.3: Tool Implementations
+
 **File:** `src/lib/tools/implementations.ts`
 
 Implement the actual tool execution logic:
@@ -873,7 +933,7 @@ import type { VoiceVersion, MusicVersion, SfxVersion } from "@/types/versions";
  * Search voices from the voice catalogue
  */
 export async function searchVoices(
-  params: SearchVoicesParams
+  params: SearchVoicesParams,
 ): Promise<SearchVoicesResult> {
   const { language, gender, accent, style, count = 10 } = params;
 
@@ -882,7 +942,7 @@ export async function searchVoices(
     "any" as Provider,
     language as Language,
     accent,
-    true // requireApproval
+    true, // requireApproval
   );
 
   // Filter by gender if specified
@@ -895,7 +955,7 @@ export async function searchVoices(
     filtered = filtered.filter(
       (v) =>
         v.style?.toLowerCase().includes(style.toLowerCase()) ||
-        v.use_case?.toLowerCase().includes(style.toLowerCase())
+        v.use_case?.toLowerCase().includes(style.toLowerCase()),
     );
   }
 
@@ -923,7 +983,7 @@ export async function searchVoices(
  * Create voice draft in Redis
  */
 export async function createVoiceDraft(
-  params: CreateVoiceDraftParams
+  params: CreateVoiceDraftParams,
 ): Promise<DraftCreationResult> {
   const { adId, tracks } = params;
 
@@ -933,7 +993,8 @@ export async function createVoiceDraft(
       id: `track-${index}`,
       voiceId: track.voiceId,
       text: track.text,
-      playAfter: track.playAfter || (index === 0 ? "start" : `track-${index - 1}`),
+      playAfter:
+        track.playAfter || (index === 0 ? "start" : `track-${index - 1}`),
       overlap: track.overlap ?? 0,
       speed: 1.0, // Default speed
     })),
@@ -952,7 +1013,7 @@ export async function createVoiceDraft(
  * Create music draft in Redis
  */
 export async function createMusicDraft(
-  params: CreateMusicDraftParams
+  params: CreateMusicDraftParams,
 ): Promise<DraftCreationResult> {
   const { adId, prompt, provider = "loudly", duration } = params;
 
@@ -974,7 +1035,7 @@ export async function createMusicDraft(
  * Create SFX draft in Redis
  */
 export async function createSfxDraft(
-  params: CreateSfxDraftParams
+  params: CreateSfxDraftParams,
 ): Promise<DraftCreationResult> {
   const { adId, prompts } = params;
 
@@ -1000,7 +1061,7 @@ export async function createSfxDraft(
  * Get current state for an ad
  */
 export async function getCurrentState(
-  params: GetCurrentStateParams
+  params: GetCurrentStateParams,
 ): Promise<CurrentStateResult> {
   const { adId } = params;
 
@@ -1041,6 +1102,7 @@ export async function getCurrentState(
 ```
 
 #### Step 1.4: Tool Executor
+
 **File:** `src/lib/tools/executor.ts`
 
 Create orchestration layer for executing tool calls:
@@ -1095,12 +1157,17 @@ export async function executeToolCall(call: ToolCall): Promise<ToolResult> {
     }
 
     // Special handling for search_voices with 0 results
-    if (name === "search_voices" && Array.isArray((result as any).voices) && (result as any).voices.length === 0) {
+    if (
+      name === "search_voices" &&
+      Array.isArray((result as any).voices) &&
+      (result as any).voices.length === 0
+    ) {
       return {
         tool_call_id: id,
         content: JSON.stringify({
           error: "No voices found matching the criteria",
-          suggestion: "Try broadening your search (remove accent/style filters, try different gender)",
+          suggestion:
+            "Try broadening your search (remove accent/style filters, try different gender)",
           voices: [],
           count: 0,
         }),
@@ -1112,7 +1179,8 @@ export async function executeToolCall(call: ToolCall): Promise<ToolResult> {
       content: JSON.stringify(result),
     };
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     return {
       tool_call_id: id,
       content: JSON.stringify({
@@ -1126,7 +1194,9 @@ export async function executeToolCall(call: ToolCall): Promise<ToolResult> {
 /**
  * Execute multiple tool calls in sequence
  */
-export async function executeToolCalls(calls: ToolCall[]): Promise<ToolResult[]> {
+export async function executeToolCalls(
+  calls: ToolCall[],
+): Promise<ToolResult[]> {
   const results: ToolResult[] = [];
 
   for (const call of calls) {
@@ -1139,6 +1209,7 @@ export async function executeToolCalls(calls: ToolCall[]): Promise<ToolResult[]>
 ```
 
 #### Step 1.5: Testing
+
 **File:** `src/lib/tools/__tests__/implementations.test.ts`
 
 ```typescript
@@ -1153,8 +1224,14 @@ describe("searchVoices", () => {
   });
 
   it("filters by gender", async () => {
-    const result = await searchVoices({ language: "english", gender: "female", count: 10 });
-    expect(result.voices.every((v) => v.gender.toLowerCase() === "female")).toBe(true);
+    const result = await searchVoices({
+      language: "english",
+      gender: "female",
+      count: 10,
+    });
+    expect(
+      result.voices.every((v) => v.gender.toLowerCase() === "female"),
+    ).toBe(true);
   });
 });
 
@@ -1164,7 +1241,12 @@ describe("createVoiceDraft", () => {
       adId: "test-ad",
       tracks: [
         { voiceId: "voice-1", text: "Hello world" },
-        { voiceId: "voice-2", text: "Goodbye", playAfter: "track-0", overlap: -0.5 },
+        {
+          voiceId: "voice-2",
+          text: "Goodbye",
+          playAfter: "track-0",
+          overlap: -0.5,
+        },
       ],
     });
 
@@ -1175,6 +1257,7 @@ describe("createVoiceDraft", () => {
 ```
 
 **Deliverables:**
+
 - ✅ Complete type system for tool calling
 - ✅ OpenAI-compatible tool definitions
 - ✅ Working tool implementations that write to Redis
@@ -1186,6 +1269,7 @@ describe("createVoiceDraft", () => {
 ### Phase 2: Provider Adapters (Days 5-8)
 
 #### Step 2.1: Provider Interface
+
 **File:** `src/lib/tool-calling/ToolCallingProvider.ts`
 
 ```typescript
@@ -1211,7 +1295,7 @@ export interface ToolCallingProvider {
     options?: {
       caching?: boolean;
       streaming?: boolean;
-    }
+    },
   ): Promise<ProviderResponse>;
 
   supportsStreaming: boolean;
@@ -1221,6 +1305,7 @@ export interface ToolCallingProvider {
 ```
 
 #### Step 2.2: OpenAI Adapter
+
 **File:** `src/lib/tool-calling/OpenAIAdapter.ts`
 
 ```typescript
@@ -1248,7 +1333,7 @@ export class OpenAIAdapter implements ToolCallingProvider {
   async callWithTools(
     messages: ConversationMessage[],
     tools: ToolDefinition[],
-    options?: { caching?: boolean; streaming?: boolean }
+    options?: { caching?: boolean; streaming?: boolean },
   ): Promise<ProviderResponse> {
     const response = await this.client.chat.completions.create({
       model: "gpt-4-turbo-preview",
@@ -1274,6 +1359,7 @@ export class OpenAIAdapter implements ToolCallingProvider {
 ```
 
 #### Step 2.3: Qwen Adapter
+
 **File:** `src/lib/tool-calling/QwenAdapter.ts`
 
 ```typescript
@@ -1292,7 +1378,7 @@ export class QwenAdapter implements ToolCallingProvider {
   async callWithTools(
     messages: ConversationMessage[],
     tools: ToolDefinition[],
-    options?: { caching?: boolean; streaming?: boolean }
+    options?: { caching?: boolean; streaming?: boolean },
   ): Promise<ProviderResponse> {
     const response = await fetch(
       "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
@@ -1308,7 +1394,7 @@ export class QwenAdapter implements ToolCallingProvider {
           tools,
           stream: false, // Force non-streaming for reliability
         }),
-      }
+      },
     );
 
     if (!response.ok) {
@@ -1355,7 +1441,10 @@ export class QwenAdapter implements ToolCallingProvider {
       let repaired = jsonStr.replace(/,(\s*[}\]])/g, "$1");
 
       // 2. Unquoted keys
-      repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+      repaired = repaired.replace(
+        /([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g,
+        '$1"$2":',
+      );
 
       // 3. Single quotes instead of double
       repaired = repaired.replace(/'/g, '"');
@@ -1367,6 +1456,7 @@ export class QwenAdapter implements ToolCallingProvider {
 ```
 
 #### Step 2.4: Provider Factory
+
 **File:** `src/lib/tool-calling/ProviderFactory.ts`
 
 ```typescript
@@ -1374,7 +1464,10 @@ import type { ToolCallingProvider } from "./ToolCallingProvider";
 import { OpenAIAdapter } from "./OpenAIAdapter";
 import { QwenAdapter } from "./QwenAdapter";
 
-export function getToolCallingProvider(language: string, market: string): ToolCallingProvider {
+export function getToolCallingProvider(
+  language: string,
+  market: string,
+): ToolCallingProvider {
   // APAC languages → Qwen
   if (["thai", "indonesian", "vietnamese"].includes(language.toLowerCase())) {
     return new QwenAdapter();
@@ -1396,6 +1489,7 @@ export function getToolCallingProvider(language: string, market: string): ToolCa
 ```
 
 **Deliverables:**
+
 - ✅ Provider interface with OpenAI compatibility
 - ✅ OpenAI adapter implementation
 - ✅ Qwen adapter with JSON repair
@@ -1407,6 +1501,7 @@ export function getToolCallingProvider(language: string, market: string): ToolCa
 ### Phase 3: Conversation Storage & API Integration (Days 9-12)
 
 #### Step 3.1: Conversation Storage
+
 **File:** `src/lib/redis/conversation.ts`
 
 ```typescript
@@ -1416,7 +1511,9 @@ import type { ConversationMessage } from "@/lib/tool-calling/ToolCallingProvider
 const CONVERSATION_KEY_PREFIX = "ad:";
 const CONVERSATION_KEY_SUFFIX = ":conversation";
 
-export async function getConversation(adId: string): Promise<ConversationMessage[]> {
+export async function getConversation(
+  adId: string,
+): Promise<ConversationMessage[]> {
   const key = `${CONVERSATION_KEY_PREFIX}${adId}${CONVERSATION_KEY_SUFFIX}`;
   const data = await redis.get(key);
 
@@ -1427,7 +1524,7 @@ export async function getConversation(adId: string): Promise<ConversationMessage
 
 export async function saveConversation(
   adId: string,
-  messages: ConversationMessage[]
+  messages: ConversationMessage[],
 ): Promise<void> {
   const key = `${CONVERSATION_KEY_PREFIX}${adId}${CONVERSATION_KEY_SUFFIX}`;
   await redis.set(key, JSON.stringify(messages));
@@ -1435,7 +1532,7 @@ export async function saveConversation(
 
 export async function appendToConversation(
   adId: string,
-  messages: ConversationMessage[]
+  messages: ConversationMessage[],
 ): Promise<ConversationMessage[]> {
   const existing = await getConversation(adId);
   const updated = [...existing, ...messages];
@@ -1450,6 +1547,7 @@ export async function clearConversation(adId: string): Promise<void> {
 ```
 
 #### Step 3.2: Refactor `/api/ai/generate`
+
 **File:** `src/app/api/ai/generate/route.ts`
 
 Add V3 tool-calling flow with feature flag:
@@ -1466,7 +1564,13 @@ const ENABLE_V3_TOOL_CALLING = process.env.ENABLE_V3_TOOL_CALLING === "true";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { adId, brief, language = "english", market = "US", useToolCalling } = body;
+  const {
+    adId,
+    brief,
+    language = "english",
+    market = "US",
+    useToolCalling,
+  } = body;
 
   // Check if V3 tool calling is enabled
   const shouldUseToolCalling = useToolCalling || ENABLE_V3_TOOL_CALLING;
@@ -1515,7 +1619,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Call LLM again to get final response
-    const finalResponse = await provider.callWithTools(messages, TOOL_DEFINITIONS);
+    const finalResponse = await provider.callWithTools(
+      messages,
+      TOOL_DEFINITIONS,
+    );
     messages.push(finalResponse.message);
   }
 
@@ -1595,6 +1702,7 @@ async function legacyGeneration(body: any) {
 ```
 
 **Deliverables:**
+
 - ✅ Conversation storage in Redis
 - ✅ Refactored `/api/ai/generate` with V3 flow
 - ✅ Feature flag for gradual rollout
@@ -1605,18 +1713,22 @@ async function legacyGeneration(body: any) {
 ### Phase 4: Chat Endpoint & Frontend Integration (Days 13-15)
 
 #### Step 4.1: Chat Endpoint
+
 **File:** `src/app/api/ads/[id]/chat/route.ts`
 
 ```typescript
 import { NextRequest, NextResponse } from "next/server";
-import { getConversation, appendToConversation } from "@/lib/redis/conversation";
+import {
+  getConversation,
+  appendToConversation,
+} from "@/lib/redis/conversation";
 import { getToolCallingProvider } from "@/lib/tool-calling/ProviderFactory";
 import { TOOL_DEFINITIONS } from "@/lib/tools/definitions";
 import { executeToolCalls } from "@/lib/tools/executor";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   const adId = params.id;
   const { message, language = "english", market = "US" } = await request.json();
@@ -1627,7 +1739,7 @@ export async function POST(
   if (conversation.length === 0) {
     return NextResponse.json(
       { error: "No conversation found. Generate initial ad first." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -1642,7 +1754,7 @@ export async function POST(
   const response = await provider.callWithTools(
     updatedConversation,
     TOOL_DEFINITIONS,
-    { caching: true }
+    { caching: true },
   );
 
   // 5. Execute tool calls if any
@@ -1663,7 +1775,7 @@ export async function POST(
     // Get final response from LLM
     const finalResponse = await provider.callWithTools(
       [...updatedConversation, ...messagesToAdd],
-      TOOL_DEFINITIONS
+      TOOL_DEFINITIONS,
     );
     messagesToAdd.push(finalResponse.message);
   }
@@ -1704,6 +1816,7 @@ function extractDraftIds(messages: any[]): any {
 ```
 
 #### Step 4.2: Update BriefPanelV3
+
 **File:** `src/components/BriefPanelV3.tsx`
 
 Remove JSON parsing, use tool calling:
@@ -1747,6 +1860,7 @@ const handleGenerate = async () => {
 ```
 
 **Deliverables:**
+
 - ✅ Chat endpoint for conversational iteration
 - ✅ Updated BriefPanelV3 to use tool calling
 - ✅ Integration tests for full flow
@@ -1757,18 +1871,21 @@ const handleGenerate = async () => {
 ### Testing & Rollout
 
 #### Unit Tests
+
 - Tool implementations (`search_voices`, `create_voice_draft`, etc.)
 - Provider adapters (OpenAI, Qwen)
 - JSON repair logic
 - Conversation storage
 
 #### Integration Tests
+
 - Full generation flow (brief → tools → drafts in Redis)
 - Conversational iteration (generate → refine → verify)
 - Provider switching
 - Error handling
 
 #### Rollout Plan
+
 1. **Week 1:** Internal testing with `ENABLE_V3_TOOL_CALLING=true`
 2. **Week 2:** 10% of production traffic
 3. **Week 3:** 50% of production traffic
@@ -1782,17 +1899,20 @@ const handleGenerate = async () => {
 ### OpenAI GPT-4/GPT-5
 
 **Strengths:**
+
 - Most reliable tool calling
 - Best documentation
 - Full streaming support
 - Native prompt caching
 
 **Weaknesses:**
+
 - Higher cost ($10-20 per session)
 - Limited APAC language training data
 - Indonesian only 0.6% of training data
 
 **Use Cases:**
+
 - Critical operations where reliability > cost
 - English/Western European markets
 - Complex multi-step workflows
@@ -1802,6 +1922,7 @@ const handleGenerate = async () => {
 ### Qwen-Max
 
 **Strengths:**
+
 - Confirmed Thai/Indonesian support (119 languages)
 - Excellent Chinese support
 - OpenAI-compatible API
@@ -1809,17 +1930,20 @@ const handleGenerate = async () => {
 - Good tool calling reliability
 
 **Weaknesses:**
+
 - Streaming + parallel calls has bugs (avoid streaming)
 - Corner cases with malformed tool calls (requires validation)
 - Not as well-documented as OpenAI
 
 **Use Cases:**
+
 - **Primary choice for APAC markets** (Thailand, Indonesia)
 - Poland, LATAM (Spanish, Portuguese)
 - Any multilingual use case
 - Cost-sensitive operations
 
 **Implementation Notes:**
+
 - Disable streaming for operations with parallel tool calls
 - Add validation layer for tool call JSON
 - Use non-streaming mode for reliability
@@ -1829,6 +1953,7 @@ const handleGenerate = async () => {
 ### Moonshot KIMI
 
 **Strengths:**
+
 - Excellent Chinese support (native)
 - Best for agentic workflows (200-300 sequential calls)
 - Cost-effective ($7 vs $10-20)
@@ -1836,16 +1961,19 @@ const handleGenerate = async () => {
 - OpenAI-compatible API
 
 **Weaknesses:**
+
 - Thai/Indonesian support NOT confirmed (not in documented languages)
 - Parallel call indexing issues (requires fixing)
 - Less documentation than OpenAI
 
 **Use Cases:**
+
 - Chinese markets specifically
 - Complex agentic workflows
 - After confirming Thai/Indonesian support
 
 **TODO:**
+
 - Email support@moonshot.cn to confirm Thai/Indonesian
 - Test with sample Thai/Indonesian prompts
 - Document results before production use
@@ -1856,12 +1984,11 @@ const handleGenerate = async () => {
 
 ```typescript
 function selectProvider(context: {
-  language: string,
-  market: string,
-  complexity: "simple" | "complex",
-  budget: "cost-effective" | "premium"
+  language: string;
+  market: string;
+  complexity: "simple" | "complex";
+  budget: "cost-effective" | "premium";
 }): ToolCallingProvider {
-
   // Chinese content → KIMI
   if (context.language === "chinese") {
     return new KimiAdapter();
@@ -1901,11 +2028,12 @@ function selectProvider(context: {
 **Scenario:** Voice search returns 0 results
 
 **Handling:**
+
 ```typescript
 async function executeToolCall(call: ToolCall) {
   try {
     const result = await tools[call.function.name](
-      JSON.parse(call.function.arguments)
+      JSON.parse(call.function.arguments),
     );
 
     if (call.function.name === "search_voices" && result.length === 0) {
@@ -1913,22 +2041,23 @@ async function executeToolCall(call: ToolCall) {
         tool_call_id: call.id,
         content: JSON.stringify({
           error: "No voices found. Try different filters.",
-          suggestion: "Broaden search (remove accent filter, try different gender)"
-        })
+          suggestion:
+            "Broaden search (remove accent filter, try different gender)",
+        }),
       };
     }
 
     return {
       tool_call_id: call.id,
-      content: JSON.stringify(result)
+      content: JSON.stringify(result),
     };
   } catch (error) {
     return {
       tool_call_id: call.id,
       content: JSON.stringify({
         error: error.message,
-        suggestion: "Retry with different parameters"
-      })
+        suggestion: "Retry with different parameters",
+      }),
     };
   }
 }
@@ -1939,6 +2068,7 @@ async function executeToolCall(call: ToolCall) {
 **Issue:** Qwen sometimes returns invalid JSON in tool arguments
 
 **Mitigation:**
+
 ```typescript
 class QwenAdapter {
   private repairJSON(jsonStr: string): string {
@@ -1948,10 +2078,13 @@ class QwenAdapter {
     } catch {
       // Common Qwen issues:
       // 1. Trailing commas
-      jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1');
+      jsonStr = jsonStr.replace(/,(\s*[}\]])/g, "$1");
 
       // 2. Unquoted keys
-      jsonStr = jsonStr.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+      jsonStr = jsonStr.replace(
+        /([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g,
+        '$1"$2":',
+      );
 
       // 3. Single quotes instead of double
       jsonStr = jsonStr.replace(/'/g, '"');
@@ -1967,13 +2100,16 @@ class QwenAdapter {
 **Issue:** KIMI messes up `tool_call.index` in parallel calls
 
 **Mitigation:**
+
 ```typescript
 class KimiAdapter {
   private reindexToolCalls(calls: ToolCall[]): ToolCall[] {
-    return calls?.map((call, index) => ({
-      ...call,
-      index // Force sequential indexing
-    })) || [];
+    return (
+      calls?.map((call, index) => ({
+        ...call,
+        index, // Force sequential indexing
+      })) || []
+    );
   }
 }
 ```
@@ -1983,6 +2119,7 @@ class KimiAdapter {
 **Issue:** After 15+ turns, conversation exceeds token limits
 
 **Mitigation:**
+
 ```typescript
 async function summarizeConversation(messages: ConversationMessage[]) {
   const recentTurns = messages.slice(-6); // Keep last 3 back-and-forth
@@ -1992,14 +2129,14 @@ async function summarizeConversation(messages: ConversationMessage[]) {
   const summary = await llm.call({
     messages: [
       { role: "system", content: "Summarize this conversation concisely" },
-      { role: "user", content: JSON.stringify(olderTurns) }
-    ]
+      { role: "user", content: JSON.stringify(olderTurns) },
+    ],
   });
 
   return [
     { role: "system", content: systemPrompt, cached: true },
     { role: "system", content: `Previous conversation summary: ${summary}` },
-    ...recentTurns
+    ...recentTurns,
   ];
 }
 ```
@@ -2011,12 +2148,13 @@ async function summarizeConversation(messages: ConversationMessage[]) {
 ### Unit Tests
 
 **Tool Implementations:**
+
 ```typescript
 describe("search_voices tool", () => {
   it("returns voices matching language", async () => {
     const result = await tools.search_voices({ language: "thai", count: 10 });
     expect(result).toHaveLength(10);
-    expect(result.every(v => v.language === "thai")).toBe(true);
+    expect(result.every((v) => v.language === "thai")).toBe(true);
   });
 
   it("returns empty array for unsupported language", async () => {
@@ -2027,6 +2165,7 @@ describe("search_voices tool", () => {
 ```
 
 **Provider Adapters:**
+
 ```typescript
 describe("QwenAdapter", () => {
   it("repairs malformed JSON", () => {
@@ -2038,7 +2177,9 @@ describe("QwenAdapter", () => {
 
   it("disables streaming for parallel calls", async () => {
     const adapter = new QwenAdapter();
-    const response = await adapter.callWithTools(messages, tools, { streaming: true });
+    const response = await adapter.callWithTools(messages, tools, {
+      streaming: true,
+    });
     // Should force streaming: false internally
   });
 });
@@ -2047,6 +2188,7 @@ describe("QwenAdapter", () => {
 ### Integration Tests
 
 **End-to-End Flow:**
+
 ```typescript
 describe("Agentic generation flow", () => {
   it("creates drafts via tool calls", async () => {
@@ -2097,20 +2239,21 @@ describe("Agentic generation flow", () => {
 ### Provider Testing
 
 **Language Quality:**
+
 ```typescript
 const testCases = [
   { language: "thai", provider: "qwen", text: "สวัสดี" },
   { language: "indonesian", provider: "qwen", text: "Selamat datang" },
   { language: "chinese", provider: "kimi", text: "你好" },
   { language: "polish", provider: "qwen", text: "Dzień dobry" },
-  { language: "spanish", provider: "qwen", text: "Hola" }
+  { language: "spanish", provider: "qwen", text: "Hola" },
 ];
 
 for (const test of testCases) {
   describe(`${test.provider} ${test.language} support`, () => {
     it("generates coherent copy", async () => {
       const result = await generateWithProvider(test.provider, {
-        brief: `Create ad copy in ${test.language}`
+        brief: `Create ad copy in ${test.language}`,
       });
 
       expect(result.tracks[0].text).toContain(test.text);
@@ -2127,10 +2270,12 @@ for (const test of testCases) {
 ### Phase 0: Coexistence
 
 **Current System:**
+
 - `/api/ai/generate` returns JSON (old behavior)
 - Frontend parses JSON and populates FormManager
 
 **New System:**
+
 - `/api/ai/generate?v=3` uses tool calling
 - Returns conversation ID + draft version IDs
 - Frontend loads drafts via version stream APIs
@@ -2143,7 +2288,7 @@ for (const test of testCases) {
 
 ```typescript
 // .env
-ENABLE_AGENTIC_LLM=true
+ENABLE_AGENTIC_LLM = true;
 
 // /api/ai/generate
 if (process.env.ENABLE_AGENTIC_LLM === "true") {
@@ -2164,6 +2309,7 @@ if (process.env.ENABLE_AGENTIC_LLM === "true") {
 5. **Week 5:** Remove legacy code
 
 **Monitoring:**
+
 - Tool call success rates
 - JSON parsing error rate (should drop to 0)
 - Token costs per session
@@ -2174,6 +2320,7 @@ if (process.env.ENABLE_AGENTIC_LLM === "true") {
 ### Phase 3: Deprecation
 
 After 4 weeks of stable operation:
+
 1. Remove legacy JSON parsing code
 2. Remove FormManager dual-state logic
 3. Update documentation
@@ -2185,22 +2332,22 @@ After 4 weeks of stable operation:
 
 ### Technical Metrics
 
-| Metric | Current (JSON) | Target (Agentic) |
-|--------|---------------|------------------|
-| JSON parse failures | 5-10% | 0% (no parsing) |
-| Token cost per session | 15,000 tokens | 7,500 tokens (50% via caching) |
-| Voices in system prompt | 100 voices (10k tokens) | 0 (on-demand search) |
-| Iteration support | None (full regen) | Conversational refinement |
-| Provider flexibility | OpenAI only | OpenAI/Qwen/KIMI unified |
+| Metric                  | Current (JSON)          | Target (Agentic)               |
+| ----------------------- | ----------------------- | ------------------------------ |
+| JSON parse failures     | 5-10%                   | 0% (no parsing)                |
+| Token cost per session  | 15,000 tokens           | 7,500 tokens (50% via caching) |
+| Voices in system prompt | 100 voices (10k tokens) | 0 (on-demand search)           |
+| Iteration support       | None (full regen)       | Conversational refinement      |
+| Provider flexibility    | OpenAI only             | OpenAI/Qwen/KIMI unified       |
 
 ### User Experience Metrics
 
-| Metric | Current | Target |
-|--------|---------|--------|
-| "Lost best version" complaints | Common | Never (version streams) |
-| Time to refine creative | 5 min (regen all) | 30 sec (targeted change) |
-| Understanding of LLM actions | Low (black box JSON) | High (see tool calls) |
-| Multi-language quality | Poor (APAC markets) | Excellent (Qwen/KIMI) |
+| Metric                         | Current              | Target                   |
+| ------------------------------ | -------------------- | ------------------------ |
+| "Lost best version" complaints | Common               | Never (version streams)  |
+| Time to refine creative        | 5 min (regen all)    | 30 sec (targeted change) |
+| Understanding of LLM actions   | Low (black box JSON) | High (see tool calls)    |
+| Multi-language quality         | Poor (APAC markets)  | Excellent (Qwen/KIMI)    |
 
 ---
 
@@ -2211,6 +2358,7 @@ After 4 weeks of stable operation:
 **Feature:** LLM breaks down complex requests into steps
 
 **Example:**
+
 ```
 User: "Create 3 variations of this ad with different voice tones"
 
@@ -2235,6 +2383,7 @@ Let me start with variation 1..."
 **Feature:** LLM suggests improvements without being asked
 
 **Example:**
+
 ```
 LLM: "I created v1 with 2 voices. I noticed the second voice might benefit from a slower speed for better clarity. Should I create v2 with adjusted speed?"
 ```
@@ -2246,6 +2395,7 @@ LLM: "I created v1 with 2 voices. I noticed the second voice might benefit from 
 **Feature:** LLM coordinates between voice/music/SFX for cohesive creative
 
 **Example:**
+
 ```
 User: "Make the ad feel more urgent"
 
@@ -2266,6 +2416,7 @@ LLM: [Analyzes current state]
 **Status:** Phase 1 Complete - In Progress
 
 **Architecture Decisions Made:**
+
 1. ✅ Conversational continuity chosen for context management
 2. ✅ Start with OpenAI + Qwen (defer KIMI pending language verification)
 3. ✅ Token cost target: 7,500 per session (50% savings via caching)
@@ -2275,9 +2426,11 @@ LLM: [Analyzes current state]
 **Implementation Progress:**
 
 ### ✅ Phase 1 Complete: Tool Infrastructure (Days 1-4)
+
 **Status:** Completed January 2025
 
 **Files Implemented:**
+
 - ✅ `src/lib/tools/types.ts` - Complete type system for tool calling
 - ✅ `src/lib/tools/definitions.ts` - OpenAI-compatible tool schemas (5 tools)
 - ✅ `src/lib/tools/implementations.ts` - Tool execution functions with Redis integration
@@ -2285,6 +2438,7 @@ LLM: [Analyzes current state]
 - ✅ `src/lib/tools/__tests__/implementations.test.ts` - Unit tests
 
 **Key Implementation Details:**
+
 - Voice search integration with `voiceCatalogueService`
 - Direct Redis draft creation for all 3 stream types (voices, music, sfx)
 - Proper version metadata (createdAt, createdBy: "llm", status: "draft")
@@ -2296,9 +2450,11 @@ LLM: [Analyzes current state]
 ---
 
 ### 🔄 Phase 2: Provider Adapters (Days 5-8)
+
 **Status:** Ready to begin
 
 **Next Steps:**
+
 1. Create `src/lib/tool-calling/ToolCallingProvider.ts` - Unified interface
 2. Create `src/lib/tool-calling/OpenAIAdapter.ts` - OpenAI implementation
 3. Create `src/lib/tool-calling/QwenAdapter.ts` - Qwen with JSON repair
@@ -2307,16 +2463,19 @@ LLM: [Analyzes current state]
 ---
 
 ### ⏳ Phase 3: Conversation Storage & API Integration (Days 9-12)
+
 **Status:** Pending Phase 2 completion
 
 ---
 
 ### ⏳ Phase 4: Chat Endpoint & Frontend Integration (Days 13-15)
+
 **Status:** Pending Phase 3 completion
 
 ---
 
 **Changes from v2.0:**
+
 - ✅ Completed Phase 1 implementation
 - Added implementation status tracking
 - Documented key technical decisions made during Phase 1
@@ -2330,6 +2489,7 @@ LLM: [Analyzes current state]
 ### Provider Capabilities Verification
 
 **OpenAI GPT-4/GPT-5:**
+
 - ✅ Native function calling support
 - ✅ Prompt caching with 50-90% discounts
 - ✅ Full streaming support
@@ -2338,6 +2498,7 @@ LLM: [Analyzes current state]
 - ⚠️ Limited APAC language training
 
 **Qwen-Max:**
+
 - ✅ OpenAI-compatible function calling
 - ✅ 119 languages (Thai, Indonesian, Polish, Spanish, Portuguese confirmed)
 - ✅ Cost-effective
@@ -2346,6 +2507,7 @@ LLM: [Analyzes current state]
 - ⚠️ Requires validation layer for tool call JSON
 
 **Moonshot KIMI:**
+
 - ✅ OpenAI-compatible API
 - ✅ Excellent Chinese support
 - ✅ Best for agentic workflows (200-300 sequential calls)
@@ -2355,6 +2517,7 @@ LLM: [Analyzes current state]
 - ⚠️ Streaming requires manual parsing
 
 **Recommendation:**
+
 - **Primary:** Qwen-Max for multilingual markets
 - **Fallback:** OpenAI for critical operations
 - **Special:** Moonshot KIMI for Chinese (after language verification)

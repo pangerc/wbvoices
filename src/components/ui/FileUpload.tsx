@@ -1,9 +1,13 @@
-'use client';
+"use client";
 
-import React, { useState, useRef } from 'react';
-import { put } from '@vercel/blob';
+import { put } from "@vercel/blob";
+import React, { useRef, useState } from "react";
 
-export type FileType = 'preview-logo' | 'preview-visual' | 'custom-music' | 'custom-sfx';
+export type FileType =
+  | "preview-logo"
+  | "preview-visual"
+  | "custom-music"
+  | "custom-sfx";
 
 export interface FileMetadata {
   url: string;
@@ -24,28 +28,28 @@ interface FileUploadProps {
 }
 
 const FILE_ACCEPT_TYPES = {
-  'preview-logo': 'image/*',
-  'preview-visual': 'image/*',
-  'custom-music': 'audio/*',
-  'custom-sfx': 'audio/*',
+  "preview-logo": "image/*",
+  "preview-visual": "image/*",
+  "custom-music": "audio/*",
+  "custom-sfx": "audio/*",
 } as const;
 
 const FILE_LABELS = {
-  'preview-logo': 'Logo',
-  'preview-visual': 'Visual',
-  'custom-music': 'Music Track',
-  'custom-sfx': 'Sound Effect',
+  "preview-logo": "Logo",
+  "preview-visual": "Visual",
+  "custom-music": "Music Track",
+  "custom-sfx": "Sound Effect",
 } as const;
 
 // Client-side size limits (must match server FILE_CONFIGS in upload-asset-token)
 const FILE_SIZE_LIMITS: Record<FileType, number> = {
-  'preview-logo': 5 * 1024 * 1024,
-  'preview-visual': 10 * 1024 * 1024,
-  'custom-music': 50 * 1024 * 1024,
-  'custom-sfx': 20 * 1024 * 1024,
+  "preview-logo": 5 * 1024 * 1024,
+  "preview-visual": 10 * 1024 * 1024,
+  "custom-music": 50 * 1024 * 1024,
+  "custom-sfx": 20 * 1024 * 1024,
 };
 
-const AUDIO_FILE_TYPES: FileType[] = ['custom-music', 'custom-sfx'];
+const AUDIO_FILE_TYPES: FileType[] = ["custom-music", "custom-sfx"];
 
 function measureAudioDuration(file: File): Promise<number | null> {
   return new Promise((resolve) => {
@@ -72,7 +76,7 @@ export function FileUpload({
   onUploadComplete,
   onUploadError,
   onUploadStart,
-  className = '',
+  className = "",
   children,
   accept,
   disabled = false,
@@ -100,13 +104,13 @@ export function FileUpload({
       }
 
       // Step 1: Get upload token from server (small JSON request, no file body)
-      const tokenResponse = await fetch('/api/upload-asset-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const tokenResponse = await fetch("/api/upload-asset-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fileType,
           projectId,
-          contentType: file.type || 'application/octet-stream',
+          contentType: file.type || "application/octet-stream",
           fileSize: file.size,
           originalFilename: file.name,
         }),
@@ -118,7 +122,7 @@ export function FileUpload({
           const errorData = await tokenResponse.json();
           errorMessage = errorData.error || errorMessage;
         } catch {
-          const text = await tokenResponse.text().catch(() => '');
+          const text = await tokenResponse.text().catch(() => "");
           if (text) errorMessage = text;
         }
         throw new Error(errorMessage);
@@ -128,9 +132,9 @@ export function FileUpload({
 
       // Step 2: Upload directly to Vercel Blob (bypasses 4.5MB serverless body limit)
       const blob = await put(filename, file, {
-        access: 'public',
+        access: "public",
         token,
-        contentType: file.type || 'application/octet-stream',
+        contentType: file.type || "application/octet-stream",
       });
 
       onUploadComplete({
@@ -139,8 +143,9 @@ export function FileUpload({
         duration: duration ?? undefined,
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      console.error('Upload error:', errorMessage);
+      const errorMessage =
+        error instanceof Error ? error.message : "Upload failed";
+      console.error("Upload error:", errorMessage);
       onUploadError?.(errorMessage);
     } finally {
       setIsUploading(false);
@@ -175,7 +180,7 @@ export function FileUpload({
       {children ? (
         <div
           onClick={triggerFileSelect}
-          className={`cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+          className={`cursor-pointer ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${className}`}
         >
           {children}
         </div>
@@ -194,29 +199,33 @@ export function FileUpload({
 
 // Hook for easier usage
 export function useFileUpload() {
-  const [uploadedFiles, setUploadedFiles] = useState<Record<string, FileMetadata>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<
+    Record<string, FileMetadata>
+  >({});
   const [isUploading, setIsUploading] = useState<Record<string, boolean>>({});
-  const [uploadingFilename, setUploadingFilename] = useState<Record<string, string>>({});
+  const [uploadingFilename, setUploadingFilename] = useState<
+    Record<string, string>
+  >({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleUploadComplete = (key: string) => (result: FileMetadata) => {
-    setUploadedFiles(prev => ({ ...prev, [key]: result }));
-    setIsUploading(prev => ({ ...prev, [key]: false }));
-    setUploadingFilename(prev => ({ ...prev, [key]: '' }));
-    setErrors(prev => ({ ...prev, [key]: '' }));
+    setUploadedFiles((prev) => ({ ...prev, [key]: result }));
+    setIsUploading((prev) => ({ ...prev, [key]: false }));
+    setUploadingFilename((prev) => ({ ...prev, [key]: "" }));
+    setErrors((prev) => ({ ...prev, [key]: "" }));
   };
 
   const handleUploadError = (key: string) => (error: string) => {
-    setErrors(prev => ({ ...prev, [key]: error }));
-    setIsUploading(prev => ({ ...prev, [key]: false }));
-    setUploadingFilename(prev => ({ ...prev, [key]: '' }));
+    setErrors((prev) => ({ ...prev, [key]: error }));
+    setIsUploading((prev) => ({ ...prev, [key]: false }));
+    setUploadingFilename((prev) => ({ ...prev, [key]: "" }));
   };
 
   const startUpload = (key: string, filename?: string) => {
-    setIsUploading(prev => ({ ...prev, [key]: true }));
-    setErrors(prev => ({ ...prev, [key]: '' }));
+    setIsUploading((prev) => ({ ...prev, [key]: true }));
+    setErrors((prev) => ({ ...prev, [key]: "" }));
     if (filename) {
-      setUploadingFilename(prev => ({ ...prev, [key]: filename }));
+      setUploadingFilename((prev) => ({ ...prev, [key]: filename }));
     }
   };
 

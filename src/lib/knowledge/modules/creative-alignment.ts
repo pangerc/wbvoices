@@ -1,8 +1,13 @@
 /**
  * Creative Alignment Knowledge Module
  *
- * NEW module for V3 to ensure cross-stream coherence.
- * Keeps voice, music, and SFX aligned with the creative brief.
+ * Cross-stream coherence guidance. Voice + music + SFX should reinforce
+ * each other against the brief, not contradict.
+ *
+ * Note: this module used to end with six "guiding questions" the model was
+ * told to ask itself before finalizing. That pattern was costing reasoning
+ * tokens to no benefit (the model already does these checks implicitly with
+ * GPT-5.5 reasoning). Replaced with three concrete success criteria.
  */
 
 import { KnowledgeModule } from "../types";
@@ -25,45 +30,28 @@ export const creativeAlignmentModule: KnowledgeModule = {
   getContent(): string {
     return `## Creative Alignment - Cross-Stream Coherence
 
-When creating or modifying any element (voice, music, SFX), ensure it aligns with:
+Voice + music + SFX should reinforce each other against the brief, not compete.
 
-### 1. The Brief as North Star
-- Client description defines the brand personality
-- Creative brief sets the emotional tone and messaging
-- All elements should reinforce, not contradict, the brief
+### Energy alignment
+- Energetic voice → upbeat, driving music. Calm voice → relaxed, gentle music. SFX punctuates the energy, never clashes.
 
-### 2. Energy Consistency
-- If voice is energetic/excited → music should match (upbeat, driving)
-- If voice is calm/soothing → music should complement (relaxed, gentle)
-- SFX should punctuate, not clash with, the overall energy level
+### Duration awareness
+- Voice scripts fit within the specified duration.
+- Music duration matches or slightly exceeds voice duration; the music tail can fade.
+- SFX is brief (1–3 seconds) — punctuation, not background.
 
-### 3. Duration Awareness
-- Voice scripts should fit within the specified duration
-- Music duration should match or slightly exceed voice duration
-- SFX should be brief (1-3 seconds) - punctuation, not background
+### Language conventions
+- Voice script text: target language with local idioms.
+- Voice instructions / tags: ENGLISH (regardless of script language).
+- Music prompts: ENGLISH.
+- SFX descriptions: ENGLISH.
 
-### 4. When Editing One Stream
-Before making changes, consider the impact on other streams:
-- Changing voice tone? Music may need adjustment
-- Adding SFX? Ensure it fits the established mood
-- Making music more upbeat? Voice delivery may need to match
+### When editing one stream during iteration
+Changing voice tone? Music may need adjustment. Adding SFX? Make sure it fits the established mood. Don't silently modify a stream the user didn't ask about.
 
-### 5. Language Consistency
-- Voice scripts: Use the target language with local idioms
-- Voice instructions/tags: Always in ENGLISH
-- Music prompts: Always in ENGLISH
-- SFX descriptions: Always in ENGLISH
-
-### 6. Provider-Aware Creation
-When creating voice tracks:
-- For ElevenLabs: Include "description" field (baseline tone) and emotional tags in text
-- For OpenAI: Include "voiceInstructions" field with structured guidance
-
-### Guiding Questions
-Before finalizing any element, ask:
-1. Does this support the brand personality from the brief?
-2. Does the energy level match other elements?
-3. Will this fit within the time constraints?
-4. Is the language/format correct for this element type?`;
+### Success criteria for the finished ad
+1. The first sentence makes the listener pause — they don't reach for the skip button.
+2. One specific detail (a price, a place, a time of day, a named object) makes the ad memorable after it ends.
+3. The CTA is the natural conclusion of a small story, not a standalone command bolted on.`;
   },
 };

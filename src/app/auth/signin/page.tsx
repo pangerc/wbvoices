@@ -17,7 +17,13 @@ function SignInContent() {
         ? "Something went wrong. Please try again."
         : null;
 
-  return <LoginForm error={errorMessage} hasGoogleProvider={hasGoogle} callbackUrl={callbackUrl} />;
+  return (
+    <LoginForm
+      error={errorMessage}
+      hasGoogleProvider={hasGoogle}
+      callbackUrl={callbackUrl}
+    />
+  );
 }
 
 export default function SignInPage() {

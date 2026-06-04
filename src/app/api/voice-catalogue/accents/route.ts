@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
 import { voiceCatalogue } from "@/services/voiceCatalogueService";
 import { Language } from "@/types";
 import { normalizeLanguageCode } from "@/utils/language";
+import { NextRequest, NextResponse } from "next/server";
 
 // Note: Using Node.js runtime (not Edge) because voiceCatalogueService now depends on postgres
 export const runtime = "nodejs";
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
           error: "Language parameter required",
           accents: [],
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
         error: "Failed to get accents",
         accents: [],
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
  */
 function formatAccentDisplayName(
   accentCode: string,
-  language: Language
+  language: Language,
 ): string {
   if (!accentCode || accentCode === "neutral") return "Any Accent";
 

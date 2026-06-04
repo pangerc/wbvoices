@@ -3,50 +3,53 @@
  * Returns dialects and performance styles for UI dropdowns and LLM context
  */
 
-import { NextResponse } from "next/server";
-import { lahajatiDialectService, ArabicDialect } from "@/services/lahajatiDialectService";
+import {
+  ArabicDialect,
+  lahajatiDialectService,
+} from "@/services/lahajatiDialectService";
 import { lahajatiPerformanceService } from "@/services/lahajatiPerformanceService";
 import { LahajatiPerformance } from "@/services/voiceProviderService";
+import { NextResponse } from "next/server";
 
 // English translations for common Arabic dialect suffixes
 const DIALECT_EN_MAP: Record<string, string> = {
-  'القاهرية': 'Cairo',
-  'القاهرة': 'Cairo',
-  'إسكندرية': 'Alexandria',
-  'الإسكندرية': 'Alexandria',
-  'الصعيد': 'Upper Egypt',
-  'صعيدي': 'Upper Egypt',
-  'بورسعيد': 'Port Said',
-  'دمشق': 'Damascus',
-  'حلب': 'Aleppo',
-  'بيروت': 'Beirut',
-  'طرابلس': 'Tripoli',
-  'نجدية': 'Najdi',
-  'حجازية': 'Hijazi',
-  'جنوبية': 'Southern',
-  'شمالية': 'Northern',
-  'الفصحى': 'Modern Standard',
-  'شامية': 'Levantine',
-  'خليجية': 'Gulf',
+  القاهرية: "Cairo",
+  القاهرة: "Cairo",
+  إسكندرية: "Alexandria",
+  الإسكندرية: "Alexandria",
+  الصعيد: "Upper Egypt",
+  صعيدي: "Upper Egypt",
+  بورسعيد: "Port Said",
+  دمشق: "Damascus",
+  حلب: "Aleppo",
+  بيروت: "Beirut",
+  طرابلس: "Tripoli",
+  نجدية: "Najdi",
+  حجازية: "Hijazi",
+  جنوبية: "Southern",
+  شمالية: "Northern",
+  الفصحى: "Modern Standard",
+  شامية: "Levantine",
+  خليجية: "Gulf",
 };
 
 // English translations for performance style keywords
 const PERFORMANCE_EN_MAP: Record<string, string> = {
-  'إعلان سيارة': 'Automotive ad',
-  'إعلان عقاري': 'Real estate ad',
-  'إعلان تجاري': 'Commercial ad',
-  'محايد ومعلوماتي': 'Neutral/Informative',
-  'درامي ومثير': 'Dramatic/Documentary',
-  'بهدوء ودفء': 'Calm and warm',
-  'تكنولوجي متقدم': 'Tech/Advanced',
-  'ثقة هادئة': 'Calm confidence',
-  'أخبار': 'News',
-  'إخباري': 'News',
-  'قصة': 'Storytelling',
-  'سردي': 'Narrative',
-  'حماسي': 'Enthusiastic',
-  'رسمي': 'Formal',
-  'ودي': 'Friendly',
+  "إعلان سيارة": "Automotive ad",
+  "إعلان عقاري": "Real estate ad",
+  "إعلان تجاري": "Commercial ad",
+  "محايد ومعلوماتي": "Neutral/Informative",
+  "درامي ومثير": "Dramatic/Documentary",
+  "بهدوء ودفء": "Calm and warm",
+  "تكنولوجي متقدم": "Tech/Advanced",
+  "ثقة هادئة": "Calm confidence",
+  أخبار: "News",
+  إخباري: "News",
+  قصة: "Storytelling",
+  سردي: "Narrative",
+  حماسي: "Enthusiastic",
+  رسمي: "Formal",
+  ودي: "Friendly",
 };
 
 /**
@@ -57,7 +60,8 @@ function getEnglishDialectName(dialect: ArabicDialect): string {
   for (const [arabic, english] of Object.entries(DIALECT_EN_MAP)) {
     if (dialect.display_name.includes(arabic)) {
       // Capitalize country and add city/region
-      const countryName = dialect.country.charAt(0).toUpperCase() + dialect.country.slice(1);
+      const countryName =
+        dialect.country.charAt(0).toUpperCase() + dialect.country.slice(1);
       return `${countryName} (${english})`;
     }
   }
@@ -92,7 +96,7 @@ export async function GET() {
     ]);
 
     // Transform dialects with English names
-    const dialects = arabicDialects.map(d => ({
+    const dialects = arabicDialects.map((d) => ({
       id: d.dialect_id,
       name: d.display_name,
       nameEn: getEnglishDialectName(d),
@@ -100,7 +104,7 @@ export async function GET() {
     }));
 
     // Transform performances with English names
-    const performances = adPerformances.map(p => ({
+    const performances = adPerformances.map((p) => ({
       id: p.performance_id,
       name: p.display_name,
       nameEn: getEnglishPerformanceName(p),
@@ -118,7 +122,7 @@ export async function GET() {
     console.error("Failed to fetch Lahajati metadata:", error);
     return NextResponse.json(
       { error: "Failed to fetch Lahajati metadata" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -6,16 +6,17 @@
  * version history with active pointers.
  */
 
+import type { KnowledgeContext } from "@/lib/knowledge/types";
 import {
-  VoiceTrack,
   MusicPrompts,
   MusicProvider,
+  ProjectBrief,
   SoundFxPrompt,
-  ProjectBrief
+  VoiceTrack,
 } from "./index";
 
 // Re-export types needed by tests
-export type { VoiceTrack, SoundFxPrompt };
+export type { SoundFxPrompt, VoiceTrack };
 
 // ============ Version Identifiers ============
 
@@ -26,9 +27,18 @@ export type { VoiceTrack, SoundFxPrompt };
 export type VersionId = string;
 
 /**
- * Stream types corresponding to the three main panels
+ * Content streams — produced by providers and authored by the LLM.
+ * These are the streams the chat / tool-calling surface accepts.
  */
-export type StreamType = "voices" | "music" | "sfx";
+export type ContentStreamType = "voices" | "music" | "sfx";
+
+/**
+ * All stream types, including the arrangement stream `mixer` introduced
+ * in stage 6. Each mixer version pins specific content-version IDs and
+ * carries the anchor graph. The LLM does not directly author mixer
+ * versions — it stays at the content-stream layer.
+ */
+export type StreamType = ContentStreamType | "mixer";
 
 /**
  * Version lifecycle status
@@ -75,6 +85,40 @@ export interface VoiceVersion {
 
   /** Optional: User request that created this iteration */
   requestText?: string;
+
+  /**
+   * Snapshot of the KnowledgeContext that produced this version. Pins
+   * pacing / accent / provider / format so future iterations inherit the
+   * same creative direction (and the ElevenLabs tag-guidance module keeps
+   * emitting the rich FAST/ACCENT blocks instead of the thin defaults).
+   * Legacy versions created before this field existed have it undefined.
+   */
+  knowledgeContext?: KnowledgeContext;
+
+  /**
+   * Stage L mechanical-lint warnings carried with the version when the
+   * Stage N tag-weaver retry still left a violation in place. The draft
+   * is persisted regardless (we never block generation on lint), so the
+   * UI / debugging can surface the unmet rules. Empty / absent when the
+   * draft cleared lint.
+   */
+  tagLintWarnings?: Array<{
+    trackIndex: number;
+    rule: string;
+    message: string;
+    castVoiceAccent?: string;
+    requiredTag?: string;
+    hint?: string;
+  }>;
+
+  /**
+   * Per-track integrated loudness (BS.1770) in LUFS, parallel to
+   * voiceTracks. Drives stem normalization in the mix render so user
+   * volume sliders are meaningful trim controls. Measured client-side
+   * once and persisted via PATCH; tracks without a value (legacy or
+   * just-generated) render at unity (assume-at-target).
+   */
+  integratedLufs?: Array<number | null>;
 }
 
 /**
@@ -102,6 +146,26 @@ export interface VoiceTrackGenerationStatus {
  * Contains music generation prompts and results
  */
 export interface MusicVersion {
+  /**
+   * Stable slot identifier for the music clip.
+   * Music has a single slot per version; the slot id persists across regeneration
+   * so mixer anchors (e.g. gain automation points that duck the music under voice)
+   * keep binding correctly after a new music version is pinned.
+   */
+  slotId?: string;
+
+  /**
+   * Optional authoring-time anchor seed (stage 4). Slot-id form. Defaults to
+   * `absolute(0)` if unset — the common case where music starts at timeline
+   * start. Stage 6 bootstrap promotes this to an llm-seed anchor.
+   *
+   * Gain automation (ducking / swell / sidechain) lives on the *mixer version*
+   * (`ClipOverrides.gainAutomationPoints` in stage 6), not on the stream
+   * version — so the same music can be ducked differently in different mixer
+   * takes without forking the music version.
+   */
+  anchor?: Anchor;
+
   /** User-facing music generation prompt */
   musicPrompt: string;
 
@@ -131,6 +195,12 @@ export interface MusicVersion {
 
   /** Optional: User request that created this iteration */
   requestText?: string;
+
+  /**
+   * Integrated loudness (BS.1770) in LUFS for the music stem. See
+   * VoiceVersion.integratedLufs for the lazy-measurement contract.
+   */
+  integratedLufs?: number;
 }
 
 // ============ Sound Effects Version Stream ============
@@ -160,6 +230,12 @@ export interface SfxVersion {
 
   /** Optional: User request that created this iteration */
   requestText?: string;
+
+  /**
+   * Per-prompt integrated loudness (BS.1770) in LUFS, parallel to
+   * soundFxPrompts. See VoiceVersion.integratedLufs for the contract.
+   */
+  integratedLufs?: Array<number | null>;
 }
 
 // ============ Ad Metadata ============
@@ -255,6 +331,43 @@ export interface MixerState {
 
   /** Permanent URL of final mixed audio (uploaded to blob storage) */
   mixedAudioUrl?: string;
+
+  /**
+   * Target ad duration in seconds, pulled from `AdMetadata.brief.adDuration`.
+   * Drives the soft-elastic format horizon in the mixer UI (marker line +
+   * over-budget shading) and the resolver's overBudget warnings. Optional
+   * for ads without a brief; clients should degrade gracefully.
+   */
+  formatDuration?: number;
+
+  /**
+   * Active mixer version id and its status. Lets the UI render a "Save
+   * take" affordance only when a draft is active, and mark the current
+   * version in the versions list.
+   */
+  mixerActiveVersionId?: VersionId;
+  mixerActiveVersionStatus?: VersionStatus;
+
+  /**
+   * Ordered summary of all mixer versions for this ad (frozen + draft).
+   * Powers the take-list UI — clicking a row activates that version.
+   * Kept flat so the client doesn't need a separate list endpoint.
+   */
+  mixerVersions?: MixerVersionSummary[];
+}
+
+/**
+ * Lightweight mixer version summary for list UIs. Full payload stays
+ * server-side; this is the minimum the take-list needs to render rows
+ * and offer an activate action.
+ */
+export interface MixerVersionSummary {
+  id: VersionId;
+  status: VersionStatus;
+  createdAt: number;
+  createdBy: CreatedBy;
+  label?: string;
+  parentVersionId?: VersionId;
 }
 
 /**
@@ -263,11 +376,46 @@ export interface MixerState {
  */
 export interface MixerTrack {
   id: string;
+  /**
+   * Stable slot id — the anchor graph's referent. The client sends PATCH
+   * anchor updates keyed by slotId so payloads are valid as-is, with no
+   * server-side id translation.
+   */
+  slotId?: SlotId;
+  /**
+   * Provenance of this track's current anchor. Lets content panels (SFX /
+   * Script / Music) show "you've moved this" indicators when a mixer
+   * user-edit has overridden the stream-level placement.
+   */
+  anchorOrigin?: AnchorOrigin;
+  /**
+   * If this track's anchor references another slot (relativeTo /
+   * simultaneousWith / atFraction), the referenced slot id. `absolute`
+   * anchors and tracks without an anchor entry have this undefined.
+   * Used client-side for cycle prevention on drag-drop.
+   */
+  anchorRefSlotId?: SlotId;
+  /**
+   * Current trim override from the mixer version. When present, the clip
+   * plays only the window [trim.start, trim.end] of the source blob. The
+   * resolver already applies this to compute effective duration; surfacing
+   * it on the track lets the UI draw trim handles and compute new trim
+   * values on edge-drag.
+   */
+  trim?: { start: number; end: number };
+  /**
+   * Integrated loudness (BS.1770) of the underlying stem in LUFS. When
+   * present, mix render normalizes this stem to its per-type target
+   * before applying the user's dB trim. Absent for legacy stems and
+   * just-generated content; render falls back to assume-at-target.
+   */
+  integratedLufs?: number;
   url: string;
   label: string;
   type: "voice" | "music" | "soundfx";
   startTime?: number;
   duration?: number;
+  /** dB trim around unity (post-stem-normalization). Default 0. */
   volume?: number;
   playAfter?: string | "start";
   overlap?: number;
@@ -284,4 +432,191 @@ export interface CalculatedTrack {
   startTime: number;
   duration: number;
   type: "voice" | "music" | "soundfx";
+}
+
+// ============ Anchor Vocabulary (stage 3 of mixer redesign) ============
+//
+// Anchors are the stable referents that bind a clip's timing to another clip's.
+// They're evaluated by the TimelineResolver at mixer rebuild; they don't live
+// on stream versions — they live on the mixer version (stage 6).
+//
+// Every anchor references a slot (see VoiceTrack.slotId / MusicVersion.slotId /
+// SoundFxPrompt.slotId) or the timeline itself. Slot IDs are stable across
+// regeneration, so anchors survive voice/text edits and provider swaps.
+
+/**
+ * Slot-id alias. The anchor graph references slots, not tracks.
+ */
+export type SlotId = string;
+
+/**
+ * Discriminated union of the five anchor primitives.
+ *
+ * - `absolute(t)`: fixed wall-time seconds from timeline start. Escape hatch.
+ * - `relativeTo(slotId, edge, offset)`: position at the referenced slot's start
+ *   or end, plus an offset in seconds (signed).
+ * - `simultaneousWith(slotId, alignment, offset)`: align start/end/center of
+ *   this clip with the referenced slot's start/end/center. Offset shifts the
+ *   aligned edge.
+ * - `atFraction(slotId, fraction)`: position at `slot.start + slot.duration *
+ *   fraction`. Scales with the referenced slot's duration — survives ±20%
+ *   regeneration drift.
+ *
+ * `anchorChain` is not a primitive: groupings move by moving the chain's head
+ * clip, with other members anchored to it.
+ */
+export type Anchor =
+  | { kind: "absolute"; t: number }
+  | {
+      kind: "relativeTo";
+      slotId: SlotId;
+      edge: "start" | "end";
+      offset?: number;
+    }
+  | {
+      kind: "simultaneousWith";
+      slotId: SlotId;
+      alignment: "startAtStart" | "endAtEnd" | "centerAtCenter";
+      offset?: number;
+    }
+  | { kind: "atFraction"; slotId: SlotId; fraction: number };
+
+/**
+ * How an anchored clip interacts with siblings that come after it.
+ *
+ * - `overlay` (default): subsequent anchored clips are unaffected; this clip
+ *   overlaps whatever shares its time window. Used for sfx stingers, bed
+ *   ambience, ducking music.
+ * - `push`: subsequent clips anchored to the same reference (or downstream of
+ *   this clip in the dependency graph) shift forward to accommodate this
+ *   clip's duration. This is what sfx "after voice N" actually wants — the
+ *   resolver's legacy fixed-phase ordering broke it, dependency-sort fixes it.
+ */
+export type AnchorLayout = "overlay" | "push";
+
+/**
+ * Policy guiding the resolver's release-valve behavior when the anchored
+ * timeline overruns format duration.
+ *
+ * - `fixed`: cannot be altered (most voice tracks — words can't stretch
+ *   without regeneration).
+ * - `stretchable`: can be compressed via `postProcessingSpeedup`, capped per
+ *   locale. ElevenLabs voices default-eligible; Lahajati voices default
+ *   non-stretchable.
+ * - `trimmable`: music tail or sfx source longer than needed; can be clipped
+ *   via the `trim` override without regeneration.
+ */
+export type DurationPolicy = "fixed" | "stretchable" | "trimmable";
+
+/**
+ * Where an anchor came from — load-bearing for the stage-6 precedence rule
+ * (user-edit wins over llm-seed on stream regeneration).
+ */
+export type AnchorOrigin = "llm-seed" | "user-edit" | "system-default";
+
+/**
+ * One anchor entry on a mixer version's anchor graph: the anchor itself plus
+ * its layout and provenance.
+ *
+ * Stage 8+ will add a `suggestedAnchor` breadcrumb for "LLM would have
+ * positioned this differently" UI affordances — deferred until a consumer
+ * actually exists.
+ */
+export interface AnchorEntry {
+  anchor: Anchor;
+  layout?: AnchorLayout;
+  origin: AnchorOrigin;
+}
+
+// ============ Mixer Version Stream (stage 6) ============
+//
+// The mixer version is the arrangement stream: it owns the anchor graph and
+// pins specific voice/music/sfx version IDs. Activating a mixer version is
+// the single source of truth for what the ad sounds like. Variant axes
+// (language, dialog cast, pacing) are all just different mixer versions.
+
+/**
+ * Which content-stream version IDs a mixer version is pinned to. When a
+ * stream regenerates and that stream's active pointer moves, the mixer
+ * *draft*'s pin is updated to the new version; frozen mixer versions keep
+ * their pins forever (that's the reproducibility guarantee).
+ */
+export interface MixerPins {
+  voices: VersionId | null;
+  music: VersionId | null;
+  sfx: VersionId | null;
+}
+
+/**
+ * Per-slot overrides that live on the mixer version (not the stream version).
+ * Keeps content streams focused on content; arrangement lives here.
+ *
+ * - `trim`: playback window into the source blob (seconds from blob start/end).
+ *   Resolver clips to this window; renderer fades the trimmed edges. Stage 6
+ *   introduces the field; the renderer-side fade enforcement lands in stage 8.
+ * - `gainDb`: per-clip static gain offset. Stage 8 will add a time-varying
+ *   `gainAutomationPoints` shape for ducking and swells.
+ * - `fadeIn` / `fadeOut`: in seconds, over and above the mandatory micro-fade.
+ * - `volume`: dB trim around unity (0 = no change). Range typically -12..+6.
+ *   Applied AFTER per-stem normalization to a per-type LUFS target — so unity
+ *   means "broadcast-balanced", not "raw stem at full level". Earlier
+ *   revisions stored a 0..1 linear multiplier here; the field name stayed
+ *   the same to keep persisted data readable, but the semantic changed
+ *   when stem normalization was introduced. Legacy 0..1 values render as
+ *   small positive trims (e.g. legacy 0.7 reads as +0.7 dB) until the
+ *   user touches the slider — bounded-wrong rather than catastrophically wrong.
+ */
+export interface ClipOverrides {
+  trim?: { start: number; end: number };
+  gainDb?: number;
+  fadeIn?: number;
+  fadeOut?: number;
+  volume?: number;
+}
+
+/**
+ * Snapshot of the resolver output cached on frozen mixer versions for
+ * cheap re-reads. Drafts resolve fresh (anchor graph is mutable).
+ * Shape intentionally parallels the legacy MixerState.calculatedTracks for
+ * transitional compatibility while stage 7 swaps in the pure resolver.
+ */
+export interface CachedResolverOutput {
+  calculatedTracks: CalculatedTrack[];
+  totalDuration: number;
+  calculatedAt: number;
+}
+
+/**
+ * Immutable version entry in the mixer stream. Replaces the legacy single-key
+ * `ad:{id}:mixer` blob. Stored at `ad:{id}:mixer:v:{versionId}`.
+ *
+ * Layering:
+ *   - Anchors define timing relationships (pure graph, evaluated by resolver).
+ *   - Pins declare which stream versions this arrangement references.
+ *   - Overrides carry per-slot trim/gain/fade that shouldn't bake into a
+ *     content version (same voice, different mix tweaks).
+ *   - `cachedResolverOutput` is an optimization on frozen versions only.
+ */
+export interface MixerVersion {
+  anchors: Record<SlotId, AnchorEntry>;
+  pins: MixerPins;
+  overrides?: Record<SlotId, ClipOverrides>;
+
+  createdAt: number;
+  createdBy: CreatedBy;
+  status: VersionStatus;
+
+  parentVersionId?: VersionId;
+  requestText?: string;
+  label?: string;
+
+  cachedResolverOutput?: CachedResolverOutput;
+
+  /**
+   * URL of the most recent rendered mix uploaded to blob storage. The mixer
+   * panel writes this after each local render; the preview endpoint reads it
+   * to deliver the final audio. Lives on the mixer version so variant renders
+   * stay pinned to their own arrangement.
+   */
+  mixedAudioUrl?: string;
 }

@@ -1,23 +1,87 @@
 import { ToolDefinition } from "./types";
 
+/**
+ * JSON schema fragment for the unified ordinal-form anchor input (stage 4).
+ * Inlined into the voice/music/sfx tool schemas so the LLM can emit timing
+ * intent in a normalized vocabulary instead of the legacy playAfter strings.
+ *
+ * `trackRef` is an ordinal reference within a stream: "voice-0", "voice-1",
+ * "sfx-0", "music" (music has one slot per version).
+ */
+const ANCHOR_SCHEMA = {
+  type: "object",
+  description:
+    "Optional timing anchor. If omitted, legacy fields (playAfter/overlap/placement) are used. If provided, this takes precedence.",
+  properties: {
+    kind: {
+      type: "string",
+      enum: ["absolute", "relativeTo", "simultaneousWith", "atFraction"],
+      description:
+        "absolute: fixed t in seconds. relativeTo: at another clip's start or end + offset. simultaneousWith: aligned with another clip (start/end/center). atFraction: at fraction f of another clip's duration.",
+    },
+    t: {
+      type: "number",
+      description:
+        "For kind=absolute: start time in seconds from timeline start.",
+    },
+    trackRef: {
+      type: "string",
+      description:
+        "Ordinal reference to another clip. Format: 'voice-N', 'sfx-N' (0-indexed), or 'music'. Used by relativeTo / simultaneousWith / atFraction.",
+    },
+    edge: {
+      type: "string",
+      enum: ["start", "end"],
+      description:
+        "For kind=relativeTo: align this clip to the referenced clip's start or end.",
+    },
+    offset: {
+      type: "number",
+      description:
+        "For relativeTo / simultaneousWith: signed seconds added to the resolved position. Negative values create overlap.",
+    },
+    alignment: {
+      type: "string",
+      enum: ["startAtStart", "endAtEnd", "centerAtCenter"],
+      description:
+        "For kind=simultaneousWith: how to align this clip with the referenced clip.",
+    },
+    fraction: {
+      type: "number",
+      description:
+        "For kind=atFraction: 0..1; position at referenced clip's start + duration * fraction.",
+    },
+  },
+  required: ["kind"],
+};
+
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     type: "function",
     function: {
       name: "search_voices",
       description:
-        "Search voice database by provider, language, gender, and accent. Returns voices with personality descriptions - pick the ones that best fit the creative direction.",
+        "Search voice database by provider, language, gender, accent, and semantic casting filters. Returns a shuffled sample with structured metadata (age_bracket, energy, warmth, pace_tendency, use_case) and a one-line casting_note per voice. Use the semantic filters to narrow the pool by casting intent (e.g. 'warm mid_adult male for advertising') — voices with missing metadata on a filtered axis are NOT excluded, so filters work the same way across providers even when native metadata is thin.",
       parameters: {
         type: "object",
         properties: {
           provider: {
             type: "string",
-            enum: ["elevenlabs", "openai", "lovo", "qwen", "bytedance", "lahajati"],
-            description: "Voice provider to search (REQUIRED - use the provider specified in the brief)",
+            enum: [
+              "elevenlabs",
+              "openai",
+              "lovo",
+              "qwen",
+              "bytedance",
+              "lahajati",
+            ],
+            description:
+              "Voice provider to search (REQUIRED - use the provider specified in the brief)",
           },
           language: {
             type: "string",
-            description: "ISO 639-1 language code (e.g., 'fr', 'de', 'es', 'th', 'id', 'pl', 'en')",
+            description:
+              "ISO 639-1 language code (e.g., 'fr', 'de', 'es', 'th', 'id', 'pl', 'en')",
           },
           gender: {
             type: "string",
@@ -26,12 +90,49 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           },
           accent: {
             type: "string",
-            description: "Accent filter (optional) - only use if user explicitly specified an accent",
+            description:
+              "Accent filter (optional) - only use if user explicitly specified an accent",
           },
           count: {
             type: "number",
             description: "Number of voices to return (default: 10)",
             default: 10,
+          },
+          age_bracket: {
+            type: "string",
+            enum: ["young_adult", "adult", "mid_adult", "mature"],
+            description:
+              "Target age band (optional). young_adult ≈ late-teens/20s, adult ≈ late-20s/early-30s, mid_adult ≈ mid-30s/40s, mature ≈ 50+. Pick what fits the brand voice.",
+          },
+          energy: {
+            type: "string",
+            enum: ["calm", "neutral", "punchy"],
+            description:
+              "Delivery energy (optional). punchy = QSR / promo / high-arousal. calm = luxury / wellness / quiet brands. Skip for middle-of-the-road reads.",
+          },
+          warmth: {
+            type: "string",
+            enum: ["clinical", "neutral", "warm"],
+            description:
+              "Warmth / approachability (optional). warm = friendly / relatable. clinical = authoritative announcer / news-style.",
+          },
+          pace_tendency: {
+            type: "string",
+            enum: ["slow", "neutral", "fast"],
+            description:
+              "The voice's *native* speaking pace (optional). Distinct from ElevenLabs [rapid-fire] delivery-time tagging — this is about the performer's natural rhythm, not the read.",
+          },
+          use_case: {
+            type: "string",
+            enum: ["advertising", "narration", "conversational", "trailer"],
+            description:
+              "Intended use case (optional). For 15/30s Spotify spots 'advertising' or 'conversational' usually beats 'narration' (audiobook voices sound off in short reads).",
+          },
+          dialect_register: {
+            type: "string",
+            enum: ["msa", "khaleeji", "egyptian", "levantine", "maghrebi"],
+            description:
+              "Arabic-only. Dialect register for MENA casting. Lahajati voices are dialect-agnostic (dialect picked at TTS via dialectId) so this mainly narrows ElevenLabs Arabic voices that bake dialect into the voice itself.",
           },
         } as Record<string, unknown>,
         required: ["provider", "language"],
@@ -64,16 +165,18 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 text: {
                   type: "string",
                   description:
-                    "Script text. For ElevenLabs: include [emotional tags] inline. For OpenAI: plain text.",
+                    "Script text — clean prose in the target language. Do not write inline bracket tags; punctuation is your performance lever (ellipses for weight, CAPS for emphasis). For OpenAI: plain text.",
                 },
+                anchor: ANCHOR_SCHEMA,
                 playAfter: {
                   type: "string",
                   description:
-                    "What this plays after (e.g., 'start', 'track-0')",
+                    "LEGACY — prefer `anchor`. What this plays after (e.g., 'start', 'track-0'). Ignored if `anchor` is set.",
                 },
                 overlap: {
                   type: "number",
-                  description: "Overlap in seconds (can be negative for gap)",
+                  description:
+                    "LEGACY — prefer `anchor` with a negative offset. Overlap in seconds (can be negative for gap).",
                 },
                 description: {
                   type: "string",
@@ -112,7 +215,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 },
                 provider: {
                   type: "string",
-                  enum: ["elevenlabs", "lovo", "openai", "lahajati", "bytedance"],
+                  enum: [
+                    "elevenlabs",
+                    "lovo",
+                    "openai",
+                    "lahajati",
+                    "bytedance",
+                  ],
                   description:
                     "Voice provider - REQUIRED for fallback if voice lookup fails",
                 },
@@ -136,8 +245,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           adId: { type: "string", description: "The ad ID" },
           prompt: {
             type: "string",
-            description:
-              "Base music concept (1 sentence, used as fallback)",
+            description: "Base music concept (1 sentence, used as fallback)",
           },
           elevenlabs: {
             type: "string",
@@ -163,6 +271,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             type: "number",
             description: "Duration in seconds",
           },
+          anchor: ANCHOR_SCHEMA,
         } as Record<string, unknown>,
         required: ["adId", "prompt"],
       },
@@ -186,14 +295,22 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                   type: "string",
                   description: "Sound effect description",
                 },
+                anchor: ANCHOR_SCHEMA,
                 placement: {
                   type: "object",
-                  description: "Where to place the SFX",
+                  description:
+                    "LEGACY — prefer `anchor`. Where to place the SFX.",
                   properties: {
                     type: {
                       type: "string",
-                      enum: ["beforeVoices", "withFirstVoice", "afterVoice", "end"],
-                      description: "Placement type: beforeVoices (sequential intro), withFirstVoice (concurrent intro), afterVoice (after specific voice), end (outro)",
+                      enum: [
+                        "beforeVoices",
+                        "withFirstVoice",
+                        "afterVoice",
+                        "end",
+                      ],
+                      description:
+                        "Placement type: beforeVoices (sequential intro), withFirstVoice (concurrent intro), afterVoice (after specific voice), end (outro)",
                     },
                     index: {
                       type: "number",
@@ -203,7 +320,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 },
                 duration: {
                   type: "number",
-                  description: "Duration in seconds (0.5-15, typical 2-3s for stingers, 5-10s for ambient)",
+                  description:
+                    "Duration in seconds (0.5-15, typical 2-3s for stingers, 5-10s for ambient)",
                 },
               },
               required: ["description"],
@@ -250,4 +368,3 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
 ];
-

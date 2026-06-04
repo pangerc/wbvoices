@@ -1,5 +1,5 @@
-import { MusicTrack } from "@/types";
 import { ErrorDetails } from "@/lib/providers/BaseAudioProvider";
+import { MusicTrack } from "@/types";
 
 interface ErrorWithDetails extends Error {
   details?: ErrorDetails;
@@ -8,7 +8,7 @@ interface ErrorWithDetails extends Error {
 export async function generateMusicWithElevenLabs(
   prompt: string,
   duration: number,
-  projectId?: string
+  projectId?: string,
 ): Promise<MusicTrack> {
   console.log(`Generating music with ElevenLabs: "${prompt}" (${duration}s)`);
 
@@ -27,16 +27,20 @@ export async function generateMusicWithElevenLabs(
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: response.statusText }));
       console.error("ElevenLabs Music API error:", errorData);
-      const error = new Error(errorData.error || `ElevenLabs Music API error: ${response.status}`) as ErrorWithDetails;
-      error.details = errorData.errorDetails;  // Attach structured details (prompt_suggestion, etc.)
+      const error = new Error(
+        errorData.error || `ElevenLabs Music API error: ${response.status}`,
+      ) as ErrorWithDetails;
+      error.details = errorData.errorDetails; // Attach structured details (prompt_suggestion, etc.)
       throw error;
     }
 
     // Check if response is JSON or audio data
     const contentType = response.headers.get("content-type");
-    
+
     if (contentType?.includes("application/json")) {
       const data = await response.json();
       console.log("ElevenLabs Music API response:", data);
@@ -50,25 +54,26 @@ export async function generateMusicWithElevenLabs(
       };
     } else {
       // Fallback: Response is raw audio data
-      console.warn("ElevenLabs Music: Received raw audio data, using fallback URL");
+      console.warn(
+        "ElevenLabs Music: Received raw audio data, using fallback URL",
+      );
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
-      
+
       return {
         id: `elevenlabs-music-${Date.now()}`,
-        title: prompt.substring(0, 50) || 'Generated music',
+        title: prompt.substring(0, 50) || "Generated music",
         url: audioUrl,
         duration: duration,
         provider: "elevenlabs",
       };
     }
-
   } catch (error) {
     console.error("ElevenLabs Music generation failed:", error);
     const wrappedError = new Error(
       `Failed to generate music with ElevenLabs: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
     ) as ErrorWithDetails;
     // Preserve details from original error (prompt_suggestion, etc.)
     const originalError = error as ErrorWithDetails;

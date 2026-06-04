@@ -1,14 +1,14 @@
 "use client";
 
-import React, { ReactNode } from "react";
-import * as Accordion from "@radix-ui/react-accordion";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import type { CreatedBy, VersionId, VersionStatus } from "@/types/versions";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { EllipsisVerticalIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { DocumentDuplicateIcon } from "@heroicons/react/24/solid";
-import { AccordionPlayButton } from "./AccordionPlayButton";
-import { SendToMixerIcon, RequestChangeIcon } from "./AccordionIcons";
-import type { VersionId, VersionStatus, CreatedBy } from "@/types/versions";
+import * as Accordion from "@radix-ui/react-accordion";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { ReactNode } from "react";
+import { RequestChangeIcon, SendToMixerIcon } from "./AccordionIcons";
+import { AccordionPlayButton } from "./buttons";
 
 export interface BaseVersionItem {
   id: VersionId;
@@ -49,17 +49,28 @@ export function VersionAccordion<T extends BaseVersionItem>({
   onOpenChange,
 }: VersionAccordionProps<T>) {
   // Map stream type to the format expected by AccordionPlayButton
-  const playButtonType = streamType === "voices" ? "voice" : streamType === "music" ? "music" : "sfx";
+  const playButtonType =
+    streamType === "voices"
+      ? "voice"
+      : streamType === "music"
+        ? "music"
+        : "sfx";
   // Sort versions in descending order (newest first)
-  const sortedVersions = [...versions].sort((a, b) => b.createdAt - a.createdAt);
+  const sortedVersions = [...versions].sort(
+    (a, b) => b.createdAt - a.createdAt,
+  );
 
   // Get the newest version ID for default expanded state
   const newestVersionId = sortedVersions[0]?.id;
 
   // Controlled vs uncontrolled mode
-  const accordionProps = openVersionId !== undefined
-    ? { value: openVersionId || "", onValueChange: (val: string) => onOpenChange?.(val || null) }
-    : { defaultValue: newestVersionId };
+  const accordionProps =
+    openVersionId !== undefined
+      ? {
+          value: openVersionId || "",
+          onValueChange: (val: string) => onOpenChange?.(val || null),
+        }
+      : { defaultValue: newestVersionId };
 
   return (
     <Accordion.Root
@@ -77,15 +88,15 @@ export function VersionAccordion<T extends BaseVersionItem>({
             key={version.id}
             value={version.id}
             className={`rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 transition-all duration-200 ${
-              isActive
-                ? "ring-1 ring-white/20"
-                : ""
+              isActive ? "ring-1 ring-white/20" : ""
             }`}
           >
             <Accordion.Header className="flex items-center gap-2 px-4 py-3">
               {/* Trigger - title area only */}
               <Accordion.Trigger className="flex-1 text-left group flex items-center gap-2 min-w-0">
-                <span className="text-white font-mono text-sm flex-shrink-0">{version.id}</span>
+                <span className="text-white font-mono text-sm flex-shrink-0">
+                  {version.id}
+                </span>
                 {version.requestText && (
                   <span className="text-gray-400 text-xs italic truncate">
                     &ldquo;{version.requestText}&rdquo;
@@ -121,7 +132,9 @@ export function VersionAccordion<T extends BaseVersionItem>({
                     }`}
                     title={isActive ? "In mixer" : "Send to mixer"}
                   >
-                    <SendToMixerIcon className={`w-4 h-4 ${isActive ? "text-wb-blue" : "text-wb-blue"}`} />
+                    <SendToMixerIcon
+                      className={`w-4 h-4 ${isActive ? "text-wb-blue" : "text-wb-blue"}`}
+                    />
                   </button>
                 )}
 

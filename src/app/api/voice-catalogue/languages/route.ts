@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
-import { voiceCatalogue } from '@/services/voiceCatalogueService';
-import { getLanguageName } from '@/utils/language';
-import { Language } from '@/types';
+import { voiceCatalogue } from "@/services/voiceCatalogueService";
+import { Language } from "@/types";
+import { getLanguageName } from "@/utils/language";
+import { NextResponse } from "next/server";
 
 // Use Node.js runtime for proper Redis access
 // export const runtime = 'edge'; // REMOVED - Edge Runtime causes env var issues
@@ -31,17 +31,17 @@ export async function GET() {
         code: code as Language,
         // Strip parenthetical region suffix from getLanguageName output —
         // we render flags separately and unify regional variants in display.
-        name: getLanguageName(code).split(' (')[0],
+        name: getLanguageName(code).split(" (")[0],
         count,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    return NextResponse.json({ languages });
+    return NextResponse.json(languages);
   } catch (error) {
-    console.error('Failed to get languages:', error);
+    console.error("Failed to get languages:", error);
     return NextResponse.json(
-      { error: 'Failed to get languages', languages: [] },
-      { status: 500 }
+      { error: "Failed to get languages", languages: [] },
+      { status: 500 },
     );
   }
 }

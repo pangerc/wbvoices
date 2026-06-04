@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { voiceMetadataService } from '@/services/voiceMetadataService';
-import { Language } from '@/types';
+import { voiceMetadataService } from "@/services/voiceMetadataService";
+import { Language } from "@/types";
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Admin API for managing voice blacklist
@@ -21,18 +21,18 @@ import { Language } from '@/types';
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const voiceKey = url.searchParams.get('voiceKey');
-    const language = url.searchParams.get('language');
-    const accent = url.searchParams.get('accent');
+    const voiceKey = url.searchParams.get("voiceKey");
+    const language = url.searchParams.get("language");
+    const accent = url.searchParams.get("accent");
 
     // Get blacklist entries for a specific voice
     if (voiceKey) {
       const entries = await voiceMetadataService.getBlacklistEntries(voiceKey);
       // Enhance with scope information
-      const enhanced = entries.map(entry => ({
+      const enhanced = entries.map((entry) => ({
         ...entry,
-        scope: entry.accent === '*' ? 'language' : 'accent',
-        effectiveAccents: entry.accent === '*' ? 'all' : entry.accent
+        scope: entry.accent === "*" ? "language" : "accent",
+        effectiveAccents: entry.accent === "*" ? "all" : entry.accent,
       }));
       return NextResponse.json({ voiceKey, blacklist: enhanced });
     }
@@ -41,20 +41,23 @@ export async function GET(req: NextRequest) {
     if (language && accent) {
       const blacklisted = await voiceMetadataService.getBlacklistedVoices(
         language as Language,
-        accent
+        accent,
       );
       return NextResponse.json({ language, accent, blacklist: blacklisted });
     }
 
     return NextResponse.json(
-      { error: 'Either voiceKey or both language+accent required' },
-      { status: 400 }
+      { error: "Either voiceKey or both language+accent required" },
+      { status: 400 },
     );
   } catch (error) {
-    console.error('Error fetching blacklist:', error);
+    console.error("Error fetching blacklist:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch blacklist' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to fetch blacklist",
+      },
+      { status: 500 },
     );
   }
 }
@@ -62,29 +65,36 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { voiceKey, language, accent, reason, batch, scope = 'accent' } = body;
+    const {
+      voiceKey,
+      language,
+      accent,
+      reason,
+      batch,
+      scope = "accent",
+    } = body;
 
     // Validate required fields
     if (!language) {
       return NextResponse.json(
-        { error: 'language is required' },
-        { status: 400 }
+        { error: "language is required" },
+        { status: 400 },
       );
     }
 
     // Validate scope
-    if (scope !== 'language' && scope !== 'accent') {
+    if (scope !== "language" && scope !== "accent") {
       return NextResponse.json(
         { error: 'scope must be "language" or "accent"' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // For accent-specific scope, accent is required
-    if (scope === 'accent' && !accent) {
+    if (scope === "accent" && !accent) {
       return NextResponse.json(
         { error: 'accent is required when scope is "accent"' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -94,15 +104,16 @@ export async function POST(req: NextRequest) {
         await voiceMetadataService.addToBlacklistWithScope(
           key,
           language as Language,
-          accent || '',
-          scope as 'language' | 'accent',
-          reason
+          accent || "",
+          scope as "language" | "accent",
+          reason,
         );
       }
 
-      const scopeDesc = scope === 'language'
-        ? `all ${language} accents`
-        : `${language}/${accent}`;
+      const scopeDesc =
+        scope === "language"
+          ? `all ${language} accents`
+          : `${language}/${accent}`;
 
       return NextResponse.json({
         success: true,
@@ -113,24 +124,25 @@ export async function POST(req: NextRequest) {
     }
 
     // Single blacklist
-    if (!voiceKey || typeof voiceKey !== 'string') {
+    if (!voiceKey || typeof voiceKey !== "string") {
       return NextResponse.json(
-        { error: 'voiceKey is required and must be a string' },
-        { status: 400 }
+        { error: "voiceKey is required and must be a string" },
+        { status: 400 },
       );
     }
 
     await voiceMetadataService.addToBlacklistWithScope(
       voiceKey,
       language as Language,
-      accent || '',
-      scope as 'language' | 'accent',
-      reason
+      accent || "",
+      scope as "language" | "accent",
+      reason,
     );
 
-    const scopeDesc = scope === 'language'
-      ? `all ${language} accents`
-      : `${language}/${accent}`;
+    const scopeDesc =
+      scope === "language"
+        ? `all ${language} accents`
+        : `${language}/${accent}`;
 
     return NextResponse.json({
       success: true,
@@ -138,10 +150,13 @@ export async function POST(req: NextRequest) {
       scope,
     });
   } catch (error) {
-    console.error('Error blacklisting voice:', error);
+    console.error("Error blacklisting voice:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to blacklist voice' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to blacklist voice",
+      },
+      { status: 500 },
     );
   }
 }
@@ -149,22 +164,22 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const voiceKey = url.searchParams.get('voiceKey');
-    const language = url.searchParams.get('language');
-    const accent = url.searchParams.get('accent');
+    const voiceKey = url.searchParams.get("voiceKey");
+    const language = url.searchParams.get("language");
+    const accent = url.searchParams.get("accent");
 
     // Validate required fields
     if (!voiceKey || !language || !accent) {
       return NextResponse.json(
-        { error: 'voiceKey, language, and accent are required' },
-        { status: 400 }
+        { error: "voiceKey, language, and accent are required" },
+        { status: 400 },
       );
     }
 
     await voiceMetadataService.removeFromBlacklist(
       voiceKey,
       language as Language,
-      accent
+      accent,
     );
 
     return NextResponse.json({
@@ -172,10 +187,15 @@ export async function DELETE(req: NextRequest) {
       message: `Removed ${voiceKey} from blacklist for ${language}/${accent}`,
     });
   } catch (error) {
-    console.error('Error removing from blacklist:', error);
+    console.error("Error removing from blacklist:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to remove from blacklist' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to remove from blacklist",
+      },
+      { status: 500 },
     );
   }
 }

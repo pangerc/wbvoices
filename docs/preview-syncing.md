@@ -8,6 +8,7 @@
 ### Symptom
 
 After regenerating voice tracks:
+
 - MixerPanel correctly plays voices + music together
 - PreviewPanel (Live Preview) shows **music only**, missing voices
 - Public preview page (`/preview/[projectId]`) shows **music only**, missing voices
@@ -30,6 +31,7 @@ Mixed audio (voices + music + sound effects combined) was only created when user
 ### Fallback Behavior
 
 When no mixed audio exists, both preview screens fall back to:
+
 1. `project.preview.mixedAudioUrl` (from Redis - potentially stale)
 2. `project.generatedTracks.musicUrl` (music-only track)
 
@@ -71,6 +73,7 @@ Result: User hears outdated audio or music-only.
 ### Option 1: Auto-generate on track changes ❌
 
 **Initial implementation:**
+
 ```typescript
 useEffect(() => {
   if (calculatedTracks.length === 0) return;
@@ -80,6 +83,7 @@ useEffect(() => {
 ```
 
 **Problem:** Too aggressive
+
 - Regenerates on ANY change to `calculatedTracks`
 - Volume adjustments trigger unnecessary remix
 - Navigation between tabs triggers remix
@@ -94,6 +98,7 @@ useEffect(() => {
 
 **Pros:** Only generates when actually needed
 **Cons:**
+
 - Delay when opening preview (2-3 second wait)
 - Won't help public preview page (no access to mixer)
 
@@ -113,7 +118,7 @@ Only regenerate preview when tracks **meaningfully change** (URL, timing, durati
 
 ```typescript
 // Track fingerprint to detect meaningful changes
-const [lastFingerprint, setLastFingerprint] = React.useState<string>('');
+const [lastFingerprint, setLastFingerprint] = React.useState<string>("");
 
 useEffect(() => {
   if (calculatedTracks.length === 0) return;
@@ -121,17 +126,17 @@ useEffect(() => {
 
   // Create fingerprint of current tracks (URL + timing + type)
   const currentFingerprint = JSON.stringify(
-    calculatedTracks.map(t => ({
+    calculatedTracks.map((t) => ({
       url: t.url,
       startTime: t.actualStartTime,
       duration: t.actualDuration,
-      type: t.type
-    }))
+      type: t.type,
+    })),
   );
 
   // Skip if tracks haven't meaningfully changed
   if (currentFingerprint === lastFingerprint) {
-    console.log('⏭️ Tracks unchanged, skipping preview regeneration');
+    console.log("⏭️ Tracks unchanged, skipping preview regeneration");
     return;
   }
 
@@ -150,19 +155,27 @@ useEffect(() => {
   }, 2000);
 
   return () => clearTimeout(timer);
-}, [calculatedTracks, tracks, isGeneratingVoice, isGeneratingMusic,
-    isGeneratingSoundFx, lastFingerprint]);
+}, [
+  calculatedTracks,
+  tracks,
+  isGeneratingVoice,
+  isGeneratingMusic,
+  isGeneratingSoundFx,
+  lastFingerprint,
+]);
 ```
 
 ### What Gets Regenerated
 
 **Regenerates when:**
+
 - ✅ New voices generated
 - ✅ Music changed
 - ✅ Sound effects added
 - ✅ Track timing/duration changed
 
 **Does NOT regenerate when:**
+
 - ❌ Volume adjusted (UI-only change)
 - ❌ Navigating between tabs
 - ❌ Other UI-only operations
@@ -188,12 +201,14 @@ useEffect(() => {
 ### Console Output
 
 **When tracks change:**
+
 ```
 🔄 Auto-generating preview for updated tracks...
 ✅ Preview auto-generated successfully
 ```
 
 **When only volume changes:**
+
 ```
 ⏭️ Tracks unchanged, skipping preview regeneration
 ```
@@ -201,25 +216,32 @@ useEffect(() => {
 ## Edge Cases Handled
 
 ### Multiple Rapid Changes
+
 Debounce (2 seconds) batches changes. Only final state triggers regeneration.
 
 Example: User changes voices → immediately changes music
+
 - Fingerprint after voices: `A`
 - Fingerprint after music: `B`
 - Only regenerates once with fingerprint `B` (after 2s stabilization)
 
 ### Volume Adjustments
+
 Volume is not part of fingerprint, so adjusting volume:
+
 - Does NOT trigger regeneration
 - Affects playback only (applied in real-time during PLAY)
 
 ### Loading Existing Project
+
 - Loads tracks from Redis
 - If tracks already mixed and cached, uses `project.preview.mixedAudioUrl`
 - If tracks changed since last mix, regenerates automatically
 
 ### Generation Already in Progress
+
 Check prevents double-generation:
+
 ```typescript
 if (isGeneratingVoice || isGeneratingMusic || isGeneratingSoundFx) return;
 ```
@@ -227,11 +249,12 @@ if (isGeneratingVoice || isGeneratingMusic || isGeneratingSoundFx) return;
 ## Future Enhancements (Architect Recommendations)
 
 ### Phase 2: Preview State Tracking
+
 Add explicit state to know if preview is valid/invalid/generating:
 
 ```typescript
 interface PreviewState {
-  status: 'valid' | 'invalid' | 'generating' | 'error';
+  status: "valid" | "invalid" | "generating" | "error";
   lastMixedAt: number;
   mixedAudioUrl: string | null;
   trackFingerprint: string;
@@ -239,18 +262,22 @@ interface PreviewState {
 ```
 
 Show status badge in PreviewPanel:
+
 - "Preview ready" (green)
 - "Mixing audio..." (blue, loading)
 - "Preview outdated" (yellow warning)
 - "Mix failed" (red error)
 
 ### Phase 3: Incremental Mixing
+
 Only remix changed tracks, reuse cached segments for unchanged tracks.
 
 ### Phase 4: Worker Thread Processing
+
 Move audio mixing to Web Worker to avoid blocking main thread.
 
 ### Phase 5: Integration with Mixer V3
+
 When editable timeline is implemented, fingerprinting naturally extends to track user manual edits.
 
 ## Related Issues
@@ -273,11 +300,13 @@ When editable timeline is implemented, fingerprinting naturally extends to track
 ## Performance Impact
 
 **Before fix:**
+
 - Preview could be stale
 - Required manual PLAY button click
 - Public preview showed music-only
 
 **After fix:**
+
 - Auto-generates in background (2-5 seconds)
 - Skips unnecessary regeneration (fingerprinting)
 - ~1-2 additional regenerations per editing session

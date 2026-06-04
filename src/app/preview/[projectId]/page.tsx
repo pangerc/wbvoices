@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import Image from "next/image";
-import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import { SpotifyPreview } from "@/components/SpotifyPreview";
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+import Image from "next/image";
+import React, { useEffect, useState } from "react";
 
 interface PreviewData {
   brandName: string;
@@ -121,7 +121,7 @@ export default function PreviewPage({ params }: PreviewPageProps) {
             onClick={() => {
               const downloadUrl = previewData.mixedAudioUrl!.replace(
                 /\/[^/]+$/,
-                (match) => `${match}?download=1`
+                (match) => `${match}?download=1`,
               );
               const a = document.createElement("a");
               a.href = downloadUrl;

@@ -51,7 +51,7 @@ const PROVIDERS: Provider[] = ["elevenlabs", "lahajati", "openai", "loudly"];
  */
 export async function getProviderUsage(
   provider: Provider,
-  month?: string
+  month?: string,
 ): Promise<UsageData | null> {
   const redis = getRedis();
   const m = month || getCurrentMonth();
@@ -103,7 +103,7 @@ function getCurrentMonth(): string {
  */
 export function calculateUsagePercent(
   used: number,
-  allotment: number | null
+  allotment: number | null,
 ): number | null {
   if (allotment === null || allotment === 0) return null;
   return Math.round((used / allotment) * 1000) / 10; // 1 decimal place
@@ -115,6 +115,6 @@ export function calculateUsagePercent(
 export function getTotalMonthlyCost(): number {
   return Object.values(SUBSCRIPTIONS).reduce(
     (sum, sub) => sum + sub.costPerMonth,
-    0
+    0,
   );
 }

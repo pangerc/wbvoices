@@ -4,10 +4,14 @@
  * POST /api/ads/{adId}/music/{versionId}/freeze - Freeze a music version and send to mixer
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { setActiveVersion, freezeVersion, getVersion } from "@/lib/redis/versions";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
+import {
+  freezeVersion,
+  getVersion,
+  setActiveVersion,
+} from "@/lib/redis/versions";
 import { FreezeVersionResponse } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
@@ -19,14 +23,16 @@ export const runtime = "nodejs";
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; versionId: string }> }
+  { params }: { params: Promise<{ id: string; versionId: string }> },
 ) {
   try {
     const { id: adId, versionId } = await params;
     const { searchParams } = new URL(request.url);
     const forceFreeze = searchParams.get("forceFreeze") === "true";
 
-    console.log(`🎯 Freezing music version ${versionId} for ad ${adId}${forceFreeze ? " (forceFreeze)" : ""}`);
+    console.log(
+      `🎯 Freezing music version ${versionId} for ad ${adId}${forceFreeze ? " (forceFreeze)" : ""}`,
+    );
 
     // Verify version exists
     const version = await getVersion(adId, "music", versionId);
@@ -37,7 +43,7 @@ export async function POST(
           adId,
           versionId,
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -63,7 +69,7 @@ export async function POST(
         error: "Failed to freeze music version",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

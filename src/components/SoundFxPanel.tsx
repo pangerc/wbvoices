@@ -1,14 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { TrashIcon, PlayIcon } from "@heroicons/react/24/outline";
-import { SoundFxPrompt, SoundFxPlacementIntent } from "@/types";
-import {
-  GlassyTextarea,
-  GlassySlider,
-  GlassyListbox,
-  ResetButton,
-  GenerateButton,
-  Tooltip,
-} from "./ui";
+import { SoundFxPlacementIntent, SoundFxPrompt } from "@/types";
+import { PlayIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { useEffect, useState } from "react";
+import { GlassyListbox, GlassySlider, GlassyTextarea, Tooltip } from "./ui";
 
 type VoiceTrackPreview = {
   name: string;
@@ -30,6 +23,17 @@ type SoundFxPanelProps = {
   onPlayPrompt?: (index: number) => void; // Play individual prompt (generate if needed)
   generatingPromptIndex?: number | null; // Which prompt is currently generating
   generatedUrls?: (string | null)[]; // Per-prompt generated URLs for play button state
+  /**
+   * Slot ids for which the mixer has a `user-edit` anchor — i.e. the user
+   * has manually repositioned the clip in the mixer, making the placement
+   * dropdown's value stale. The panel shows a badge on those entries.
+   */
+  mixerOverriddenSlotIds?: ReadonlySet<string>;
+  /**
+   * Reset a prompt's mixer anchor override back to its stream-level seed
+   * (the placement dropdown value). Called from the divergence badge.
+   */
+  onResetPlacement?: (index: number) => void;
 };
 
 // Default duration for sound effects
@@ -69,12 +73,14 @@ export function SoundFxPanel({
   onAddPrompt,
   adDuration, // We keep this for API compatibility, but use a fixed default duration for sound effects
   resetForm,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   voiceTrackCount: _voiceTrackCount = 0, // Kept for API compatibility, not currently used
   voiceTrackPreviews = [],
   onPlayPrompt,
   generatingPromptIndex,
   generatedUrls = [],
+  mixerOverriddenSlotIds,
+  onResetPlacement,
 }: SoundFxPanelProps) {
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
 
@@ -101,7 +107,7 @@ export function SoundFxPanel({
   const handleGenerate = () => {
     console.log(`Generating ${soundFxPrompts.length} sound effects`);
     // Check if at least one prompt has valid description
-    const hasValidPrompt = soundFxPrompts.some(p => p.description?.trim());
+    const hasValidPrompt = soundFxPrompts.some((p) => p.description?.trim());
     if (hasValidPrompt && !isGenerating) {
       onGenerate();
     } else {
@@ -110,10 +116,13 @@ export function SoundFxPanel({
   };
 
   // Helper to convert placement intent to string option for listbox
-  const placementIntentToOption = (placement?: SoundFxPlacementIntent): string => {
+  const placementIntentToOption = (
+    placement?: SoundFxPlacementIntent,
+  ): string => {
     if (!placement) return "end";
     // Both "start" and "beforeVoices" map to the "start" UI option (sequential intro)
-    if (placement.type === "start" || placement.type === "beforeVoices") return "start";
+    if (placement.type === "start" || placement.type === "beforeVoices")
+      return "start";
     if (placement.type === "withFirstVoice") return "withFirstVoice";
     if (placement.type === "afterVoice" && placement.index !== undefined) {
       return `afterVoice-${placement.index}`;
@@ -140,7 +149,9 @@ export function SoundFxPanel({
               </h3>
               <div className="flex items-center gap-1">
                 {onPlayPrompt && (
-                  <Tooltip content={generatedUrls[index] ? "Play" : "Generate & play"}>
+                  <Tooltip
+                    content={generatedUrls[index] ? "Play" : "Generate & play"}
+                  >
                     <button
                       onClick={() => onPlayPrompt(index)}
                       disabled={isGenerating || !prompt.description?.trim()}
@@ -199,8 +210,14 @@ export function SoundFxPanel({
                     });
                   }}
                   options={[
-                    { value: "start", label: "At beginning (before all voices)" },
-                    { value: "withFirstVoice", label: "With first voice (overlapping)" },
+                    {
+                      value: "start",
+                      label: "At beginning (before all voices)",
+                    },
+                    {
+                      value: "withFirstVoice",
+                      label: "With first voice (overlapping)",
+                    },
                     ...(voiceTrackPreviews && voiceTrackPreviews.length > 0
                       ? voiceTrackPreviews.map((preview, voiceIndex) => ({
                           value: `afterVoice-${voiceIndex}`,
@@ -215,6 +232,26 @@ export function SoundFxPanel({
                   ]}
                 />
 
+                {/* Divergence hint: the user has moved this clip in the mixer
+                    timeline, so the dropdown above no longer reflects where it
+                    actually plays. Offer a reset back to the dropdown's value. */}
+                {prompt.slotId &&
+                  mixerOverriddenSlotIds?.has(prompt.slotId) && (
+                    <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs">
+                      <span className="text-amber-200/90">
+                        Moved in mixer — placement above is ignored
+                      </span>
+                      {onResetPlacement && (
+                        <button
+                          onClick={() => onResetPlacement(index)}
+                          className="text-amber-200 hover:text-white underline underline-offset-2 whitespace-nowrap"
+                        >
+                          Reset to this placement
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                 <label className="block text-base mb-1">
                   Duration{" "}
                   <span className="text-sm text-gray-400">
@@ -224,7 +261,9 @@ export function SoundFxPanel({
                 <GlassySlider
                   label={null}
                   value={prompt.duration || DEFAULT_SOUND_FX_DURATION}
-                  onChange={(value) => onUpdatePrompt(index, { duration: value })}
+                  onChange={(value) =>
+                    onUpdatePrompt(index, { duration: value })
+                  }
                   min={0.5}
                   max={sliderMax}
                   step={0.5}

@@ -1,39 +1,40 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Header } from "@/components/Header";
-import { MatrixBackground } from "@/components";
+import { useBackgroundAnimator } from "@/components/animated-background/animated-background";
 import {
-  VersionAccordion,
-  DraftAccordion,
-  EmptyStreamState,
-} from "@/components/ui";
-import type { DraftState } from "@/components/ui/DraftAccordion";
-import { VoiceVersionContent } from "@/components/version-content/VoiceVersionContent";
-import { MusicVersionContent } from "@/components/version-content/MusicVersionContent";
-import { SfxVersionContent } from "@/components/version-content/SfxVersionContent";
-import { VoiceDraftEditor } from "@/components/draft-editors/VoiceDraftEditor";
+  BriefPanelV4,
+  type StreamUpdateEvent,
+} from "@/components/BriefPanelV4";
+import { ChatSidebar } from "@/components/ChatSidebar";
 import { MusicDraftEditor } from "@/components/draft-editors/MusicDraftEditor";
 import { SfxDraftEditor } from "@/components/draft-editors/SfxDraftEditor";
-import {
-  BriefPanelV3,
-  type StreamUpdateEvent,
-} from "@/components/BriefPanelV3";
+import { VoiceDraftEditor } from "@/components/draft-editors/VoiceDraftEditor";
+import { ProjectHeader } from "@/components/Header/ProjectHeader";
 import { MixerPanel } from "@/components/MixerPanel";
 import { PreviewPanel } from "@/components/PreviewPanel";
-import { useMixerStore } from "@/store/mixerStore";
-import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
-import { useUIStore } from "@/store/uiStore";
-import { useStreamOperations } from "@/hooks/useStreamOperations";
+import {
+  DraftAccordion,
+  EmptyStreamState,
+  VersionAccordion,
+} from "@/components/ui";
+import type { DraftState } from "@/components/ui/DraftAccordion";
+import { MusicVersionContent } from "@/components/version-content/MusicVersionContent";
+import { SfxVersionContent } from "@/components/version-content/SfxVersionContent";
+import { VoiceVersionContent } from "@/components/version-content/VoiceVersionContent";
 import { useMixerData } from "@/hooks/useMixerData";
+import { useStreamOperations } from "@/hooks/useStreamOperations";
+import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
+import { useMixerStore } from "@/store/mixerStore";
+import { useUIStore } from "@/store/uiStore";
+import type { ProjectBrief } from "@/types";
 import type {
-  VoiceVersion,
   MusicVersion,
   SfxVersion,
   VersionId,
+  VoiceVersion,
 } from "@/types/versions";
-import type { ProjectBrief } from "@/types";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 export default function AdWorkspace() {
   const params = useParams();
@@ -46,7 +47,11 @@ export default function AdWorkspace() {
   const sfx = useStreamOperations(adId, "sfx");
 
   // Mixer data and operations
-  const { data: mixerData, removeStream } = useMixerData(adId);
+  const {
+    data: mixerData,
+    mutate: mutateMixer,
+    removeStream,
+  } = useMixerData(adId);
 
   // Helper to get mixer URL for a track type
   const getMixerUrl = (type: "music" | "soundfx") =>
@@ -58,6 +63,34 @@ export default function AdWorkspace() {
 
   // Accordion state from store
   const { openAccordion, setOpenAccordion } = useUIStore();
+  // hasGenerated: true once any stream has at least one version. The chat
+  // endpoint rejects with 400 before that — the panel uses this to render
+  // the no-generation guard instead of a usable input.
+  const hasGenerated = Boolean(
+    (voice.data?.versions?.length ?? 0) > 0 ||
+    (music.data?.versions?.length ?? 0) > 0 ||
+    (sfx.data?.versions?.length ?? 0) > 0,
+  );
+
+  // Context-strip stats. `Take v{n}` is the position (1-indexed, oldest →
+  // newest) of the active voice version in the version list — same rule as
+  // VersionAccordion's chronological labelling.
+  const voiceVersionsOldestFirst = voice.data?.versions
+    ? [...voice.data.versions].reverse()
+    : [];
+  const activeVoiceIdx = voice.data?.active
+    ? voiceVersionsOldestFirst.indexOf(voice.data.active)
+    : -1;
+  const versionLabel =
+    activeVoiceIdx >= 0 ? `Take v${activeVoiceIdx + 1}` : undefined;
+  const activeVoiceVersion = voice.data?.active
+    ? (voice.data.versionsData[voice.data.active] as VoiceVersion | undefined)
+    : undefined;
+  const voiceTrackCount = activeVoiceVersion?.voiceTracks?.length ?? 0;
+  const musicTrackCount = music.data?.active ? 1 : 0;
+  const totalDurationSeconds = mixerData?.totalDuration
+    ? Math.round(mixerData.totalDuration)
+    : null;
 
   // Reset accordion state when navigating to a different ad
   useEffect(() => {
@@ -130,48 +163,7 @@ export default function AdWorkspace() {
     loadAdMetadata();
   }, [adId]);
 
-  // Load mixer state from Redis
-  const loadMixerState = async () => {
-    const { clearTracks, addTrack, setTrackVolume } = useMixerStore.getState();
-    clearTracks();
-
-    try {
-      const res = await fetch(`/api/ads/${adId}/mixer`);
-      if (res.ok) {
-        const mixerState = await res.json();
-        if (mixerState.tracks && mixerState.tracks.length > 0) {
-          mixerState.tracks.forEach(
-            (track: {
-              id: string;
-              url: string;
-              label: string;
-              type: "voice" | "music" | "soundfx";
-              volume?: number;
-            }) => {
-              addTrack(track);
-            },
-          );
-
-          if (mixerState.volumes) {
-            Object.entries(mixerState.volumes).forEach(([id, volume]) => {
-              setTrackVolume(id, volume as number);
-            });
-          }
-
-          console.log(
-            `🔄 Loaded mixer state with ${mixerState.tracks.length} tracks`,
-          );
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load mixer state:", error);
-    }
-  };
-
-  // Load mixer state from Redis on mount
-  useEffect(() => {
-    loadMixerState();
-  }, [adId]);
+  // Mixer state is hydrated directly from SWR inside MixerPanel; no manual load on mount.
 
   // Handle preview - plays all tracks from a frozen version
   // streamType is required to disambiguate version IDs (v1, v2, etc. exist in each stream)
@@ -229,13 +221,13 @@ export default function AdWorkspace() {
     setSelectedTab(index);
   };
 
-  const handleNewAd = () => {
+  const onGoToDashboard = () => {
     router.push("/");
   };
 
   const switchToMixTab = () => setSelectedTab(4);
 
-  // Handle drafts created callback from BriefPanelV3
+  // Handle drafts created callback from BriefPanelV4
   const handleDraftsCreated = async (draftIds: {
     voices?: string;
     music?: string;
@@ -316,13 +308,14 @@ export default function AdWorkspace() {
         break;
 
       case "complete":
-        // All generation complete - reload mixer and switch to mixer tab for "wow" effect
+        // All generation complete - refresh mixer + streams and switch to mixer tab for "wow" effect
         if (event.success) {
-          // Reload mixer state from Redis (server auto-activated and rebuilt)
-          await loadMixerState();
-          // Also refresh all streams to show final state
-          await Promise.all([voice.mutate(), music.mutate(), sfx.mutate()]);
-          // Switch to mixer tab
+          await Promise.all([
+            mutateMixer(),
+            voice.mutate(),
+            music.mutate(),
+            sfx.mutate(),
+          ]);
           setSelectedTab(4);
         }
         break;
@@ -360,6 +353,8 @@ export default function AdWorkspace() {
     }
   }, [searchParams]);
 
+  useBackgroundAnimator(isBriefGenerating || generatingMusic || generatingSfx);
+
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen bg-black text-white">
@@ -373,403 +368,449 @@ export default function AdWorkspace() {
 
   return (
     <div className="flex flex-col h-screen bg-black text-white">
-      <Header
+      <ProjectHeader
         selectedTab={selectedTab}
         onTabChange={handleTabChange}
-        onNewProject={handleNewAd}
+        onGoToDashboard={onGoToDashboard}
         adId={adId}
         projectName={adName}
       />
 
-      <div className="flex-1 overflow-auto relative">
-        <MatrixBackground
-          isAnimating={isBriefGenerating || generatingMusic || generatingSfx}
-        />
-        <div className="container mx-auto px-4 py-8 relative z-10">
-          {/* Generation errors banner */}
-          {generationErrors.length > 0 && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-              {generationErrors.map((err, i) => (
-                <p key={i} className="text-red-400 text-sm">
-                  {err}
-                </p>
-              ))}
-              <button
-                onClick={() => setGenerationErrors([])}
-                className="mt-2 text-xs text-red-400/60 hover:text-red-400"
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
-
-          {/* Brief - Tab 0 */}
-          {selectedTab === 0 && (
-            <BriefPanelV3
-              autoGenerate={autoGenerate}
-              adId={adId}
-              initialBrief={briefData}
-              onDraftsCreated={handleDraftsCreated}
-              onGeneratingChange={setIsBriefGenerating}
-              autoGenerateAudio={true}
-              onStreamUpdate={handleStreamUpdate}
-            />
-          )}
-
-          {/* Voice Versions - Tab 1 */}
-          {selectedTab === 1 && voice.data && (
-            <div>
-              {voiceDraft && (
-                <DraftAccordion
-                  title={voiceDraft.id}
-                  requestText={voiceDraft.version.requestText}
-                  type="voice"
-                  versionId={voiceDraft.id}
-                  activeVersionId={voice.data.active}
-                  currentUrl={getUrlFingerprint(
-                    voiceDraft.version.voiceTracks.map((t) => t.generatedUrl),
-                  )}
-                  mixerUrl={getUrlFingerprint(
-                    mixerData?.tracks
-                      ?.filter((t) => t.type === "voice")
-                      .map((t) => t.url) || [],
-                  )}
-                  isOpen={openAccordion.voices === "draft"}
-                  onOpenChange={(open) =>
-                    setOpenAccordion("voices", open ? "draft" : null)
-                  }
-                  onPlayAll={() => voicePlayAllRef.current?.()}
-                  onSendToMixer={() => {
-                    voiceSendToMixerRef.current?.();
-                    setSelectedTab(4);
-                  }}
-                  onRequestChange={() => voiceRequestChangeRef.current?.()}
-                  hasTracksWithAudio={voiceDraft.version.voiceTracks.some(
-                    (t) => !!t.generatedUrl,
-                  )}
-                  draftState={voiceDraftState}
-                  onNewBlankVersion={voice.createDraft}
-                  onDelete={async () => {
-                    const deleted = await voice.remove(voiceDraft.id);
-                    if (deleted && openAccordion.voices === "draft") {
-                      setOpenAccordion("voices", null);
-                    }
-                  }}
+      <div className="flex-1 flex flex-row min-h-0">
+        <div className="flex-1 overflow-auto relative">
+          <div className="container mx-auto px-4 py-8 relative z-10">
+            {/* Generation errors banner */}
+            {generationErrors.length > 0 && (
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                {generationErrors.map((err, i) => (
+                  <p key={i} className="text-red-400 text-sm">
+                    {err}
+                  </p>
+                ))}
+                <button
+                  onClick={() => setGenerationErrors([])}
+                  className="mt-2 text-xs text-red-400/60 hover:text-red-400"
                 >
-                  <VoiceDraftEditor
-                    key={voiceDraft.id}
-                    adId={adId}
-                    draftVersionId={voiceDraft.id}
-                    draftVersion={voiceDraft.version}
-                    onUpdate={() => voice.mutate()}
-                    onPlayAllRef={voicePlayAllRef}
-                    onSendToMixerRef={voiceSendToMixerRef}
-                    onRequestChangeRef={voiceRequestChangeRef}
-                    onNewBlankVersion={voice.createDraft}
-                    onDraftStateChange={setVoiceDraftState}
-                  />
-                </DraftAccordion>
-              )}
+                  Dismiss
+                </button>
+              </div>
+            )}
 
-              {voice.data.versions.length === 0 ? (
-                <EmptyStreamState
-                  onGoToBrief={() => setSelectedTab(0)}
-                  onCreateBlank={voice.createDraft}
-                />
-              ) : (
-                <VersionAccordion
-                  versions={voice.data.versions
-                    .filter(
-                      (vId) => voice.data!.versionsData[vId].status !== "draft",
-                    )
-                    .map((vId) => ({
-                      id: vId,
-                      ...(voice.data!.versionsData[vId] as VoiceVersion),
-                    }))}
-                  activeVersionId={voice.data.active}
-                  streamType="voices"
-                  openVersionId={
-                    openAccordion.voices !== "draft"
-                      ? openAccordion.voices
-                      : null
-                  }
-                  onOpenChange={(versionId) =>
-                    setOpenAccordion("voices", versionId)
-                  }
-                  onPreview={(id) => handlePreview(id, "voices")}
-                  onClone={voice.clone}
-                  onDelete={async (vId) => {
-                    const deleted = await voice.remove(vId);
-                    // Clear accordion state if we deleted the open version
-                    if (deleted && openAccordion.voices === deleted) {
-                      setOpenAccordion("voices", null);
-                    }
-                  }}
-                  onSendToMixer={(vId) =>
-                    voice.sendToMixer(vId, switchToMixTab)
-                  }
-                  hasAudio={(v) => {
-                    const voice = v as VoiceVersion;
-                    // Match backend validation: ALL tracks must have audio
-                    return (
-                      voice.voiceTracks.length > 0 &&
-                      voice.voiceTracks.every(
-                        (t, i) =>
-                          !!t.generatedUrl || !!voice.generatedUrls?.[i],
-                      )
-                    );
-                  }}
-                  renderContent={(version, isActive) => (
-                    <VoiceVersionContent
-                      version={version as VoiceVersion}
-                      versionId={version.id}
-                      adId={adId}
-                      isActive={isActive}
-                      onNewVersion={() => voice.mutate()}
-                      onNewBlankVersion={voice.createDraft}
-                    />
-                  )}
-                />
-              )}
-            </div>
-          )}
+            {/* Brief - Tab 0 */}
+            {selectedTab === 0 && (
+              <BriefPanelV4
+                autoGenerate={autoGenerate}
+                adId={adId}
+                initialBrief={briefData}
+                onDraftsCreated={handleDraftsCreated}
+                onGeneratingChange={setIsBriefGenerating}
+                autoGenerateAudio={true}
+                onStreamUpdate={handleStreamUpdate}
+              />
+            )}
 
-          {/* Music Versions - Tab 2 */}
-          {selectedTab === 2 && music.data && (
-            <div>
-              {musicDraft && (
-                <DraftAccordion
-                  title={musicDraft.id}
-                  requestText={musicDraft.version.requestText}
-                  type="music"
-                  versionId={musicDraft.id}
-                  activeVersionId={music.data.active}
-                  currentUrl={musicDraft.version.generatedUrl}
-                  mixerUrl={getMixerUrl("music")}
-                  isOpen={openAccordion.music === "draft"}
-                  onOpenChange={(open) =>
-                    setOpenAccordion("music", open ? "draft" : null)
-                  }
-                  onPlayAll={() => musicPlayAllRef.current?.()}
-                  onSendToMixer={() => {
-                    musicSendToMixerRef.current?.();
-                    setSelectedTab(4);
-                  }}
-                  onRequestChange={() => musicRequestChangeRef.current?.()}
-                  hasTracksWithAudio={!!musicDraft.version.generatedUrl}
-                  draftState={musicDraftState}
-                  onNewBlankVersion={music.createDraft}
-                  onDelete={async () => {
-                    const deleted = await music.remove(musicDraft.id);
-                    if (deleted && openAccordion.music === "draft") {
-                      setOpenAccordion("music", null);
+            {/* Voice Versions - Tab 1 */}
+            {selectedTab === 1 && voice.data && (
+              <div>
+                {voiceDraft && (
+                  <DraftAccordion
+                    title={voiceDraft.id}
+                    requestText={voiceDraft.version.requestText}
+                    type="voice"
+                    versionId={voiceDraft.id}
+                    activeVersionId={voice.data.active}
+                    currentUrl={getUrlFingerprint(
+                      voiceDraft.version.voiceTracks.map((t) => t.generatedUrl),
+                    )}
+                    mixerUrl={getUrlFingerprint(
+                      mixerData?.tracks
+                        ?.filter((t) => t.type === "voice")
+                        .map((t) => t.url) || [],
+                    )}
+                    isOpen={openAccordion.voices === "draft"}
+                    onOpenChange={(open) =>
+                      setOpenAccordion("voices", open ? "draft" : null)
                     }
-                  }}
-                >
-                  <MusicDraftEditor
-                    key={musicDraft.id}
-                    adId={adId}
-                    draftVersionId={musicDraft.id}
-                    draftVersion={musicDraft.version}
-                    onUpdate={() => music.mutate()}
-                    onPlayAllRef={musicPlayAllRef}
-                    onSendToMixerRef={musicSendToMixerRef}
-                    onRequestChangeRef={musicRequestChangeRef}
-                    onNewBlankVersion={music.createDraft}
-                    onDraftStateChange={setMusicDraftState}
-                  />
-                </DraftAccordion>
-              )}
-
-              {music.data.versions.length === 0 ? (
-                <EmptyStreamState
-                  onGoToBrief={() => setSelectedTab(0)}
-                  onCreateBlank={music.createDraft}
-                />
-              ) : (
-                <VersionAccordion
-                  versions={music.data.versions
-                    .filter(
-                      (vId) => music.data!.versionsData[vId].status !== "draft",
-                    )
-                    .map((vId) => ({
-                      id: vId,
-                      ...(music.data!.versionsData[vId] as MusicVersion),
-                    }))}
-                  activeVersionId={music.data.active}
-                  streamType="music"
-                  openVersionId={
-                    openAccordion.music !== "draft" ? openAccordion.music : null
-                  }
-                  onOpenChange={(versionId) =>
-                    setOpenAccordion("music", versionId)
-                  }
-                  onPreview={(id) => handlePreview(id, "music")}
-                  onClone={music.clone}
-                  onDelete={async (vId) => {
-                    const deleted = await music.remove(vId);
-                    if (deleted && openAccordion.music === deleted) {
-                      setOpenAccordion("music", null);
-                    }
-                  }}
-                  onSendToMixer={(vId) =>
-                    music.sendToMixer(vId, switchToMixTab)
-                  }
-                  hasAudio={(v) =>
-                    !!(v as MusicVersion).generatedUrl &&
-                    (v as MusicVersion).generatedUrl.length > 0
-                  }
-                  renderContent={(version, isActive) => (
-                    <MusicVersionContent
-                      version={version as MusicVersion}
-                      versionId={version.id}
-                      adId={adId}
-                      isActive={isActive}
-                      onNewVersion={() => music.mutate()}
-                      onNewBlankVersion={music.createDraft}
-                    />
-                  )}
-                />
-              )}
-            </div>
-          )}
-
-          {/* Sound FX Versions - Tab 3 */}
-          {selectedTab === 3 && sfx.data && (
-            <div>
-              {sfxDraft && (
-                <DraftAccordion
-                  title={sfxDraft.id}
-                  requestText={sfxDraft.version.requestText}
-                  type="sfx"
-                  versionId={sfxDraft.id}
-                  activeVersionId={sfx.data.active}
-                  currentUrl={getUrlFingerprint(
-                    sfxDraft.version.generatedUrls || [],
-                  )}
-                  mixerUrl={getUrlFingerprint(
-                    mixerData?.tracks
-                      ?.filter((t) => t.type === "soundfx")
-                      .map((t) => t.url) || [],
-                  )}
-                  isOpen={openAccordion.sfx === "draft"}
-                  onOpenChange={(open) =>
-                    setOpenAccordion("sfx", open ? "draft" : null)
-                  }
-                  onPlayAll={() => sfxPlayAllRef.current?.()}
-                  onSendToMixer={() => {
-                    sfxSendToMixerRef.current?.();
-                    setSelectedTab(4);
-                  }}
-                  onRequestChange={() => sfxRequestChangeRef.current?.()}
-                  hasTracksWithAudio={
-                    (sfxDraft.version.generatedUrls?.length || 0) > 0
-                  }
-                  draftState={sfxDraftState}
-                  onNewBlankVersion={sfx.createDraft}
-                  onDelete={async () => {
-                    const deleted = await sfx.remove(sfxDraft.id);
-                    if (deleted && openAccordion.sfx === "draft") {
-                      setOpenAccordion("sfx", null);
-                    }
-                  }}
-                >
-                  <SfxDraftEditor
-                    key={sfxDraft.id}
-                    adId={adId}
-                    draftVersionId={sfxDraft.id}
-                    draftVersion={sfxDraft.version}
-                    onUpdate={async () => {
-                      const data = await sfx.mutate();
-                      return data?.versionsData?.[sfxDraft.id] as
-                        | SfxVersion
-                        | undefined;
+                    onPlayAll={() => voicePlayAllRef.current?.()}
+                    onSendToMixer={() => {
+                      voiceSendToMixerRef.current?.();
+                      setSelectedTab(4);
                     }}
-                    onPlayAllRef={sfxPlayAllRef}
-                    onSendToMixerRef={sfxSendToMixerRef}
-                    onRequestChangeRef={sfxRequestChangeRef}
-                    onNewBlankVersion={sfx.createDraft}
-                    voiceStream={voice}
-                    adDuration={briefData?.adDuration}
-                    onDraftStateChange={setSfxDraftState}
-                  />
-                </DraftAccordion>
-              )}
-
-              {sfx.data.versions.length === 0 ? (
-                <EmptyStreamState
-                  onGoToBrief={() => setSelectedTab(0)}
-                  onCreateBlank={sfx.createDraft}
-                />
-              ) : (
-                <VersionAccordion
-                  versions={sfx.data.versions
-                    .filter(
-                      (vId) => sfx.data!.versionsData[vId].status !== "draft",
-                    )
-                    .map((vId) => ({
-                      id: vId,
-                      ...(sfx.data!.versionsData[vId] as SfxVersion),
-                    }))}
-                  activeVersionId={sfx.data.active}
-                  streamType="sfx"
-                  openVersionId={
-                    openAccordion.sfx !== "draft" ? openAccordion.sfx : null
-                  }
-                  onOpenChange={(versionId) =>
-                    setOpenAccordion("sfx", versionId)
-                  }
-                  onPreview={(id) => handlePreview(id, "sfx")}
-                  onClone={sfx.clone}
-                  onDelete={async (vId) => {
-                    const deleted = await sfx.remove(vId);
-                    if (deleted && openAccordion.sfx === deleted) {
-                      setOpenAccordion("sfx", null);
-                    }
-                  }}
-                  onSendToMixer={(vId) => sfx.sendToMixer(vId, switchToMixTab)}
-                  hasAudio={(v) =>
-                    (v as SfxVersion).generatedUrls &&
-                    (v as SfxVersion).generatedUrls.length > 0
-                  }
-                  renderContent={(version, isActive) => (
-                    <SfxVersionContent
-                      version={version as SfxVersion}
-                      versionId={version.id}
+                    onRequestChange={() => voiceRequestChangeRef.current?.()}
+                    hasTracksWithAudio={voiceDraft.version.voiceTracks.some(
+                      (t) => !!t.generatedUrl,
+                    )}
+                    draftState={voiceDraftState}
+                    onNewBlankVersion={voice.createDraft}
+                    onDelete={async () => {
+                      const deleted = await voice.remove(voiceDraft.id);
+                      if (deleted && openAccordion.voices === "draft") {
+                        setOpenAccordion("voices", null);
+                      }
+                    }}
+                  >
+                    <VoiceDraftEditor
+                      key={voiceDraft.id}
                       adId={adId}
-                      isActive={isActive}
-                      onNewVersion={() => sfx.mutate()}
-                      onNewBlankVersion={sfx.createDraft}
+                      draftVersionId={voiceDraft.id}
+                      draftVersion={voiceDraft.version}
+                      onUpdate={() => voice.mutate()}
+                      onPlayAllRef={voicePlayAllRef}
+                      onSendToMixerRef={voiceSendToMixerRef}
+                      onRequestChangeRef={voiceRequestChangeRef}
+                      onNewBlankVersion={voice.createDraft}
+                      onDraftStateChange={setVoiceDraftState}
                     />
-                  )}
-                />
-              )}
-            </div>
-          )}
+                  </DraftAccordion>
+                )}
 
-          {/* Mix - Tab 4 */}
-          {selectedTab === 4 && (
-            <MixerPanel
-              resetForm={() => {
-                useMixerStore.getState().clearTracks();
-              }}
-              onChangeVoice={() => setSelectedTab(1)}
-              onChangeMusic={() => setSelectedTab(2)}
-              onChangeSoundFx={() => setSelectedTab(3)}
-              onRemoveTrack={(trackId: string) => {
-                const streamType = trackId.startsWith("sfx-")
-                  ? "sfx"
-                  : trackId.startsWith("music-")
-                    ? "music"
-                    : null;
-                if (streamType) removeStream(streamType);
-              }}
-            />
-          )}
+                {voice.data.versions.length === 0 ? (
+                  <EmptyStreamState
+                    onGoToBrief={() => setSelectedTab(0)}
+                    onCreateBlank={voice.createDraft}
+                  />
+                ) : (
+                  <VersionAccordion
+                    versions={voice.data.versions
+                      .filter(
+                        (vId) =>
+                          voice.data!.versionsData[vId].status !== "draft",
+                      )
+                      .map((vId) => ({
+                        id: vId,
+                        ...(voice.data!.versionsData[vId] as VoiceVersion),
+                      }))}
+                    activeVersionId={voice.data.active}
+                    streamType="voices"
+                    openVersionId={
+                      openAccordion.voices !== "draft"
+                        ? openAccordion.voices
+                        : null
+                    }
+                    onOpenChange={(versionId) =>
+                      setOpenAccordion("voices", versionId)
+                    }
+                    onPreview={(id) => handlePreview(id, "voices")}
+                    onClone={voice.clone}
+                    onDelete={async (vId) => {
+                      const deleted = await voice.remove(vId);
+                      // Clear accordion state if we deleted the open version
+                      if (deleted && openAccordion.voices === deleted) {
+                        setOpenAccordion("voices", null);
+                      }
+                    }}
+                    onSendToMixer={(vId) =>
+                      voice.sendToMixer(vId, switchToMixTab)
+                    }
+                    hasAudio={(v) => {
+                      const voice = v as VoiceVersion;
+                      // Match backend validation: ALL tracks must have audio
+                      return (
+                        voice.voiceTracks.length > 0 &&
+                        voice.voiceTracks.every(
+                          (t, i) =>
+                            !!t.generatedUrl || !!voice.generatedUrls?.[i],
+                        )
+                      );
+                    }}
+                    renderContent={(version, isActive) => (
+                      <VoiceVersionContent
+                        version={version as VoiceVersion}
+                        versionId={version.id}
+                        adId={adId}
+                        isActive={isActive}
+                        onNewVersion={() => voice.mutate()}
+                        onNewBlankVersion={voice.createDraft}
+                      />
+                    )}
+                  />
+                )}
+              </div>
+            )}
 
-          {/* Preview - Tab 5 */}
-          {selectedTab === 5 && <PreviewPanel projectId={adId} />}
+            {/* Music Versions - Tab 2 */}
+            {selectedTab === 2 && music.data && (
+              <div>
+                {musicDraft && (
+                  <DraftAccordion
+                    title={musicDraft.id}
+                    requestText={musicDraft.version.requestText}
+                    type="music"
+                    versionId={musicDraft.id}
+                    activeVersionId={music.data.active}
+                    currentUrl={musicDraft.version.generatedUrl}
+                    mixerUrl={getMixerUrl("music")}
+                    isOpen={openAccordion.music === "draft"}
+                    onOpenChange={(open) =>
+                      setOpenAccordion("music", open ? "draft" : null)
+                    }
+                    onPlayAll={() => musicPlayAllRef.current?.()}
+                    onSendToMixer={() => {
+                      musicSendToMixerRef.current?.();
+                      setSelectedTab(4);
+                    }}
+                    onRequestChange={() => musicRequestChangeRef.current?.()}
+                    hasTracksWithAudio={!!musicDraft.version.generatedUrl}
+                    draftState={musicDraftState}
+                    onNewBlankVersion={music.createDraft}
+                    onDelete={async () => {
+                      const deleted = await music.remove(musicDraft.id);
+                      if (deleted && openAccordion.music === "draft") {
+                        setOpenAccordion("music", null);
+                      }
+                    }}
+                  >
+                    <MusicDraftEditor
+                      key={musicDraft.id}
+                      adId={adId}
+                      draftVersionId={musicDraft.id}
+                      draftVersion={musicDraft.version}
+                      onUpdate={() => music.mutate()}
+                      onPlayAllRef={musicPlayAllRef}
+                      onSendToMixerRef={musicSendToMixerRef}
+                      onRequestChangeRef={musicRequestChangeRef}
+                      onNewBlankVersion={music.createDraft}
+                      onDraftStateChange={setMusicDraftState}
+                    />
+                  </DraftAccordion>
+                )}
+
+                {music.data.versions.length === 0 ? (
+                  <EmptyStreamState
+                    onGoToBrief={() => setSelectedTab(0)}
+                    onCreateBlank={music.createDraft}
+                  />
+                ) : (
+                  <VersionAccordion
+                    versions={music.data.versions
+                      .filter(
+                        (vId) =>
+                          music.data!.versionsData[vId].status !== "draft",
+                      )
+                      .map((vId) => ({
+                        id: vId,
+                        ...(music.data!.versionsData[vId] as MusicVersion),
+                      }))}
+                    activeVersionId={music.data.active}
+                    streamType="music"
+                    openVersionId={
+                      openAccordion.music !== "draft"
+                        ? openAccordion.music
+                        : null
+                    }
+                    onOpenChange={(versionId) =>
+                      setOpenAccordion("music", versionId)
+                    }
+                    onPreview={(id) => handlePreview(id, "music")}
+                    onClone={music.clone}
+                    onDelete={async (vId) => {
+                      const deleted = await music.remove(vId);
+                      if (deleted && openAccordion.music === deleted) {
+                        setOpenAccordion("music", null);
+                      }
+                    }}
+                    onSendToMixer={(vId) =>
+                      music.sendToMixer(vId, switchToMixTab)
+                    }
+                    hasAudio={(v) =>
+                      !!(v as MusicVersion).generatedUrl &&
+                      (v as MusicVersion).generatedUrl.length > 0
+                    }
+                    renderContent={(version, isActive) => (
+                      <MusicVersionContent
+                        version={version as MusicVersion}
+                        versionId={version.id}
+                        adId={adId}
+                        isActive={isActive}
+                        onNewVersion={() => music.mutate()}
+                        onNewBlankVersion={music.createDraft}
+                      />
+                    )}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Sound FX Versions - Tab 3 */}
+            {selectedTab === 3 && sfx.data && (
+              <div>
+                {sfxDraft && (
+                  <DraftAccordion
+                    title={sfxDraft.id}
+                    requestText={sfxDraft.version.requestText}
+                    type="sfx"
+                    versionId={sfxDraft.id}
+                    activeVersionId={sfx.data.active}
+                    currentUrl={getUrlFingerprint(
+                      sfxDraft.version.generatedUrls || [],
+                    )}
+                    mixerUrl={getUrlFingerprint(
+                      mixerData?.tracks
+                        ?.filter((t) => t.type === "soundfx")
+                        .map((t) => t.url) || [],
+                    )}
+                    isOpen={openAccordion.sfx === "draft"}
+                    onOpenChange={(open) =>
+                      setOpenAccordion("sfx", open ? "draft" : null)
+                    }
+                    onPlayAll={() => sfxPlayAllRef.current?.()}
+                    onSendToMixer={() => {
+                      sfxSendToMixerRef.current?.();
+                      setSelectedTab(4);
+                    }}
+                    onRequestChange={() => sfxRequestChangeRef.current?.()}
+                    hasTracksWithAudio={
+                      (sfxDraft.version.generatedUrls?.length || 0) > 0
+                    }
+                    draftState={sfxDraftState}
+                    onNewBlankVersion={sfx.createDraft}
+                    onDelete={async () => {
+                      const deleted = await sfx.remove(sfxDraft.id);
+                      if (deleted && openAccordion.sfx === "draft") {
+                        setOpenAccordion("sfx", null);
+                      }
+                    }}
+                  >
+                    <SfxDraftEditor
+                      key={sfxDraft.id}
+                      adId={adId}
+                      draftVersionId={sfxDraft.id}
+                      draftVersion={sfxDraft.version}
+                      onUpdate={async () => {
+                        const data = await sfx.mutate();
+                        return data?.versionsData?.[sfxDraft.id] as
+                          | SfxVersion
+                          | undefined;
+                      }}
+                      onPlayAllRef={sfxPlayAllRef}
+                      onSendToMixerRef={sfxSendToMixerRef}
+                      onRequestChangeRef={sfxRequestChangeRef}
+                      onNewBlankVersion={sfx.createDraft}
+                      voiceStream={voice}
+                      adDuration={briefData?.adDuration}
+                      onDraftStateChange={setSfxDraftState}
+                    />
+                  </DraftAccordion>
+                )}
+
+                {sfx.data.versions.length === 0 ? (
+                  <EmptyStreamState
+                    onGoToBrief={() => setSelectedTab(0)}
+                    onCreateBlank={sfx.createDraft}
+                  />
+                ) : (
+                  <VersionAccordion
+                    versions={sfx.data.versions
+                      .filter(
+                        (vId) => sfx.data!.versionsData[vId].status !== "draft",
+                      )
+                      .map((vId) => ({
+                        id: vId,
+                        ...(sfx.data!.versionsData[vId] as SfxVersion),
+                      }))}
+                    activeVersionId={sfx.data.active}
+                    streamType="sfx"
+                    openVersionId={
+                      openAccordion.sfx !== "draft" ? openAccordion.sfx : null
+                    }
+                    onOpenChange={(versionId) =>
+                      setOpenAccordion("sfx", versionId)
+                    }
+                    onPreview={(id) => handlePreview(id, "sfx")}
+                    onClone={sfx.clone}
+                    onDelete={async (vId) => {
+                      const deleted = await sfx.remove(vId);
+                      if (deleted && openAccordion.sfx === deleted) {
+                        setOpenAccordion("sfx", null);
+                      }
+                    }}
+                    onSendToMixer={(vId) =>
+                      sfx.sendToMixer(vId, switchToMixTab)
+                    }
+                    hasAudio={(v) =>
+                      (v as SfxVersion).generatedUrls &&
+                      (v as SfxVersion).generatedUrls.length > 0
+                    }
+                    renderContent={(version, isActive) => (
+                      <SfxVersionContent
+                        version={version as SfxVersion}
+                        versionId={version.id}
+                        adId={adId}
+                        isActive={isActive}
+                        onNewVersion={() => sfx.mutate()}
+                        onNewBlankVersion={sfx.createDraft}
+                      />
+                    )}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Mix - Tab 4 */}
+            {selectedTab === 4 && (
+              <MixerPanel
+                resetForm={() => {
+                  useMixerStore.getState().clearTracks();
+                }}
+                onChangeVoice={() => setSelectedTab(1)}
+                onChangeMusic={() => setSelectedTab(2)}
+                onChangeSoundFx={() => setSelectedTab(3)}
+                onRemoveTrack={(trackId: string) => {
+                  const streamType = trackId.startsWith("sfx-")
+                    ? "sfx"
+                    : trackId.startsWith("music-")
+                      ? "music"
+                      : null;
+                  if (streamType) removeStream(streamType);
+                }}
+              />
+            )}
+
+            {/* Preview - Tab 5 */}
+            {selectedTab === 5 && <PreviewPanel projectId={adId} />}
+          </div>
         </div>
+
+        <ChatSidebar
+          adId={adId}
+          hasGenerated={hasGenerated}
+          contextStats={{
+            versionLabel,
+            durationSeconds: totalDurationSeconds,
+            voiceTrackCount,
+            musicTrackCount,
+          }}
+          onTurnLanded={(result) => {
+            // 1) Revalidate the SWR caches for whichever streams the agent
+            // produced a draft in. Without this the workspace tabs keep
+            // showing stale data until the user refocuses the window or
+            // remounts the page. The mixer is also mutated when any stream
+            // changed because it composes from all three.
+            const v = !!result.drafts.voices;
+            const m = !!result.drafts.music;
+            const s = !!result.drafts.sfx;
+            if (v) void voice.mutate();
+            if (m) void music.mutate();
+            if (s) void sfx.mutate();
+            if (v || m || s) void mutateMixer();
+
+            // 2) Auto-navigate the user to the tab that hosts the new draft
+            // so the change is visible without manual tab-switching. The
+            // user just asked the AI to do something — they expect to see
+            // it. Multi-stream changes land on Mix! since that's the only
+            // tab that surfaces all three streams in one view.
+            //   0 Brief · 1 Script · 2 Music · 3 FX · 4 Mix! · 5 Preview
+            const touched = (v ? 1 : 0) + (m ? 1 : 0) + (s ? 1 : 0);
+            let nextTab: number | null = null;
+            if (touched > 1) nextTab = 4;
+            else if (v) nextTab = 1;
+            else if (m) nextTab = 2;
+            else if (s) nextTab = 3;
+            if (nextTab !== null && nextTab !== selectedTab) {
+              setSelectedTab(nextTab);
+            }
+          }}
+        />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useWaveform } from "@/hooks/useWaveform";
+import { MixerTrack, useMixerStore } from "@/store/mixerStore";
 import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
-import { MixerTrack } from "@/store/mixerStore";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 // Helper function to clean track labels
 export function cleanTrackLabel(label: string): string {
@@ -71,21 +72,12 @@ export function getTrackGlassProps(type: "voice" | "music" | "soundfx") {
   }
 }
 
-// Get default volume based on track type
-export function getDefaultVolumeForType(
-  type: "voice" | "music" | "soundfx"
-): number {
-  switch (type) {
-    case "voice":
-      return 1.0;
-    case "music":
-      return 0.25;
-    case "soundfx":
-      return 0.7;
-    default:
-      return 1.0;
-  }
-}
+// Per-stem normalization handles the type defaults now (audio-mixer.ts
+// targets voice -16, music -23, sfx -20 LUFS). User volume is a dB trim
+// around unity, default 0 dB.
+const VOLUME_MIN_DB = -12;
+const VOLUME_MAX_DB = 6;
+const VOLUME_STEP_DB = 0.5;
 
 // Extended type for tracks that includes calculated timeline properties
 export interface TimelineTrackData extends MixerTrack {
@@ -96,13 +88,14 @@ export interface TimelineTrackData extends MixerTrack {
 type TimelineTrackProps = {
   track: TimelineTrackData;
   totalDuration: number;
-  isVolumeDrawerOpen: boolean;
-  trackVolume: number;
+  /** dB trim around unity (post-stem-normalization). 0 = no change. */
+  trackVolumeDb: number;
   audioError: boolean;
   playingState: boolean;
   playbackProgress: number;
   audioRef: (element: HTMLAudioElement | null) => void;
-  onVolumeChange: (value: number) => void;
+  /** Receives dB values now, not 0..1 multipliers. */
+  onVolumeChange: (valueDb: number) => void;
   onAudioLoaded: () => void;
   onAudioError: () => void;
   isTrackLoading: boolean;
@@ -111,13 +104,55 @@ type TimelineTrackProps = {
   onChangeMusic?: () => void;
   onChangeSoundFx?: () => void;
   onRemove?: (trackId: string) => void;
+  /**
+   * Called when a drop completes. `dropSeconds` is the new timeline position
+   * of the dragged track's left edge; `forceAbsolute` signals the user held
+   * the opt/alt modifier (force an absolute anchor vs proximity-derived);
+   * `allowPastFormat` signals the user held shift to override the soft
+   * format-duration clamp.
+   */
+  onDrop?: (
+    trackId: string,
+    dropSeconds: number,
+    forceAbsolute: boolean,
+    allowPastFormat: boolean,
+  ) => void;
+  /**
+   * Called when a tail-trim (right-edge) drag completes. `newTrim` is the
+   * post-drag trim window clamped to [0, sourceDuration]. Null signals
+   * "clear trim" — used by the reset-to-seed menu action too.
+   */
+  onTrim?: (
+    trackId: string,
+    newTrim: { start: number; end: number } | null,
+  ) => void;
+  /**
+   * Reset this track's anchor back to its stream-level seed (the original
+   * LLM-authored placement). The menu only surfaces this when the current
+   * anchor is a user-edit, so there's something to undo.
+   */
+  onResetPosition?: (trackId: string) => void;
+  /** This track is the currently-hovered one (the "inspected" clip). */
+  isHovered?: boolean;
+  /** This track is the outbound anchor target of the currently-hovered track. */
+  isHoverTarget?: boolean;
+  /** This track is anchored to the currently-hovered track (inbound dependent). */
+  isHoverDependent?: boolean;
+  /** Track is muted — ribbon dims; silent in render/playback. */
+  isMuted?: boolean;
+  /** Track is in the solo group — ribbon highlights. */
+  isSoloed?: boolean;
+  /** At least one track on the timeline is soloed and this one isn't (implicit mute). */
+  isImplicitlyMuted?: boolean;
+  /** Store actions threaded from MixerPanel so the dropdown can flip state. */
+  onToggleMute?: (trackId: string) => void;
+  onToggleSolo?: (trackId: string) => void;
 };
 
 export function TimelineTrack({
   track,
   totalDuration,
-  isVolumeDrawerOpen,
-  trackVolume,
+  trackVolumeDb,
   audioError,
   playingState,
   playbackProgress,
@@ -130,21 +165,108 @@ export function TimelineTrack({
   onChangeMusic,
   onChangeSoundFx,
   onRemove,
+  onDrop,
+  onTrim,
+  onResetPosition,
+  isHoverTarget = false,
+  isHoverDependent = false,
+  isHovered = false,
+  isMuted = false,
+  isSoloed = false,
+  isImplicitlyMuted = false,
+  onToggleMute,
+  onToggleSolo,
 }: TimelineTrackProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+
+  // Drag state. `ribbonRef` is the ribbon DOM node so we can measure the
+  // timeline container width at drag-start without threading a ref down.
+  // `trimHandleRef` is the dedicated right-edge trim handle — pointer-downs
+  // whose target is inside that element put the session into trim mode.
+  const ribbonRef = useRef<HTMLDivElement>(null);
+  const trimHandleRef = useRef<HTMLDivElement>(null);
+  const dragSessionRef = useRef<{
+    pointerId: number;
+    originX: number;
+    pxPerSecond: number;
+    mode: "reposition" | "trimEnd";
+    originSeconds: number;
+    /** Effective duration at drag-start; drives trim-preview pixel math. */
+    originEffectiveDuration: number;
+    dragStarted: boolean;
+  } | null>(null);
+  const setDragPreview = useMixerStore((s) => s.setDragPreview);
+  const dragPreview = useMixerStore((s) =>
+    s.dragPreview?.trackId === track.id ? s.dragPreview : null,
+  );
+  const setTrimPreview = useMixerStore((s) => s.setTrimPreview);
+  const trimPreview = useMixerStore((s) =>
+    s.trimPreview?.trackId === track.id ? s.trimPreview : null,
+  );
+  const setHoveredTrackId = useMixerStore((s) => s.setHoveredTrackId);
+  const anyDragInProgress = useMixerStore(
+    (s) => s.dragPreview !== null || s.trimPreview !== null,
+  );
+  const DRAG_THRESHOLD_PX = 4;
+
+  // Waveform peaks for this clip. Decoded lazily on mount; cached by URL
+  // so reposition/trim remounts reuse the same data. Renders as an SVG
+  // symmetric envelope inside the ribbon behind the title text.
+  const { peaks } = useWaveform(track.url, 200);
+  // Crop to the committed trim window (if any) so the waveform stays
+  // time-aligned with the audible content — trimming tail shows only the
+  // surviving waveform portion, not a compressed full envelope.
+  //
+  // During an active trim drag, `trimPreview.deltaSeconds` is folded into
+  // `trimEnd` so the cropped window updates live with the cursor. Post-
+  // release, the preview clears and committed `track.trim` takes over.
+  const visiblePeaks = useMemo(() => {
+    if (peaks.length === 0) return peaks;
+    const source = track.duration ?? 0;
+    const trimStart = track.trim?.start ?? 0;
+    const committedEnd = track.trim?.end ?? source;
+    const pendingEnd = trimPreview
+      ? Math.max(
+          trimStart + 0.1,
+          Math.min(source, committedEnd + trimPreview.deltaSeconds),
+        )
+      : committedEnd;
+    if (source <= 0 || (trimStart === 0 && pendingEnd >= source)) return peaks;
+    const startIdx = Math.max(
+      0,
+      Math.floor((trimStart / source) * peaks.length),
+    );
+    const endIdx = Math.min(
+      peaks.length,
+      Math.ceil((pendingEnd / source) * peaks.length),
+    );
+    return endIdx > startIdx ? peaks.slice(startIdx, endIdx) : peaks;
+  }, [peaks, track.duration, track.trim?.start, track.trim?.end, trimPreview]);
+  const waveformPath = useMemo(
+    () => buildWaveformPath(visiblePeaks),
+    [visiblePeaks],
+  );
 
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      // Consider both the dropdown container and the external trigger as
+      // "inside" — the trigger now lives outside the ribbon at the row
+      // level, so its clicks mustn't auto-close the menu they just opened.
+      const target = event.target as Node;
+      const insideDropdown = menuRef.current?.contains(target);
+      const insideTrigger = menuTriggerRef.current?.contains(target);
+      if (!insideDropdown && !insideTrigger) {
         setIsMenuOpen(false);
       }
     };
 
     if (isMenuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [isMenuOpen]);
 
@@ -179,7 +301,7 @@ export function TimelineTrack({
 
   const { left, width } = getWidthPercent(
     track.actualStartTime,
-    track.actualDuration
+    track.actualDuration,
   );
 
   // Enhanced debug information for all track types
@@ -227,19 +349,198 @@ export function TimelineTrack({
     }
   };
 
-  // Handle play/pause toggle
+  // Handle play/pause toggle. Honours trim: on play we seek to trim.start,
+  // and a timeupdate listener pauses at trim.end so the user doesn't hear
+  // audio past the visual clip end. No-op if no trim override is set.
   const handlePlayPause = () => {
     const audio = document.querySelector(
-      `audio[data-track-id="${track.id}"]`
-    ) as HTMLAudioElement;
-    if (audio) {
-      if (audio.paused) {
-        audio.play();
-      } else {
-        audio.pause();
+      `audio[data-track-id="${track.id}"]`,
+    ) as HTMLAudioElement | null;
+    if (!audio) return;
+    if (audio.paused) {
+      const trimStart = track.trim?.start ?? 0;
+      const trimEnd = track.trim?.end;
+      if (trimStart > 0 && !isNaN(audio.duration)) {
+        audio.currentTime = Math.min(audio.duration, trimStart);
       }
+      if (trimEnd !== undefined) {
+        // One-shot: attach a listener that pauses at trim.end, then cleans
+        // up. Reattached on each play so stale listeners don't accumulate.
+        const stopAtTrimEnd = () => {
+          if (audio.currentTime >= trimEnd) {
+            audio.pause();
+            audio.removeEventListener("timeupdate", stopAtTrimEnd);
+          }
+        };
+        audio.addEventListener("timeupdate", stopAtTrimEnd);
+      }
+      audio.play();
+    } else {
+      audio.pause();
     }
   };
+
+  // ============ Drag lifecycle ============
+  //
+  // Distinguishes click (play/pause) from drag (reposition) by movement
+  // threshold. Drag promotes on first pointermove past DRAG_THRESHOLD_PX.
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    if (!onDrop && !onTrim) return;
+
+    // Ignore pointerdowns inside the menu button — it owns its click handler
+    // and we don't want drag capture stealing its tap.
+    if (menuRef.current?.contains(e.target as Node)) return;
+
+    const timelineContainer = ribbonRef.current?.closest(
+      ".timeline",
+    ) as HTMLElement | null;
+    if (!timelineContainer) return;
+    const rect = timelineContainer.getBoundingClientRect();
+    if (rect.width <= 0 || totalDuration <= 0) return;
+
+    // Hit-test the dedicated trim handle. If the user grabbed that, we switch
+    // the session into tail-trim mode (resize right edge). Otherwise it's a
+    // reposition drag.
+    const isTrim = trimHandleRef.current?.contains(e.target as Node) ?? false;
+
+    dragSessionRef.current = {
+      pointerId: e.pointerId,
+      originX: e.clientX,
+      pxPerSecond: rect.width / totalDuration,
+      mode: isTrim ? "trimEnd" : "reposition",
+      originSeconds: track.actualStartTime,
+      originEffectiveDuration: track.actualDuration,
+      dragStarted: false,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const session = dragSessionRef.current;
+    if (!session || session.pointerId !== e.pointerId) return;
+    const deltaPx = e.clientX - session.originX;
+
+    if (!session.dragStarted) {
+      if (Math.abs(deltaPx) < DRAG_THRESHOLD_PX) return;
+      session.dragStarted = true;
+    }
+
+    if (session.mode === "trimEnd") {
+      // Clamp the live preview so the ribbon doesn't visually invert or
+      // extend past the raw source duration. The final persisted value is
+      // clamped again server-side for defense in depth.
+      const sourceDuration = track.duration ?? session.originEffectiveDuration;
+      const minEffectivePx = 0.1 * session.pxPerSecond;
+      const maxEffectiveSeconds = Math.max(
+        sourceDuration - (track.trim?.start ?? 0),
+        0.1,
+      );
+      const maxDeltaPx =
+        (maxEffectiveSeconds - session.originEffectiveDuration) *
+        session.pxPerSecond;
+      const minDeltaPx =
+        minEffectivePx - session.originEffectiveDuration * session.pxPerSecond;
+      const clampedDelta = Math.max(minDeltaPx, Math.min(maxDeltaPx, deltaPx));
+      setTrimPreview({
+        trackId: track.id,
+        edge: "end",
+        deltaPx: clampedDelta,
+        deltaSeconds: clampedDelta / session.pxPerSecond,
+      });
+      return;
+    }
+
+    const deltaSeconds = deltaPx / session.pxPerSecond;
+    const dropSeconds = Math.max(0, session.originSeconds + deltaSeconds);
+    setDragPreview({
+      trackId: track.id,
+      deltaPx,
+      dropSeconds,
+      forceAbsolute: e.altKey,
+    });
+  };
+
+  const handlePointerUp = async (e: React.PointerEvent<HTMLDivElement>) => {
+    const session = dragSessionRef.current;
+    if (!session || session.pointerId !== e.pointerId) return;
+
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // Pointer was never captured (rare race). Ignore.
+    }
+    dragSessionRef.current = null;
+
+    if (!session.dragStarted) {
+      // Short tap — play/pause path (reposition mode only; a tap on the trim
+      // handle with no drag is a no-op).
+      if (session.mode === "reposition") handlePlayPause();
+      setDragPreview(null);
+      setTrimPreview(null);
+      return;
+    }
+
+    if (session.mode === "trimEnd") {
+      // Compute the new trim window and PATCH. Keep the preview set until
+      // the server confirms + SWR hydrates, same flash-avoidance pattern as
+      // reposition drags.
+      const deltaPx = e.clientX - session.originX;
+      const sourceDuration = track.duration ?? session.originEffectiveDuration;
+      const trimStart = track.trim?.start ?? 0;
+      const newEffective = Math.max(
+        0.1,
+        Math.min(
+          sourceDuration - trimStart,
+          session.originEffectiveDuration + deltaPx / session.pxPerSecond,
+        ),
+      );
+      const newTrim = {
+        start: trimStart,
+        end: trimStart + newEffective,
+      };
+      try {
+        await onTrim?.(track.id, newTrim);
+      } finally {
+        setTrimPreview(null);
+      }
+      return;
+    }
+
+    // Keep dragPreview set (ribbon stays translated to drop position) until
+    // the PATCH resolves and SWR hydrates. This prevents the "jump back,
+    // then jump forward" flash: the ribbon holds its dropped position during
+    // the network round-trip, then lands once the server's new actualStartTime
+    // flows through.
+    const deltaPx = e.clientX - session.originX;
+    const deltaSeconds = deltaPx / session.pxPerSecond;
+    const dropSeconds = Math.max(0, session.originSeconds + deltaSeconds);
+    try {
+      await onDrop?.(track.id, dropSeconds, e.altKey, e.shiftKey);
+    } finally {
+      setDragPreview(null);
+    }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    const session = dragSessionRef.current;
+    if (!session || session.pointerId !== e.pointerId) return;
+    setDragPreview(null);
+    setTrimPreview(null);
+    dragSessionRef.current = null;
+  };
+
+  // While dragging this specific track, render from the preview so the ribbon
+  // follows the cursor with no server round-trip. When no drag is active,
+  // fall through to the server-provided actualStartTime.
+  const visibleTranslatePx = dragPreview?.deltaPx ?? 0;
+  /**
+   * Live width delta for in-flight trim preview. Added to the ribbon's base
+   * width via CSS calc so the visual keeps pace with the cursor with no
+   * server round-trip. Cleared when the patch resolves in onTrim.
+   */
+  const trimWidthDeltaPx = trimPreview?.deltaPx ?? 0;
 
   // Get background color for the progress overlay
   const getProgressColor = (type: "voice" | "music" | "soundfx") => {
@@ -256,7 +557,7 @@ export function TimelineTrack({
   };
 
   return (
-    <div className="relative h-6 mb-2 flex items-center">
+    <div className="relative h-6 mb-2 flex items-center group">
       {!isTrackLoading && !audioError && (
         <audio
           src={track.url}
@@ -276,31 +577,71 @@ export function TimelineTrack({
       )}
 
       {/* Track ribbon container */}
-      <div
-        className={`relative ${
-          isVolumeDrawerOpen ? "w-[calc(100%-100px)]" : "w-full"
-        } h-full`}
-      >
+      <div className="relative w-full h-full">
         {/* The actual colored ribbon - positioned within the track container */}
         <div
-          className={`absolute h-full rounded-full backdrop-blur-sm ${
+          ref={ribbonRef}
+          data-track-ribbon="true"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          onContextMenu={(e) => {
+            // Right-click opens the per-clip action menu — matches DAW
+            // convention (Pro Tools, Logic, Ableton, Reaper all use this).
+            // preventDefault suppresses the browser's native context menu.
+            e.preventDefault();
+            e.stopPropagation();
+            setIsMenuOpen(true);
+          }}
+          onMouseEnter={() => {
+            if (anyDragInProgress) return;
+            setHoveredTrackId(track.id);
+          }}
+          onMouseLeave={() => {
+            if (anyDragInProgress) return;
+            setHoveredTrackId(null);
+          }}
+          className={`absolute h-full rounded-full backdrop-blur-sm overflow-hidden ${
             track.type === "voice"
               ? "bg-white/15 border border-white/20"
               : track.type === "music"
-              ? "bg-wb-blue/20 border border-wb-blue/25"
-              : "bg-red-500/20 border border-red-500/25"
-          } ${isMenuOpen ? "z-50" : "z-0"}`}
+                ? "bg-wb-blue/20 border border-wb-blue/25"
+                : "bg-red-500/20 border border-red-500/25"
+          } ${isMenuOpen ? "z-50" : "z-0"} ${
+            dragPreview ? "cursor-grabbing opacity-80" : "cursor-grab"
+          } ${
+            // Hovered clip gets a bright white ring so you can see which one
+            // you're actually inspecting. The relationship glows (below) live
+            // on the OTHER clips — never on the hovered clip itself.
+            isHovered
+              ? "ring-2 ring-white/80 ring-offset-1 ring-offset-black/50"
+              : ""
+          } ${
+            // Mute/solo visual state. Soloed tracks get a yellow ring that
+            // reads as "this one is isolated." Muted (or implicitly muted
+            // because something else is soloed) ribbons dim to ~35% — still
+            // visible so you can unmute, but clearly stepped-back.
+            isSoloed ? "ring-2 ring-yellow-400/70" : ""
+          } ${isMuted || isImplicitlyMuted ? "opacity-35" : ""}`}
           style={{
             left: `${left}%`,
-            width: `${width}%`, // Use exact width based on actual duration
-            minWidth: "8px", // Use minWidth instead of percentage to ensure visibility
+            width:
+              trimWidthDeltaPx !== 0
+                ? `calc(${width}% + ${trimWidthDeltaPx}px)`
+                : `${width}%`,
+            minWidth: "8px",
+            transform: visibleTranslatePx
+              ? `translateX(${visibleTranslatePx}px)`
+              : undefined,
+            touchAction: "none",
           }}
         >
           {/* Progress overlay */}
           {playingState && (
             <div
               className={`absolute top-0 left-0 h-full ${getProgressColor(
-                track.type
+                track.type,
               )} rounded-full transition-all`}
               style={{
                 width: `${playbackProgress || 0}%`,
@@ -308,116 +649,320 @@ export function TimelineTrack({
             ></div>
           )}
 
-          {/* Track title that triggers playback */}
-          <div
-            className="px-3 py-1 h-full flex items-center cursor-pointer"
-            onClick={handlePlayPause}
-          >
-            <div
-              className={`font-medium text-xs truncate ${
-                track.type === "voice" ? "text-black" : ""
-              }`}
+          {/* Waveform envelope. Ambient texture/rhythm — low opacity keeps
+              the label foreground-legible while the envelope gives at-a-
+              glance spatial orientation across many clips simultaneously.
+              Per-type tint also serves as a visual identity cue:
+                - voice: warm cream, bright on the neutral-grey ribbon
+                - music: cool white on the blue ribbon
+                - sfx:   white on the red ribbon
+              Both dark on light and light on dark were tried; tinted light
+              on all three reads consistently and keeps voice legible (the
+              previous dark-on-dark-grey was invisible). */}
+          {waveformPath && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              viewBox="0 0 200 100"
+              preserveAspectRatio="none"
+              aria-hidden="true"
             >
+              <path
+                d={waveformPath}
+                fill={
+                  track.type === "voice"
+                    ? "rgba(255, 220, 180, 0.18)"
+                    : "rgba(255, 255, 255, 0.22)"
+                }
+              />
+            </svg>
+          )}
+
+          {/* Anchor-relationship dim + glow. Two-step effect so the glow
+              reads clearly against the waveform-populated ribbon:
+                1. Full-ribbon dark overlay dims the base (including the
+                   waveform) for any related clip.
+                2. Half-ribbon white gradient on top points toward the
+                   connection edge — right for outbound target (anchor
+                   lands on that clip's end), left for inbound dependent
+                   (its own start connects to the hovered clip's end). */}
+          {(isHoverTarget || isHoverDependent) && (
+            <div
+              className="absolute inset-0 bg-black/50 pointer-events-none"
+              aria-hidden="true"
+            />
+          )}
+          {isHoverTarget && (
+            <div
+              className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-r from-transparent to-white/70 pointer-events-none"
+              aria-hidden="true"
+            />
+          )}
+          {isHoverDependent && (
+            <div
+              className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-l from-transparent to-white/70 pointer-events-none"
+              aria-hidden="true"
+            />
+          )}
+
+          {/* Track title. All three stream types render white now — the
+              previous black-on-grey was unreadable over the warm-cream
+              voice waveform. Label fades out on hover so the waveform
+              owns the visual space during inspection; it returns on
+              mouse-leave. */}
+          <div
+            className={`px-3 py-1 h-full flex items-center pointer-events-none transition-opacity duration-100 ${
+              isHovered ? "opacity-0" : "opacity-100"
+            }`}
+          >
+            <div className="font-medium text-xs truncate text-white">
               {track.type === "voice"
                 ? extractCharacterName(cleanTrackLabel(track.label))
                 : cleanTrackLabel(track.label)}
             </div>
           </div>
 
-          {/* Handle with menu */}
-          <div className="absolute right-1 top-0 h-full w-4 flex items-center" ref={menuRef}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsMenuOpen(!isMenuOpen);
-              }}
-              className="cursor-pointer hover:opacity-70 transition-opacity"
-              title="Track actions"
+          {/* Tail-trim handle — owns the rightmost edge of the ribbon. Per
+              DAW convention, the clip edge is reserved for the resize
+              affordance. Hover reveals a thin indicator only in the middle
+              third of the height, low opacity — subtle enough not to
+              compete with the ribbon's own silhouette. The whole 8px strip
+              is the hit target regardless. */}
+          {onTrim && (
+            <div
+              ref={trimHandleRef}
+              className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize z-[2]"
+              aria-label="Trim tail"
             >
-              <EllipsisVerticalIcon className="h-3 w-3 text-black" />
-            </button>
+              <div
+                className={`absolute right-[3px] top-1/2 -translate-y-1/2 w-px h-2 rounded-full bg-white/35 transition-opacity ${
+                  isHovered || trimPreview ? "opacity-100" : "opacity-0"
+                }`}
+              />
+            </div>
+          )}
+        </div>
 
-            {/* Dropdown menu */}
-            {isMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-40 bg-black/90 backdrop-blur-md border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden">
-                {track.type === "voice" && onChangeVoice && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsMenuOpen(false);
-                      onChangeVoice();
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
-                  >
-                    Change voice
-                  </button>
+        {/* Dropdown menu — lives OUTSIDE the ribbon so the ribbon's
+            overflow-hidden (needed for the waveform SVG + glow overlays
+            clipping to the rounded shape) doesn't clip the popover.
+            Positioned at the same horizontal offset as the external
+            trigger button. */}
+        {isMenuOpen && (
+          <div
+            ref={menuRef}
+            className="absolute top-full mt-1 w-40 bg-black/90 backdrop-blur-md border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden"
+            style={{ left: `calc(${left + width}% + 6px)` }}
+          >
+            {onToggleMute && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onToggleMute(track.id);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center justify-between"
+              >
+                <span>{isMuted ? "Unmute" : "Mute"}</span>
+                {isMuted && <span className="text-xs text-gray-400">M</span>}
+              </button>
+            )}
+            {onToggleSolo && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onToggleSolo(track.id);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center justify-between border-t border-white/10"
+              >
+                <span>{isSoloed ? "Unsolo" : "Solo"}</span>
+                {isSoloed && <span className="text-xs text-yellow-400">S</span>}
+              </button>
+            )}
+            {(onToggleMute || onToggleSolo) && (
+              <div className="border-t border-white/10" />
+            )}
+            {/* Per-track volume — dB trim around unity (0 = balanced).
+                Stem is normalized to its per-type LUFS target before this
+                trim applies, so 0 dB is genuinely "broadcast-balanced",
+                not "raw stem at full level." */}
+            <div
+              className="px-3 py-2 border-t border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="text-gray-400">Volume</span>
+                <button
+                  type="button"
+                  onClick={() => onVolumeChange(0)}
+                  className="text-white tabular-nums hover:text-gray-300 transition-colors"
+                  title="Reset to 0 dB"
+                >
+                  {trackVolumeDb === 0
+                    ? "0.0 dB"
+                    : trackVolumeDb > 0
+                      ? `+${trackVolumeDb.toFixed(1)} dB`
+                      : `${trackVolumeDb.toFixed(1)} dB`}
+                </button>
+              </div>
+              <input
+                type="range"
+                min={VOLUME_MIN_DB}
+                max={VOLUME_MAX_DB}
+                step={VOLUME_STEP_DB}
+                value={Math.max(
+                  VOLUME_MIN_DB,
+                  Math.min(VOLUME_MAX_DB, trackVolumeDb),
                 )}
-                {track.type === "music" && onChangeMusic && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsMenuOpen(false);
-                      onChangeMusic();
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
-                  >
-                    Change music
-                  </button>
-                )}
-                {track.type === "soundfx" && onChangeSoundFx && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsMenuOpen(false);
-                      onChangeSoundFx();
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
-                  >
-                    Change effect
-                  </button>
-                )}
-                {onRemove && (track.type === "music" || track.type === "soundfx") && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsMenuOpen(false);
-                      onRemove(track.id);
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/10"
-                  >
-                    Remove
-                  </button>
-                )}
+                onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
+                className="w-full h-1 cursor-pointer"
+              />
+            </div>
+            {track.type === "voice" && onChangeVoice && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onChangeVoice();
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
+              >
+                Change voice
+              </button>
+            )}
+            {track.type === "music" && onChangeMusic && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onChangeMusic();
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
+              >
+                Change music
+              </button>
+            )}
+            {track.type === "soundfx" && onChangeSoundFx && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onChangeSoundFx();
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
+              >
+                Change effect
+              </button>
+            )}
+            {/* Reset actions — only surfaced when there's something to undo
+                (a user-edit anchor or a trim override). Both are non-
+                destructive on the stream side: they just drop the mixer-
+                version override and fall back to the LLM-authored seed. */}
+            {onResetPosition &&
+              track.slotId &&
+              track.anchorOrigin === "user-edit" && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsMenuOpen(false);
-                    handleDownload();
+                    onResetPosition(track.id);
                   }}
                   className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors border-t border-white/10"
                 >
-                  Download
+                  Reset position
                 </button>
-              </div>
+              )}
+            {onTrim && track.slotId && track.trim && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onTrim(track.id, null);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors border-t border-white/10"
+              >
+                Reset trim
+              </button>
             )}
+            {onRemove &&
+              (track.type === "music" || track.type === "soundfx") && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMenuOpen(false);
+                    onRemove(track.id);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/10"
+                >
+                  Remove
+                </button>
+              )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsMenuOpen(false);
+                handleDownload();
+              }}
+              className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors border-t border-white/10"
+            >
+              Download
+            </button>
           </div>
-        </div>
+        )}
+
+        {/* External three-dots trigger — sits just past the ribbon's right
+            edge and fades in on row hover. Keeps the ribbon edge clear for
+            the trim affordance (per DAW convention) while still giving
+            non-power-users a discoverable way to access the per-clip menu.
+            Power users use right-click on the ribbon itself. */}
+        <button
+          ref={menuTriggerRef}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsMenuOpen((v) => !v);
+          }}
+          className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded hover:bg-white/10 transition-opacity duration-75 ${
+            isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+          }`}
+          style={{ left: `calc(${left + width}% + 6px)` }}
+          aria-label="Track actions"
+          title="Track actions (or right-click the clip)"
+        >
+          <EllipsisVerticalIcon className="h-3 w-3 text-white" />
+        </button>
       </div>
 
-      {/* Integrated volume slider - visible only when volume mode is active */}
-      {isVolumeDrawerOpen && (
-        <div className="ml-4 w-[80px] flex-shrink-0">
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={trackVolume}
-            onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-            className="w-full h-1"
-          />
-        </div>
-      )}
+      {/* Volume slider lives inside the kebab menu now (see below). The
+          drawer pattern was retired so the timeline edge stays clear for
+          the playhead-scrub pointer surface. */}
     </div>
   );
+}
+
+/**
+ * Build an SVG path string for a symmetric waveform envelope. Maps `peaks`
+ * (length N, values in [0, 1]) into a viewBox of 200×100 with the wave
+ * mirrored around y=50. Returns null for empty inputs so callers can skip
+ * rendering entirely (avoids an empty <path> node in the DOM).
+ */
+function buildWaveformPath(peaks: number[]): string | null {
+  if (!peaks || peaks.length === 0) return null;
+  const width = 200;
+  const height = 100;
+  const center = height / 2;
+  const n = peaks.length;
+  const stepX = width / n;
+
+  // Build a closed polygon: top edge left→right, then bottom edge right→left.
+  // Each bucket is drawn as a vertical bar of half-height proportional to peak;
+  // the polygon interpolates between them to produce a smooth envelope.
+  const top: string[] = [];
+  const bottom: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const x = i * stepX;
+    const half = Math.max(0.5, peaks[i] * (center - 1)); // min 1px so silent stretches still draw
+    top.push(`${x.toFixed(2)},${(center - half).toFixed(2)}`);
+    bottom.unshift(`${x.toFixed(2)},${(center + half).toFixed(2)}`);
+  }
+  return `M${top.join(" L")} L${bottom.join(" L")} Z`;
 }

@@ -5,10 +5,11 @@
  * PATCH /api/ads/[id]/brief - Update advertisement brief
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { AuthError, requireAuth } from "@/lib/auth-helpers";
+import { ensureAdExists } from "@/lib/redis/ensureAd";
 import { getAdMetadata, setAdMetadata } from "@/lib/redis/versions";
-import { requireAuth, AuthError } from "@/lib/auth-helpers";
 import type { ProjectBrief } from "@/types";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
@@ -21,7 +22,7 @@ export const runtime = "nodejs";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -44,7 +45,10 @@ export async function GET(
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     console.error("❌ Failed to load brief:", error);
     return NextResponse.json(
@@ -52,7 +56,7 @@ export async function GET(
         error: "Failed to load brief",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -60,17 +64,17 @@ export async function GET(
 /**
  * PATCH /api/ads/[id]/brief
  *
- * Update brief for an existing advertisement.
+ * Update brief for an advertisement. Lazy-creates the ad row if it
+ * doesn't exist yet (the client auto-saves as the user types, and ads
+ * are otherwise persisted on Generate — without this lazy-create the
+ * pre-Generate edits 404 in a loop and abandoned drafts vanish).
  *
  * Body: { brief: ProjectBrief }
  * Response: { success: true, brief: ProjectBrief }
- *
- * Returns 404 (not 403) for unpersisted ads — the client auto-saves as the
- * user types, and the ad is created lazily on Generate. See BriefPanelV3.
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -80,16 +84,14 @@ export async function PATCH(
     const { brief } = body as { brief: ProjectBrief };
 
     if (!brief) {
-      return NextResponse.json(
-        { error: "brief is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "brief is required" }, { status: 400 });
     }
 
-    const meta = await getAdMetadata(adId);
-    if (!meta) {
-      return NextResponse.json({ error: "Ad not found" }, { status: 404 });
-    }
+    // Idempotent: if the ad row doesn't exist, create it on this PATCH.
+    // The user's autosave keystrokes are the implicit "I want to keep
+    // working on this ad" signal — losing them in a 404 spam loop just
+    // because Generate hasn't fired yet is bad UX.
+    const meta = await ensureAdExists(adId, email);
 
     if (role !== "admin" && meta.owner !== email) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -103,12 +105,13 @@ export async function PATCH(
 
     await setAdMetadata(adId, updatedMeta);
 
-    console.log(`✅ Updated brief for ad ${adId}`);
-
     return NextResponse.json({ success: true, brief });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     console.error("❌ Failed to update brief:", error);
     return NextResponse.json(
@@ -116,7 +119,7 @@ export async function PATCH(
         error: "Failed to update brief",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

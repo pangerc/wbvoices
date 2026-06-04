@@ -6,10 +6,10 @@
  * (Generate clicked or version created manually).
  */
 
-import { getRedisV3 } from "../redis-v3";
-import { setAdMetadata, getAdMetadata } from "./versions";
-import type { AdMetadata } from "@/types/versions";
 import type { ProjectBrief } from "@/types";
+import type { AdMetadata } from "@/types/versions";
+import { getRedisV3 } from "../redis-v3";
+import { getAdMetadata, setAdMetadata } from "./versions";
 
 // User ads index key pattern (matches /api/ads/route.ts)
 const USER_ADS_KEY = (ownerEmail: string) => `ads:by_user:${ownerEmail}`;
@@ -32,7 +32,7 @@ const ALL_ADS_KEY = "ads:all";
 export async function ensureAdExists(
   adId: string,
   ownerEmail: string,
-  initialBrief?: Partial<ProjectBrief>
+  initialBrief?: Partial<ProjectBrief>,
 ): Promise<AdMetadata> {
   // Check if ad already exists
   const existingMeta = await getAdMetadata(adId);

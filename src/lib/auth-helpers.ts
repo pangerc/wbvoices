@@ -32,7 +32,7 @@ export async function requireAuth(): Promise<{ email: string; role: string }> {
 export async function verifyAdAccess(
   adId: string,
   userEmail: string,
-  userRole: string
+  userRole: string,
 ): Promise<boolean> {
   if (userRole === "admin") return true;
 

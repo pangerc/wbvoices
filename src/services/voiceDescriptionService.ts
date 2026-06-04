@@ -31,7 +31,7 @@ export class VoiceDescriptionService {
    * (voices without descriptions still work, just less optimal for LLM selection)
    */
   async bulkGetDescriptions(
-    voiceKeys: string[]
+    voiceKeys: string[],
   ): Promise<Record<string, string>> {
     if (voiceKeys.length === 0) return {};
 
@@ -50,7 +50,10 @@ export class VoiceDescriptionService {
       return descMap;
     } catch (error) {
       // Graceful degradation: if database is down, skip descriptions
-      console.warn('⚠️ Database unavailable - skipping voice descriptions:', error);
+      console.warn(
+        "⚠️ Database unavailable - skipping voice descriptions:",
+        error,
+      );
       return {}; // Empty map = no descriptions enrichment
     }
   }
@@ -62,7 +65,7 @@ export class VoiceDescriptionService {
   async upsertDescription(
     voiceKey: string,
     description: string,
-    source: string = "manual"
+    source: string = "manual",
   ): Promise<void> {
     await db
       .insert(voiceDescriptions)
@@ -86,7 +89,7 @@ export class VoiceDescriptionService {
    */
   async batchUpsert(
     descriptions: Array<{ voiceKey: string; description: string }>,
-    source: string = "scraped_2024"
+    source: string = "scraped_2024",
   ): Promise<void> {
     if (descriptions.length === 0) return;
 

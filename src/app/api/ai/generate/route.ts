@@ -17,22 +17,18 @@
  * - SFX: Short, English descriptions
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { runAgentLoop } from "@/lib/tool-calling";
-import { getLanguageName } from "@/utils/language";
-import { setAdMetadata, getAdMetadata } from "@/lib/redis/versions";
-import { ensureAdExists } from "@/lib/redis/ensureAd";
+import {
+  prefetchBriefEnrichments,
+  renderEnrichmentSections,
+} from "@/lib/brief-enrichment";
 import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
+import { ensureAdExists } from "@/lib/redis/ensureAd";
+import { getAdMetadata, setAdMetadata } from "@/lib/redis/versions";
+import { runAgentLoop } from "@/lib/tool-calling";
+import { instructionTemplatesService } from "@/services/instructionTemplatesService";
 import type { ProjectBrief } from "@/types";
-
-// Labels for tone presets (mirrors TONE_OPTIONS in BriefPanelV3). "custom" passes through customTone text.
-const TONE_PRESET_LABELS: Record<string, string> = {
-  professional: "Professional",
-  energetic: "Energetic",
-  warm: "Warm",
-  authoritative: "Authoritative",
-  sarcastic: "Sarcastic",
-};
+import { getLanguageName } from "@/utils/language";
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Extract brand name from client description for fallback ad title.
@@ -58,7 +54,12 @@ function extractBrandName(description: string): string {
 }
 
 /**
- * Build the user message from the brief data
+ * Build the user message from the brief data.
+ *
+ * Renders the structured brief fields (tone-of-voice tags, brand voice,
+ * reference URLs, forbidden words, provided script) as clearly labelled
+ * sections so the LLM gets discrete signal instead of having to re-parse
+ * everything from `clientDescription` + `creativeBrief` prose.
  */
 function buildUserMessage(params: {
   language: string;
@@ -71,10 +72,17 @@ function buildUserMessage(params: {
   accent?: string;
   cta?: string;
   pacing?: string;
-  tone?: string;
   voiceInstructions?: string;
   adId: string;
   voiceProvider: string;
+  referenceUrls?: string[];
+  forbiddenWords?: string;
+  providedScript?: string;
+  creativeAngle?: string;
+  /** Pre-rendered SF + URL + brand-voice sections from
+   *  brief-enrichment.renderEnrichmentSections. Empty string when no
+   *  enrichments were configured or all of them dropped. */
+  enrichmentSections?: string;
 }): string {
   const {
     languageName,
@@ -86,45 +94,52 @@ function buildUserMessage(params: {
     accent,
     cta,
     pacing,
-    tone,
     voiceInstructions,
     adId,
     voiceProvider,
+    referenceUrls,
+    forbiddenWords,
+    providedScript,
+    creativeAngle,
+    enrichmentSections,
   } = params;
 
   let dialectNote = "";
   if (accent && accent !== "neutral") {
     dialectNote = `\n- Dialect/Accent: ${accent}`;
-    if (region) {
-      dialectNote += ` (${region})`;
-    }
+    if (region) dialectNote += ` (${region})`;
   } else if (region) {
     dialectNote = `\n- Region: ${region} (use local expressions)`;
   }
 
-  let pacingNote = "";
-  if (pacing && pacing !== "normal") {
-    pacingNote = `\n- Pacing: ${pacing}`;
-  }
+  const pacingNote =
+    pacing && pacing !== "normal" ? `\n- Pacing: ${pacing}` : "";
+  const ctaNote = cta ? `\n- Call to Action: ${cta}` : "";
+  const voiceInstructionsNote =
+    voiceInstructions && voiceInstructions.trim()
+      ? `\n- Voice delivery instructions: ${voiceInstructions.trim()}`
+      : "";
+  const referenceSection =
+    referenceUrls && referenceUrls.length
+      ? `\n\n## Reference URLs\n${referenceUrls.map((u) => `- ${u}`).join("\n")}`
+      : "";
+  const forbiddenSection =
+    forbiddenWords && forbiddenWords.trim()
+      ? `\n\n## Forbidden words / phrases (do NOT use)\n${forbiddenWords.trim()}`
+      : "";
+  const providedScriptSection =
+    providedScript && providedScript.trim()
+      ? `\n\n## Provided Script (USE VERBATIM)\nThe user has supplied the script text below. Use it exactly as written; only write acting instructions, music, and SFX around it. Do not edit, translate, or paraphrase.\n\n\`\`\`\n${providedScript.trim()}\n\`\`\``
+      : "";
+  const creativeAngleSection =
+    creativeAngle && creativeAngle.trim()
+      ? `\n\n## Creative angle (THIS spot only)\n${creativeAngle.trim()}\nThis is the variance — what makes THIS ad different from every other ad for this brand. Brand voice is the constant; treat the angle as load-bearing.`
+      : "";
 
-  let ctaNote = "";
-  if (cta) {
-    ctaNote = `\n- Call to Action: ${cta}`;
-  }
-
-  let toneNote = "";
-  if (tone) {
-    toneNote = `\n- Tone of Voice: ${tone}`;
-  }
-
-  let voiceInstructionsNote = "";
-  if (voiceInstructions) {
-    voiceInstructionsNote = `\n- Voice Instructions: ${voiceInstructions}`;
-  }
-
-  // Calculate word count targets based on duration (~2.5 words/sec)
+  // Word count targets (~2.5 words/sec)
   const totalWords = Math.round(duration * 2.5);
-  const wordsPerSpeaker = campaignFormat === "dialog" ? Math.round(totalWords / 2) : totalWords;
+  const wordsPerSpeaker =
+    campaignFormat === "dialog" ? Math.round(totalWords / 2) : totalWords;
 
   return `Create a ${duration}-second ${campaignFormat} audio ad.
 
@@ -133,7 +148,7 @@ function buildUserMessage(params: {
 - Language: ${languageName}
 - Voice Provider: ${voiceProvider} (REQUIRED - only search for voices from this provider)
 - Client: ${clientDescription}
-- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}${toneNote}${voiceInstructionsNote}
+- Creative Direction: ${creativeBrief}${dialectNote}${pacingNote}${ctaNote}${voiceInstructionsNote}${referenceSection}${forbiddenSection}${providedScriptSection}${creativeAngleSection}${enrichmentSections || ""}
 
 ## DURATION CONSTRAINT (CRITICAL)
 - STRICT LIMIT: Script MUST fit within ${duration} seconds when read at natural pace
@@ -161,19 +176,43 @@ export async function POST(req: NextRequest) {
       pacing,
       tone: rawTone,
       voiceInstructions: rawVoiceInstructions,
+      selectedTemplateId: rawSelectedTemplateId,
       selectedProvider: rawSelectedProvider,
+      // Stage-3 brief expansion fields (all optional)
+      referenceUrls,
+      forbiddenWords,
+      providedScript,
+      // Stage C — alaric/SFDC integration (all optional)
+      salesforceAccountId,
+      creativeAngle,
+      // v2 Stage H — unified brand reference. When present,
+      // brand.salesforceAccountId wins over the top-level field.
+      brand,
     } = body;
 
+    // Read order matches the brief schema deprecation contract: brand
+    // wins, top-level salesforceAccountId is the legacy fallback.
+    const effectiveSfAccountId: string | null =
+      (brand &&
+      typeof brand === "object" &&
+      typeof (brand as Record<string, unknown>).salesforceAccountId === "string"
+        ? (brand as { salesforceAccountId: string }).salesforceAccountId
+        : null) ||
+      (typeof salesforceAccountId === "string" ? salesforceAccountId : null);
+
+    // selectedTone is the preset id (UI state); voiceInstructions is the
+    // resolved TTS-delivery prose. The LLM only sees voiceInstructions —
+    // the preset id is persisted to the brief but never injected into the
+    // prompt. Mirror /api/ai/generate-stream.
     const tonePreset: string | null = rawTone || null;
     const voiceInstructionsText: string | null =
       typeof rawVoiceInstructions === "string" && rawVoiceInstructions.trim()
         ? rawVoiceInstructions.trim()
         : null;
-    // Short tone label for the LLM ("Professional" / "Energetic" / …); skipped for "custom" and "none"
-    const resolvedTone: string | undefined =
-      tonePreset && tonePreset !== "custom"
-        ? TONE_PRESET_LABELS[tonePreset] || tonePreset
-        : undefined;
+    const selectedTemplateId: string | null =
+      typeof rawSelectedTemplateId === "string" && rawSelectedTemplateId.trim()
+        ? rawSelectedTemplateId.trim()
+        : null;
 
     // Voice provider - default to elevenlabs if not specified
     const voiceProvider = rawSelectedProvider || "elevenlabs";
@@ -182,14 +221,20 @@ export async function POST(req: NextRequest) {
     if (!adId) {
       return NextResponse.json(
         { error: "adId is required for agentic generation" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    if (!language || !clientDescription || !creativeBrief || !campaignFormat) {
+    // `clientDescription` is optional — see /api/ai/generate-stream for the
+    // rationale. Keep this validation in lockstep with the streaming sibling.
+    const missing: string[] = [];
+    if (!language) missing.push("language");
+    if (!creativeBrief) missing.push("creativeBrief");
+    if (!campaignFormat) missing.push("campaignFormat");
+    if (missing.length > 0) {
       return NextResponse.json(
-        { error: "Missing required fields: language, clientDescription, creativeBrief, campaignFormat" },
-        { status: 400 }
+        { error: `Missing required fields: ${missing.join(", ")}` },
+        { status: 400 },
       );
     }
 
@@ -197,23 +242,74 @@ export async function POST(req: NextRequest) {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: "OpenAI API key not configured" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    console.log(`[/api/ai/generate] Starting agentic generation for ad ${adId}`);
-    console.log(`[/api/ai/generate] Voice Provider: ${voiceProvider}, Language: ${language}`);
+    console.log(
+      `[/api/ai/generate] Starting agentic generation for ad ${adId}`,
+    );
+    console.log(
+      `[/api/ai/generate] Voice Provider: ${voiceProvider}, Language: ${language}`,
+    );
 
     // Build prompts with knowledge context
     const languageName = getLanguageName(language);
+
+    // Mirror /api/ai/generate-stream — keep the two routes in lockstep.
+    let creativeTemplateTitle: string | undefined;
+    let creativeTemplateInstructions: string | undefined;
+    if (selectedTemplateId) {
+      try {
+        const template =
+          await instructionTemplatesService.getById(selectedTemplateId);
+        if (template) {
+          creativeTemplateTitle = template.title;
+          const musicStyle = template.defaultMusicStyle?.trim();
+          creativeTemplateInstructions = musicStyle
+            ? `${template.systemInstructions}\nMusic style: ${musicStyle}`
+            : template.systemInstructions;
+        } else {
+          console.warn(
+            `[/api/ai/generate] selectedTemplateId ${selectedTemplateId} not found — proceeding without template`,
+          );
+        }
+      } catch (err) {
+        console.warn(
+          `[/api/ai/generate] template fetch failed for ${selectedTemplateId} — proceeding without template:`,
+          err,
+        );
+      }
+    }
+
     const knowledgeContext: KnowledgeContext = {
       pacing: pacing === "fast" ? "fast" : "normal",
       accent: accent || undefined,
       region: region || undefined,
       language: language,
       voiceProvider: voiceProvider,
-      campaignFormat: campaignFormat as "dialog" | "ad_read",
+      campaignFormat: campaignFormat as KnowledgeContext["campaignFormat"],
+      hasProvidedScript: !!(
+        providedScript &&
+        typeof providedScript === "string" &&
+        providedScript.trim()
+      ),
+      creativeTemplateTitle,
+      creativeTemplateInstructions,
     };
+
+    // Pre-fetch enrichments (alaric SF lookup + URL scrape) BEFORE building
+    // the user message. Bounded by a 12s wall-clock cap inside the helper;
+    // misses are dropped silently with a structured log line so alaric
+    // being unreachable never blocks generation. The output is a pre-
+    // rendered string of structured sections that buildUserMessage drops
+    // into the user message verbatim.
+    const enrichments = await prefetchBriefEnrichments({
+      adId,
+      salesforceAccountId: effectiveSfAccountId,
+      referenceUrls: Array.isArray(referenceUrls) ? referenceUrls : undefined,
+    });
+    const enrichmentSections = renderEnrichmentSections(enrichments);
 
     // Build user message first (used for intent detection in buildSystemPrompt)
     const userMessage = buildUserMessage({
@@ -227,25 +323,35 @@ export async function POST(req: NextRequest) {
       accent,
       cta,
       pacing,
-      tone: resolvedTone,
       voiceInstructions: voiceInstructionsText || undefined,
       adId,
       voiceProvider,
+      referenceUrls,
+      forbiddenWords,
+      providedScript,
+      creativeAngle:
+        typeof creativeAngle === "string" ? creativeAngle : undefined,
+      enrichmentSections,
     });
 
     // Build system prompt with modular knowledge
     // LLM will call read_ad_state + search_voices as needed
     const systemPrompt = buildSystemPrompt(userMessage, knowledgeContext);
-    console.log(`[/api/ai/generate] Built system prompt with knowledge modules`);
+    console.log(
+      `[/api/ai/generate] Built system prompt with knowledge modules`,
+    );
 
     // Run the agent loop
     const result = await runAgentLoop(systemPrompt, userMessage, {
       adId,
       reasoningEffort: "medium",
       maxIterations: 5,
+      knowledgeContext,
     });
 
-    console.log(`[/api/ai/generate] Agent completed with ${result.toolCallHistory.length} tool calls`);
+    console.log(
+      `[/api/ai/generate] Agent completed with ${result.toolCallHistory.length} tool calls`,
+    );
     console.log(`[/api/ai/generate] Drafts created:`, result.drafts);
 
     // Build brief object from request params
@@ -261,7 +367,32 @@ export async function POST(req: NextRequest) {
       selectedCTA: cta || null,
       selectedTone: tonePreset,
       voiceInstructions: voiceInstructionsText,
+      selectedTemplateId,
       selectedProvider: voiceProvider as "elevenlabs" | "openai" | "lovo",
+      ...(Array.isArray(referenceUrls) && referenceUrls.length
+        ? { referenceUrls }
+        : {}),
+      ...(forbiddenWords &&
+      typeof forbiddenWords === "string" &&
+      forbiddenWords.trim()
+        ? { forbiddenWords: forbiddenWords.trim() }
+        : {}),
+      ...(providedScript &&
+      typeof providedScript === "string" &&
+      providedScript.trim()
+        ? { providedScript: providedScript.trim() }
+        : {}),
+      // Persist both the legacy top-level field AND the new brand.* shape
+      // so v1 readers keep working while v2 readers prefer brand.*.
+      ...(effectiveSfAccountId
+        ? { salesforceAccountId: effectiveSfAccountId }
+        : {}),
+      ...(typeof creativeAngle === "string" && creativeAngle.trim()
+        ? { creativeAngle: creativeAngle.trim() }
+        : {}),
+      ...(brand && typeof brand === "object"
+        ? { brand: brand as ProjectBrief["brand"] }
+        : {}),
     };
 
     // Ensure ad exists (lazy creation)
@@ -286,7 +417,9 @@ export async function POST(req: NextRequest) {
       lastModified: Date.now(),
       owner: currentMeta?.owner || ownerEmail,
     });
-    console.log(`[/api/ai/generate] Updated ad - title: "${adTitle}" (LLM-generated: ${llmSetTitle})`);
+    console.log(
+      `[/api/ai/generate] Updated ad - title: "${adTitle}" (LLM-generated: ${llmSetTitle})`,
+    );
 
     // Return the result
     return NextResponse.json({
@@ -302,10 +435,13 @@ export async function POST(req: NextRequest) {
     console.error("[/api/ai/generate] Error:", error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to generate creative",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate creative",
         details: error instanceof Error ? error.stack : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

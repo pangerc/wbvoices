@@ -1,11 +1,11 @@
-import {
-  BaseAudioProvider,
-  ValidationResult,
-  AuthCredentials,
-  ProviderResponse,
-} from "./BaseAudioProvider";
 import { uploadVoiceToBlob } from "@/utils/blob-storage";
 import { NextResponse } from "next/server";
+import {
+  AuthCredentials,
+  BaseAudioProvider,
+  ProviderResponse,
+  ValidationResult,
+} from "./BaseAudioProvider";
 
 export class LovoVoiceProvider extends BaseAudioProvider {
   readonly providerName = "lovo";
@@ -92,7 +92,7 @@ export class LovoVoiceProvider extends BaseAudioProvider {
 
   async makeRequest(
     params: Record<string, unknown>,
-    credentials: AuthCredentials
+    credentials: AuthCredentials,
   ): Promise<ProviderResponse> {
     const { text, voiceId, style, useCase } = params;
     const { apiKey } = credentials;
@@ -130,14 +130,14 @@ export class LovoVoiceProvider extends BaseAudioProvider {
       if (lovoStyle) {
         requestBody.speakerStyle = lovoStyle; // some speakers accept style names
         console.log(
-          `  🎛️ Mapped style "${style}" to Lovo style "${lovoStyle}"`
+          `  🎛️ Mapped style "${style}" to Lovo style "${lovoStyle}"`,
         );
       }
     }
 
     console.log(
       `  📡 Lovo request body:`,
-      JSON.stringify(requestBody, null, 2)
+      JSON.stringify(requestBody, null, 2),
     );
 
     const response = await this.makeFetch(
@@ -151,7 +151,7 @@ export class LovoVoiceProvider extends BaseAudioProvider {
           "content-type": "application/json",
         },
         body: JSON.stringify(requestBody),
-      }
+      },
     );
 
     if (!response.ok) {
@@ -159,7 +159,7 @@ export class LovoVoiceProvider extends BaseAudioProvider {
       return {
         success: false,
         error: errorInfo.message,
-        errorDetails: errorInfo.details
+        errorDetails: errorInfo.details,
       };
     }
 
@@ -198,7 +198,7 @@ export class LovoVoiceProvider extends BaseAudioProvider {
               "X-API-KEY": apiKey as string,
               accept: "application/json",
             },
-          }
+          },
         );
         if (!statusRes.ok) break;
         const statusJson = await statusRes.json();
@@ -233,7 +233,7 @@ export class LovoVoiceProvider extends BaseAudioProvider {
   }
 
   public async processSuccessfulResponse(
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
   ): Promise<NextResponse> {
     const {
       audioArrayBuffer,
@@ -255,7 +255,7 @@ export class LovoVoiceProvider extends BaseAudioProvider {
         audioBlob,
         (text as string).substring(0, 50),
         "lovo",
-        projectId as string
+        projectId as string,
       );
 
       console.log(`Lovo voice uploaded to blob: ${blobResult.url}`);

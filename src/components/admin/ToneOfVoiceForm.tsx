@@ -1,12 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { PencilIcon, PlusIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { GlassyInput } from "@/components/ui/GlassyInput";
 import { GlassyTextarea } from "@/components/ui/GlassyTextarea";
 import { Switch } from "@/components/ui/Switch";
+import {
+  PencilIcon,
+  PlusIcon,
+  SparklesIcon,
+} from "@heroicons/react/24/outline";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export type ToneFormInitial = {
   id?: string;
@@ -23,7 +27,7 @@ export function ToneOfVoiceForm({ initial }: { initial?: ToneFormInitial }) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [voiceInstructions, setVoiceInstructions] = useState(
-    initial?.voiceInstructions ?? ""
+    initial?.voiceInstructions ?? "",
   );
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
 
@@ -67,22 +71,29 @@ export function ToneOfVoiceForm({ initial }: { initial?: ToneFormInitial }) {
 
   const handleGenerate = async () => {
     if (!title.trim() || !description.trim()) {
-      setError("Fill in Title and Description first, then generate instructions.");
+      setError(
+        "Fill in Title and Description first, then generate instructions.",
+      );
       return;
     }
     setError(null);
     setIsGenerating(true);
     try {
-      const res = await fetch("/api/admin/tone-of-voice/generate-instructions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description }),
-      });
+      const res = await fetch(
+        "/api/admin/tone-of-voice/generate-instructions",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, description }),
+        },
+      );
       if (!res.ok) throw new Error(await readError(res));
       const data = (await res.json()) as { instructions: string };
       setVoiceInstructions(data.instructions);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate instructions");
+      setError(
+        err instanceof Error ? err.message : "Failed to generate instructions",
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -211,4 +222,3 @@ async function readError(res: Response): Promise<string> {
     return `HTTP ${res.status}`;
   }
 }
-

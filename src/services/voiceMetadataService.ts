@@ -1,11 +1,11 @@
 import { db } from "@/lib/db";
 import {
-  voiceMetadata,
   voiceBlacklist,
+  voiceMetadata,
   type VoiceBlacklist,
 } from "@/lib/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
 import { Language } from "@/types";
+import { and, eq, inArray } from "drizzle-orm";
 
 /**
  * Service for managing voice metadata and blacklist
@@ -36,7 +36,7 @@ export class VoiceMetadataService {
    * Returns a map of voiceKey -> blacklist entries[]
    */
   async bulkGetBlacklisted(
-    voiceKeys: string[]
+    voiceKeys: string[],
   ): Promise<Record<string, VoiceBlacklist[]>> {
     if (voiceKeys.length === 0) return {};
 
@@ -63,7 +63,7 @@ export class VoiceMetadataService {
   async isBlacklisted(
     voiceKey: string,
     language: Language,
-    accent: string
+    accent: string,
   ): Promise<boolean> {
     const result = await db
       .select()
@@ -72,8 +72,8 @@ export class VoiceMetadataService {
         and(
           eq(voiceBlacklist.voiceKey, voiceKey),
           eq(voiceBlacklist.language, language),
-          eq(voiceBlacklist.accent, accent)
-        )
+          eq(voiceBlacklist.accent, accent),
+        ),
       )
       .limit(1);
 
@@ -87,7 +87,7 @@ export class VoiceMetadataService {
     voiceKey: string,
     language: Language,
     accent: string,
-    reason?: string
+    reason?: string,
   ): Promise<void> {
     await db
       .insert(voiceBlacklist)
@@ -118,7 +118,7 @@ export class VoiceMetadataService {
   async removeFromBlacklist(
     voiceKey: string,
     language: Language,
-    accent: string
+    accent: string,
   ): Promise<void> {
     await db
       .delete(voiceBlacklist)
@@ -126,12 +126,12 @@ export class VoiceMetadataService {
         and(
           eq(voiceBlacklist.voiceKey, voiceKey),
           eq(voiceBlacklist.language, language),
-          eq(voiceBlacklist.accent, accent)
-        )
+          eq(voiceBlacklist.accent, accent),
+        ),
       );
 
     console.log(
-      `✅ Removed ${voiceKey} from blacklist for ${language}/${accent}`
+      `✅ Removed ${voiceKey} from blacklist for ${language}/${accent}`,
     );
   }
 
@@ -141,7 +141,7 @@ export class VoiceMetadataService {
    */
   async getBlacklistedVoices(
     language: Language,
-    accent: string
+    accent: string,
   ): Promise<VoiceBlacklist[]> {
     return await db
       .select()
@@ -149,8 +149,8 @@ export class VoiceMetadataService {
       .where(
         and(
           eq(voiceBlacklist.language, language),
-          eq(voiceBlacklist.accent, accent)
-        )
+          eq(voiceBlacklist.accent, accent),
+        ),
       );
   }
 
@@ -161,7 +161,7 @@ export class VoiceMetadataService {
     voiceKeys: string[],
     language: Language,
     accent: string,
-    reason?: string
+    reason?: string,
   ): Promise<void> {
     if (voiceKeys.length === 0) return;
 
@@ -188,7 +188,7 @@ export class VoiceMetadataService {
       });
 
     console.log(
-      `🚫 Batch blacklisted ${voiceKeys.length} voices for ${language}/${accent}`
+      `🚫 Batch blacklisted ${voiceKeys.length} voices for ${language}/${accent}`,
     );
   }
 
@@ -201,7 +201,7 @@ export class VoiceMetadataService {
     language: Language,
     accent: string,
     scope: "language" | "accent",
-    reason?: string
+    reason?: string,
   ): Promise<void> {
     const targetAccent = scope === "language" ? this.ALL_ACCENTS : accent;
     const defaultReason =
@@ -248,19 +248,27 @@ export class VoiceMetadataService {
    * (all voices pass through unfiltered - safe default behavior)
    */
   async getAllBlacklistedForLanguage(
-    language: Language
-  ): Promise<Record<string, { accents: Set<string>; hasLanguageWide: boolean }>> {
+    language: Language,
+  ): Promise<
+    Record<string, { accents: Set<string>; hasLanguageWide: boolean }>
+  > {
     try {
       const results = await db
         .select()
         .from(voiceBlacklist)
         .where(eq(voiceBlacklist.language, language));
 
-      const grouped: Record<string, { accents: Set<string>; hasLanguageWide: boolean }> = {};
+      const grouped: Record<
+        string,
+        { accents: Set<string>; hasLanguageWide: boolean }
+      > = {};
 
       for (const entry of results) {
         if (!grouped[entry.voiceKey]) {
-          grouped[entry.voiceKey] = { accents: new Set<string>(), hasLanguageWide: false };
+          grouped[entry.voiceKey] = {
+            accents: new Set<string>(),
+            hasLanguageWide: false,
+          };
         }
         if (entry.accent === this.ALL_ACCENTS) {
           grouped[entry.voiceKey].hasLanguageWide = true;
@@ -271,7 +279,7 @@ export class VoiceMetadataService {
 
       return grouped;
     } catch (error) {
-      console.warn('⚠️ Database unavailable - skipping blacklist:', error);
+      console.warn("⚠️ Database unavailable - skipping blacklist:", error);
       return {};
     }
   }
@@ -285,7 +293,7 @@ export class VoiceMetadataService {
    */
   async bulkGetBlacklistedEnhanced(
     voiceKeys: string[],
-    language: Language
+    language: Language,
   ): Promise<
     Record<string, { accents: Set<string>; hasLanguageWide: boolean }>
   > {
@@ -298,8 +306,8 @@ export class VoiceMetadataService {
         .where(
           and(
             inArray(voiceBlacklist.voiceKey, voiceKeys),
-            eq(voiceBlacklist.language, language)
-          )
+            eq(voiceBlacklist.language, language),
+          ),
         );
 
       const grouped: Record<
@@ -326,7 +334,10 @@ export class VoiceMetadataService {
     } catch (error) {
       // Graceful degradation: if database is down, skip blacklist filtering
       // This keeps the app functional even when Neon is unavailable
-      console.warn('⚠️ Database unavailable - skipping blacklist filtering:', error);
+      console.warn(
+        "⚠️ Database unavailable - skipping blacklist filtering:",
+        error,
+      );
       return {}; // Empty object = no voices blacklisted = all voices pass through
     }
   }
@@ -337,7 +348,7 @@ export class VoiceMetadataService {
   async isBlacklistedEnhanced(
     voiceKey: string,
     language: Language,
-    accent: string
+    accent: string,
   ): Promise<{ isBlacklisted: boolean; scope?: "language" | "accent" }> {
     // Check language-wide blacklist first
     const languageWide = await db
@@ -347,8 +358,8 @@ export class VoiceMetadataService {
         and(
           eq(voiceBlacklist.voiceKey, voiceKey),
           eq(voiceBlacklist.language, language),
-          eq(voiceBlacklist.accent, this.ALL_ACCENTS)
-        )
+          eq(voiceBlacklist.accent, this.ALL_ACCENTS),
+        ),
       )
       .limit(1);
 
@@ -364,8 +375,8 @@ export class VoiceMetadataService {
         and(
           eq(voiceBlacklist.voiceKey, voiceKey),
           eq(voiceBlacklist.language, language),
-          eq(voiceBlacklist.accent, accent)
-        )
+          eq(voiceBlacklist.accent, accent),
+        ),
       )
       .limit(1);
 

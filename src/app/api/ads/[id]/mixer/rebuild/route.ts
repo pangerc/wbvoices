@@ -4,8 +4,8 @@
  * POST /api/ads/{adId}/mixer/rebuild - Force mixer rebuild
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
@@ -26,7 +26,7 @@ export const runtime = "nodejs";
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -44,7 +44,7 @@ export async function POST(
         error: "Failed to rebuild mixer",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,7 +1,6 @@
-import React from "react";
+import { Provider } from "@/types";
 import { GlassyModal } from "./GlassyModal";
 import { GlassyOptionPicker, Option } from "./GlassyOptionPicker";
-import { Provider } from "@/types";
 
 interface ProviderSelectionModalProps {
   isOpen: boolean;

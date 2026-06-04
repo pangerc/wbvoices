@@ -5,7 +5,7 @@
  * These providers use plain text scripts without emotional tags or voiceInstructions.
  */
 
-import { KnowledgeModule, KnowledgeContext } from "../types";
+import { KnowledgeContext, KnowledgeModule } from "../types";
 
 export const simpleVoiceModule: KnowledgeModule = {
   id: "simple-voice",

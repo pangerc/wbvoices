@@ -8,8 +8,8 @@
  * - ad:{adId}:conversation - Conversation messages (JSON array)
  */
 
-import { getRedisV3 } from "../redis-v3";
 import type { ConversationMessage } from "@/lib/tool-calling/types";
+import { getRedisV3 } from "../redis-v3";
 
 // ============ Key Builders ============
 
@@ -35,7 +35,7 @@ export async function getConversation(
   const redis = getRedisV3();
   const key = CONVERSATION_KEYS.conversation(adId);
 
-  const data = await redis.get(key);
+  const data = await redis.get<ConversationMessage[] | string>(key);
 
   if (!data) {
     return [];

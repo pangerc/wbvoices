@@ -1,5 +1,5 @@
+import { CampaignFormat, Voice } from "@/types";
 import { BasePromptStrategy, PromptContext } from "./BasePromptStrategy";
-import { Voice, CampaignFormat } from "@/types";
 
 /**
  * Lahajati Strategy - Arabic TTS specialist with dialect and performance style control
@@ -65,10 +65,14 @@ AVAILABLE DIALECT REGIONS (select specific sub-dialects):
 - dialectId: 48 = اليمنية - Yemeni
 - dialectId: 53 = السودانية - Sudanese
 
-${accent || region ? `
-CONTEXT: The user has specified "${accent || ''}" accent${region ? ` from ${region}` : ''}.
+${
+  accent || region
+    ? `
+CONTEXT: The user has specified "${accent || ""}" accent${region ? ` from ${region}` : ""}.
 Select the most specific dialect that matches this context.
-For example, if accent is "egyptian" and the ad targets youth, prefer Cairo Slang (8) over standard Cairo (7).` : ''}
+For example, if accent is "egyptian" and the ad targets youth, prefer Cairo Slang (8) over standard Cairo (7).`
+    : ""
+}
 
 ## PERFORMANCE STYLE SELECTION (REQUIRED)
 

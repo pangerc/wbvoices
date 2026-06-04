@@ -11,12 +11,12 @@
  * Usage: pnpm tsx scripts/create-test-ad.ts
  */
 
+import type { Voice } from "../src/types";
 import type {
-  VoiceVersion,
   MusicVersion,
   SfxVersion,
+  VoiceVersion,
 } from "../src/types/versions";
-import type { Voice } from "../src/types";
 
 // ========== REALISTIC TEST DATA ==========
 
@@ -251,12 +251,14 @@ async function createTestAd() {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to create voice version: ${await response.text()}`);
+        throw new Error(
+          `Failed to create voice version: ${await response.text()}`,
+        );
       }
 
       const { versionId } = await response.json();
       console.log(
-        `   ✅ Created voice ${versionId} (${version.createdBy}, ${version.status})`
+        `   ✅ Created voice ${versionId} (${version.createdBy}, ${version.status})`,
       );
 
       // Activate if status is active
@@ -265,12 +267,12 @@ async function createTestAd() {
           `${baseUrl}/api/ads/${adId}/voices/${versionId}/activate`,
           {
             method: "POST",
-          }
+          },
         );
 
         if (!activateResponse.ok) {
           throw new Error(
-            `Failed to activate voice version: ${await activateResponse.text()}`
+            `Failed to activate voice version: ${await activateResponse.text()}`,
           );
         }
 
@@ -295,12 +297,14 @@ async function createTestAd() {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to create music version: ${await response.text()}`);
+        throw new Error(
+          `Failed to create music version: ${await response.text()}`,
+        );
       }
 
       const { versionId } = await response.json();
       console.log(
-        `   ✅ Created music ${versionId} (${version.createdBy}, ${version.status})`
+        `   ✅ Created music ${versionId} (${version.createdBy}, ${version.status})`,
       );
 
       if (version.status === "frozen") {
@@ -308,12 +312,12 @@ async function createTestAd() {
           `${baseUrl}/api/ads/${adId}/music/${versionId}/activate`,
           {
             method: "POST",
-          }
+          },
         );
 
         if (!activateResponse.ok) {
           throw new Error(
-            `Failed to activate music version: ${await activateResponse.text()}`
+            `Failed to activate music version: ${await activateResponse.text()}`,
           );
         }
 
@@ -338,12 +342,14 @@ async function createTestAd() {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to create SFX version: ${await response.text()}`);
+        throw new Error(
+          `Failed to create SFX version: ${await response.text()}`,
+        );
       }
 
       const { versionId } = await response.json();
       console.log(
-        `   ✅ Created SFX ${versionId} (${version.createdBy}, ${version.status})`
+        `   ✅ Created SFX ${versionId} (${version.createdBy}, ${version.status})`,
       );
 
       if (version.status === "frozen") {
@@ -351,12 +357,12 @@ async function createTestAd() {
           `${baseUrl}/api/ads/${adId}/sfx/${versionId}/activate`,
           {
             method: "POST",
-          }
+          },
         );
 
         if (!activateResponse.ok) {
           throw new Error(
-            `Failed to activate SFX version: ${await activateResponse.text()}`
+            `Failed to activate SFX version: ${await activateResponse.text()}`,
           );
         }
 
@@ -371,7 +377,7 @@ async function createTestAd() {
       `${baseUrl}/api/ads/${adId}/mixer/rebuild`,
       {
         method: "POST",
-      }
+      },
     );
 
     if (!mixerResponse.ok) {

@@ -5,19 +5,19 @@
  * POST /api/ads/{adId}/sfx - Create new SFX version
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import {
-  listVersions,
-  getActiveVersion,
-  getAllVersionsWithData,
-  createVersion,
-} from "@/lib/redis/versions";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
 import {
+  createVersion,
+  getActiveVersion,
+  getAllVersionsWithData,
+  listVersions,
+} from "@/lib/redis/versions";
+import {
+  CreateVersionResponse,
   SfxVersion,
   VersionStreamResponse,
-  CreateVersionResponse,
 } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
@@ -29,7 +29,7 @@ export const runtime = "nodejs";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -54,7 +54,7 @@ export async function GET(
         error: "Failed to list SFX versions",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -72,7 +72,7 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -84,7 +84,7 @@ export async function POST(
     if (!body.soundFxPrompts || !Array.isArray(body.soundFxPrompts)) {
       return NextResponse.json(
         { error: "soundFxPrompts array is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -118,7 +118,7 @@ export async function POST(
         error: "Failed to create SFX version",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -10,8 +10,8 @@
  *   npx tsx scripts/import-openai-descriptions.ts
  */
 
-import "dotenv/config";
 import { voiceDescriptionService } from "@/services/voiceDescriptionService";
+import "dotenv/config";
 import descriptions from "../data/openai-voice-descriptions.json";
 
 async function importOpenAIDescriptions() {
@@ -27,7 +27,10 @@ async function importOpenAIDescriptions() {
   }));
 
   try {
-    await voiceDescriptionService.batchUpsert(batch, "openai_vocal_ranges_2024");
+    await voiceDescriptionService.batchUpsert(
+      batch,
+      "openai_vocal_ranges_2024",
+    );
 
     console.log("\n✨ Import complete!");
     console.log(`   Imported ${batch.length} OpenAI voice descriptions`);

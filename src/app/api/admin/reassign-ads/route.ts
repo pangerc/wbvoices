@@ -12,10 +12,10 @@
  * - owner: filter by current owner (defaults to "universal-session")
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { getRedisV3 } from "@/lib/redis-v3";
 import { getAdMetadataBatch, setAdMetadata } from "@/lib/redis/versions";
 import type { AdMetadata } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -34,7 +34,10 @@ export async function POST(request: NextRequest) {
     };
 
     if (!targetEmail) {
-      return NextResponse.json({ error: "targetEmail is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "targetEmail is required" },
+        { status: 400 },
+      );
     }
 
     const redis = getRedisV3();
@@ -44,7 +47,11 @@ export async function POST(request: NextRequest) {
       // Direct mode: reassign specific ads by ID
       const metadataMap = await getAdMetadataBatch(adIds);
       for (const [adId, meta] of metadataMap.entries()) {
-        const updated: AdMetadata = { ...meta, owner: targetEmail, lastModified: Date.now() };
+        const updated: AdMetadata = {
+          ...meta,
+          owner: targetEmail,
+          lastModified: Date.now(),
+        };
         await setAdMetadata(adId, updated);
         reassigned.push(adId);
       }
@@ -62,7 +69,11 @@ export async function POST(request: NextRequest) {
         if (!ownerMatch) continue;
         if (language && meta.brief?.selectedLanguage !== language) continue;
 
-        const updated: AdMetadata = { ...meta, owner: targetEmail, lastModified: Date.now() };
+        const updated: AdMetadata = {
+          ...meta,
+          owner: targetEmail,
+          lastModified: Date.now(),
+        };
         await setAdMetadata(adId, updated);
         reassigned.push(adId);
       }
@@ -82,13 +93,20 @@ export async function POST(request: NextRequest) {
       reassigned: reassigned.length,
       adIds: reassigned,
       targetEmail,
-      filters: { language: language || "any", owner: owner || "legacy", adIds: adIds || null },
+      filters: {
+        language: language || "any",
+        owner: owner || "legacy",
+        adIds: adIds || null,
+      },
     });
   } catch (error) {
     console.error("❌ Reassign failed:", error);
     return NextResponse.json(
-      { error: "Failed to reassign ads", details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
+      {
+        error: "Failed to reassign ads",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
     );
   }
 }

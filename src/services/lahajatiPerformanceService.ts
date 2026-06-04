@@ -5,36 +5,39 @@
  */
 
 import { redis } from "@/lib/redis";
-import { fetchLahajatiPerformances, LahajatiPerformance } from "@/services/voiceProviderService";
+import {
+  fetchLahajatiPerformances,
+  LahajatiPerformance,
+} from "@/services/voiceProviderService";
 
 const REDIS_KEY = "lahajati_performances";
 
 // Keywords indicating ad-related performance styles (Arabic)
 const AD_KEYWORDS = [
-  "إعلان",      // Advertisement
-  "تجاري",      // Commercial
-  "ترويج",      // Promotional
-  "دعائي",      // Advertising
-  "سيارة",      // Automotive
-  "عقاري",      // Real estate
-  "تسويق",      // Marketing
-  "منتج",       // Product
-  "عرض",        // Offer/presentation
+  "إعلان", // Advertisement
+  "تجاري", // Commercial
+  "ترويج", // Promotional
+  "دعائي", // Advertising
+  "سيارة", // Automotive
+  "عقاري", // Real estate
+  "تسويق", // Marketing
+  "منتج", // Product
+  "عرض", // Offer/presentation
 ];
 
 // Common ad-related performance IDs we've identified (can be expanded)
 const KNOWN_AD_PERFORMANCE_IDS = [
-  1306,  // محايد ومعلوماتي (Neutral/Informative) - good default for ads
-  1308,  // درامي ومثير (Dramatic) - documentary style
-  1309,  // بهدوء ودفء (Calm and warm)
-  1280,  // تكنولوجي متقدم (Tech/Advanced)
-  1565,  // ثقة هادئة (Calm confidence)
+  1306, // محايد ومعلوماتي (Neutral/Informative) - good default for ads
+  1308, // درامي ومثير (Dramatic) - documentary style
+  1309, // بهدوء ودفء (Calm and warm)
+  1280, // تكنولوجي متقدم (Tech/Advanced)
+  1565, // ثقة هادئة (Calm confidence)
 ];
 
 type PerformanceCache = {
   all: LahajatiPerformance[];
   adRelated: LahajatiPerformance[];
-  byId: Record<number, string>;  // performance_id → display_name
+  byId: Record<number, string>; // performance_id → display_name
   lastUpdated: number;
 };
 
@@ -42,7 +45,7 @@ type PerformanceCache = {
  * Check if a performance style is ad-related based on keywords
  */
 function isAdRelated(displayName: string): boolean {
-  return AD_KEYWORDS.some(keyword => displayName.includes(keyword));
+  return AD_KEYWORDS.some((keyword) => displayName.includes(keyword));
 }
 
 class LahajatiPerformanceService {
@@ -69,7 +72,10 @@ class LahajatiPerformanceService {
         byId[p.performance_id] = p.display_name;
 
         // Include if matches keywords OR is a known good ad performance
-        if (isAdRelated(p.display_name) || KNOWN_AD_PERFORMANCE_IDS.includes(p.performance_id)) {
+        if (
+          isAdRelated(p.display_name) ||
+          KNOWN_AD_PERFORMANCE_IDS.includes(p.performance_id)
+        ) {
           adRelated.push(p);
         }
       }
@@ -85,7 +91,7 @@ class LahajatiPerformanceService {
       await redis.set(REDIS_KEY, this.cache);
 
       console.log(
-        `✅ Lahajati performances cached: ${performances.length} total, ${adRelated.length} ad-related`
+        `✅ Lahajati performances cached: ${performances.length} total, ${adRelated.length} ad-related`,
       );
 
       return {
@@ -141,7 +147,9 @@ class LahajatiPerformanceService {
     }
 
     // Return empty fallback data
-    console.warn("⚠️ Lahajati: Using empty performance cache (not yet populated)");
+    console.warn(
+      "⚠️ Lahajati: Using empty performance cache (not yet populated)",
+    );
     return {
       all: [],
       adRelated: [],

@@ -15,7 +15,9 @@ async function checkRedisData() {
 
     // Check default-session ads
     console.log("📋 Ads for default-session:");
-    const defaultSessionAds = await redis.get<string[]>("ads:by_user:default-session");
+    const defaultSessionAds = await redis.get<string[]>(
+      "ads:by_user:default-session",
+    );
     console.log(defaultSessionAds || "No ads found");
 
     // Check global ads index
@@ -32,7 +34,6 @@ async function checkRedisData() {
         console.log(`  ${JSON.stringify(meta, null, 2)}`);
       }
     }
-
   } catch (error) {
     console.error("❌ Error:", error);
   }

@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from "react";
-import { PlayIcon, StopIcon } from "@heroicons/react/24/solid";
-import { Cog6ToothIcon } from "@heroicons/react/24/outline";
-import { Voice, VoiceTrack, Provider } from "@/types";
-import type { VoiceTrackGenerationStatus } from "@/types/versions";
 import { getEffectiveProvider } from "@/lib/voice-utils";
+import { Provider, Voice, VoiceTrack } from "@/types";
+import type { VoiceTrackGenerationStatus } from "@/types/versions";
+import { Cog6ToothIcon } from "@heroicons/react/24/outline";
+import { PlayIcon, StopIcon } from "@heroicons/react/24/solid";
+import React, { useEffect, useState } from "react";
 import {
   HighlightedScriptTextarea,
+  LoadingSpinner,
+  Tooltip,
   VoiceCombobox,
   VoiceInstructionsDialog,
-  Tooltip,
-  LoadingSpinner,
 } from "./ui";
 type ScripterPanelProps = {
   voiceTracks: VoiceTrack[];
@@ -82,7 +82,9 @@ export function ScripterPanel({
   // Load voices for the VERSION's provider only (not both providers)
   useEffect(() => {
     if (overrideVoices) {
-      console.log("🎯 ScripterPanel using overrideVoices, skipping server load");
+      console.log(
+        "🎯 ScripterPanel using overrideVoices, skipping server load",
+      );
       return;
     }
 
@@ -90,7 +92,8 @@ export function ScripterPanel({
       setIsLoadingVoices(true);
 
       // Use the version's provider - "any" shouldn't reach here but handle gracefully
-      const effectiveProvider = selectedProvider === "any" ? "elevenlabs" : selectedProvider;
+      const effectiveProvider =
+        selectedProvider === "any" ? "elevenlabs" : selectedProvider;
 
       try {
         const url = new URL("/api/voice-catalogue", window.location.origin);
@@ -117,7 +120,9 @@ export function ScripterPanel({
             provider: effectiveProvider,
           }));
           setVoices(loadedVoices);
-          console.log(`✅ ScripterPanel loaded ${loadedVoices.length} ${effectiveProvider} voices`);
+          console.log(
+            `✅ ScripterPanel loaded ${loadedVoices.length} ${effectiveProvider} voices`,
+          );
         } else {
           console.error(`❌ ScripterPanel voice load error:`, data.error);
           setVoices([]);
@@ -347,34 +352,58 @@ export function ScripterPanel({
                                 : "text-wb-blue hover:text-blue-400 hover:bg-wb-blue/10 border-wb-blue/20 hover:border-wb-blue/30"
                           }`}
                         >
-                        {trackGenerationStatus[index]?.isGenerating ? (
-                          <LoadingSpinner size="sm" />
-                        ) : trackGenerationStatus[index]?.isPlaying ? (
-                          <StopIcon className="w-4 h-4" />
-                        ) : (
-                          <PlayIcon className="w-4 h-4" />
-                        )}
+                          {trackGenerationStatus[index]?.isGenerating ? (
+                            <LoadingSpinner size="sm" />
+                          ) : trackGenerationStatus[index]?.isPlaying ? (
+                            <StopIcon className="w-4 h-4" />
+                          ) : (
+                            <PlayIcon className="w-4 h-4" />
+                          )}
                         </button>
                       </Tooltip>
                     )}
 
-                    {/* Configure button */}
-                    {(selectedProvider === "openai" ||
-                      selectedProvider === "elevenlabs" ||
-                      selectedProvider === "lahajati") && (
-                      <Tooltip content="Configure voice settings">
-                        <button
-                          onClick={() => setEditingInstructionsIndex(index)}
-                          className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
-                            track.speed !== undefined || track.voiceInstructions
-                              ? "text-wb-blue bg-wb-blue/10 border-wb-blue/20"
-                              : "text-gray-500 hover:text-wb-blue hover:bg-wb-blue/10 border-transparent hover:border-wb-blue/20"
-                          }`}
-                        >
-                          <Cog6ToothIcon className="w-4 h-4" strokeWidth={2} />
-                        </button>
-                      </Tooltip>
-                    )}
+                    {/* Configure button — uses per-track effective provider so
+                        a track whose provider was overridden (e.g. ad is
+                        ElevenLabs-wide but this track is ByteDance) still
+                        shows its knobs. Qwen/Lovo are intentionally hidden:
+                        they have no per-track configuration surface. */}
+                    {(() => {
+                      const effective = getEffectiveProvider(
+                        track,
+                        selectedProvider as Provider,
+                      );
+                      const hasConfigKnobs =
+                        effective === "openai" ||
+                        effective === "elevenlabs" ||
+                        effective === "lahajati" ||
+                        effective === "bytedance";
+                      if (!hasConfigKnobs) return null;
+                      const hasCustomConfig =
+                        track.speed !== undefined ||
+                        !!track.voiceInstructions ||
+                        !!track.emotion ||
+                        track.postProcessingSpeedup !== undefined ||
+                        track.postProcessingPitch !== undefined ||
+                        track.targetDuration !== undefined;
+                      return (
+                        <Tooltip content="Configure voice settings">
+                          <button
+                            onClick={() => setEditingInstructionsIndex(index)}
+                            className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
+                              hasCustomConfig
+                                ? "text-wb-blue bg-wb-blue/10 border-wb-blue/20"
+                                : "text-gray-500 hover:text-wb-blue hover:bg-wb-blue/10 border-transparent hover:border-wb-blue/20"
+                            }`}
+                          >
+                            <Cog6ToothIcon
+                              className="w-4 h-4"
+                              strokeWidth={2}
+                            />
+                          </button>
+                        </Tooltip>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -412,12 +441,21 @@ export function ScripterPanel({
           }
           targetDuration={voiceTracks[editingInstructionsIndex]?.targetDuration}
           provider={selectedProvider as Provider}
-          trackProvider={getEffectiveProvider(voiceTracks[editingInstructionsIndex], selectedProvider as Provider)}
+          trackProvider={getEffectiveProvider(
+            voiceTracks[editingInstructionsIndex],
+            selectedProvider as Provider,
+          )}
           voiceDescription={
             voiceTracks[editingInstructionsIndex]?.voice?.description
           }
           dialectId={voiceTracks[editingInstructionsIndex]?.dialectId}
           performanceId={voiceTracks[editingInstructionsIndex]?.performanceId}
+          emotion={voiceTracks[editingInstructionsIndex]?.emotion}
+          trackText={voiceTracks[editingInstructionsIndex]?.text}
+          trackLanguage={
+            voiceTracks[editingInstructionsIndex]?.voice?.language ||
+            selectedLanguage
+          }
           onSave={(
             instructions,
             speed,
@@ -426,7 +464,9 @@ export function ScripterPanel({
             postProcessingPitch,
             targetDuration,
             dialectId,
-            performanceId
+            performanceId,
+            emotion,
+            convertedText,
           ) => {
             const currentTrack = voiceTracks[editingInstructionsIndex];
             const providerChanged =
@@ -441,6 +481,11 @@ export function ScripterPanel({
               targetDuration: targetDuration,
               dialectId: dialectId,
               performanceId: performanceId,
+              emotion: emotion,
+              // LLM-converted script text lands here when provider changed.
+              // When unchanged or conversion skipped, fall through to the
+              // existing text.
+              ...(convertedText ? { text: convertedText } : {}),
               // Clear voice if provider changed (user needs to select new voice)
               voice: providerChanged ? null : currentTrack.voice,
             });

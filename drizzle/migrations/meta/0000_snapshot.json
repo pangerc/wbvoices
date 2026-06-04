@@ -96,11 +96,7 @@
       "compositePrimaryKeys": {
         "voice_approvals_voice_key_language_accent_pk": {
           "name": "voice_approvals_voice_key_language_accent_pk",
-          "columns": [
-            "voice_key",
-            "language",
-            "accent"
-          ]
+          "columns": ["voice_key", "language", "accent"]
         }
       },
       "uniqueConstraints": {},
@@ -197,9 +193,7 @@
         "voice_metadata_voice_key_unique": {
           "name": "voice_metadata_voice_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "voice_key"
-          ]
+          "columns": ["voice_key"]
         }
       },
       "policies": {},

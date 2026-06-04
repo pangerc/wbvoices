@@ -1,9 +1,9 @@
 import { redis } from "@/lib/redis";
-import { Provider, Language } from "@/types";
-import { accentRegions, normalizeLanguageCode } from "@/utils/language";
-import { voiceMetadataService } from "./voiceMetadataService";
-import { voiceDescriptionService } from "./voiceDescriptionService";
+import { Language, Provider } from "@/types";
 import { getBlacklistLookupKeys } from "@/utils/blacklistKeys";
+import { accentRegions, normalizeLanguageCode } from "@/utils/language";
+import { voiceDescriptionService } from "./voiceDescriptionService";
+import { voiceMetadataService } from "./voiceMetadataService";
 
 // Actual provider types (excluding "any")
 type ActualProvider = Exclude<Provider, "any">;
@@ -45,7 +45,10 @@ export type UnifiedVoice = {
 export type VoiceCounts = Record<Provider, number>;
 
 // Type for pre-loaded blacklist (matches voiceMetadataService.getAllBlacklistedForLanguage return)
-export type PreloadedBlacklist = Record<string, { accents: Set<string>; hasLanguageWide: boolean }>;
+export type PreloadedBlacklist = Record<
+  string,
+  { accents: Set<string>; hasLanguageWide: boolean }
+>;
 
 /**
  * 🏰 MAGNIFICENT TOWER ARCHITECTURE 🏰
@@ -70,7 +73,10 @@ export type VoiceDataTower = {
 };
 
 // Type for pre-loaded towers (used by language-options API)
-export type PreloadedTowers = { voiceTower: VoiceTower; dataTower: VoiceDataTower };
+export type PreloadedTowers = {
+  voiceTower: VoiceTower;
+  dataTower: VoiceDataTower;
+};
 
 type CountsTower = {
   [language: string]: {
@@ -103,7 +109,10 @@ export class VoiceCatalogueService {
     const now = Date.now();
 
     // Return cached promise if still valid
-    if (cachedTowersPromise && (now - towersCacheTimestamp) < TOWER_CACHE_TTL_MS) {
+    if (
+      cachedTowersPromise &&
+      now - towersCacheTimestamp < TOWER_CACHE_TTL_MS
+    ) {
       return cachedTowersPromise;
     }
 
@@ -146,7 +155,7 @@ export class VoiceCatalogueService {
   // Core operations - Query the magnificent towers
   async getVoice(
     provider: Provider,
-    voiceId: string
+    voiceId: string,
   ): Promise<UnifiedVoice | null> {
     const dataTower =
       (await redis.get<VoiceDataTower>(this.TOWER_KEYS.DATA)) || {};
@@ -157,11 +166,48 @@ export class VoiceCatalogueService {
   /**
    * Get voice by ID without knowing the provider.
    * Searches all providers until found.
+   *
+   * Fallback behavior: OpenAI voices (and any future provider that stores
+   * language-scoped id variants) register under synthesized ids like
+   * `openai:alloy-ja` while their externalId is the bare provider-native
+   * name (`alloy`). LLMs that fall back to memorized provider-native names
+   * — very common for OpenAI — pass `"alloy"` as voiceId, which misses the
+   * id-keyed lookup. When the primary lookup misses we scan the data
+   * tower for the first voice whose externalId matches, optionally
+   * scoped by provider and language for disambiguation across variants.
    */
-  async getVoiceById(voiceId: string): Promise<UnifiedVoice | null> {
-    for (const provider of ["elevenlabs", "lovo", "openai", "qwen", "bytedance", "lahajati"] as const) {
+  async getVoiceById(
+    voiceId: string,
+    hint?: { provider?: Provider; language?: string },
+  ): Promise<UnifiedVoice | null> {
+    const providers = (
+      hint?.provider && hint.provider !== "any"
+        ? [hint.provider]
+        : ([
+            "elevenlabs",
+            "lovo",
+            "openai",
+            "qwen",
+            "bytedance",
+            "lahajati",
+          ] as const)
+    ) as readonly Provider[];
+
+    for (const provider of providers) {
       const voice = await this.getVoice(provider, voiceId);
       if (voice) return voice;
+    }
+
+    // Primary lookup missed — try externalId fallback scoped by hint.
+    const dataTower =
+      (await redis.get<VoiceDataTower>(this.TOWER_KEYS.DATA)) || {};
+    const wantLang = hint?.language;
+    for (const key of Object.keys(dataTower)) {
+      const voice = dataTower[key];
+      if (voice.externalId !== voiceId) continue;
+      if (hint?.provider && voice.provider !== hint.provider) continue;
+      if (wantLang && voice.language !== wantLang) continue;
+      return voice;
     }
     return null;
   }
@@ -212,7 +258,7 @@ export class VoiceCatalogueService {
 
   async getVoicesByAccent(
     language: Language,
-    accent: string
+    accent: string,
   ): Promise<UnifiedVoice[]> {
     const voiceTower =
       (await redis.get<VoiceTower>(this.TOWER_KEYS.VOICES)) ||
@@ -246,7 +292,7 @@ export class VoiceCatalogueService {
 
   async getVoiceCounts(
     language: Language,
-    accent?: string
+    accent?: string,
   ): Promise<VoiceCounts> {
     const countsTower =
       (await redis.get<CountsTower>(this.TOWER_KEYS.COUNTS)) || {};
@@ -342,7 +388,7 @@ export class VoiceCatalogueService {
 
   async getVoicesByRegion(
     language: Language,
-    region: string
+    region: string,
   ): Promise<UnifiedVoice[]> {
     const voiceTower =
       (await redis.get<VoiceTower>(this.TOWER_KEYS.VOICES)) ||
@@ -375,7 +421,7 @@ export class VoiceCatalogueService {
 
   async getVoiceCountsByRegion(
     language: Language,
-    region: string
+    region: string,
   ): Promise<VoiceCounts> {
     const countsTower =
       (await redis.get<CountsTower>(this.TOWER_KEYS.COUNTS)) || {};
@@ -431,10 +477,10 @@ export class VoiceCatalogueService {
       // 🔥 FIXED: When BOTH region and accent specified, filter by accent within region
       const regionVoices = await this.getVoicesByRegion(
         filters.language,
-        filters.region
+        filters.region,
       );
       const accentVoices = regionVoices.filter(
-        (v) => v.accent === filters.accent
+        (v) => v.accent === filters.accent,
       );
 
       counts = {
@@ -453,33 +499,33 @@ export class VoiceCatalogueService {
       const openAIVoices = await this.getVoicesForProvider(
         "openai",
         filters.language,
-        filters.accent
+        filters.accent,
       );
       counts.openai = openAIVoices.length;
       const lahajatiVoices = await this.getVoicesForProvider(
         "lahajati",
         filters.language,
-        filters.accent
+        filters.accent,
       );
       counts.lahajati = lahajatiVoices.length;
     } else if (filters.region) {
       // Only region specified (no accent) - get all accents in region
       counts = await this.getVoiceCountsByRegion(
         filters.language,
-        filters.region
+        filters.region,
       );
 
       // OpenAI and Lahajati voices are accent-agnostic - get their actual count regardless of region
       const openAIVoices = await this.getVoicesForProvider(
         "openai",
         filters.language,
-        filters.accent
+        filters.accent,
       );
       counts.openai = openAIVoices.length;
       const lahajatiVoices = await this.getVoicesForProvider(
         "lahajati",
         filters.language,
-        filters.accent
+        filters.accent,
       );
       counts.lahajati = lahajatiVoices.length;
     } else {
@@ -546,7 +592,7 @@ export class VoiceCatalogueService {
     }
 
     return options.filter(
-      (option) => !excludeProviders.includes(option.provider)
+      (option) => !excludeProviders.includes(option.provider),
     );
   }
 
@@ -555,7 +601,7 @@ export class VoiceCatalogueService {
     language: Language,
     accent?: string,
     requireApproval?: boolean,
-    preloadedBlacklist?: PreloadedBlacklist
+    preloadedBlacklist?: PreloadedBlacklist,
   ): Promise<UnifiedVoice[]> {
     // Always use getTowers() - it's automatically cached/deduplicated
     const { voiceTower, dataTower } = await this.getTowers();
@@ -564,11 +610,13 @@ export class VoiceCatalogueService {
 
     // Helper: Get language data with fallback to base language
     // This handles cases where voices are stored with "zh" but search uses "zh-CN"
-    const getLanguageData = (providerTower: typeof voiceTower[ActualProvider]) => {
+    const getLanguageData = (
+      providerTower: (typeof voiceTower)[ActualProvider],
+    ) => {
       let data = providerTower?.[language] || {};
       // If no results and language has region suffix, try base language
-      if (Object.keys(data).length === 0 && language.includes('-')) {
-        const baseLanguage = language.split('-')[0];
+      if (Object.keys(data).length === 0 && language.includes("-")) {
+        const baseLanguage = language.split("-")[0];
         data = providerTower?.[baseLanguage] || {};
       }
       return data;
@@ -631,12 +679,28 @@ export class VoiceCatalogueService {
     if (requireApproval) {
       if (preloadedBlacklist) {
         // Fast path: use pre-loaded blacklist (no DB call)
-        voices = this.filterByPreloadedBlacklist(voices, preloadedBlacklist, accent);
+        voices = this.filterByPreloadedBlacklist(
+          voices,
+          preloadedBlacklist,
+          accent,
+        );
       } else {
         // Fallback: query DB for each call
         voices = await this.filterByBlacklist(voices, language, accent);
       }
     }
+
+    // Overlay Neon-stored personality descriptions onto each voice. The
+    // tower in Redis only carries provider-API metadata (gender / accent
+    // / age / capabilities); the human-curated descriptions ("Middle-aged
+    // french man, serious intonation. Great for Commercials.") live in
+    // the voice_descriptions table and are loaded here. This is what
+    // gives the casting agent the signal to discriminate between
+    // candidates with the same accent metadata — without it the agent
+    // would have no idea that "Sara – The Premium Humanlike Arabic
+    // Voice" carries an Arabic acoustic identity even though the
+    // catalogue tagged it parisian-fr.
+    voices = await this.enrichWithDescriptions(voices);
 
     return voices;
   }
@@ -654,7 +718,7 @@ export class VoiceCatalogueService {
   private async filterByBlacklist(
     voices: UnifiedVoice[],
     language: Language,
-    accent?: string
+    accent?: string,
   ): Promise<UnifiedVoice[]> {
     if (voices.length === 0) return [];
 
@@ -663,15 +727,21 @@ export class VoiceCatalogueService {
       const voiceKeys = voices.flatMap((v) => getBlacklistLookupKeys(v));
 
       // Bulk fetch blacklist entries with enhanced structure
-      const blacklistMap = await voiceMetadataService.bulkGetBlacklistedEnhanced(
-        voiceKeys,
-        language
-      );
+      const blacklistMap =
+        await voiceMetadataService.bulkGetBlacklistedEnhanced(
+          voiceKeys,
+          language,
+        );
 
-      return voices.filter((voice) => !this.isVoiceBlacklisted(voice, blacklistMap, accent));
+      return voices.filter(
+        (voice) => !this.isVoiceBlacklisted(voice, blacklistMap, accent),
+      );
     } catch (error) {
       // Graceful degradation: if blacklist filtering fails, return all voices
-      console.warn('⚠️ Blacklist filtering failed - returning all voices:', error);
+      console.warn(
+        "⚠️ Blacklist filtering failed - returning all voices:",
+        error,
+      );
       return voices; // Return all voices unfiltered
     }
   }
@@ -684,9 +754,11 @@ export class VoiceCatalogueService {
   private filterByPreloadedBlacklist(
     voices: UnifiedVoice[],
     blacklistMap: PreloadedBlacklist,
-    accent?: string
+    accent?: string,
   ): UnifiedVoice[] {
-    return voices.filter((voice) => !this.isVoiceBlacklisted(voice, blacklistMap, accent));
+    return voices.filter(
+      (voice) => !this.isVoiceBlacklisted(voice, blacklistMap, accent),
+    );
   }
 
   /**
@@ -697,8 +769,11 @@ export class VoiceCatalogueService {
    */
   private isVoiceBlacklisted(
     voice: UnifiedVoice,
-    blacklistMap: Record<string, { accents: Set<string>; hasLanguageWide: boolean }>,
-    accent?: string
+    blacklistMap: Record<
+      string,
+      { accents: Set<string>; hasLanguageWide: boolean }
+    >,
+    accent?: string,
   ): boolean {
     const accentToCheck = accent || voice.accent;
     for (const key of getBlacklistLookupKeys(voice)) {
@@ -746,7 +821,7 @@ export class VoiceCatalogueService {
         voiceTower[voice.provider][voice.language][region][voice.accent] = [];
       }
       voiceTower[voice.provider][voice.language][region][voice.accent].push(
-        voiceKey
+        voiceKey,
       );
 
       // Update counts tower with region layer
@@ -781,7 +856,7 @@ export class VoiceCatalogueService {
     console.log(`   Voice Tower: ${Object.keys(voiceTower).length} providers`);
     console.log(`   Data Tower: ${Object.keys(dataTower).length} voices`);
     console.log(
-      `   Counts Tower: ${Object.keys(countsTower).length} languages`
+      `   Counts Tower: ${Object.keys(countsTower).length} languages`,
     );
   }
 
@@ -842,7 +917,7 @@ export class VoiceCatalogueService {
     if (voiceIds.length === 0) return [];
 
     const voicesData = await Promise.all(
-      voiceIds.map((id) => redis.get<UnifiedVoice>(id))
+      voiceIds.map((id) => redis.get<UnifiedVoice>(id)),
     );
 
     return voicesData.filter((voice) => voice !== null) as UnifiedVoice[];
@@ -864,18 +939,21 @@ export class VoiceCatalogueService {
    * - Redis: Fast, ephemeral provider API data
    * - Neon: Persistent human-curated metadata (descriptions, blacklists)
    */
-  async enrichWithDescriptions(voices: UnifiedVoice[]): Promise<UnifiedVoice[]> {
+  async enrichWithDescriptions(
+    voices: UnifiedVoice[],
+  ): Promise<UnifiedVoice[]> {
     if (voices.length === 0) return voices;
 
     // Build voiceKeys for bulk lookup — use externalId so the key matches the
     // bare provider voice_id stored in Neon (voice_descriptions, voice_blacklist)
-    const voiceKeys = voices.map(v => `${v.provider}:${v.externalId}`);
+    const voiceKeys = voices.map((v) => `${v.provider}:${v.externalId}`);
 
     // Bulk fetch descriptions from Neon
-    const descriptionMap = await voiceDescriptionService.bulkGetDescriptions(voiceKeys);
+    const descriptionMap =
+      await voiceDescriptionService.bulkGetDescriptions(voiceKeys);
 
     // Augment voices with descriptions
-    const enrichedVoices = voices.map(voice => {
+    const enrichedVoices = voices.map((voice) => {
       const voiceKey = `${voice.provider}:${voice.externalId}`;
       const description = descriptionMap[voiceKey];
 
@@ -894,8 +972,10 @@ export class VoiceCatalogueService {
       return voice;
     });
 
-    const enrichedCount = enrichedVoices.filter(v => v.personality).length;
-    console.log(`🎨 Enriched ${enrichedCount}/${voices.length} voices with descriptions`);
+    const enrichedCount = enrichedVoices.filter((v) => v.personality).length;
+    console.log(
+      `🎨 Enriched ${enrichedCount}/${voices.length} voices with descriptions`,
+    );
 
     return enrichedVoices;
   }

@@ -5,19 +5,19 @@
  * POST /api/ads/{adId}/voices - Create new voice version
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import {
-  listVersions,
-  getActiveVersion,
-  getAllVersionsWithData,
-  createVersion,
-} from "@/lib/redis/versions";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
 import {
-  VoiceVersion,
-  VersionStreamResponse,
+  createVersion,
+  getActiveVersion,
+  getAllVersionsWithData,
+  listVersions,
+} from "@/lib/redis/versions";
+import {
   CreateVersionResponse,
+  VersionStreamResponse,
+  VoiceVersion,
 } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
@@ -40,7 +40,7 @@ export const runtime = "nodejs";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -70,7 +70,7 @@ export async function GET(
         error: "Failed to list voice versions",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -94,7 +94,7 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -106,7 +106,7 @@ export async function POST(
     if (!body.voiceTracks || !Array.isArray(body.voiceTracks)) {
       return NextResponse.json(
         { error: "voiceTracks array is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -142,7 +142,7 @@ export async function POST(
         error: "Failed to create voice version",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

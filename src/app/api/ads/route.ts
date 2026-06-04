@@ -5,13 +5,16 @@
  * GET  /api/ads - List user's ads (or all ads for admin with ?all=true)
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextJSONResponseFromIterator } from "@/core/next-responses";
+import { AdMetadataQuery, Ads } from "@/database/ads";
+import { Pagination } from "@/database/base";
+import { AuthError, requireAuth } from "@/lib/auth-helpers";
 import { getRedisV3 } from "@/lib/redis-v3";
-import { setAdMetadata, getAdMetadataBatch } from "@/lib/redis/versions";
+import { setAdMetadata } from "@/lib/redis/versions";
+import { Language } from "@/types";
 import { AdMetadata } from "@/types/versions";
 import { generateProjectId } from "@/utils/projectId";
-import { requireAuth } from "@/lib/auth-helpers";
-import { AuthError } from "@/lib/auth-helpers";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
@@ -21,6 +24,48 @@ const USER_ADS_KEY = (ownerEmail: string) => `ads:by_user:${ownerEmail}`;
 
 // All ads index (for admin listing)
 const ALL_ADS_KEY = "ads:all";
+
+/**
+ * Takes a URL search parameters maps and extracts needed details
+ * like `name`, `client`, `market`, `language` and returns it for filtering.
+ *
+ * If no `skip` or `take` is given it returns `showAll: true`.
+ * Otherwise it defaults `skip` to `0` and `take` to `4`.
+ *
+ * @param searchParams that contain the search
+ * @returns
+ */
+const getSearch = (
+  searchParams: URLSearchParams,
+): { query: AdMetadataQuery; pagination?: Pagination } => {
+  // FIXME: Get search via some sort of input validation
+  const name = searchParams.get("name") ?? undefined;
+  const client = searchParams.get("client") ?? undefined;
+  const market = searchParams.get("market") ?? undefined;
+  const language = (searchParams.get("language") ?? undefined) as
+    | Language
+    | undefined;
+  const skip = searchParams.get("skip");
+  const take = searchParams.get("take");
+
+  const pagination =
+    typeof skip === "string"
+      ? {
+          skip: Number(skip),
+          take: Number(take ?? 8),
+        }
+      : undefined;
+
+  return {
+    query: {
+      name,
+      client,
+      market,
+      language,
+    },
+    pagination,
+  };
+};
 
 /**
  * POST /api/ads
@@ -66,7 +111,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ adId, meta: metadata }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     console.error("❌ Failed to create ad:", error);
     return NextResponse.json(
@@ -74,7 +122,7 @@ export async function POST(request: NextRequest) {
         error: "Failed to create ad",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -83,55 +131,36 @@ export async function POST(request: NextRequest) {
  * GET /api/ads
  *
  * List ads for the authenticated user.
- * Admin users can pass ?all=true to see all ads.
  */
 export async function GET(request: NextRequest) {
   try {
     const { email, role } = await requireAuth();
-    const url = new URL(request.url);
-    const showAll = url.searchParams.get("all") === "true";
+    const { query, pagination } = getSearch(new URL(request.url).searchParams);
 
-    const redis = getRedisV3();
-    let adIds: string[];
-
-    if (showAll && role === "admin") {
-      // Admin: show all ads (includes legacy universal-session ads)
-      adIds = (await redis.get<string[]>(ALL_ADS_KEY)) || [];
-      console.log(`📋 Admin loading ALL ads: ${adIds.length} total`);
-    } else {
-      // Regular user: show only their ads
-      const userAdsKey = USER_ADS_KEY(email);
-      adIds = (await redis.get<string[]>(userAdsKey)) || [];
-      console.log(`📋 Loading ads for ${email}: ${adIds.length} found`);
-    }
-
-    // Load metadata for all ads in a single batch call
-    const metadataMap = await getAdMetadataBatch(adIds);
-
-    const ads = [];
-    for (const adId of adIds) {
-      const meta = metadataMap.get(adId);
-      if (meta) {
-        ads.push({ adId, meta });
-      }
-    }
-
-    // Sort by last modified (newest first)
-    ads.sort((a, b) => b.meta.lastModified - a.meta.lastModified);
-
-    return NextResponse.json({ ads });
+    return new NextJSONResponseFromIterator(
+      Ads.getInstance().getAdsMetadataByEmail({
+        email: role === "admin" ? undefined : email,
+        query,
+        opts: {
+          signal: request.signal,
+          ...pagination,
+        },
+      }),
+    );
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     console.error("❌ Failed to load ads:", error);
     return NextResponse.json(
       {
         error: "Failed to load ads",
         details: error instanceof Error ? error.message : String(error),
-        ads: [],
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

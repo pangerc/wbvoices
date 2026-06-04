@@ -5,22 +5,72 @@ declare global {
   }
 }
 
-import { normalizeToSpotifySpec } from './audio-processing';
+import { calculateLUFS, normalizeToSpotifySpec } from "./audio-processing";
 
 export type TrackTiming = {
   id: string;
   type: "voice" | "music" | "soundfx";
   url: string;
   startTime: number;
+  /** Effective duration (post-trim) — when the clip plays. */
   duration: number;
-  gain?: number;
+  /**
+   * User volume trim in dB around unity. 0 = no change, positive = louder,
+   * negative = quieter. Applied AFTER per-stem normalization to a per-type
+   * LUFS target. Replaces the old 0..1 multiplier; legacy values in 0..1
+   * range now read as small positive trims (acceptable degradation until
+   * the user touches the slider).
+   */
+  gainDb?: number;
+  /**
+   * Pre-measured integrated loudness of the stem in LUFS (BS.1770). When
+   * present, the mix render computes the gain needed to bring the stem
+   * to its per-type target before applying user trim. Absent stems are
+   * assumed-at-target (no normalization adjustment).
+   */
+  integratedLufs?: number;
+  /**
+   * Trim window into the source blob. When present, the clip plays only
+   * `[trim.start, trim.end]` of the source at its scheduled timeline
+   * position. Matches the resolver's effective-duration semantics.
+   */
+  trim?: { start: number; end: number };
 };
+
+/**
+ * Per-type LUFS targets for stem normalization. Stems hotter than their
+ * target are attenuated; quieter stems are boosted. These constants codify
+ * the "music sits 7 LU under voice" broadcast convention so the user's
+ * volume trim slider can mean "trim around a balanced mix" rather than
+ * "guess at a multiplier that compensates for raw stem loudness."
+ *
+ * Currently constants; should move to config if producers want per-ad
+ * tuning (per the architecture-strategist's guidance on the volume-
+ * semantics decision).
+ */
+const STEM_TARGET_LUFS = {
+  voice: -16,
+  music: -23,
+  soundfx: -20,
+} as const;
+
+/** Hard ceiling on per-stem gain so a corrupt LUFS measurement can't blow speakers. */
+const MAX_PER_STEM_GAIN_DB = 12;
+const MIN_PER_STEM_GAIN_DB = -36;
+
+function dbToLinear(db: number): number {
+  return Math.pow(10, db / 20);
+}
+
+function clampDb(db: number): number {
+  return Math.max(MIN_PER_STEM_GAIN_DB, Math.min(MAX_PER_STEM_GAIN_DB, db));
+}
 
 export async function createMix(
   voiceUrls: string[],
   musicUrl: string | null,
   soundFxUrls: string[] = [],
-  timingInfo: TrackTiming[] = []
+  timingInfo: TrackTiming[] = [],
 ): Promise<{ blob: Blob }> {
   console.log("Creating mix with timingInfo:", timingInfo);
 
@@ -42,7 +92,7 @@ export async function createMix(
       loadAudioBuffer(url, offlineCtx).then((buffer) => {
         audioBuffersMap.set(url, buffer);
         console.log(`Loaded voice audio: ${url}`);
-      })
+      }),
     );
   }
 
@@ -52,7 +102,7 @@ export async function createMix(
       loadAudioBuffer(musicUrl, offlineCtx).then((buffer) => {
         audioBuffersMap.set(musicUrl, buffer);
         console.log(`Loaded music audio: ${musicUrl}`);
-      })
+      }),
     );
   }
 
@@ -62,7 +112,7 @@ export async function createMix(
       loadAudioBuffer(url, offlineCtx).then((buffer) => {
         audioBuffersMap.set(url, buffer);
         console.log(`Loaded sound effect audio: ${url}`);
-      })
+      }),
     );
   }
 
@@ -73,17 +123,27 @@ export async function createMix(
   // Calculate the longest duration needed and final track timing
   let maxEndTime = 0;
 
-  // Create a map of actual track timings based on provided timing info or default sequential
+  // Create a map of actual track timings based on provided timing info or default sequential.
+  // `sourceOffset` + `playDuration` feed into `source.start(when, offset, duration)` so the
+  // underlying blob plays only the trim window. Without them the full blob plays even when
+  // the resolver's effective duration is shorter — the bug that made trims visible but not audible.
   const trackTimings = new Map<
     string,
-    { start: number; end: number; gain: number; type: string }
+    {
+      start: number;
+      end: number;
+      gain: number;
+      type: string;
+      sourceOffset: number;
+      playDuration: number;
+    }
   >();
 
   // If timing info is provided, use it
   if (timingInfo.length > 0) {
     // Sort timing info by start time to ensure correct playback order
     const sortedTimingInfo = [...timingInfo].sort(
-      (a, b) => a.startTime - b.startTime
+      (a, b) => a.startTime - b.startTime,
     );
 
     sortedTimingInfo.forEach((info) => {
@@ -93,22 +153,54 @@ export async function createMix(
       }
 
       const audioBuffer = audioBuffersMap.get(info.url)!;
-      const duration = Math.min(
-        audioBuffer.duration,
-        info.duration || audioBuffer.duration
+      // Trim window: clamp into the buffer's actual bounds so a stale trim
+      // that extends past a re-generated (shorter) blob doesn't throw.
+      const sourceOffset = info.trim
+        ? Math.max(0, Math.min(audioBuffer.duration, info.trim.start))
+        : 0;
+      const trimmedLen = info.trim
+        ? Math.max(0, info.trim.end - info.trim.start)
+        : audioBuffer.duration;
+      const playDuration = Math.min(
+        audioBuffer.duration - sourceOffset,
+        trimmedLen,
+        info.duration || audioBuffer.duration,
       );
-      const endTime = info.startTime + duration;
+      const endTime = info.startTime + playDuration;
+
+      // Compute the per-stem linear gain via dB-domain math:
+      //   normalizationDb = targetLufs - integratedLufs    (assume-at-target if unmeasured)
+      //   userTrimDb      = info.gainDb ?? 0               (default 0 = unity)
+      //   total           = clamp(normalizationDb + userTrimDb)
+      // Result is a linear multiplier handed to the GainNode below.
+      const targetLufs =
+        STEM_TARGET_LUFS[info.type as keyof typeof STEM_TARGET_LUFS] ?? -16;
+      const integratedLufs =
+        typeof info.integratedLufs === "number"
+          ? info.integratedLufs
+          : measureLufsLazy(audioBuffer, info.url);
+      const normalizationDb =
+        typeof integratedLufs === "number" ? targetLufs - integratedLufs : 0;
+      const userTrimDb = typeof info.gainDb === "number" ? info.gainDb : 0;
+      const totalDb = clampDb(normalizationDb + userTrimDb);
+      // Silence pass-through: if the patch sender wanted the track muted
+      // (handled today by sending gain=0 in the legacy path), preserve
+      // that by treating "explicit zero gainDb under -36" as silence.
+      const linearGain =
+        userTrimDb <= MIN_PER_STEM_GAIN_DB ? 0 : dbToLinear(totalDb);
 
       trackTimings.set(info.url, {
         start: info.startTime,
         end: endTime,
-        gain: info.gain || getDefaultGainForType(info.type),
+        gain: linearGain,
         type: info.type,
+        sourceOffset,
+        playDuration,
       });
 
       maxEndTime = Math.max(maxEndTime, endTime);
       console.log(
-        `Scheduled ${info.type} at ${info.startTime}s, duration: ${duration}s, end: ${endTime}s`
+        `Scheduled ${info.type} at ${info.startTime}s, offset: ${sourceOffset}s, duration: ${playDuration}s, end: ${endTime}s, normDb=${normalizationDb.toFixed(1)} userDb=${userTrimDb.toFixed(1)} total=${totalDb.toFixed(1)}dB`,
       );
     });
   } else {
@@ -122,8 +214,10 @@ export async function createMix(
       trackTimings.set(musicUrl, {
         start: 0,
         end: audioBuffer.duration,
-        gain: getDefaultGainForType("music"),
+        gain: 1.0,
         type: "music",
+        sourceOffset: 0,
+        playDuration: audioBuffer.duration,
       });
       maxEndTime = Math.max(maxEndTime, audioBuffer.duration);
     }
@@ -136,8 +230,10 @@ export async function createMix(
       trackTimings.set(url, {
         start: 0,
         end: audioBuffer.duration,
-        gain: getDefaultGainForType("soundfx"),
+        gain: 1.0,
         type: "soundfx",
+        sourceOffset: 0,
+        playDuration: audioBuffer.duration,
       });
 
       // Sound effects at start shift voice tracks forward
@@ -153,8 +249,10 @@ export async function createMix(
       trackTimings.set(url, {
         start: currentTime,
         end: currentTime + audioBuffer.duration,
-        gain: getDefaultGainForType("voice"),
+        gain: 1.0,
         type: "voice",
+        sourceOffset: 0,
+        playDuration: audioBuffer.duration,
       });
 
       maxEndTime = Math.max(maxEndTime, currentTime + audioBuffer.duration);
@@ -171,8 +269,12 @@ export async function createMix(
       end: timing.end,
       gain: timing.gain,
       type: timing.type,
-    }))
+    })),
   );
+
+  // Minimum per-edge fade to avoid DC-offset clicks on hard cuts.
+  // 8ms is inaudible as an envelope but sufficient to suppress sample-boundary pops.
+  const MICRO_FADE = 0.008;
 
   // Create and schedule the audio sources with correct timing
   for (const [url, timing] of trackTimings.entries()) {
@@ -184,32 +286,54 @@ export async function createMix(
 
     // Apply gain
     const gainNode = offlineCtx.createGain();
-    gainNode.gain.value = timing.gain;
 
-    // Apply fade-out for music tracks
+    // Music: long exponential fade-out at the tail in addition to the micro-fades.
     if (timing.type === "music") {
-      const FADEOUT_DURATION = 2.0; // seconds
-      const fadeOutStartTime = timing.end - FADEOUT_DURATION;
+      const FADEOUT_DURATION = 2.0;
+      const fadeOutStartTime = Math.max(
+        timing.start + MICRO_FADE,
+        timing.end - FADEOUT_DURATION,
+      );
 
-      // Set the gain to stay constant until fade-out starts
-      gainNode.gain.setValueAtTime(timing.gain, timing.start);
+      gainNode.gain.setValueAtTime(0.0001, timing.start);
+      gainNode.gain.exponentialRampToValueAtTime(
+        Math.max(timing.gain, 0.0001),
+        timing.start + MICRO_FADE,
+      );
       gainNode.gain.setValueAtTime(timing.gain, fadeOutStartTime);
-
-      // Apply exponential fade-out from full gain to near-zero
-      gainNode.gain.exponentialRampToValueAtTime(0.001, timing.end);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, timing.end);
 
       console.log(
-        `Applied fade-out to music track from ${fadeOutStartTime}s to ${timing.end}s`
+        `Applied fade-out to music track from ${fadeOutStartTime}s to ${timing.end}s`,
       );
+    } else {
+      // Voice + SFX: symmetric micro-fades at both edges to prevent clicks.
+      // Using setTargetAtTime / linearRampToValueAtTime keeps the envelope cheap.
+      const fadeOutStart = Math.max(
+        timing.start + MICRO_FADE,
+        timing.end - MICRO_FADE,
+      );
+      gainNode.gain.setValueAtTime(0, timing.start);
+      gainNode.gain.linearRampToValueAtTime(
+        timing.gain,
+        timing.start + MICRO_FADE,
+      );
+      gainNode.gain.setValueAtTime(timing.gain, fadeOutStart);
+      gainNode.gain.linearRampToValueAtTime(0, timing.end);
     }
 
     source.connect(gainNode);
     gainNode.connect(offlineCtx.destination);
 
-    // Start the track at the calculated start time
-    source.start(timing.start);
+    // start(when, offset, duration) honours the clip's trim window — the
+    // source plays only the [trim.start, trim.end] slice of the blob at its
+    // scheduled timeline position. `duration` is the second argument that
+    // was missing before; without it, the full buffer played past timing.end
+    // (inaudible thanks to the gain-to-zero ramp, but still affected
+    // maxEndTime bookkeeping and the rendered wav length).
+    source.start(timing.start, timing.sourceOffset, timing.playDuration);
     console.log(
-      `Started ${timing.type} at ${timing.start}s with gain ${timing.gain}`
+      `Started ${timing.type} at ${timing.start}s offset=${timing.sourceOffset}s dur=${timing.playDuration}s gain=${timing.gain}`,
     );
   }
 
@@ -218,7 +342,9 @@ export async function createMix(
   const renderedBuffer = await offlineCtx.startRendering();
 
   // Apply loudness normalization to meet Spotify specifications
-  console.log('Applying loudness normalization to -16 LUFS with -2.0 dBTP peak limit...');
+  console.log(
+    "Applying loudness normalization to -16 LUFS with -2.0 dBTP peak limit...",
+  );
   const normalizedBuffer = normalizeToSpotifySpec(renderedBuffer);
 
   // Convert normalized AudioBuffer to WAV
@@ -227,22 +353,38 @@ export async function createMix(
   return { blob: wavBlob };
 }
 
-function getDefaultGainForType(type: "voice" | "music" | "soundfx"): number {
-  switch (type) {
-    case "voice":
-      return 1.0; // Full volume
-    case "music":
-      return 0.25; // Reduced volume further (from 0.4 to 0.25)
-    case "soundfx":
-      return 0.7; // Medium volume
-    default:
-      return 1.0;
+/**
+ * Per-render LUFS measurement cache. Stems decoded for the current mix
+ * are measured on-demand when no `integratedLufs` was supplied via
+ * TrackTiming, then cached by URL so successive timing entries that
+ * happen to share the same buffer (rare but possible across takes)
+ * don't pay the cost twice. Cleared between mix renders implicitly via
+ * module-level lifetime. Trade-off vs the strategist's preference for
+ * server-side measurement at stem generation: lazy here means N×~50ms
+ * per render for unmeasured stems, fine for single-render preview;
+ * stage 9 A/B compare will need the cached-on-stream-version path
+ * (lazy backfill via PATCH) to avoid recompute on every preview.
+ */
+const lazyLufsCache = new Map<string, number>();
+
+function measureLufsLazy(buffer: AudioBuffer, url: string): number | undefined {
+  const cached = lazyLufsCache.get(url);
+  if (typeof cached === "number") return cached;
+  try {
+    const lufs = calculateLUFS(buffer);
+    if (Number.isFinite(lufs)) {
+      lazyLufsCache.set(url, lufs);
+      return lufs;
+    }
+  } catch (err) {
+    console.warn(`[mixer] LUFS measurement failed for ${url}:`, err);
   }
+  return undefined;
 }
 
 async function loadAudioBuffer(
   url: string,
-  audioContext: OfflineAudioContext
+  audioContext: OfflineAudioContext,
 ): Promise<AudioBuffer> {
   const response = await fetch(url);
   const arrayBuffer = await response.arrayBuffer();
@@ -252,13 +394,13 @@ async function loadAudioBuffer(
 
 function audioBufferToWav(
   audioBuffer: AudioBuffer,
-  duration: number
+  duration: number,
 ): Promise<Blob> {
   return new Promise((resolve) => {
     // Calculate the actual length to use (in samples)
     const lengthInSamples = Math.min(
       audioBuffer.length,
-      Math.ceil(duration * audioBuffer.sampleRate)
+      Math.ceil(duration * audioBuffer.sampleRate),
     );
 
     // Create a new AudioContext for Web Audio API

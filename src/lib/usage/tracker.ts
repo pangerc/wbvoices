@@ -67,7 +67,7 @@ export async function trackUsage(params: TrackUsageParams): Promise<void> {
     await redis.set(key, data);
 
     console.log(
-      `📊 Usage tracked [${provider}]: +${characters} chars, +${tracks} tracks, cached=${cached}`
+      `📊 Usage tracked [${provider}]: +${characters} chars, +${tracks} tracks, cached=${cached}`,
     );
   } catch (error) {
     // Don't let tracking errors break the main flow
@@ -80,7 +80,7 @@ export async function trackUsage(params: TrackUsageParams): Promise<void> {
  */
 export async function trackVoiceUsage(
   provider: "elevenlabs" | "lahajati" | "openai",
-  textLength: number
+  textLength: number,
 ): Promise<void> {
   return trackUsage({ provider, characters: textLength });
 }

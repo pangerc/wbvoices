@@ -29,12 +29,14 @@ The current mixer timeline system suffers from excessive recalculations (4+ per 
 A major source of hyper-reactivity has been eliminated: **audio duration measurement no longer triggers recalculations**.
 
 **What Changed:**
+
 - Added `generatedDuration` field to `VoiceTrack` type
 - Voice providers (ElevenLabs, Lovo) now measure actual audio duration using `music-metadata` package
 - Duration is stored in Redis at generation time, not measured client-side
 - Server uses real durations for timeline positioning (no more word-count estimation)
 
 **Impact on Cascade Problem:**
+
 ```
 BEFORE (4+ calculations):
 Audio loads → setAudioDuration() → calculateTimings() → re-render → ...
@@ -44,6 +46,7 @@ Duration already in Redis → Server calculates once → Client hydrates
 ```
 
 **Files:**
+
 - `src/types/versions.ts` - `VoiceTrack.generatedDuration` field
 - Voice provider routes - Duration measurement with `music-metadata`
 - `src/lib/mixer/rebuilder.ts` - Uses `generatedDuration` in timeline calculation
@@ -67,11 +70,13 @@ MixerPanel: hydrates Zustand from SWR (no recalculation!)
 ```
 
 **Key Behaviors:**
+
 - Hydration compares track **URLs**, not just IDs (handles re-generation with different providers)
 - Audio elements update `src` when URL changes
 - Server is source of truth; client doesn't recalculate timings
 
 **Files:**
+
 - `src/lib/mixer/rebuilder.ts` - Server-side calculation
 - `src/components/MixerPanel.tsx` - URL-aware hydration
 - `src/hooks/useMixerData.ts` - SWR subscription
@@ -80,12 +85,12 @@ MixerPanel: hydrates Zustand from SWR (no recalculation!)
 
 From the original proposal, these are still pending:
 
-| Feature | Status | Benefit |
-|---------|--------|---------|
-| Semantic IDs | ⏳ Pending | Relationships survive regeneration |
+| Feature         | Status     | Benefit                                 |
+| --------------- | ---------- | --------------------------------------- |
+| Semantic IDs    | ⏳ Pending | Relationships survive regeneration      |
 | Command Pattern | ⏳ Pending | Atomic operations, undo/redo foundation |
-| Batching Layer | ⏳ Pending | Multiple changes → single calculation |
-| Manual Editing | ⏳ Pending | Drag-and-drop timeline positions |
+| Batching Layer  | ⏳ Pending | Multiple changes → single calculation   |
+| Manual Editing  | ⏳ Pending | Drag-and-drop timeline positions        |
 
 The duration tracking and server-authoritative model provide a **stable foundation** for these future enhancements.
 
@@ -122,13 +127,11 @@ Duration measurement completes → calculateTimings() [4th]
 ### Why This Happens
 
 1. **Reactive State Model (Zustand)**
-
    - Every state change immediately broadcasts to all subscribers
    - No transaction boundaries or batching
    - Perfect for UI state, wrong tool for timeline calculations
 
 2. **Mixed Concerns**
-
    - Timeline logic in `legacyTimelineCalculator.ts`
    - State management in `mixerStore.ts`
    - Audio measurement triggers in `audioService.ts`
@@ -254,11 +257,11 @@ By the time step 4 executes, voice tracks are already positioned and immutable. 
 
 **User Expectation vs Reality:**
 
-| User Expectation                                | Reality                                     |
-| ----------------------------------------------- | ------------------------------------------- |
-| Voice 1 → [SFX plays alone] → Voice 2           | Voice 1 → [SFX + Voice 2 simultaneously]    |
-| Timeline gaps preserve audio clarity            | Overlay creates muddy audio mix             |
-| Placement selector creates gaps between tracks  | Placement selector creates overlays         |
+| User Expectation                               | Reality                                  |
+| ---------------------------------------------- | ---------------------------------------- |
+| Voice 1 → [SFX plays alone] → Voice 2          | Voice 1 → [SFX + Voice 2 simultaneously] |
+| Timeline gaps preserve audio clarity           | Overlay creates muddy audio mix          |
+| Placement selector creates gaps between tracks | Placement selector creates overlays      |
 
 **Current Workaround:**
 
@@ -273,16 +276,16 @@ With semantic IDs and dependency-aware positioning:
 ```typescript
 // Build dependency graph
 const dependencies = {
-  'voice-1': { playAfter: 'start' },
-  'sfx-1': { playAfter: 'voice-1' },      // SFX after voice 1
-  'voice-2': { playAfter: 'sfx-1' },      // Voice 2 waits for SFX!
+  "voice-1": { playAfter: "start" },
+  "sfx-1": { playAfter: "voice-1" }, // SFX after voice 1
+  "voice-2": { playAfter: "sfx-1" }, // Voice 2 waits for SFX!
 };
 
 // Topological sort determines correct order
-const sortedTracks = ['voice-1', 'sfx-1', 'voice-2'];
+const sortedTracks = ["voice-1", "sfx-1", "voice-2"];
 
 // Single-pass calculation respects all dependencies
-sortedTracks.forEach(track => {
+sortedTracks.forEach((track) => {
   if (track.playAfter) {
     const refTrack = findBySemanticId(track.playAfter);
     startTime = refTrack.endTime - (track.overlap || 0);
@@ -410,7 +413,7 @@ interface TimelineCommand {
 class RegenerateTrackCommand implements TimelineCommand {
   constructor(
     private semanticId: string,
-    private newTrackData: Partial<MixerTrack>
+    private newTrackData: Partial<MixerTrack>,
   ) {}
 
   execute(state: TimelineState): TimelineState {
@@ -430,7 +433,7 @@ class RegenerateTrackCommand implements TimelineCommand {
     return {
       ...state,
       tracks: state.tracks.map((t) =>
-        t.semanticId === this.semanticId ? newTrack : t
+        t.semanticId === this.semanticId ? newTrack : t,
       ),
     };
   }
@@ -521,7 +524,7 @@ class PureTimelineCalculator {
         const refTrack = semanticMap.get(track.playAfter);
         if (refTrack) {
           const refCalculated = result.find(
-            (r) => r.semanticId === track.playAfter
+            (r) => r.semanticId === track.playAfter,
           );
           if (refCalculated) {
             startTime =
@@ -572,7 +575,7 @@ class TimelineController {
       new RegenerateTrackCommand(semanticId, {
         url: audioUrl,
         label: voiceData.voice.name,
-      })
+      }),
     );
 
     // 3. When audio loads, queue duration update
@@ -811,7 +814,7 @@ function migrateLegacyProject(project: Project): Project {
 ```typescript
 async function saveProject(
   projectId: string,
-  timeline: TimelineState
+  timeline: TimelineState,
 ): Promise<void> {
   const existing = await fetchFromRedis(projectId);
 
@@ -1175,7 +1178,7 @@ export const useMixerStore = create<MixerState>((set, get) => ({
       // Old system: direct calculation
       const result = LegacyTimelineCalculator.calculateTimings(
         tracks,
-        audioDurations
+        audioDurations,
       );
 
       set({
@@ -1246,7 +1249,7 @@ describe("Project Migration", () => {
   test("legacy system can still load migrated project", () => {
     const migrated = createMigratedProject();
     const result = LegacyTimelineCalculator.calculateTimings(
-      extractTracksForLegacy(migrated)
+      extractTracksForLegacy(migrated),
     );
     expect(result.calculatedTracks).toHaveLength(3);
   });
@@ -1310,7 +1313,7 @@ class CommandBatcher {
 function addTrackWithSemanticId(track: MixerTrack): void {
   // Ensure semantic ID is unique
   const existingTrack = this.timeline.tracks.find(
-    (t) => t.semanticId === track.semanticId
+    (t) => t.semanticId === track.semanticId,
   );
 
   if (existingTrack) {
@@ -1319,7 +1322,7 @@ function addTrackWithSemanticId(track: MixerTrack): void {
     let suffix = 2;
     while (
       this.timeline.tracks.some(
-        (t) => t.semanticId === `${track.semanticId}-${suffix}`
+        (t) => t.semanticId === `${track.semanticId}-${suffix}`,
       )
     ) {
       suffix++;
@@ -1369,11 +1372,11 @@ test("V3 produces same results as legacy for simple project", () => {
   // Compare positions (allow 10ms tolerance for rounding)
   expect(v3Result[0].actualStartTime).toBeCloseTo(
     legacyResult[0].actualStartTime,
-    2
+    2,
   );
   expect(v3Result[1].actualStartTime).toBeCloseTo(
     legacyResult[1].actualStartTime,
-    2
+    2,
   );
 });
 ```

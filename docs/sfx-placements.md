@@ -9,21 +9,25 @@
 ## Implemented Fixes (2025-12-08)
 
 ### 1. Dual Field Synchronization Bug
+
 **Problem**: `SoundFxPanel.tsx` only updated `placement` field, not `playAfter`. Timeline calculator checked `playAfter === "start"` first, so all SFX were treated as intro.
 
 **Fix**: Added `placementIntentToLegacyPlayAfter()` helper in `SoundFxPanel.tsx` (line ~50) that syncs both fields on change.
 
 ### 2. Default playAfter Value
+
 **Problem**: New SFX prompts had `playAfter: "start"` by default, causing them to always appear at beginning.
 
 **Fix**: Changed default in `SfxDraftEditor.tsx` (line 103) from `playAfter: "start"` to `playAfter: undefined`.
 
 ### 3. Voice Version Mismatch
+
 **Problem**: SFX placement previews showed options based on voice DRAFT version, but mixer rebuilder positions relative to voice ACTIVE version. User would select "after voice 2" but if draft had different tracks than active, positioning was wrong.
 
 **Fix**: Changed `voiceTrackPreviews` in `SfxDraftEditor.tsx` (lines 56-69) to use ACTIVE voice version.
 
 ### 4. MixerPanel Hydration
+
 **Problem**: After changing SFX placement, MixerPanel wouldn't update until page reload.
 
 **Fix**: Added `hasPositionChanges` check in `MixerPanel.tsx` hydration logic (lines 85-96) comparing `calculatedTracks[].startTime` between SWR and Zustand.
@@ -35,11 +39,13 @@
 When a soundfx is placed with "At beginning (before all voices)", it currently plays **simultaneously WITH** the first voice track instead of **sequentially BEFORE** it.
 
 **Expected behavior**:
+
 ```
 [SoundFX: 0.0s - 1.1s] → [Gap] → [Voice 1 starts at 1.1s]
 ```
 
 **Actual behavior**:
+
 ```
 [SoundFX: 0.0s - 1.1s]
 [Voice 1: 0.0s - 5.2s]  ← Both start at same time
@@ -69,17 +75,19 @@ See screenshot showing soundfx track and voice track both starting at 0:00 on ti
 ### Code Locations
 
 **First voice positioning** (lines 260-263):
+
 ```typescript
 const explicitStartTime =
   firstVoice.startTime !== undefined && !isNaN(firstVoice.startTime)
-    ? firstVoice.startTime  // ❌ Uses 0, ignores startingOffset
-    : startingOffset;        // ✅ Would use 1.1s if no explicit time
+    ? firstVoice.startTime // ❌ Uses 0, ignores startingOffset
+    : startingOffset; // ✅ Would use 1.1s if no explicit time
 ```
 
 **Metadata startTime handling** (lines 228-234):
+
 ```typescript
 if (track.metadata && "startTime" in track.metadata) {
-  const explicitStartTime = track.metadata.startTime as number;  // ❌ Also ignores startingOffset
+  const explicitStartTime = track.metadata.startTime as number; // ❌ Also ignores startingOffset
   // ...
 }
 ```
@@ -97,12 +105,13 @@ if (track.metadata && "startTime" in track.metadata) {
 const explicitStartTime =
   firstVoice.startTime !== undefined && !isNaN(firstVoice.startTime)
     ? firstVoice.startTime === 0 && startingOffset > 0
-      ? startingOffset  // Replace 0 with offset
-      : firstVoice.startTime  // Keep all non-zero positions unchanged
+      ? startingOffset // Replace 0 with offset
+      : firstVoice.startTime // Keep all non-zero positions unchanged
     : startingOffset;
 ```
 
 **Risk**: **Low**
+
 - Only touches default `startTime: 0` values
 - Preserves saved mixer states with explicit positions
 - Won't cause cascading failures
@@ -115,15 +124,15 @@ const explicitStartTime =
 ### Option 2: Check playAfter Relationship
 
 ```typescript
-const explicitStartTime =
-  firstVoice.playAfter  // Defer to relationship if exists
-    ? startingOffset
-    : firstVoice.startTime !== undefined && !isNaN(firstVoice.startTime)
-      ? firstVoice.startTime
-      : startingOffset;
+const explicitStartTime = firstVoice.playAfter // Defer to relationship if exists
+  ? startingOffset
+  : firstVoice.startTime !== undefined && !isNaN(firstVoice.startTime)
+    ? firstVoice.startTime
+    : startingOffset;
 ```
 
 **Risk**: **Low-Medium**
+
 - Cleaner logic but changes behavior for tracks with `playAfter`
 - May affect other placement scenarios
 
@@ -134,6 +143,7 @@ const explicitStartTime =
 **Idea**: Prevent voice tracks from having `startTime: 0` during creation in `AudioService`
 
 **Risk**: **Medium-High**
+
 - Need to find all track creation paths
 - May break if explicit `startTime` is intentional elsewhere
 - More investigation required
@@ -146,15 +156,18 @@ const explicitStartTime =
 > **Note (2025-12-08)**: The placement selection bugs have been fixed - selecting "after voice X" now correctly positions SFX after that voice. The issue below (intro SFX playing simultaneously with first voice) remains unresolved and is a separate UX design decision.
 
 The current implementation **lacks semantic distinction** between:
+
 1. **Sequential placement**: "Play BEFORE voice X" (soundfx finishes, THEN voice starts)
 2. **Concurrent placement**: "Play WITH voice X" (soundfx and voice overlap/simultaneous)
 
 The UI currently only offers:
+
 - "At beginning (before all voices)" - implies sequential
 - "After voice X" - sequential
 - "At end (after all voices)" - sequential
 
 **But users might want**:
+
 - "Before voice 1" - sequential ✅
 - "With voice 1" - concurrent ❌ (not available)
 - "During voice 1" - concurrent ❌ (not available)
@@ -168,27 +181,29 @@ The UI currently only offers:
 **Location**: `src/components/SoundFxPanel.tsx` (placement listbox around line 236)
 
 **Current options**:
+
 ```typescript
 [
   { value: "start", label: "At beginning (before all voices)" },
   { value: "afterVoice-0", label: "After voice 1" },
   { value: "afterVoice-1", label: "After voice 2" },
   { value: "end", label: "At end (after all voices)" },
-]
+];
 ```
 
 **Proposed enhancement**:
+
 ```typescript
 [
   { value: "start", label: "At beginning (before all voices)" },
-  { value: "withVoice-0", label: "WITH voice 1 (simultaneous)" },      // NEW
-  { value: "beforeVoice-0", label: "BEFORE voice 1 (sequential)" },    // NEW
+  { value: "withVoice-0", label: "WITH voice 1 (simultaneous)" }, // NEW
+  { value: "beforeVoice-0", label: "BEFORE voice 1 (sequential)" }, // NEW
   { value: "afterVoice-0", label: "AFTER voice 1 (sequential)" },
-  { value: "withVoice-1", label: "WITH voice 2 (simultaneous)" },      // NEW
-  { value: "beforeVoice-1", label: "BEFORE voice 1 (sequential)" },    // NEW
+  { value: "withVoice-1", label: "WITH voice 2 (simultaneous)" }, // NEW
+  { value: "beforeVoice-1", label: "BEFORE voice 1 (sequential)" }, // NEW
   { value: "afterVoice-1", label: "AFTER voice 2 (sequential)" },
   { value: "end", label: "At end (after all voices)" },
-]
+];
 ```
 
 ### Type System Update
@@ -196,11 +211,12 @@ The UI currently only offers:
 **File**: `src/types/index.ts`
 
 Add new placement intent types:
+
 ```typescript
 export type SoundFxPlacementIntent =
   | { type: "start" }
-  | { type: "beforeVoice"; index: number }  // NEW: Sequential before voice X
-  | { type: "withVoice"; index: number }    // NEW: Concurrent with voice X
+  | { type: "beforeVoice"; index: number } // NEW: Sequential before voice X
+  | { type: "withVoice"; index: number } // NEW: Concurrent with voice X
   | { type: "afterVoice"; index: number }
   | { type: "end" }
   | { type: "legacy"; playAfter: string };
@@ -211,6 +227,7 @@ export type SoundFxPlacementIntent =
 **File**: `src/services/legacyTimelineCalculator.ts`
 
 Implement placement resolution:
+
 - `beforeVoice-X`: Calculate voice X start time, place soundfx BEFORE (voice.startTime - soundfx.duration)
 - `withVoice-X`: Place soundfx at same startTime as voice X (concurrent)
 - `afterVoice-X`: Keep current logic (soundfx after voice finishes)
@@ -220,6 +237,7 @@ Implement placement resolution:
 ## Workaround for Users (Current)
 
 If users want intro soundfx to play BEFORE voices (not simultaneously):
+
 1. Generate soundfx with "At beginning" placement
 2. Go to mixer panel
 3. Manually adjust voice track positions to start after soundfx ends
@@ -250,6 +268,7 @@ If users want intro soundfx to play BEFORE voices (not simultaneously):
 ## Testing Notes
 
 When implementing the fix, test these scenarios:
+
 1. ✅ Intro soundfx → voices start after (sequential)
 2. ✅ No intro soundfx → voices start at 0 (baseline)
 3. ✅ Saved mixer state with explicit positions → preserved
@@ -262,12 +281,14 @@ When implementing the fix, test these scenarios:
 ## Decision Log
 
 **2025-12-08**: Fixed placement selection bugs:
+
 - Dual field sync (placement + playAfter)
 - Voice version mismatch (now uses ACTIVE)
 - MixerPanel hydration for position changes
 - Selecting "after voice X" now works correctly
 
 **2025-01-12**: Parked intro concurrent issue in favor of:
+
 1. Completing Phase 3 (multiple soundfx support)
 2. Designing proper UX for sequential vs concurrent placement
 3. Implementing comprehensive placement options

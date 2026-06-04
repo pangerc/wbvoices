@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { suggestedTonesService } from "@/services/suggestedTonesService";
+import { NextResponse } from "next/server";
 
 /**
  * Public read-only list of active suggested tones, consumed by BriefPanelV3
@@ -12,8 +12,10 @@ export async function GET() {
   } catch (error) {
     console.error("Error listing public tones:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to list tones" },
-      { status: 500 }
+      {
+        error: error instanceof Error ? error.message : "Failed to list tones",
+      },
+      { status: 500 },
     );
   }
 }

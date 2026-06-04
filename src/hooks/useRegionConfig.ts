@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Language } from '@/types';
+import { Language } from "@/types";
+import { useEffect, useState } from "react";
 
 export type RegionConfig = {
-  region: 'apac' | 'americas' | 'europe';
+  region: "apac" | "americas" | "europe";
   isAPAC: boolean;
   isAmericas: boolean;
   isEurope: boolean;
@@ -23,27 +23,29 @@ export function useRegionConfig() {
       try {
         setIsLoading(true);
         setError(null);
-        
-        const response = await fetch('/api/config/region');
-        
+
+        const response = await fetch("/api/config/region");
+
         if (!response.ok) {
-          throw new Error(`Failed to fetch region config: ${response.statusText}`);
+          throw new Error(
+            `Failed to fetch region config: ${response.statusText}`,
+          );
         }
-        
+
         const data = await response.json();
         setConfig(data);
       } catch (err) {
-        console.error('Error fetching region config:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-        
+        console.error("Error fetching region config:", err);
+        setError(err instanceof Error ? err.message : "Unknown error");
+
         // Fallback to Americas defaults on error
         setConfig({
-          region: 'americas',
+          region: "americas",
           isAPAC: false,
           isAmericas: true,
           isEurope: false,
-          defaultLanguage: 'en' as Language,
-          needsOpenAIProxy: false
+          defaultLanguage: "en" as Language,
+          needsOpenAIProxy: false,
         });
       } finally {
         setIsLoading(false);
@@ -62,7 +64,7 @@ export function useRegionConfig() {
     isAPAC: config?.isAPAC ?? false,
     isAmericas: config?.isAmericas ?? true,
     isEurope: config?.isEurope ?? false,
-    defaultLanguage: config?.defaultLanguage ?? ('en' as Language),
-    needsOpenAIProxy: config?.needsOpenAIProxy ?? false
+    defaultLanguage: config?.defaultLanguage ?? ("en" as Language),
+    needsOpenAIProxy: config?.needsOpenAIProxy ?? false,
   };
 }

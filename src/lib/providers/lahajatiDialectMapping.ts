@@ -3,32 +3,32 @@
  * Maps Arabic dialect display names from Lahajati API to our accent codes
  */
 
-import { LahajatiDialect } from '@/services/voiceProviderService';
+import { LahajatiDialect } from "@/services/voiceProviderService";
 
 /**
  * Arabic country prefixes in display names → our accent codes
  * API returns Arabic-only names like "المصرية (القاهرية)" (Egyptian Cairo)
  */
 const COUNTRY_PREFIX_MAP: Record<string, string> = {
-  'المصرية': 'egyptian',
-  'السعودية': 'saudi',
-  'السورية': 'syrian',
-  'اللبنانية': 'lebanese',
-  'الأردنية': 'jordanian',
-  'الفلسطينية': 'palestinian',
-  'الجزائرية': 'algerian',
-  'المغربية': 'moroccan',
-  'التونسية': 'tunisian',
-  'العراقية': 'iraqi',
-  'اليمنية': 'yemeni',
-  'السودانية': 'sudanese',
-  'الليبية': 'libyan',
-  'العمانية': 'omani',
-  'الكويتية': 'kuwaiti',
-  'البحرينية': 'bahraini',
-  'القطرية': 'qatari',
-  'الإماراتية': 'emirati',
-  'الموريتانية': 'mauritanian',
+  المصرية: "egyptian",
+  السعودية: "saudi",
+  السورية: "syrian",
+  اللبنانية: "lebanese",
+  الأردنية: "jordanian",
+  الفلسطينية: "palestinian",
+  الجزائرية: "algerian",
+  المغربية: "moroccan",
+  التونسية: "tunisian",
+  العراقية: "iraqi",
+  اليمنية: "yemeni",
+  السودانية: "sudanese",
+  الليبية: "libyan",
+  العمانية: "omani",
+  الكويتية: "kuwaiti",
+  البحرينية: "bahraini",
+  القطرية: "qatari",
+  الإماراتية: "emirati",
+  الموريتانية: "mauritanian",
 };
 
 /**
@@ -39,8 +39,8 @@ export function mapDialectToAccent(dialect: LahajatiDialect): string | null {
   const name = dialect.display_name;
 
   // Check for MSA first (special case)
-  if (name.includes('الفصحى')) {
-    return 'standard';
+  if (name.includes("الفصحى")) {
+    return "standard";
   }
 
   // Check country prefixes

@@ -1,5 +1,5 @@
-import { VoiceTrack, MusicPrompts, SoundFxPlacementIntent } from "@/types";
 import type { SoundFxPrompt } from "@/types";
+import { MusicPrompts, SoundFxPlacementIntent, VoiceTrack } from "@/types";
 
 // Define interfaces for the JSON structure
 interface ScriptVoiceItem {
@@ -9,14 +9,14 @@ interface ScriptVoiceItem {
   playAfter?: string;
   overlap?: number;
   // Provider-specific fields
-  style?: string;              // Lovo emotional style
-  useCase?: string;            // Lovo use case
-  description?: string;        // ElevenLabs emotional tone
-  use_case?: string;           // ElevenLabs use case
-  voiceInstructions?: string;  // OpenAI voice control instructions
+  style?: string; // Lovo emotional style
+  useCase?: string; // Lovo use case
+  description?: string; // ElevenLabs emotional tone
+  use_case?: string; // ElevenLabs use case
+  voiceInstructions?: string; // OpenAI voice control instructions
   // Lahajati-specific fields
-  dialectId?: number;          // Lahajati Arabic dialect ID (e.g., 7 for Cairo)
-  performanceId?: number;      // Lahajati performance style ID (e.g., 1542 for Automotive ad)
+  dialectId?: number; // Lahajati Arabic dialect ID (e.g., 7 for Cairo)
+  performanceId?: number; // Lahajati performance style ID (e.g., 1542 for Automotive ad)
 }
 
 interface ScriptSoundFxItem {
@@ -97,7 +97,9 @@ function cleanDescription(description: string): string {
 }
 
 // Convert legacy playAfter string to placement intent
-function parsePlayAfterToIntent(playAfter?: string): SoundFxPlacementIntent | undefined {
+function parsePlayAfterToIntent(
+  playAfter?: string,
+): SoundFxPlacementIntent | undefined {
   if (!playAfter) {
     // Default to end placement (backwards compatible behavior)
     return { type: "end" };
@@ -118,11 +120,11 @@ function parsePlayAfterToIntent(playAfter?: string): SoundFxPlacementIntent | un
 
 // Add this function to enforce different voices in dialogues
 function ensureDifferentVoicesForDialogue(
-  scriptItems: ScriptItem[]
+  scriptItems: ScriptItem[],
 ): ScriptItem[] {
   // Count voice items and check for unique speakers
   const voiceItems = scriptItems.filter(
-    (item) => item.type === "voice"
+    (item) => item.type === "voice",
   ) as ScriptVoiceItem[];
 
   if (voiceItems.length >= 2) {
@@ -131,7 +133,7 @@ function ensureDifferentVoicesForDialogue(
     // If all speakers are the same, we need to fix it
     if (uniqueSpeakers.size === 1) {
       console.warn(
-        "Dialog has same voice for all speakers! Applying differentiation..."
+        "Dialog has same voice for all speakers! Applying differentiation...",
       );
 
       // Modify alternate voice items with a different voice ID
@@ -143,7 +145,7 @@ function ensureDifferentVoicesForDialogue(
         voiceItems[i].speaker = `${originalId}-alt-${i}`;
 
         console.log(
-          `Auto-differentiated voice: ${originalId} → ${voiceItems[i].speaker}`
+          `Auto-differentiated voice: ${originalId} → ${voiceItems[i].speaker}`,
         );
       }
     }
@@ -224,8 +226,10 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
           // Extract voice ID from speaker string like "Jessica (id: cgSgspJ2msm6clMCkdW9)"
           const idMatch = item.speaker.match(/\(id:\s*([^)]+)\)/);
           const voiceId = idMatch ? idMatch[1] : item.speaker;
-          const voiceName = idMatch ? item.speaker.substring(0, item.speaker.indexOf('(')).trim() : item.speaker;
-          
+          const voiceName = idMatch
+            ? item.speaker.substring(0, item.speaker.indexOf("(")).trim()
+            : item.speaker;
+
           const voiceTrack: VoiceTrack = {
             voice: {
               id: voiceId,
@@ -234,19 +238,19 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
             },
             text: item.text,
             // Handle provider-specific emotional dimensions
-            style: item.style || item.description,           // Lovo uses style, ElevenLabs uses description
-            useCase: item.useCase || item.use_case,          // Lovo uses useCase, ElevenLabs uses use_case
-            voiceInstructions: item.voiceInstructions,       // OpenAI only
+            style: item.style || item.description, // Lovo uses style, ElevenLabs uses description
+            useCase: item.useCase || item.use_case, // Lovo uses useCase, ElevenLabs uses use_case
+            voiceInstructions: item.voiceInstructions, // OpenAI only
             // Lahajati-specific fields
-            dialectId: item.dialectId,                       // Lahajati Arabic dialect ID
-            performanceId: item.performanceId,               // Lahajati performance style ID
+            dialectId: item.dialectId, // Lahajati Arabic dialect ID
+            performanceId: item.performanceId, // Lahajati performance style ID
           };
 
           // Debug logging to see what we're extracting
           console.log(`🎭 JSON Parser extracting voice track:`, {
             voiceId,
             voiceName,
-            text: item.text.substring(0, 30) + '...',
+            text: item.text.substring(0, 30) + "...",
             style: voiceTrack.style,
             useCase: voiceTrack.useCase,
             voiceInstructions: voiceTrack.voiceInstructions,
@@ -260,7 +264,7 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
 
             // Update the corresponding voice timing
             const timingIndex = voiceTimings.findIndex(
-              (t) => t.voiceId === item.speaker
+              (t) => t.voiceId === item.speaker,
             );
             if (timingIndex !== -1) {
               voiceTimings[timingIndex].playAfter = item.playAfter;
@@ -272,7 +276,7 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
 
             // Update the corresponding voice timing
             const timingIndex = voiceTimings.findIndex(
-              (t) => t.voiceId === item.speaker
+              (t) => t.voiceId === item.speaker,
             );
             if (timingIndex !== -1) {
               voiceTimings[timingIndex].overlap = item.overlap;
@@ -313,12 +317,12 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
                 },
                 text: element.text,
                 // Handle provider-specific emotional dimensions
-                style: element.style || element.description,           // Lovo uses style, ElevenLabs uses description
-                useCase: element.useCase || element.use_case,          // Lovo uses useCase, ElevenLabs uses use_case
-                voiceInstructions: element.voiceInstructions,          // OpenAI only
+                style: element.style || element.description, // Lovo uses style, ElevenLabs uses description
+                useCase: element.useCase || element.use_case, // Lovo uses useCase, ElevenLabs uses use_case
+                voiceInstructions: element.voiceInstructions, // OpenAI only
                 // Lahajati-specific fields
-                dialectId: element.dialectId,                          // Lahajati Arabic dialect ID
-                performanceId: element.performanceId,                  // Lahajati performance style ID
+                dialectId: element.dialectId, // Lahajati Arabic dialect ID
+                performanceId: element.performanceId, // Lahajati performance style ID
                 isConcurrent: true, // Mark as concurrent so mixer can handle it specially
               };
 
@@ -330,7 +334,7 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
                 // Get the timing of the first speaker in this concurrent group
                 const firstSpeakerId = speakers[0];
                 const firstSpeakerIndex = voiceTimings.findIndex(
-                  (t) => t.voiceId === firstSpeakerId
+                  (t) => t.voiceId === firstSpeakerId,
                 );
 
                 if (firstSpeakerIndex !== -1) {
@@ -338,7 +342,7 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
 
                   // Add or update timing for this concurrent voice
                   const voiceTimingIndex = voiceTimings.findIndex(
-                    (t) => t.voiceId === element.speaker
+                    (t) => t.voiceId === element.speaker,
                   );
                   if (voiceTimingIndex !== -1) {
                     voiceTimings[voiceTimingIndex] = {
@@ -395,9 +399,15 @@ export function parseCreativeJSON(jsonString: string): ParsedCreativeResponse {
       // Extract provider-specific prompts if present
       if (music.loudly || music.mubert || music.elevenlabs) {
         musicPrompts = {
-          loudly: music.loudly ? cleanDescription(music.loudly) : musicPrompt || "",
-          mubert: music.mubert ? cleanDescription(music.mubert) : musicPrompt || "",
-          elevenlabs: music.elevenlabs ? cleanDescription(music.elevenlabs) : musicPrompt || "",
+          loudly: music.loudly
+            ? cleanDescription(music.loudly)
+            : musicPrompt || "",
+          mubert: music.mubert
+            ? cleanDescription(music.mubert)
+            : musicPrompt || "",
+          elevenlabs: music.elevenlabs
+            ? cleanDescription(music.elevenlabs)
+            : musicPrompt || "",
         };
 
         console.log("🎵 JSON Parser extracted music prompts:", {

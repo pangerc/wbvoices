@@ -3,6 +3,7 @@
 ## Problem Statement
 
 When generating voice ads for international brands, TTS systems often mispronounce brand names, acronyms, and foreign words. For example:
+
 - "YSL" needs to be pronounced differently across languages (e.g., "igrek es el" in Polish)
 - "Yves Saint Laurent" needs proper French pronunciation
 - Product names, technical terms, and local expressions need custom pronunciation
@@ -39,12 +40,14 @@ After exploring ElevenLabs' API constraints, we opted for a **single global dict
 ### Why This Approach?
 
 **ElevenLabs API Limitations:**
+
 - Dictionaries have NO language metadata (language-agnostic)
 - GET/LIST endpoints don't return rules (only metadata)
 - Rules require separate PLS download endpoint
 - Can't update dictionaries (must delete + recreate)
 
 **Pragmatic Decision:**
+
 - Most brands (YSL, BMW, L'Oréal) need consistent pronunciation
 - Language-specific variants (if needed) can use separate rules
 - One global dictionary is simpler than complex per-language management
@@ -53,11 +56,13 @@ After exploring ElevenLabs' API constraints, we opted for a **single global dict
 ### Why Redis Storage?
 
 **The localStorage Bug:**
+
 - Initial implementation tried to access `localStorage` from server-side code
 - This broke OpenAI voice generation: `ReferenceError: localStorage is not defined`
 - `localStorage` only exists in browsers, not in API routes/Edge runtime
 
 **Redis Solution:**
+
 - Backend-accessible storage that works in all environments
 - Already used by `/api/pronunciation` endpoints
 - Enables pronunciation rules for **any** voice provider (not just ElevenLabs)
@@ -88,11 +93,16 @@ Correct pronunciation in output
 ### Storage Model
 
 **localStorage** (frontend):
+
 ```json
 {
   "rules": [
     { "stringToReplace": "YSL", "type": "alias", "alias": "igrek es el" },
-    { "stringToReplace": "Yves Saint Laurent", "type": "alias", "alias": "iw sen loran" }
+    {
+      "stringToReplace": "Yves Saint Laurent",
+      "type": "alias",
+      "alias": "iw sen loran"
+    }
   ],
   "dictionaryId": "dict_abc123",
   "timestamp": 1234567890
@@ -100,19 +110,26 @@ Correct pronunciation in output
 ```
 
 **Redis** (backend):
+
 ```json
 {
   "rules": [
     { "stringToReplace": "YSL", "type": "alias", "alias": "igrek es el" },
-    { "stringToReplace": "Yves Saint Laurent", "type": "alias", "alias": "iw sen loran" }
+    {
+      "stringToReplace": "Yves Saint Laurent",
+      "type": "alias",
+      "alias": "iw sen loran"
+    }
   ],
   "dictionaryId": "dict_abc123",
   "timestamp": 1234567890
 }
 ```
+
 Key: `pronunciation:global_rules`
 
 **ElevenLabs** (backend):
+
 - Dictionary named "Global Brand Pronunciations"
 - Rules stored as PLS internally
 - Referenced by ID in TTS requests
@@ -122,20 +139,24 @@ Key: `pronunciation:global_rules`
 ### Files
 
 **Core utilities:**
+
 - `src/utils/elevenlabs-pronunciation.ts` - CRUD operations for ElevenLabs dictionaries
 - `src/utils/server-pronunciation-helper.ts` - Server-safe helper for fetching rules from Redis and injecting into voice instructions (used by OpenAI)
 
 **UI Components:**
+
 - `src/components/PronunciationEditor.tsx` - Pronunciation rule editor component
 - `src/app/admin/pronunciation-rules/page.tsx` - Admin page hosting the pronunciation editor
 
 **API routes:**
+
 - `src/app/api/pronunciation/route.ts` - GET (list), POST (create), syncs to Redis
 - `src/app/api/pronunciation/[id]/route.ts` - GET, DELETE
 - `src/app/api/voice/elevenlabs-v2/route.ts` - Auto-applies global dictionary
 - `src/app/api/voice/openai-v2/route.ts` - Fetches rules from Redis via provider
 
 **Providers:**
+
 - `src/lib/providers/ElevenLabsVoiceProvider.ts` - Accepts dictionary ID, applies to TTS
 - `src/lib/providers/OpenAIVoiceProvider.ts` - Fetches rules from Redis, injects as voice instructions
 
@@ -154,6 +175,7 @@ Key: `pronunciation:global_rules`
 ### Backend Auto-Application
 
 **ElevenLabs** (`src/app/api/voice/elevenlabs-v2/route.ts`):
+
 ```typescript
 // On every TTS request:
 1. List all dictionaries from ElevenLabs
@@ -163,6 +185,7 @@ Key: `pronunciation:global_rules`
 ```
 
 **OpenAI** (`src/lib/providers/OpenAIVoiceProvider.ts`):
+
 ```typescript
 // On every TTS request:
 1. Fetch pronunciation rules from Redis
@@ -178,6 +201,7 @@ No language checking, no conditional logic - just works.
 ### ElevenLabs Endpoints Used
 
 **Create Dictionary:**
+
 ```
 POST https://api.elevenlabs.io/v1/pronunciation-dictionaries/add-from-rules
 {
@@ -193,17 +217,20 @@ POST https://api.elevenlabs.io/v1/pronunciation-dictionaries/add-from-rules
 ```
 
 **List Dictionaries:**
+
 ```
 GET https://api.elevenlabs.io/v1/pronunciation-dictionaries
 Returns: Array of dictionary metadata (no rules!)
 ```
 
 **Delete Dictionary:**
+
 ```
 DELETE https://api.elevenlabs.io/v1/pronunciation-dictionaries/{id}
 ```
 
 **Apply in TTS:**
+
 ```
 POST https://api.elevenlabs.io/v1/text-to-speech/{voice_id}
 {
@@ -219,12 +246,14 @@ POST https://api.elevenlabs.io/v1/text-to-speech/{voice_id}
 ### Our API Endpoints
 
 **List dictionaries:**
+
 ```
 GET /api/pronunciation
 Returns: Metadata only (rules in localStorage)
 ```
 
 **Create dictionary:**
+
 ```
 POST /api/pronunciation
 {
@@ -236,6 +265,7 @@ POST /api/pronunciation
 ```
 
 **Delete dictionary:**
+
 ```
 DELETE /api/pronunciation/{id}
 ```
@@ -267,6 +297,7 @@ curl -X POST http://localhost:3000/api/admin/pronunciation-test \
 ```
 
 Returns two audio URLs:
+
 - Without dictionary (baseline)
 - With dictionary (custom pronunciation)
 

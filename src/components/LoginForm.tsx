@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import Image from "next/image";
 import { signIn } from "next-auth/react";
+import Image from "next/image";
+import React, { useState } from "react";
 
 interface LoginFormProps {
   error?: string | null;
@@ -10,7 +10,11 @@ interface LoginFormProps {
   callbackUrl?: string;
 }
 
-export function LoginForm({ error: serverError, hasGoogleProvider, callbackUrl = "/" }: LoginFormProps) {
+export function LoginForm({
+  error: serverError,
+  hasGoogleProvider,
+  callbackUrl = "/",
+}: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState(serverError || "");
   const [isLoading, setIsLoading] = useState(false);
@@ -97,10 +101,14 @@ export function LoginForm({ error: serverError, hasGoogleProvider, callbackUrl =
                 Check your email
               </h1>
               <p className="text-gray-400 mb-6">
-                We sent a sign-in link to <span className="text-white">{email}</span>
+                We sent a sign-in link to{" "}
+                <span className="text-white">{email}</span>
               </p>
               <button
-                onClick={() => { setEmailSent(false); setEmail(""); }}
+                onClick={() => {
+                  setEmailSent(false);
+                  setEmail("");
+                }}
                 className="text-sm text-gray-400 hover:text-white transition-colors"
               >
                 Use a different email
@@ -112,9 +120,7 @@ export function LoginForm({ error: serverError, hasGoogleProvider, callbackUrl =
                 <h1 className="text-2xl font-bold text-white mb-2">
                   Aleph Creative Audio
                 </h1>
-                <p className="text-gray-400">
-                  Sign in with your company email
-                </p>
+                <p className="text-gray-400">Sign in with your company email</p>
               </div>
 
               <div className="relative space-y-4">

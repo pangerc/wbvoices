@@ -10,6 +10,7 @@
 ### The Problem
 
 Our current voice ad generation platform operates on a "one-shot" model:
+
 1. User fills out BriefPanel with all requirements
 2. Clicks "Generate" and gets voices + music + sound effects
 3. If anything is wrong, the user must understand the entire system to iterate
@@ -24,6 +25,7 @@ This creates a steep learning curve and frustrates users who aren't familiar wit
 ### The Solution
 
 Transform the platform into an **iterative refinement system** where users:
+
 1. Generate initial content (existing flow remains)
 2. Use natural language to request changes ("make the voices happier", "shorten to 45 seconds")
 3. Preview iterations before committing
@@ -148,8 +150,7 @@ const ITERATION_KEYS = {
     `project:${projectId}:iteration_meta:${module}:${iterationId}`,
 
   // Garbage collection tracking
-  iterationGC: (projectId: string) =>
-    `project:${projectId}:gc_candidates`
+  iterationGC: (projectId: string) => `project:${projectId}:gc_candidates`,
 };
 ```
 
@@ -162,7 +163,7 @@ type IterationBase = {
   timestamp: number;
   parentId: string | null; // Links to parent iteration for history
   changeRequest: string | null; // User's natural language input
-  status: 'generating' | 'complete' | 'failed' | 'abandoned';
+  status: "generating" | "complete" | "failed" | "abandoned";
   isActive: boolean; // Currently chosen for mixer
   metadata: {
     llmModel: string;
@@ -173,20 +174,20 @@ type IterationBase = {
 
 // Voice iteration with full state
 type VoiceIteration = IterationBase & {
-  type: 'voice';
+  type: "voice";
   data: {
     voiceTracks: VoiceTrack[];
     pronunciationRules?: PronunciationDictionary;
     voiceProvider: Provider;
     pacing: Pacing | null;
-    editMode?: 'script' | 'acting' | 'both';
+    editMode?: "script" | "acting" | "both";
   };
   generatedUrls?: string[]; // Cached audio URLs
 };
 
 // Music iteration
 type MusicIteration = IterationBase & {
-  type: 'music';
+  type: "music";
   data: {
     prompt: string;
     provider: MusicProvider;
@@ -197,10 +198,10 @@ type MusicIteration = IterationBase & {
 
 // Sound FX iteration
 type SoundFxIteration = IterationBase & {
-  type: 'soundfx';
+  type: "soundfx";
   data: {
     prompts: SoundFxPrompt[];
-    provider: 'elevenlabs';
+    provider: "elevenlabs";
   };
   generatedUrls?: string[];
 };
@@ -208,7 +209,7 @@ type SoundFxIteration = IterationBase & {
 // Extended project type
 type ProjectWithIterations = Project & {
   iterations?: {
-    voice: string[];      // Array of iteration IDs (newest first)
+    voice: string[]; // Array of iteration IDs (newest first)
     music: string[];
     soundfx: string[];
     activeVoice: string | null;
@@ -222,11 +223,11 @@ type ProjectWithIterations = Project & {
 
 ```typescript
 const GC_RULES = {
-  maxIterationsPerModule: 20,          // Hard limit per module
+  maxIterationsPerModule: 20, // Hard limit per module
   maxInactiveAge: 24 * 60 * 60 * 1000, // 24 hours for inactive
-  maxAbandonedAge: 60 * 60 * 1000,     // 1 hour for abandoned/failed
-  preserveActive: true,                 // Never GC active iterations
-  preserveParents: true,                // Keep parent chain of active
+  maxAbandonedAge: 60 * 60 * 1000, // 1 hour for abandoned/failed
+  preserveActive: true, // Never GC active iterations
+  preserveParents: true, // Keep parent chain of active
 };
 
 // Garbage collection implementation
@@ -234,11 +235,11 @@ async function gcIterations(projectId: string, module: string) {
   const iterations = await redis.lrange(
     ITERATION_KEYS[`${module}Iterations`](projectId),
     0,
-    -1
+    -1,
   );
 
   const activeId = await redis.get(
-    ITERATION_KEYS.activeIteration(projectId, module)
+    ITERATION_KEYS.activeIteration(projectId, module),
   );
 
   // Build parent chain for active iteration
@@ -248,7 +249,7 @@ async function gcIterations(projectId: string, module: string) {
   const candidates = [];
   for (const iterationId of iterations) {
     const iteration = await redis.get(
-      ITERATION_KEYS.iteration(projectId, module, iterationId)
+      ITERATION_KEYS.iteration(projectId, module, iterationId),
     );
 
     // Skip if in parent chain or is active
@@ -258,7 +259,7 @@ async function gcIterations(projectId: string, module: string) {
 
     // Check age rules
     const age = Date.now() - iteration.timestamp;
-    if (iteration.status === 'abandoned' && age > GC_RULES.maxAbandonedAge) {
+    if (iteration.status === "abandoned" && age > GC_RULES.maxAbandonedAge) {
       candidates.push(iterationId);
     } else if (!iteration.isActive && age > GC_RULES.maxInactiveAge) {
       candidates.push(iterationId);
@@ -269,18 +270,14 @@ async function gcIterations(projectId: string, module: string) {
   if (iterations.length > GC_RULES.maxIterationsPerModule) {
     const excess = iterations
       .slice(GC_RULES.maxIterationsPerModule)
-      .filter(id => !parentChain.has(id) && id !== activeId);
+      .filter((id) => !parentChain.has(id) && id !== activeId);
     candidates.push(...excess);
   }
 
   // Delete candidates
   for (const id of candidates) {
     await redis.del(ITERATION_KEYS.iteration(projectId, module, id));
-    await redis.lrem(
-      ITERATION_KEYS[`${module}Iterations`](projectId),
-      1,
-      id
-    );
+    await redis.lrem(ITERATION_KEYS[`${module}Iterations`](projectId), 1, id);
   }
 
   return candidates.length;
@@ -290,6 +287,7 @@ async function gcIterations(projectId: string, module: string) {
 ### Backwards Compatibility
 
 Existing projects without `iterations` field will:
+
 1. Continue to work as-is
 2. First iteration request creates iteration collection
 3. Current state becomes "Iteration 1" (parent of first change)
@@ -299,11 +297,11 @@ Migration is lazy and automatic:
 ```typescript
 async function ensureIterationStructure(
   projectId: string,
-  module: string
+  module: string,
 ): Promise<string> {
   // Check if iterations exist
   const hasIterations = await redis.exists(
-    ITERATION_KEYS[`${module}Iterations`](projectId)
+    ITERATION_KEYS[`${module}Iterations`](projectId),
   );
 
   if (hasIterations) {
@@ -317,19 +315,19 @@ async function ensureIterationStructure(
   // Save base iteration
   await redis.set(
     ITERATION_KEYS.iteration(projectId, module, baseIteration.id),
-    baseIteration
+    baseIteration,
   );
 
   // Initialize iteration list
   await redis.lpush(
     ITERATION_KEYS[`${module}Iterations`](projectId),
-    baseIteration.id
+    baseIteration.id,
   );
 
   // Mark as active
   await redis.set(
     ITERATION_KEYS.activeIteration(projectId, module),
-    baseIteration.id
+    baseIteration.id,
   );
 
   return baseIteration.id;
@@ -346,30 +344,30 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const {
     projectId,
-    parentIterationId,  // Previous iteration to build from
-    changeRequest,      // User's natural language request
-    editMode,          // 'script' | 'acting' | 'both'
-    voiceProvider,     // Target provider (for switching)
-    pacing,           // Pacing adjustment
+    parentIterationId, // Previous iteration to build from
+    changeRequest, // User's natural language request
+    editMode, // 'script' | 'acting' | 'both'
+    voiceProvider, // Target provider (for switching)
+    pacing, // Pacing adjustment
   } = body;
 
   // Validate inputs
   if (!projectId || !changeRequest) {
     return NextResponse.json(
-      { error: 'Missing required fields' },
-      { status: 400 }
+      { error: "Missing required fields" },
+      { status: 400 },
     );
   }
 
   // Ensure iteration structure exists
-  await ensureIterationStructure(projectId, 'voice');
+  await ensureIterationStructure(projectId, "voice");
 
   // Load parent iteration (or create base if first time)
-  const parentId = parentIterationId ||
-    await getActiveIterationId(projectId, 'voice');
+  const parentId =
+    parentIterationId || (await getActiveIterationId(projectId, "voice"));
 
   const parentIteration = await redis.get(
-    ITERATION_KEYS.iteration(projectId, 'voice', parentId)
+    ITERATION_KEYS.iteration(projectId, "voice", parentId),
   );
 
   // Load original project context
@@ -395,10 +393,10 @@ export async function POST(req: NextRequest) {
   // Call LLM for partial update
   const startTime = Date.now();
   const response = await openai.chat.completions.create({
-    model: 'gpt-4.1',
+    model: "gpt-4.1",
     messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
     ],
     temperature: 0.5, // Lower temp for consistency
   });
@@ -408,20 +406,26 @@ export async function POST(req: NextRequest) {
   const diff = JSON.parse(rawContent);
 
   const validator = new IterationResponseValidator();
-  const validation = validator.validate(diff, 'voice');
+  const validation = validator.validate(diff, "voice");
 
   if (!validation.valid) {
-    if (validation.fallback === 'parent') {
+    if (validation.fallback === "parent") {
       // Return parent state with error
-      return NextResponse.json({
-        error: 'Invalid response from AI, using previous state',
-        iteration: parentIteration,
-      }, { status: 200 });
+      return NextResponse.json(
+        {
+          error: "Invalid response from AI, using previous state",
+          iteration: parentIteration,
+        },
+        { status: 200 },
+      );
     } else {
       // Critical failure
-      return NextResponse.json({
-        error: validation.error,
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: validation.error,
+        },
+        { status: 500 },
+      );
     }
   }
 
@@ -429,7 +433,7 @@ export async function POST(req: NextRequest) {
   const newState = applyIterationDiff(
     parentIteration.data,
     validation.data,
-    editMode
+    editMode,
   );
 
   // Create new iteration
@@ -439,33 +443,30 @@ export async function POST(req: NextRequest) {
     timestamp: Date.now(),
     parentId: parentId,
     changeRequest,
-    status: 'complete',
+    status: "complete",
     isActive: false,
-    type: 'voice',
+    type: "voice",
     data: newState,
     metadata: {
-      llmModel: 'gpt-4.1',
+      llmModel: "gpt-4.1",
       provider: voiceProvider,
       generationTime: Date.now() - startTime,
-    }
+    },
   };
 
   // Save iteration
   await redis.set(
-    ITERATION_KEYS.iteration(projectId, 'voice', iterationId),
-    iteration
+    ITERATION_KEYS.iteration(projectId, "voice", iterationId),
+    iteration,
   );
 
   // Add to iterations list (newest first)
-  await redis.lpush(
-    ITERATION_KEYS.voiceIterations(projectId),
-    iterationId
-  );
+  await redis.lpush(ITERATION_KEYS.voiceIterations(projectId), iterationId);
 
   // Trigger GC if needed
   const count = await redis.llen(ITERATION_KEYS.voiceIterations(projectId));
   if (count > GC_RULES.maxIterationsPerModule) {
-    await gcIterations(projectId, 'voice');
+    await gcIterations(projectId, "voice");
   }
 
   return NextResponse.json({ iteration });
@@ -499,11 +500,11 @@ Available Voices: ${context.availableVoices.length} voices loaded
 `;
 
     const editModeInstructions =
-      context.editMode === 'script'
-        ? 'ONLY modify the script text. Keep the same voices and delivery instructions.'
-        : context.editMode === 'acting'
-        ? 'ONLY modify voice selection and delivery instructions. Keep the same script text.'
-        : 'You may modify both script and voice/delivery as needed.';
+      context.editMode === "script"
+        ? "ONLY modify the script text. Keep the same voices and delivery instructions."
+        : context.editMode === "acting"
+          ? "ONLY modify voice selection and delivery instructions. Keep the same script text."
+          : "You may modify both script and voice/delivery as needed.";
 
     const userPrompt = `
 ORIGINAL BRIEF:
@@ -548,7 +549,7 @@ If no changes are needed, return: { "noChange": true }
 function applyIterationDiff(
   parentState: VoiceIterationData,
   diff: any,
-  editMode: string
+  editMode: string,
 ): VoiceIterationData {
   // Deep clone parent
   const newState = JSON.parse(JSON.stringify(parentState));
@@ -571,7 +572,8 @@ function applyIterationDiff(
           newState.voiceTracks[index].voice = trackDiff.voice;
         }
         if (trackDiff.voiceInstructions !== undefined) {
-          newState.voiceTracks[index].voiceInstructions = trackDiff.voiceInstructions;
+          newState.voiceTracks[index].voiceInstructions =
+            trackDiff.voiceInstructions;
         }
         if (trackDiff.style !== undefined) {
           newState.voiceTracks[index].style = trackDiff.style;
@@ -599,7 +601,7 @@ function applyIterationDiff(
 
 ### Response Validation
 
-```typescript
+````typescript
 class IterationResponseValidator {
   private ajv = new Ajv();
 
@@ -610,59 +612,59 @@ class IterationResponseValidator {
       const valid = this.ajv.validate(schema, response);
 
       if (!valid) {
-        console.error('Validation errors:', this.ajv.errors);
+        console.error("Validation errors:", this.ajv.errors);
 
         // Attempt repair for common issues
         const repaired = this.attemptRepair(response, schema);
         if (repaired) {
-          console.log('Successfully repaired response');
+          console.log("Successfully repaired response");
           return { valid: true, data: repaired };
         }
 
         // Fallback to parent state
         return {
           valid: false,
-          error: 'Invalid response structure',
-          fallback: 'parent'
+          error: "Invalid response structure",
+          fallback: "parent",
         };
       }
 
       return { valid: true, data: response };
     } catch (error) {
       // Critical failure - abandon iteration
-      console.error('Validation exception:', error);
+      console.error("Validation exception:", error);
       return {
         valid: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        fallback: 'abandon'
+        error: error instanceof Error ? error.message : "Unknown error",
+        fallback: "abandon",
       };
     }
   }
 
   private getSchemaForModule(module: string) {
-    if (module === 'voice') {
+    if (module === "voice") {
       return {
-        type: 'object',
+        type: "object",
         properties: {
-          noChange: { type: 'boolean' },
+          noChange: { type: "boolean" },
           voiceTracks: {
-            type: 'array',
+            type: "array",
             items: {
-              type: 'object',
-              required: ['index'],
+              type: "object",
+              required: ["index"],
               properties: {
-                index: { type: 'number' },
-                text: { type: 'string' },
-                voice: { type: 'object' },
-                voiceInstructions: { type: 'string' },
-                style: { type: 'string' },
-                useCase: { type: 'string' },
-              }
-            }
+                index: { type: "number" },
+                text: { type: "string" },
+                voice: { type: "object" },
+                voiceInstructions: { type: "string" },
+                style: { type: "string" },
+                useCase: { type: "string" },
+              },
+            },
           },
-          pacing: { type: 'string', enum: ['fast', null] },
-          voiceProvider: { type: 'string' },
-        }
+          pacing: { type: "string", enum: ["fast", null] },
+          voiceProvider: { type: "string" },
+        },
       };
     }
     // ... schemas for music and soundfx
@@ -675,16 +677,16 @@ class IterationResponseValidator {
     if (response.voiceTracks && Array.isArray(response.voiceTracks)) {
       response.voiceTracks = response.voiceTracks.map((track, idx) => ({
         ...track,
-        index: track.index !== undefined ? track.index : idx
+        index: track.index !== undefined ? track.index : idx,
       }));
     }
 
     // Fix: Wrapped in code blocks
-    if (typeof response === 'string') {
+    if (typeof response === "string") {
       try {
         const cleaned = response
-          .replace(/^```(?:json)?\s*\n/, '')
-          .replace(/\n```\s*$/, '');
+          .replace(/^```(?:json)?\s*\n/, "")
+          .replace(/\n```\s*$/, "");
         return JSON.parse(cleaned);
       } catch {
         return null;
@@ -699,7 +701,7 @@ class IterationResponseValidator {
     return null;
   }
 }
-```
+````
 
 ### Additional Endpoints
 
@@ -708,38 +710,42 @@ class IterationResponseValidator {
 // GET - List iterations for a module
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const projectId = searchParams.get('projectId');
-  const module = searchParams.get('module');
-  const cursor = searchParams.get('cursor');
-  const limit = parseInt(searchParams.get('limit') || '10');
+  const projectId = searchParams.get("projectId");
+  const module = searchParams.get("module");
+  const cursor = searchParams.get("cursor");
+  const limit = parseInt(searchParams.get("limit") || "10");
 
   // Load iterations with pagination
   const start = cursor ? parseInt(cursor) : 0;
   const iterationIds = await redis.lrange(
     ITERATION_KEYS[`${module}Iterations`](projectId),
     start,
-    start + limit - 1
+    start + limit - 1,
   );
 
   // Load full iterations
   const iterations = await Promise.all(
-    iterationIds.map(id =>
-      redis.get(ITERATION_KEYS.iteration(projectId, module, id))
-    )
+    iterationIds.map((id) =>
+      redis.get(ITERATION_KEYS.iteration(projectId, module, id)),
+    ),
   );
 
   // Get active ID
   const activeId = await redis.get(
-    ITERATION_KEYS.activeIteration(projectId, module)
+    ITERATION_KEYS.activeIteration(projectId, module),
   );
 
   return NextResponse.json({
     iterations,
     activeId,
-    nextCursor: start + limit < await redis.llen(ITERATION_KEYS[`${module}Iterations`](projectId))
-      ? start + limit
-      : null,
-    hasMore: start + limit < await redis.llen(ITERATION_KEYS[`${module}Iterations`](projectId))
+    nextCursor:
+      start + limit <
+      (await redis.llen(ITERATION_KEYS[`${module}Iterations`](projectId)))
+        ? start + limit
+        : null,
+    hasMore:
+      start + limit <
+      (await redis.llen(ITERATION_KEYS[`${module}Iterations`](projectId))),
   });
 }
 
@@ -751,32 +757,33 @@ export async function POST(req: NextRequest) {
 
   // Load iteration
   const iteration = await redis.get(
-    ITERATION_KEYS.iteration(projectId, module, iterationId)
+    ITERATION_KEYS.iteration(projectId, module, iterationId),
   );
 
   if (!iteration) {
-    return NextResponse.json(
-      { error: 'Iteration not found' },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Iteration not found" }, { status: 404 });
   }
 
   // Update active iteration
   await redis.set(
     ITERATION_KEYS.activeIteration(projectId, module),
-    iterationId
+    iterationId,
   );
 
   // Mark iteration as active
   iteration.isActive = true;
   await redis.set(
     ITERATION_KEYS.iteration(projectId, module, iterationId),
-    iteration
+    iteration,
   );
 
   // Update project's active iteration reference
   const project = await redis.get(PROJECT_KEYS.project(projectId));
-  project.iterations = project.iterations || { voice: [], music: [], soundfx: [] };
+  project.iterations = project.iterations || {
+    voice: [],
+    music: [],
+    soundfx: [],
+  };
   project.iterations[`active${capitalize(module)}`] = iterationId;
   await redis.set(PROJECT_KEYS.project(projectId), project);
 
@@ -1194,14 +1201,14 @@ class VoiceProviderMigrator {
     toProvider: Provider,
     language: Language,
     region?: string,
-    accent?: string
+    accent?: string,
   ): Promise<VoiceTrack[]> {
     // Load target provider voices
     const targetVoices = await this.loadTargetVoices(
       toProvider,
       language,
       region,
-      accent
+      accent,
     );
 
     if (targetVoices.length === 0) {
@@ -1209,28 +1216,25 @@ class VoiceProviderMigrator {
     }
 
     // Map each track to best match in target provider
-    return voiceTracks.map(track => {
+    return voiceTracks.map((track) => {
       if (!track.voice) {
         return track;
       }
 
-      const match = this.findBestVoiceMatch(
-        track.voice,
-        targetVoices,
-        {
-          preserveGender: true,
-          preserveAge: true,
-          preserveStyle: true,
-        }
-      );
+      const match = this.findBestVoiceMatch(track.voice, targetVoices, {
+        preserveGender: true,
+        preserveAge: true,
+        preserveStyle: true,
+      });
 
       return {
         ...track,
         voice: match,
         // Reset provider-specific fields
-        voiceInstructions: toProvider === 'openai' ? '' : track.voiceInstructions,
-        style: toProvider === 'elevenlabs' ? track.style : undefined,
-        useCase: toProvider === 'elevenlabs' ? track.useCase : undefined,
+        voiceInstructions:
+          toProvider === "openai" ? "" : track.voiceInstructions,
+        style: toProvider === "elevenlabs" ? track.style : undefined,
+        useCase: toProvider === "elevenlabs" ? track.useCase : undefined,
       };
     });
   }
@@ -1241,23 +1245,23 @@ class VoiceProviderMigrator {
   private findBestVoiceMatch(
     source: Voice,
     targets: Voice[],
-    criteria: MatchCriteria
+    criteria: MatchCriteria,
   ): Voice {
     // Score each target voice
-    const scored = targets.map(target => ({
+    const scored = targets.map((target) => ({
       voice: target,
-      score: this.calculateMatchScore(source, target, criteria)
+      score: this.calculateMatchScore(source, target, criteria),
     }));
 
     // Sort by score (highest first)
     scored.sort((a, b) => b.score - a.score);
 
-    console.log('Voice matching results:', {
+    console.log("Voice matching results:", {
       source: source.name,
-      topMatches: scored.slice(0, 3).map(s => ({
+      topMatches: scored.slice(0, 3).map((s) => ({
         name: s.voice.name,
-        score: s.score
-      }))
+        score: s.score,
+      })),
     });
 
     return scored[0].voice;
@@ -1269,7 +1273,7 @@ class VoiceProviderMigrator {
   private calculateMatchScore(
     source: Voice,
     target: Voice,
-    criteria: MatchCriteria
+    criteria: MatchCriteria,
   ): number {
     let score = 0;
 
@@ -1283,7 +1287,7 @@ class VoiceProviderMigrator {
     // Age match (important)
     if (criteria.preserveAge && source.age && target.age) {
       const ageDiff = Math.abs(
-        this.getAgeValue(source.age) - this.getAgeValue(target.age)
+        this.getAgeValue(source.age) - this.getAgeValue(target.age),
       );
       score += Math.max(0, 5 - ageDiff); // Max 5 points
     }
@@ -1301,7 +1305,7 @@ class VoiceProviderMigrator {
     if (source.description && target.description) {
       const similarity = this.calculateTextSimilarity(
         source.description,
-        target.description
+        target.description,
       );
       score += similarity * 2; // Max 2 points
     }
@@ -1316,15 +1320,15 @@ class VoiceProviderMigrator {
     provider: Provider,
     language: Language,
     region?: string,
-    accent?: string
+    accent?: string,
   ): Promise<Voice[]> {
-    const url = new URL('/api/voice-catalogue', window.location.origin);
-    url.searchParams.set('operation', 'filtered-voices');
-    url.searchParams.set('language', language);
-    url.searchParams.set('provider', provider);
+    const url = new URL("/api/voice-catalogue", window.location.origin);
+    url.searchParams.set("operation", "filtered-voices");
+    url.searchParams.set("language", language);
+    url.searchParams.set("provider", provider);
 
-    if (region) url.searchParams.set('region', region);
-    if (accent) url.searchParams.set('accent', accent);
+    if (region) url.searchParams.set("region", region);
+    if (accent) url.searchParams.set("accent", accent);
 
     const response = await fetch(url);
     const data = await response.json();
@@ -1334,18 +1338,18 @@ class VoiceProviderMigrator {
 
   private getAgeValue(age: string): number {
     const ageMap: Record<string, number> = {
-      'young': 1,
-      'middle aged': 2,
-      'old': 3,
+      young: 1,
+      "middle aged": 2,
+      old: 3,
     };
     return ageMap[age.toLowerCase()] || 2;
   }
 
   private isSimilarStyle(style1: string, style2: string): boolean {
     const similarityMap: Record<string, string[]> = {
-      'warm': ['friendly', 'conversational'],
-      'professional': ['business', 'corporate'],
-      'excited': ['energetic', 'enthusiastic'],
+      warm: ["friendly", "conversational"],
+      professional: ["business", "corporate"],
+      excited: ["energetic", "enthusiastic"],
     };
 
     const s1 = style1.toLowerCase();
@@ -1359,7 +1363,7 @@ class VoiceProviderMigrator {
     const words1 = new Set(text1.toLowerCase().split(/\s+/));
     const words2 = new Set(text2.toLowerCase().split(/\s+/));
 
-    const intersection = new Set([...words1].filter(w => words2.has(w)));
+    const intersection = new Set([...words1].filter((w) => words2.has(w)));
     const union = new Set([...words1, ...words2]);
 
     return intersection.size / union.size;
@@ -1495,6 +1499,7 @@ Users may trigger multiple iterations simultaneously (e.g., changing music while
 **Goals**: Set up iteration infrastructure without UI
 
 **Tasks**:
+
 1. Create Redis schema types in `/src/types/iterations.ts`
 2. Implement Redis utility functions in `/src/utils/redis-iterations.ts`
 3. Create base iteration API route structure
@@ -1503,6 +1508,7 @@ Users may trigger multiple iterations simultaneously (e.g., changing music while
 6. Write unit tests for diff application logic
 
 **Deliverables**:
+
 - Type definitions for all iteration types
 - Redis CRUD operations for iterations
 - Feature flag: `NEXT_PUBLIC_FEATURE_ITERATION_ENABLED=false`
@@ -1511,11 +1517,13 @@ Users may trigger multiple iterations simultaneously (e.g., changing music while
 ### Phase 2: MusicPanel MVP (Week 2-3)
 
 **Why MusicPanel First?**
+
 - Simplest iteration logic (single prompt, single provider)
 - No complex relationships (unlike voice tracks)
 - Fast feedback loop for testing UX patterns
 
 **Tasks**:
+
 1. Add iteration UI to MusicPanel:
    - "What do you want to change?" textarea
    - Submit button
@@ -1526,6 +1534,7 @@ Users may trigger multiple iterations simultaneously (e.g., changing music while
 5. Test preview → activate flow
 
 **Deliverables**:
+
 - Functional music iteration in MusicPanel
 - Feature flag: `NEXT_PUBLIC_FEATURE_ITERATION_MUSIC=true`
 - User can iterate on music prompts
@@ -1536,6 +1545,7 @@ Users may trigger multiple iterations simultaneously (e.g., changing music while
 **New Complexity**: Multiple sound effect prompts
 
 **Tasks**:
+
 1. Port iteration UI from MusicPanel
 2. Implement `/api/ai/iterate/soundfx/route.ts`
 3. Handle array of sound effect prompts in diff logic
@@ -1543,6 +1553,7 @@ Users may trigger multiple iterations simultaneously (e.g., changing music while
 5. Refine UX based on MusicPanel learnings
 
 **Deliverables**:
+
 - Sound effect iteration working
 - Feature flag: `NEXT_PUBLIC_FEATURE_ITERATION_SOUNDFX=true`
 - Support for multiple sound effects
@@ -1551,12 +1562,14 @@ Users may trigger multiple iterations simultaneously (e.g., changing music while
 ### Phase 4: ScripterPanel (Week 4-5)
 
 **Highest Complexity**:
+
 - Multiple voice tracks with relationships
 - Provider switching logic
 - Script vs acting vs both modes
 - Pacing controls
 
 **Tasks**:
+
 1. Implement voice iteration UI with mode controls
 2. Build `/api/ai/iterate/voice/route.ts`
 3. Integrate `VoiceProviderMigrator`
@@ -1566,6 +1579,7 @@ Users may trigger multiple iterations simultaneously (e.g., changing music while
 7. Test complex scenarios (dialog format, multi-track)
 
 **Deliverables**:
+
 - Full voice iteration capability
 - Feature flag: `NEXT_PUBLIC_FEATURE_ITERATION_VOICE=true`
 - Provider switching tested
@@ -1576,6 +1590,7 @@ Users may trigger multiple iterations simultaneously (e.g., changing music while
 **Focus**: Production readiness
 
 **Tasks**:
+
 1. Performance optimization:
    - Lazy loading for iteration history
    - Optimistic UI updates
@@ -1598,6 +1613,7 @@ Users may trigger multiple iterations simultaneously (e.g., changing music while
    - Migration guide for existing projects
 
 **Deliverables**:
+
 - Production-ready feature
 - Comprehensive test coverage
 - Performance benchmarks met
@@ -1611,6 +1627,7 @@ Users may trigger multiple iterations simultaneously (e.g., changing music while
 **Impact**: High (breaks iteration flow)
 
 **Mitigation**:
+
 - Schema validation with Ajv
 - Repair logic for common issues
 - Fallback to parent state on critical failure
@@ -1618,6 +1635,7 @@ Users may trigger multiple iterations simultaneously (e.g., changing music while
 - Lower temperature (0.5) for consistency
 
 **Monitoring**:
+
 ```typescript
 // Track validation failures
 const validationMetrics = {
@@ -1637,24 +1655,24 @@ logIterationMetrics(validationMetrics);
 **Impact**: Medium (slow UI, high storage)
 
 **Mitigation**:
+
 - Lazy loading (5 iterations at a time)
 - Aggressive GC (20 iteration limit)
 - Index-based pagination in Redis
 - Virtual scrolling for history list
 
 **Monitoring**:
+
 ```typescript
 // Track iteration counts per project
 async function getIterationStats() {
-  const projects = await redis.keys('project:*:iterations:*');
-  const stats = await Promise.all(
-    projects.map(key => redis.llen(key))
-  );
+  const projects = await redis.keys("project:*:iterations:*");
+  const stats = await Promise.all(projects.map((key) => redis.llen(key)));
 
   return {
     maxIterations: Math.max(...stats),
     avgIterations: stats.reduce((a, b) => a + b) / stats.length,
-    projectsOver20: stats.filter(n => n > 20).length,
+    projectsOver20: stats.filter((n) => n > 20).length,
   };
 }
 ```
@@ -1665,25 +1683,27 @@ async function getIterationStats() {
 **Impact**: Low (aesthetic, not functional)
 
 **Mitigation**:
+
 - Warning system (not blocking)
 - Track provider metadata on mixer tracks
 - Validator checks provider consistency
 - User education in UI
 
 **Implementation**:
+
 ```typescript
 class MixValidator {
   validateProviderMix(tracks: MixerTrackWithProvider[]): ValidationResult {
     const providers = new Set(
       tracks
-        .filter(t => t.type === 'voice')
-        .map(t => t.metadata.voiceProvider)
+        .filter((t) => t.type === "voice")
+        .map((t) => t.metadata.voiceProvider),
     );
 
     if (providers.size > 1) {
       return {
         valid: true,
-        warning: `Multiple voice providers detected: ${[...providers].join(', ')}. Audio characteristics may vary.`,
+        warning: `Multiple voice providers detected: ${[...providers].join(", ")}. Audio characteristics may vary.`,
       };
     }
 
@@ -1698,6 +1718,7 @@ class MixValidator {
 **Impact**: High (user confusion, data loss)
 
 **Mitigation**:
+
 - Single source of truth (Redis)
 - Optimistic UI updates with rollback
 - Periodic state refresh from server
@@ -1709,6 +1730,7 @@ class MixValidator {
 **Impact**: Low (handled gracefully)
 
 **Mitigation**:
+
 - Backwards compatible schema
 - Lazy migration (first iteration creates base)
 - No breaking changes to existing flow
@@ -1719,41 +1741,49 @@ class MixValidator {
 ### Decision 1: Diff-Based LLM Responses
 
 **Rationale**:
+
 - **Token Efficiency**: Returning full state wastes tokens (cost + latency)
 - **Consistency**: Smaller responses = fewer parsing errors
 - **Clarity**: LLM focuses on changes, not reproducing everything
 
 **Alternative Considered**: Full state regeneration
+
 - Rejected: Wasteful, error-prone, inconsistent
 
 ### Decision 2: Lazy Activation Pattern
 
 **Rationale**:
+
 - **User Control**: User decides when to commit
 - **Safety**: Can preview before breaking current mix
 - **Exploration**: Encourages experimentation
 
 **Alternative Considered**: Auto-activation
+
 - Rejected: Too aggressive, ruins existing work
 
 ### Decision 3: Phased Rollout (Music → SoundFx → Voice)
 
 **Rationale**:
+
 - **Risk Management**: Learn UX patterns on simple cases first
 - **Fast Feedback**: Music iterations quickest to test
 - **Incremental Complexity**: Build confidence before tackling voice
 
 **Alternative Considered**: Big bang launch
+
 - Rejected: Too risky, harder to debug
 
 ### Decision 4: Feature Flags
 
 **Rationale**:
+
 - **Safe Deployment**: Can disable if issues arise
 - **A/B Testing**: Can test with subset of users
 - **Gradual Rollout**: Enable module by module
 
 **Implementation**:
+
 ```typescript
 // .env.local
 NEXT_PUBLIC_FEATURE_ITERATION_ENABLED=true
@@ -1765,11 +1795,13 @@ NEXT_PUBLIC_FEATURE_ITERATION_VOICE=false  # Still in dev
 ### Decision 5: Parent-Child Iteration Linking
 
 **Rationale**:
+
 - **History Tracking**: Can trace how we got here
 - **Rollback Support**: Can revert to any ancestor
 - **GC Protection**: Preserve parent chain of active iteration
 
 **Alternative Considered**: Flat iteration list
+
 - Rejected: Loses context, harder to understand evolution
 
 ## Next Steps
@@ -1824,11 +1856,13 @@ Conclusion: Storage is not a concern
 ### Appendix C: Cost Analysis
 
 **LLM Costs per Iteration**:
+
 - Input tokens: ~2000 (context + prompt)
 - Output tokens: ~500 (diff response)
 - GPT-4.1 cost: ~$0.015 per iteration
 
 **Expected Volume**:
+
 - Average: 5 iterations per project
 - Cost per project: $0.075
 - 1000 projects/month: $75/month

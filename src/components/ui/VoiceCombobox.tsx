@@ -1,14 +1,14 @@
-import React, { useState, useMemo } from "react";
-import {
-  Combobox,
-  ComboboxInput,
-  ComboboxButton,
-  ComboboxOptions,
-  ComboboxOption,
-} from "@headlessui/react";
-import { ChevronUpDownIcon, CheckIcon } from "@heroicons/react/16/solid";
 import { Voice } from "@/types";
 import { getFlagCode } from "@/utils/language";
+import {
+  Combobox,
+  ComboboxButton,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
+} from "@headlessui/react";
+import { CheckIcon, ChevronUpDownIcon } from "@heroicons/react/16/solid";
+import { useMemo, useState } from "react";
 
 export interface VoiceComboboxProps {
   label?: string;
@@ -33,14 +33,18 @@ export function VoiceCombobox({
   const filteredVoices = useMemo(() => {
     if (query === "") return voices;
     return voices.filter((voice) =>
-      voice.name.toLowerCase().includes(query.toLowerCase())
+      voice.name.toLowerCase().includes(query.toLowerCase()),
     );
   }, [query, voices]);
 
   return (
     <div>
       {label && <label className="block mb-2 text-white">{label}</label>}
-      <Combobox value={value} onChange={onChange} disabled={disabled || loading}>
+      <Combobox
+        value={value}
+        onChange={onChange}
+        disabled={disabled || loading}
+      >
         <div className="relative">
           <div className="relative bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
             <ComboboxInput
@@ -119,7 +123,7 @@ export function VoiceCombobox({
                         {voice.language && (
                           <span
                             className={`fi fi-${getFlagCode(
-                              voice.language
+                              voice.language,
                             )} fis opacity-60 mt-0.5 flex-shrink-0`}
                           ></span>
                         )}
@@ -129,7 +133,9 @@ export function VoiceCombobox({
                           {/* Row 1: Voice name */}
                           <div
                             className={`block truncate text-sm ${
-                              selected ? "font-semibold text-white" : "font-medium"
+                              selected
+                                ? "font-semibold text-white"
+                                : "font-medium"
                             }`}
                           >
                             {voice.name}

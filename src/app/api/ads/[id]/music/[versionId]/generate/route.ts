@@ -1,13 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getRedisV3 } from "@/lib/redis-v3";
-import { getVersion, AD_KEYS } from "@/lib/redis/versions";
-import { internalFetch, getBaseUrl } from "@/utils/internal-fetch";
-import type { MusicVersion } from "@/types/versions";
+import { AD_KEYS, getVersion } from "@/lib/redis/versions";
 import type { MusicProvider } from "@/types";
+import type { MusicVersion } from "@/types/versions";
+import { getBaseUrl, internalFetch } from "@/utils/internal-fetch";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; versionId: string }> }
+  { params }: { params: Promise<{ id: string; versionId: string }> },
 ) {
   try {
     const cookie = request.headers.get("cookie");
@@ -24,7 +24,7 @@ export async function POST(
     if (!version || (version as MusicVersion).status !== "draft") {
       return NextResponse.json(
         { error: "Can only generate audio for draft versions" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -41,21 +41,25 @@ export async function POST(
     const baseUrl = getBaseUrl();
 
     // Call the existing music generation endpoint
-    const musicResponse = await internalFetch(`/api/music/${provider}`, {
-      method: "POST",
-      body: JSON.stringify({
-        prompt,
-        duration: adjustedDuration,
-        projectId: adId,
-      }),
-    }, cookie);
+    const musicResponse = await internalFetch(
+      `/api/music/${provider}`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          prompt,
+          duration: adjustedDuration,
+          projectId: adId,
+        }),
+      },
+      cookie,
+    );
 
     if (!musicResponse.ok) {
       const errorData = await musicResponse.json().catch(() => ({}));
       console.error(`❌ Music provider ${provider} failed:`, errorData);
       return NextResponse.json(
         { error: errorData.error || `Music generation failed: ${provider}` },
-        { status: musicResponse.status }
+        { status: musicResponse.status },
       );
     }
 
@@ -63,7 +67,11 @@ export async function POST(
     let generatedUrl = musicData.url;
 
     // Handle Mubert polling if track is still processing
-    if (provider === "mubert" && musicData.status === "processing" && musicData.id) {
+    if (
+      provider === "mubert" &&
+      musicData.status === "processing" &&
+      musicData.id
+    ) {
       console.log(`⏳ Mubert track processing, polling for completion...`);
       const maxAttempts = 60; // 5 minutes max
       const interval = 5000; // 5 seconds
@@ -75,7 +83,7 @@ export async function POST(
         const statusRes = await internalFetch(
           `/api/music/mubert/status?id=${musicData.id}&customer_id=${musicData.customer_id}&access_token=${musicData.access_token}`,
           {},
-          cookie
+          cookie,
         );
 
         if (!statusRes.ok) continue;
@@ -86,16 +94,20 @@ export async function POST(
         if (generation?.status === "done" && generation.url) {
           console.log(`✅ Mubert track ready, uploading to blob storage...`);
           // Re-fetch through provider to get blob URL
-          const finalRes = await internalFetch(`/api/music/mubert`, {
-            method: "POST",
-            body: JSON.stringify({
-              prompt,
-              duration: adjustedDuration,
-              projectId: adId,
-              _internal_ready_url: generation.url,
-              _internal_track_id: musicData.id,
-            }),
-          }, cookie);
+          const finalRes = await internalFetch(
+            `/api/music/mubert`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                prompt,
+                duration: adjustedDuration,
+                projectId: adId,
+                _internal_ready_url: generation.url,
+                _internal_track_id: musicData.id,
+              }),
+            },
+            cookie,
+          );
 
           if (finalRes.ok) {
             const finalData = await finalRes.json();
@@ -112,7 +124,7 @@ export async function POST(
     if (!generatedUrl) {
       return NextResponse.json(
         { error: "No URL returned from music provider" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -144,7 +156,7 @@ export async function POST(
     console.error("❌ Failed to generate music:", error);
     return NextResponse.json(
       { error: "Failed to generate music" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

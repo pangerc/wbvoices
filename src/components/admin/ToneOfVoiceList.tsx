@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { PencilIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { SuggestedTone } from "@/lib/db/schema";
+import { PencilIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 type ApiTone = Omit<SuggestedTone, "createdAt" | "updatedAt"> & {
   createdAt: string;
@@ -44,7 +44,9 @@ export function ToneOfVoiceList() {
     const { id } = pendingDelete;
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/admin/tone-of-voice/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/tone-of-voice/${id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error(await readError(res));
       setTones((prev) => (prev ? prev.filter((t) => t.id !== id) : prev));
       setPendingDelete(null);
@@ -108,7 +110,9 @@ export function ToneOfVoiceList() {
                   className="grid grid-cols-[2fr_3fr_auto] items-center gap-4 px-5 py-4 hover:bg-white/[0.02]"
                 >
                   <div className="font-medium text-white">{tone.title}</div>
-                  <div className="text-sm text-gray-300 italic">{tone.description}</div>
+                  <div className="text-sm text-gray-300 italic">
+                    {tone.description}
+                  </div>
                   <div className="flex items-center gap-3 justify-end">
                     <span
                       className={`text-sm w-16 text-right ${
@@ -154,8 +158,11 @@ export function ToneOfVoiceList() {
         title="Delete tone of voice"
         message={
           <>
-            Delete <span className="font-semibold text-white">&ldquo;{pendingDelete?.title}&rdquo;</span>?
-            This cannot be undone.
+            Delete{" "}
+            <span className="font-semibold text-white">
+              &ldquo;{pendingDelete?.title}&rdquo;
+            </span>
+            ? This cannot be undone.
           </>
         }
         confirmLabel="Delete"
@@ -171,9 +178,12 @@ export function ToneOfVoiceList() {
 function EmptyState() {
   return (
     <div className="rounded-xl border border-white/10 py-16 flex flex-col items-center text-center px-6">
-      <h2 className="text-xl font-semibold text-gray-300">No Tone of Voice defined yet</h2>
+      <h2 className="text-xl font-semibold text-gray-300">
+        No Tone of Voice defined yet
+      </h2>
       <p className="text-gray-400 mt-2 max-w-md">
-        Create and manage voice styles that will be available in your campaign briefs.
+        Create and manage voice styles that will be available in your campaign
+        briefs.
       </p>
       <Link
         href="/admin/tone-of-voice/new"

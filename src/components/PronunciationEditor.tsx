@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { TrashIcon } from '@heroicons/react/24/outline';
-import { PronunciationRule } from '@/types';
+import { PronunciationRule } from "@/types";
+import { TrashIcon } from "@heroicons/react/24/outline";
+import React, { useEffect, useState } from "react";
 
-const DICTIONARY_NAME = 'Global Brand Pronunciations';
-const STORAGE_KEY = 'pronunciation_rules';
+const DICTIONARY_NAME = "Global Brand Pronunciations";
+const STORAGE_KEY = "pronunciation_rules";
 
 type PronunciationEditorProps = {
   className?: string;
@@ -19,7 +19,10 @@ type PronunciationEditorProps = {
  * Pronunciation dictionary editor for ElevenLabs
  * Manages global brand pronunciation rules
  */
-export function PronunciationEditor({ className = '', renderSaveButton }: PronunciationEditorProps) {
+export function PronunciationEditor({
+  className = "",
+  renderSaveButton,
+}: PronunciationEditorProps) {
   const [rules, setRules] = useState<PronunciationRule[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,8 +34,8 @@ export function PronunciationEditor({ className = '', renderSaveButton }: Pronun
     const loadRules = async () => {
       try {
         // Try to fetch from API (Redis-backed)
-        console.log('📖 Fetching pronunciation rules from API...');
-        const response = await fetch('/api/pronunciation');
+        console.log("📖 Fetching pronunciation rules from API...");
+        const response = await fetch("/api/pronunciation");
 
         if (response.ok) {
           const data = await response.json();
@@ -48,27 +51,29 @@ export function PronunciationEditor({ className = '', renderSaveButton }: Pronun
                 rules: data.rules,
                 dictionaryId: data.dictionaryId,
                 timestamp: Date.now(),
-              })
+              }),
             );
             return;
           }
         }
 
         // Fallback to localStorage if API fails or returns no rules
-        console.log('📖 Falling back to localStorage...');
+        console.log("📖 Falling back to localStorage...");
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           try {
             const data = JSON.parse(stored);
             setRules(data.rules || []);
             setDictionaryId(data.dictionaryId || null);
-            console.log(`✅ Loaded ${data.rules?.length || 0} rules from localStorage`);
+            console.log(
+              `✅ Loaded ${data.rules?.length || 0} rules from localStorage`,
+            );
           } catch (err) {
-            console.error('Failed to parse stored rules:', err);
+            console.error("Failed to parse stored rules:", err);
           }
         }
       } catch (error) {
-        console.error('Failed to load rules from API:', error);
+        console.error("Failed to load rules from API:", error);
 
         // Fallback to localStorage on error
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -78,7 +83,7 @@ export function PronunciationEditor({ className = '', renderSaveButton }: Pronun
             setRules(data.rules || []);
             setDictionaryId(data.dictionaryId || null);
           } catch (err) {
-            console.error('Failed to parse stored rules:', err);
+            console.error("Failed to parse stored rules:", err);
           }
         }
       }
@@ -88,7 +93,7 @@ export function PronunciationEditor({ className = '', renderSaveButton }: Pronun
   }, []);
 
   const addRule = () => {
-    setRules([...rules, { stringToReplace: '', type: 'alias', alias: '' }]);
+    setRules([...rules, { stringToReplace: "", type: "alias", alias: "" }]);
   };
 
   const removeRule = (index: number) => {
@@ -103,10 +108,12 @@ export function PronunciationEditor({ className = '', renderSaveButton }: Pronun
 
   const handleSave = async () => {
     // Filter out empty rules
-    const validRules = rules.filter((r) => r.stringToReplace.trim() && r.alias?.trim());
+    const validRules = rules.filter(
+      (r) => r.stringToReplace.trim() && r.alias?.trim(),
+    );
 
     if (validRules.length === 0) {
-      setError('At least one rule is required');
+      setError("At least one rule is required");
       return;
     }
 
@@ -117,10 +124,16 @@ export function PronunciationEditor({ className = '', renderSaveButton }: Pronun
     try {
       if (dictionaryId) {
         // Update existing dictionary
-        console.log('📖 Updating existing dictionary:', dictionaryId, 'with', validRules.length, 'rules');
+        console.log(
+          "📖 Updating existing dictionary:",
+          dictionaryId,
+          "with",
+          validRules.length,
+          "rules",
+        );
         const response = await fetch(`/api/pronunciation/${dictionaryId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ rules: validRules }),
         });
 
@@ -134,24 +147,28 @@ export function PronunciationEditor({ className = '', renderSaveButton }: Pronun
               rules: validRules,
               dictionaryId: dictionaryId,
               timestamp: Date.now(),
-            })
+            }),
           );
 
           setRules(validRules);
           setSuccess(`Updated ${validRules.length} pronunciation rules`);
           setTimeout(() => setSuccess(null), 3000);
         } else {
-          setError(data.error || 'Failed to update dictionary');
+          setError(data.error || "Failed to update dictionary");
         }
       } else {
         // Create new dictionary (first time)
-        console.log('📖 Creating new global dictionary with', validRules.length, 'rules');
-        const response = await fetch('/api/pronunciation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        console.log(
+          "📖 Creating new global dictionary with",
+          validRules.length,
+          "rules",
+        );
+        const response = await fetch("/api/pronunciation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: DICTIONARY_NAME,
-            language: 'en', // Dummy value, not used
+            language: "en", // Dummy value, not used
             rules: validRules,
           }),
         });
@@ -169,18 +186,22 @@ export function PronunciationEditor({ className = '', renderSaveButton }: Pronun
               rules: validRules,
               dictionaryId: newId,
               timestamp: Date.now(),
-            })
+            }),
           );
 
           setRules(validRules);
-          setSuccess(`Created dictionary with ${validRules.length} pronunciation rules`);
+          setSuccess(
+            `Created dictionary with ${validRules.length} pronunciation rules`,
+          );
           setTimeout(() => setSuccess(null), 3000);
         } else {
-          setError(data.error || 'Failed to create dictionary');
+          setError(data.error || "Failed to create dictionary");
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save dictionary');
+      setError(
+        err instanceof Error ? err.message : "Failed to save dictionary",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -188,7 +209,8 @@ export function PronunciationEditor({ className = '', renderSaveButton }: Pronun
 
   const hasChanges = () => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return rules.some(r => r.stringToReplace.trim() || r.alias?.trim());
+    if (!stored)
+      return rules.some((r) => r.stringToReplace.trim() || r.alias?.trim());
 
     try {
       const data = JSON.parse(stored);
@@ -214,12 +236,13 @@ export function PronunciationEditor({ className = '', renderSaveButton }: Pronun
       )}
 
       {/* Save button render prop */}
-      {renderSaveButton && renderSaveButton({
-        onClick: handleSave,
-        disabled: !hasChanges(),
-        isSaving: isSaving,
-        hasChanges: hasChanges()
-      })}
+      {renderSaveButton &&
+        renderSaveButton({
+          onClick: handleSave,
+          disabled: !hasChanges(),
+          isSaving: isSaving,
+          hasChanges: hasChanges(),
+        })}
 
       {/* Rules List */}
       <div className="mb-6">
@@ -228,7 +251,7 @@ export function PronunciationEditor({ className = '', renderSaveButton }: Pronun
             Pronunciation Rules
             {rules.length > 0 && (
               <span className="text-gray-500 text-sm ml-2">
-                ({rules.filter(r => r.stringToReplace.trim()).length})
+                ({rules.filter((r) => r.stringToReplace.trim()).length})
               </span>
             )}
           </h3>
@@ -269,8 +292,10 @@ export function PronunciationEditor({ className = '', renderSaveButton }: Pronun
                   <span className="text-gray-500 text-xl">→</span>
                   <input
                     type="text"
-                    value={rule.alias || ''}
-                    onChange={(e) => updateRule(index, { alias: e.target.value })}
+                    value={rule.alias || ""}
+                    onChange={(e) =>
+                      updateRule(index, { alias: e.target.value })
+                    }
                     placeholder="Pronunciation (e.g., igrek es el)"
                     className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30"
                   />

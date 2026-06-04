@@ -69,7 +69,10 @@ export function getElevenLabsPresetSpeed(description?: string | null): number {
  * @param provider - The voice provider name
  * @returns Object with min and max speed multipliers
  */
-export function getProviderSpeedRange(provider: string): { min: number; max: number } {
+export function getProviderSpeedRange(provider: string): {
+  min: number;
+  max: number;
+} {
   switch (provider) {
     case "elevenlabs":
       // ElevenLabs V3 API valid range: 0.7 to 1.2

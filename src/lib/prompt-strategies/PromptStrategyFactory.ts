@@ -1,19 +1,16 @@
 import { Provider } from "@/types";
 import { PromptStrategy } from "./BasePromptStrategy";
 import { ElevenLabsV3PromptStrategy } from "./ElevenLabsV3PromptStrategy";
-import { OpenAIPromptStrategy } from "./OpenAIPromptStrategy";
-import { LovoPromptStrategy } from "./LovoPromptStrategy";
-import { QwenPromptStrategy } from "./QwenPromptStrategy";
 import { LahajatiPromptStrategy } from "./LahajatiPromptStrategy";
+import { LovoPromptStrategy } from "./LovoPromptStrategy";
+import { OpenAIPromptStrategy } from "./OpenAIPromptStrategy";
+import { QwenPromptStrategy } from "./QwenPromptStrategy";
 
 /**
  * Factory for creating prompt strategy instances based on provider
  */
 export class PromptStrategyFactory {
-  private static strategies: Record<
-    Provider,
-    () => PromptStrategy
-  > = {
+  private static strategies: Record<Provider, () => PromptStrategy> = {
     elevenlabs: () => new ElevenLabsV3PromptStrategy(),
     openai: () => new OpenAIPromptStrategy(),
     lovo: () => new LovoPromptStrategy(),

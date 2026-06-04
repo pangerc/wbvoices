@@ -79,7 +79,9 @@ export default function VoicesCachePage() {
       await loadStats();
     } catch (err) {
       console.error("Failed to rebuild voice cache:", err);
-      setError(err instanceof Error ? err.message : "Failed to rebuild voice cache");
+      setError(
+        err instanceof Error ? err.message : "Failed to rebuild voice cache",
+      );
     } finally {
       setIsRebuilding(false);
     }
@@ -168,11 +170,15 @@ export default function VoicesCachePage() {
             <div className="grid grid-cols-3 gap-6">
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-6">
                 <div className="text-sm text-gray-400 mb-1">Total Voices</div>
-                <div className="text-3xl font-bold">{stats.summary.totalVoices.toLocaleString()}</div>
+                <div className="text-3xl font-bold">
+                  {stats.summary.totalVoices.toLocaleString()}
+                </div>
               </div>
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-6">
                 <div className="text-sm text-gray-400 mb-1">Languages</div>
-                <div className="text-3xl font-bold">{stats.summary.totalLanguages}</div>
+                <div className="text-3xl font-bold">
+                  {stats.summary.totalLanguages}
+                </div>
               </div>
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-6">
                 <div className="text-sm text-gray-400 mb-1">Last Updated</div>
@@ -188,27 +194,39 @@ export default function VoicesCachePage() {
               <div className="grid grid-cols-6 gap-4">
                 <div>
                   <div className="text-sm text-gray-400 mb-1">ElevenLabs</div>
-                  <div className="text-2xl font-bold">{stats.summary.byProvider.elevenlabs}</div>
+                  <div className="text-2xl font-bold">
+                    {stats.summary.byProvider.elevenlabs}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1">Lovo</div>
-                  <div className="text-2xl font-bold">{stats.summary.byProvider.lovo}</div>
+                  <div className="text-2xl font-bold">
+                    {stats.summary.byProvider.lovo}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1">OpenAI</div>
-                  <div className="text-2xl font-bold">{stats.summary.byProvider.openai}</div>
+                  <div className="text-2xl font-bold">
+                    {stats.summary.byProvider.openai}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1">Qwen</div>
-                  <div className="text-2xl font-bold">{stats.summary.byProvider.qwen}</div>
+                  <div className="text-2xl font-bold">
+                    {stats.summary.byProvider.qwen}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1">ByteDance</div>
-                  <div className="text-2xl font-bold">{stats.summary.byProvider.bytedance}</div>
+                  <div className="text-2xl font-bold">
+                    {stats.summary.byProvider.bytedance}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1">Lahajati</div>
-                  <div className="text-2xl font-bold">{stats.summary.byProvider.lahajati}</div>
+                  <div className="text-2xl font-bold">
+                    {stats.summary.byProvider.lahajati}
+                  </div>
                 </div>
               </div>
             </div>
@@ -220,37 +238,49 @@ export default function VoicesCachePage() {
                 <div>
                   <div className="text-sm text-gray-400 mb-1">ElevenLabs</div>
                   <div className="text-2xl font-bold">
-                    {stats.languages.filter(l => l.providers.elevenlabs > 0).length}
+                    {
+                      stats.languages.filter((l) => l.providers.elevenlabs > 0)
+                        .length
+                    }
                   </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1">Lovo</div>
                   <div className="text-2xl font-bold">
-                    {stats.languages.filter(l => l.providers.lovo > 0).length}
+                    {stats.languages.filter((l) => l.providers.lovo > 0).length}
                   </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1">OpenAI</div>
                   <div className="text-2xl font-bold">
-                    {stats.languages.filter(l => l.providers.openai > 0).length}
+                    {
+                      stats.languages.filter((l) => l.providers.openai > 0)
+                        .length
+                    }
                   </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1">Qwen</div>
                   <div className="text-2xl font-bold">
-                    {stats.languages.filter(l => l.providers.qwen > 0).length}
+                    {stats.languages.filter((l) => l.providers.qwen > 0).length}
                   </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1">ByteDance</div>
                   <div className="text-2xl font-bold">
-                    {stats.languages.filter(l => l.providers.bytedance > 0).length}
+                    {
+                      stats.languages.filter((l) => l.providers.bytedance > 0)
+                        .length
+                    }
                   </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1">Lahajati</div>
                   <div className="text-2xl font-bold">
-                    {stats.languages.filter(l => l.providers.lahajati > 0).length}
+                    {
+                      stats.languages.filter((l) => l.providers.lahajati > 0)
+                        .length
+                    }
                   </div>
                 </div>
               </div>
@@ -265,25 +295,53 @@ export default function VoicesCachePage() {
                 <table className="w-full">
                   <thead className="bg-white/5">
                     <tr>
-                      <th className="text-left px-6 py-3 text-sm font-medium text-gray-300">Language</th>
-                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">Total</th>
-                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">Accents</th>
-                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">Regions</th>
-                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">EL</th>
-                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">Lovo</th>
-                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">OpenAI</th>
-                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">Qwen</th>
-                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">BD</th>
-                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">LH</th>
+                      <th className="text-left px-6 py-3 text-sm font-medium text-gray-300">
+                        Language
+                      </th>
+                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">
+                        Total
+                      </th>
+                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">
+                        Accents
+                      </th>
+                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">
+                        Regions
+                      </th>
+                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">
+                        EL
+                      </th>
+                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">
+                        Lovo
+                      </th>
+                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">
+                        OpenAI
+                      </th>
+                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">
+                        Qwen
+                      </th>
+                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">
+                        BD
+                      </th>
+                      <th className="text-right px-6 py-3 text-sm font-medium text-gray-300">
+                        LH
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/10">
                     {stats.languages.map((lang) => (
                       <tr key={lang.language} className="hover:bg-white/5">
-                        <td className="px-6 py-3 font-medium">{lang.language.toUpperCase()}</td>
-                        <td className="px-6 py-3 text-right font-medium">{lang.total}</td>
-                        <td className="px-6 py-3 text-right text-gray-400">{lang.accentCount}</td>
-                        <td className="px-6 py-3 text-right text-gray-400">{lang.regionCount}</td>
+                        <td className="px-6 py-3 font-medium">
+                          {lang.language.toUpperCase()}
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium">
+                          {lang.total}
+                        </td>
+                        <td className="px-6 py-3 text-right text-gray-400">
+                          {lang.accentCount}
+                        </td>
+                        <td className="px-6 py-3 text-right text-gray-400">
+                          {lang.regionCount}
+                        </td>
                         <td className="px-6 py-3 text-right text-gray-400">
                           {lang.providers.elevenlabs || "-"}
                         </td>

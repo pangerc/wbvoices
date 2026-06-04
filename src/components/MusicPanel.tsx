@@ -1,25 +1,22 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
-import { MusicProvider, LibraryMusicTrack, MusicPrompts } from "@/types";
-import { migrateMusicPrompt } from "@/utils/music-prompt-validator";
+import { LibraryMusicTrack, MusicPrompts, MusicProvider } from "@/types";
+import { useParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  GlassyTextarea,
+  GenerateIcon,
+  GlassTab,
+  GlassTabBar,
+  GlassyInput,
   GlassyOptionPicker,
   GlassySlider,
-  GlassyInput,
-  ResetButton,
-  GenerateButton,
-  GlassTabBar,
-  GlassTab,
-  Tooltip,
-  GenerateIcon,
-  UploadIcon,
+  GlassyTextarea,
   LibraryIcon,
   LoadingSpinner,
+  Tooltip,
+  UploadIcon,
 } from "./ui";
 import { FileUpload, useFileUpload } from "./ui/FileUpload";
-import { useParams } from "next/navigation";
 
-type MusicMode = 'generate' | 'upload' | 'library';
+type MusicMode = "generate" | "upload" | "library";
 
 const PROVIDER_OPTIONS: Array<{
   value: MusicProvider;
@@ -29,7 +26,8 @@ const PROVIDER_OPTIONS: Array<{
   {
     value: "loudly",
     label: "Loudly",
-    description: "High-quality, customizable music (duration in 15s increments)",
+    description:
+      "High-quality, customizable music (duration in 15s increments)",
   },
   {
     value: "mubert",
@@ -57,7 +55,7 @@ type MusicPanelProps = {
   onGenerate: (
     prompt: string,
     provider: MusicProvider,
-    duration: number
+    duration: number,
   ) => Promise<string | null | void>;
   isGenerating: boolean;
   statusMessage?: string;
@@ -88,7 +86,7 @@ export function MusicPanel({
 }: MusicPanelProps) {
   const params = useParams();
   const projectId = params.id as string;
-  
+
   // File upload hook
   const {
     uploadedFiles,
@@ -99,20 +97,20 @@ export function MusicPanel({
     handleUploadError,
     startUpload,
   } = useFileUpload();
-  
-  const [mode, setMode] = useState<MusicMode>('generate');
+
+  const [mode, setMode] = useState<MusicMode>("generate");
   const [duration, setDuration] = useState(Math.max(30, adDuration + 15));
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
 
   // Provider-specific prompts - one state per provider
   // Initialize from draft version if available
   const [providerPrompts, setProviderPrompts] = useState<MusicPrompts>(
-    initialPrompts || { loudly: "", mubert: "", elevenlabs: "" }
+    initialPrompts || { loudly: "", mubert: "", elevenlabs: "" },
   );
 
   // Library state
   const [libraryTracks, setLibraryTracks] = useState<LibraryMusicTrack[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -123,7 +121,7 @@ export function MusicPanel({
   // Initialize mode based on whether this is a custom upload with audio
   useEffect(() => {
     if (initialProvider === "custom" && hasGeneratedUrl) {
-      setMode('upload');
+      setMode("upload");
     }
   }, [initialProvider, hasGeneratedUrl]);
 
@@ -148,7 +146,7 @@ export function MusicPanel({
   // Load library tracks when switching to library mode
   // Cleanup audio when leaving library mode
   useEffect(() => {
-    if (mode === 'library') {
+    if (mode === "library") {
       loadLibraryTracks();
     } else {
       // Stop audio when leaving library mode
@@ -177,14 +175,14 @@ export function MusicPanel({
       const response = await fetch(`/api/music-library`);
 
       if (!response.ok) {
-        throw new Error('Failed to load music library');
+        throw new Error("Failed to load music library");
       }
 
       const data = await response.json();
       setLibraryTracks(data.tracks || []);
       console.log(`✅ Loaded ${data.tracks?.length || 0} tracks from library`);
     } catch (error) {
-      console.error('❌ Failed to load music library:', error);
+      console.error("❌ Failed to load music library:", error);
       setLibraryTracks([]);
     } finally {
       setIsLoadingLibrary(false);
@@ -196,10 +194,11 @@ export function MusicPanel({
     if (!searchQuery.trim()) return libraryTracks;
 
     const query = searchQuery.toLowerCase();
-    return libraryTracks.filter(track =>
-      track.projectTitle.toLowerCase().includes(query) ||
-      track.musicPrompt.toLowerCase().includes(query) ||
-      track.musicProvider.toLowerCase().includes(query)
+    return libraryTracks.filter(
+      (track) =>
+        track.projectTitle.toLowerCase().includes(query) ||
+        track.musicPrompt.toLowerCase().includes(query) ||
+        track.musicProvider.toLowerCase().includes(query),
     );
   }, [libraryTracks, searchQuery]);
 
@@ -235,23 +234,36 @@ export function MusicPanel({
     audio.onerror = () => {
       setPlayingTrackId(null);
       audioRef.current = null;
-      console.error('Failed to play audio:', track.musicUrl);
+      console.error("Failed to play audio:", track.musicUrl);
     };
 
-    audio.play().catch(error => {
-      console.error('Error playing audio:', error);
+    audio.play().catch((error) => {
+      console.error("Error playing audio:", error);
       setPlayingTrackId(null);
       audioRef.current = null;
     });
   };
 
   // Handle music upload completion - passes URL to parent for Redis persistence
-  const handleMusicUpload = async (result: { url: string; filename: string; duration?: number }) => {
+  const handleMusicUpload = async (result: {
+    url: string;
+    filename: string;
+    duration?: number;
+  }) => {
     handleUploadComplete("music")(result);
-    console.log('✅ Custom music track uploaded:', result.filename, 'duration:', result.duration);
+    console.log(
+      "✅ Custom music track uploaded:",
+      result.filename,
+      "duration:",
+      result.duration,
+    );
 
     // Pass URL, filename, and duration to parent for V3 version creation
-    onTrackSelected?.(result.url, result.filename, result.duration ?? undefined);
+    onTrackSelected?.(
+      result.url,
+      result.filename,
+      result.duration ?? undefined,
+    );
   };
 
   // Handle library track selection - passes URL to parent for Redis persistence
@@ -259,12 +271,16 @@ export function MusicPanel({
     console.log(`✅ Library music track from "${track.projectTitle}" selected`);
 
     // Pass URL, filename (project title), and duration to parent for V3 version creation
-    onTrackSelected?.(track.musicUrl, `${track.projectTitle} (library)`, track.duration ?? undefined);
+    onTrackSelected?.(
+      track.musicUrl,
+      `${track.projectTitle} (library)`,
+      track.duration ?? undefined,
+    );
   };
 
   // Handle local reset
   const handleReset = () => {
-    setMode('generate');
+    setMode("generate");
     setMusicProvider("elevenlabs");
     setDuration(Math.max(30, adDuration + 15));
     setLocalStatusMessage("");
@@ -301,33 +317,33 @@ export function MusicPanel({
           <GlassTabBar>
             <Tooltip content="Generate AI music" side="bottom">
               <GlassTab
-                isActive={mode === 'generate'}
-                onClick={() => setMode('generate')}
+                isActive={mode === "generate"}
+                onClick={() => setMode("generate")}
               >
-                <GenerateIcon isActive={mode === 'generate'} />
+                <GenerateIcon isActive={mode === "generate"} />
               </GlassTab>
             </Tooltip>
             <Tooltip content="Upload custom music" side="bottom">
               <GlassTab
-                isActive={mode === 'upload'}
-                onClick={() => setMode('upload')}
+                isActive={mode === "upload"}
+                onClick={() => setMode("upload")}
               >
-                <UploadIcon isActive={mode === 'upload'} />
+                <UploadIcon isActive={mode === "upload"} />
               </GlassTab>
             </Tooltip>
             <Tooltip content="Browse music library" side="bottom">
               <GlassTab
-                isActive={mode === 'library'}
-                onClick={() => setMode('library')}
+                isActive={mode === "library"}
+                onClick={() => setMode("library")}
               >
-                <LibraryIcon isActive={mode === 'library'} />
+                <LibraryIcon isActive={mode === "library"} />
               </GlassTab>
             </Tooltip>
           </GlassTabBar>
         </div>
       )}
 
-      {mode === 'generate' ? (
+      {mode === "generate" ? (
         <>
           <div className="space-y-12 md:grid md:grid-cols-2 md:gap-6">
             <div>
@@ -335,11 +351,15 @@ export function MusicPanel({
               <label className="block mb-2 text-white">Music Prompt</label>
 
               {/* Loudly textarea */}
-              <div style={{ display: musicProvider === 'loudly' ? 'block' : 'none' }}>
+              <div
+                style={{
+                  display: musicProvider === "loudly" ? "block" : "none",
+                }}
+              >
                 <GlassyTextarea
                   value={providerPrompts.loudly}
                   onChange={(e) => {
-                    setProviderPrompts(prev => ({
+                    setProviderPrompts((prev) => ({
                       ...prev,
                       loudly: e.target.value,
                     }));
@@ -351,11 +371,15 @@ export function MusicPanel({
               </div>
 
               {/* Mubert textarea */}
-              <div style={{ display: musicProvider === 'mubert' ? 'block' : 'none' }}>
+              <div
+                style={{
+                  display: musicProvider === "mubert" ? "block" : "none",
+                }}
+              >
                 <GlassyTextarea
                   value={providerPrompts.mubert}
                   onChange={(e) => {
-                    setProviderPrompts(prev => ({
+                    setProviderPrompts((prev) => ({
                       ...prev,
                       mubert: e.target.value,
                     }));
@@ -367,11 +391,15 @@ export function MusicPanel({
               </div>
 
               {/* ElevenLabs textarea */}
-              <div style={{ display: musicProvider === 'elevenlabs' ? 'block' : 'none' }}>
+              <div
+                style={{
+                  display: musicProvider === "elevenlabs" ? "block" : "none",
+                }}
+              >
                 <GlassyTextarea
                   value={providerPrompts.elevenlabs}
                   onChange={(e) => {
-                    setProviderPrompts(prev => ({
+                    setProviderPrompts((prev) => ({
                       ...prev,
                       elevenlabs: e.target.value,
                     }));
@@ -406,9 +434,7 @@ export function MusicPanel({
 
               <label className="block text-base mb-1">
                 Duration{" "}
-                <span className="text-sm text-gray-400">
-                  {duration}s
-                </span>
+                <span className="text-sm text-gray-400">{duration}s</span>
               </label>
               <GlassySlider
                 label={null}
@@ -428,21 +454,26 @@ export function MusicPanel({
             </div>
           )}
         </>
-      ) : mode === 'upload' ? (
+      ) : mode === "upload" ? (
         /* Upload Mode */
         <div className="max-w-2xl mx-auto">
           {/* Show existing custom upload state if present */}
-          {initialProvider === "custom" && hasGeneratedUrl && existingFilename && !isUploading.music && (
-            <div className="text-center mb-8">
-              <div className="p-6 bg-green-500/10 border border-green-500/20 rounded-xl">
-                <p className="text-green-400 font-medium text-lg">Custom Track Loaded</p>
-                <p className="text-gray-300 mt-2">{existingFilename}</p>
-                <p className="text-gray-500 text-sm mt-4">
-                  Upload a new file below to replace this track
-                </p>
+          {initialProvider === "custom" &&
+            hasGeneratedUrl &&
+            existingFilename &&
+            !isUploading.music && (
+              <div className="text-center mb-8">
+                <div className="p-6 bg-green-500/10 border border-green-500/20 rounded-xl">
+                  <p className="text-green-400 font-medium text-lg">
+                    Custom Track Loaded
+                  </p>
+                  <p className="text-gray-300 mt-2">{existingFilename}</p>
+                  <p className="text-gray-500 text-sm mt-4">
+                    Upload a new file below to replace this track
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Upload in progress state */}
           {isUploading.music && (
@@ -478,7 +509,11 @@ export function MusicPanel({
               <div className="text-center">
                 <UploadIcon size={48} className="mx-auto mb-4 opacity-70" />
                 <h3 className="text-lg font-semibold mb-2">
-                  {isUploading.music ? "Uploading..." : (hasGeneratedUrl && initialProvider === "custom" ? "Replace Music Track" : "Upload Music Track")}
+                  {isUploading.music
+                    ? "Uploading..."
+                    : hasGeneratedUrl && initialProvider === "custom"
+                      ? "Replace Music Track"
+                      : "Upload Music Track"}
                 </h3>
                 <p className="text-gray-400 text-sm mb-4">
                   Drag & drop your music file here, or click to browse
@@ -504,7 +539,10 @@ export function MusicPanel({
           </div>
 
           <div className="text-center text-sm text-gray-400 mt-8">
-            <p>Your custom music will be automatically added to the mixer and subject to the same timing calculations as generated tracks.</p>
+            <p>
+              Your custom music will be automatically added to the mixer and
+              subject to the same timing calculations as generated tracks.
+            </p>
           </div>
         </div>
       ) : (
@@ -536,7 +574,9 @@ export function MusicPanel({
               ) : (
                 <>
                   <p className="mb-2">No music tracks in library yet</p>
-                  <p className="text-sm">Generate or upload some music to build your library</p>
+                  <p className="text-sm">
+                    Generate or upload some music to build your library
+                  </p>
                 </>
               )}
             </div>
@@ -553,22 +593,30 @@ export function MusicPanel({
                   >
                     <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                       <div>
-                        <h3 className="font-semibold text-white mb-1">{track.projectTitle}</h3>
-                        <p className="text-sm text-gray-400 mb-2 line-clamp-2">{track.musicPrompt}</p>
+                        <h3 className="font-semibold text-white mb-1">
+                          {track.projectTitle}
+                        </h3>
+                        <p className="text-sm text-gray-400 mb-2 line-clamp-2">
+                          {track.musicPrompt}
+                        </p>
                         <p className="text-xs text-gray-500">
-                          Provider: {track.musicProvider} • {new Date(track.createdAt).toLocaleDateString()}
-                          {track.duration && ` • ${Math.round(track.duration)}s`}
+                          Provider: {track.musicProvider} •{" "}
+                          {new Date(track.createdAt).toLocaleDateString()}
+                          {track.duration &&
+                            ` • ${Math.round(track.duration)}s`}
                         </p>
                       </div>
 
                       <div className="flex items-center gap-2">
                         {/* Play/Pause Button */}
-                        <Tooltip content={isPlaying ? "Pause" : "Preview track"}>
+                        <Tooltip
+                          content={isPlaying ? "Pause" : "Preview track"}
+                        >
                           <button
                             onClick={() => handlePlayPause(track)}
                             className="px-3 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-white"
                           >
-                            {isPlaying ? '⏸' : '▶'}
+                            {isPlaying ? "⏸" : "▶"}
                           </button>
                         </Tooltip>
 

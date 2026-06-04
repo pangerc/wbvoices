@@ -1,0 +1,2 @@
+- [Creative quality bottleneck diagnosis (Apr 2026)](project_creative_quality_diagnosis.md) — flat scripts trace to prompt structure (process compliance + syntax tutorials), not tuning; fix is creative-direction module upstream of provider modules
+- [User wants genuine pushback when asked](feedback_push_back_when_asked.md) — when user frames request as "challenge me", lead with the strongest counter-position the evidence supports, no hedging

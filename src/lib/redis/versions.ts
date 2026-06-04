@@ -12,16 +12,41 @@
  * - ad:{adId}:{streamType}:counter - Atomic counter for version ID generation (Redis STRING)
  */
 
-import { getRedisV3 } from "../redis-v3";
 import {
-  VersionId,
-  StreamType,
-  VoiceVersion,
+  AdMetadata,
+  MixerVersion,
   MusicVersion,
   SfxVersion,
-  AdMetadata,
-  MixerState,
+  StreamType,
+  VersionId,
+  VoiceVersion,
 } from "@/types/versions";
+import { getRedisV3 } from "../redis-v3";
+
+/**
+ * Union of version payload shapes stored per stream. Mixer-stream versions
+ * join voice/music/sfx here under the shared CRUD machinery — keeping one
+ * code path avoids parallel key families for the arrangement stream.
+ */
+export type AnyVersion =
+  | VoiceVersion
+  | MusicVersion
+  | SfxVersion
+  | MixerVersion;
+
+/**
+ * Map a stream type to its stored payload. Used by overloaded getters so
+ * callers reading `voices` don't have to narrow against `MixerVersion`.
+ */
+export type VersionFor<T extends StreamType> = T extends "voices"
+  ? VoiceVersion
+  : T extends "music"
+    ? MusicVersion
+    : T extends "sfx"
+      ? SfxVersion
+      : T extends "mixer"
+        ? MixerVersion
+        : never;
 
 // ============ Key Builders ============
 
@@ -44,7 +69,15 @@ export const AD_KEYS = {
   version: (adId: string, streamType: StreamType, versionId: VersionId) =>
     `ad:${adId}:${streamType}:v:${versionId}`,
 
-  /** Mixer state: ad:{adId}:mixer */
+  /**
+   * Legacy mixer snapshot: ad:{adId}:mixer
+   *
+   * Pre-stage-6 single-key blob storing the full MixerState. Retained until
+   * each ad is bootstrapped into the mixer version stream, at which point
+   * this key is deleted. New reads/writes should route through the mixer
+   * version stream via the generic helpers (`AD_KEYS.versions(adId, "mixer")`
+   * etc.).
+   */
   mixer: (adId: string) => `ad:${adId}:mixer`,
 
   /** Preview data: ad:{adId}:preview */
@@ -69,7 +102,7 @@ export const AD_KEYS = {
 export async function createVersion(
   adId: string,
   streamType: StreamType,
-  data: VoiceVersion | MusicVersion | SfxVersion,
+  data: AnyVersion,
 ): Promise<VersionId> {
   const redis = getRedisV3();
 
@@ -137,24 +170,25 @@ async function getNextVersionId(
  * @param versionId - Version ID to retrieve
  * @returns Version data or null if not found
  */
-export async function getVersion<TStreamType extends StreamType>(
+export async function getVersion<T extends StreamType>(
   adId: string,
-  streamType: TStreamType,
+  streamType: T,
   versionId: VersionId,
-): Promise<
-  | null
-  | (TStreamType extends "voices"
-      ? VoiceVersion
-      : TStreamType extends "music"
-        ? MusicVersion
-        : TStreamType extends "sfx"
-          ? SfxVersion
-          : never)
-> {
+): Promise<VersionFor<T> | null>;
+export async function getVersion(
+  adId: string,
+  streamType: StreamType,
+  versionId: VersionId,
+): Promise<AnyVersion | null>;
+export async function getVersion(
+  adId: string,
+  streamType: StreamType,
+  versionId: VersionId,
+): Promise<AnyVersion | null> {
   const redis = getRedisV3();
   const versionKey = AD_KEYS.version(adId, streamType, versionId);
 
-  const data = await redis.get(versionKey);
+  const data = await redis.get<AnyVersion | string>(versionKey);
 
   if (!data) {
     console.warn(
@@ -164,8 +198,6 @@ export async function getVersion<TStreamType extends StreamType>(
   }
 
   // Parse JSON string
-  // FIXME: Remove this ts-ignore and implement the fix
-  // @ts-ignore
   return typeof data === "string" ? JSON.parse(data) : data;
 }
 
@@ -196,16 +228,21 @@ export async function listVersions(
  * @param streamType - Which stream
  * @returns Map of version ID -> version data
  */
+export async function getAllVersionsWithData<T extends StreamType>(
+  adId: string,
+  streamType: T,
+): Promise<Record<VersionId, VersionFor<T>>>;
 export async function getAllVersionsWithData(
   adId: string,
   streamType: StreamType,
-): Promise<Record<VersionId, VoiceVersion | MusicVersion | SfxVersion>> {
+): Promise<Record<VersionId, AnyVersion>>;
+export async function getAllVersionsWithData(
+  adId: string,
+  streamType: StreamType,
+): Promise<Record<VersionId, AnyVersion>> {
   const versionIds = await listVersions(adId, streamType);
 
-  const versionsData: Record<
-    VersionId,
-    VoiceVersion | MusicVersion | SfxVersion
-  > = {};
+  const versionsData: Record<VersionId, AnyVersion> = {};
 
   // Load each version (TODO: optimize with mget if needed)
   for (const vId of versionIds) {
@@ -249,16 +286,7 @@ export async function getActiveVersion(
 export async function getActiveVersionData<TStreamType extends StreamType>(
   adId: string,
   streamType: TStreamType,
-): Promise<
-  | null
-  | (TStreamType extends "voices"
-      ? VoiceVersion
-      : TStreamType extends "music"
-        ? MusicVersion
-        : TStreamType extends "sfx"
-          ? SfxVersion
-          : never)
-> {
+): Promise<VersionFor<TStreamType> | null> {
   const redis = getRedisV3();
   const activeKey = AD_KEYS.active(adId, streamType);
 
@@ -266,7 +294,7 @@ export async function getActiveVersionData<TStreamType extends StreamType>(
 
   if (activeId) {
     const versionId = AD_KEYS.version(adId, streamType, activeId);
-    const data = await redis.get(versionId);
+    const data = await redis.get<VersionFor<TStreamType> | string>(versionId);
 
     if (!data) {
       console.warn(
@@ -276,8 +304,6 @@ export async function getActiveVersionData<TStreamType extends StreamType>(
     }
 
     // Parse JSON string
-    // FIXME: Remove this ts-ignore and implement the fix
-    // @ts-ignore
     return typeof data === "string" ? JSON.parse(data) : data;
   }
 
@@ -432,7 +458,7 @@ export async function updateVersion(
   adId: string,
   streamType: StreamType,
   versionId: VersionId,
-  updates: Partial<VoiceVersion | MusicVersion | SfxVersion>,
+  updates: Partial<AnyVersion>,
 ): Promise<void> {
   const redis = getRedisV3();
 
@@ -503,14 +529,12 @@ export async function getAdMetadata(adId: string): Promise<AdMetadata | null> {
   const redis = getRedisV3();
   const metaKey = AD_KEYS.meta(adId);
 
-  const data = await redis.get(metaKey);
+  const data = await redis.get<AdMetadata | string>(metaKey);
 
   if (!data) {
     return null;
   }
 
-  // FIXME: Remove this ts-ignore and implement the fix
-  // @ts-ignore
   return typeof data === "string" ? JSON.parse(data) : data;
 }
 
@@ -581,63 +605,6 @@ export async function deleteVersion(
   return { wasActive };
 }
 
-// ============ Mixer State ============
-
-/**
- * Get mixer state for an ad
- *
- * @param adId - Advertisement ID
- * @returns Mixer state or null if not found
- */
-export async function getMixerState(adId: string): Promise<MixerState | null> {
-  const redis = getRedisV3();
-  const mixerKey = AD_KEYS.mixer(adId);
-
-  const data = await redis.get(mixerKey);
-
-  if (!data) {
-    return null;
-  }
-
-  // FIXME: Remove this ts-ignore and implement the fix
-  // @ts-ignore
-  return typeof data === "string" ? JSON.parse(data) : data;
-}
-
-/**
- * Update mixer state (partial update, merges with existing)
- *
- * @param adId - Advertisement ID
- * @param updates - Partial mixer state to merge
- * @returns Updated mixer state
- */
-export async function updateMixerState(
-  adId: string,
-  updates: Partial<MixerState>,
-): Promise<MixerState> {
-  const redis = getRedisV3();
-  const mixerKey = AD_KEYS.mixer(adId);
-
-  // Load existing state or create default
-  const existing = await getMixerState(adId);
-  const merged: MixerState = {
-    tracks: [],
-    volumes: {},
-    calculatedTracks: [],
-    totalDuration: 0,
-    lastCalculated: Date.now(),
-    activeVersions: { voices: null, music: null, sfx: null },
-    ...existing,
-    ...updates,
-  };
-
-  await redis.set(mixerKey, JSON.stringify(merged));
-
-  console.log(`✅ Updated mixer state for ad ${adId}`);
-
-  return merged;
-}
-
 // ============ Preview Data ============
 
 /**
@@ -664,14 +631,12 @@ export async function getPreviewData(
   const redis = getRedisV3();
   const previewKey = AD_KEYS.preview(adId);
 
-  const data = await redis.get(previewKey);
+  const data = await redis.get<PreviewData | string>(previewKey);
 
   if (!data) {
     return null;
   }
 
-  // FIXME: Remove this ts-ignore and implement the fix
-  // @ts-ignore
   return typeof data === "string" ? JSON.parse(data) : data;
 }
 
@@ -725,10 +690,10 @@ export async function setPreviewData(
 export async function deleteAd(adId: string, sessionId: string): Promise<void> {
   const redis = getRedisV3();
 
-  const streamTypes: StreamType[] = ["voices", "music", "sfx"];
+  const streamTypes: StreamType[] = ["voices", "music", "sfx", "mixer"];
   const keysToDelete: string[] = [
     AD_KEYS.meta(adId),
-    AD_KEYS.mixer(adId),
+    AD_KEYS.mixer(adId), // legacy single-key blob, cleaned up here too
     AD_KEYS.preview(adId),
   ];
 
@@ -757,4 +722,45 @@ export async function deleteAd(adId: string, sessionId: string): Promise<void> {
   console.log(
     `✅ Deleted ad ${adId} (${keysToDelete.length} keys + session index)`,
   );
+}
+
+// ============ Tag Lint Telemetry ============
+
+/**
+ * Per-track tag-lint metrics for an ElevenLabs voice version. Written
+ * by createVoiceDraft after Stage L runs. Body-tag and total-tag counts
+ * are MEASURED but not enforced — they're the signal that lets us judge
+ * whether the Stage N tag-weaver is improving distribution over time.
+ *
+ * Stored as a Redis hash keyed `tag-lint:metrics:{adId}:{versionId}` so
+ * we can grep telemetry without scanning version JSON, with a 30-day
+ * TTL so it doesn't pile up indefinitely.
+ */
+export async function writeTagLintTelemetry(
+  adId: string,
+  versionId: VersionId,
+  entries: Array<{
+    trackIndex: number;
+    openingStackSize: number;
+    bodyTags: number;
+    totalTags: number;
+    accentPresent: boolean;
+    lintPassed: boolean;
+    violations: string[];
+  }>,
+): Promise<void> {
+  if (!entries.length) return;
+  const redis = getRedisV3();
+  const key = `tag-lint:metrics:${adId}:${versionId}`;
+  const payload: Record<string, string> = {
+    adId,
+    versionId,
+    writtenAt: String(Date.now()),
+    trackCount: String(entries.length),
+  };
+  for (const e of entries) {
+    payload[`track:${e.trackIndex}`] = JSON.stringify(e);
+  }
+  await redis.hset(key, payload);
+  await redis.expire(key, 60 * 60 * 24 * 30); // 30 days
 }

@@ -18,7 +18,23 @@ export interface KnowledgeContext {
   region?: string;
   language?: string;
   voiceProvider?: string;
-  campaignFormat?: "dialog" | "ad_read";
+  campaignFormat?:
+    | "dialog"
+    | "ad_read"
+    | "testimonial"
+    | "vox_pop"
+    | "dramatized_scene"
+    | "radio_skit";
+
+  // Stage-3 brief expansion fields. All optional. Threaded from
+  // ProjectBrief through buildUserMessage into per-provider modules so
+  // they can adapt guidance.
+  hasProvidedScript?: boolean;
+
+  // Resolved server-side from brief.selectedTemplateId so admins can edit
+  // template wording without forcing a brief rewrite.
+  creativeTemplateTitle?: string;
+  creativeTemplateInstructions?: string;
 }
 
 export type IntentType =

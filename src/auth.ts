@@ -1,44 +1,48 @@
+import { authConfig } from "@/auth.config";
+import { db, getDb } from "@/lib/db";
+import { accounts, users, verificationTokens } from "@/lib/db/schema";
+import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { eq } from "drizzle-orm";
 import NextAuth from "next-auth";
 import Resend from "next-auth/providers/resend";
-import Google from "next-auth/providers/google";
-import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { db, getDb } from "@/lib/db";
-import { users, accounts, verificationTokens } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-
-const ALLOWED_DOMAINS = [
-  "@alephholding.com",
-  "@byselva.com",
-  "@alephdigital.com",
-  "@partners.alephholding.com",
-  "@partners.byselva.com",
-  "@partners.alephdigital.com",
-];
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
   .split(",")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
-const GUEST_EMAILS = (process.env.GUEST_EMAILS || "")
-  .split(",")
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean);
-
+// Full NextAuth instance (Node runtime): extends the Edge-safe `authConfig`
+// with the Drizzle adapter, the email (Resend) provider, and the DB-touching
+// jwt/session callbacks. Route handlers and server helpers import from here.
+// Middleware must NOT — Resend + DrizzleAdapter pull in Node-only deps.
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: DrizzleAdapter(getDb(), {
     usersTable: users,
     accountsTable: accounts,
     verificationTokensTable: verificationTokens,
   }),
   providers: [
+    ...authConfig.providers,
     Resend({
       from: process.env.AUTH_RESEND_FROM || "onboarding@resend.dev",
       async sendVerificationRequest({ identifier: email, url, provider }) {
+        const isDev = process.env.NODE_ENV !== "production";
+        // Dev fallback: print the magic link to stdout so local sign-in works
+        // even when AUTH_RESEND_KEY is invalid or the from-domain isn't verified.
+        // The verification token has already been persisted to the DB by
+        // NextAuth's adapter by the time this callback runs, so the printed
+        // URL is fully usable on its own.
+        if (isDev) {
+          const banner = "═".repeat(70);
+          console.log(
+            `\n${banner}\n🔐 DEV SIGN-IN LINK for ${email}\n${url}\n${banner}\n`,
+          );
+        }
         const { Resend: ResendClient } = await import("resend");
         const resend = new ResendClient(process.env.AUTH_RESEND_KEY);
-        await resend.emails
-          .send({
+        const sendEmail = () =>
+          resend.emails.send({
             from: provider.from!,
             to: email,
             subject: "Sign in to Aleph Creative Audio",
@@ -50,11 +54,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#000000;padding:40px 20px;">
     <tr><td align="center">
       <table width="480" cellpadding="0" cellspacing="0" style="background:linear-gradient(180deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);border:1px solid rgba(255,255,255,0.15);border-radius:16px;overflow:hidden;">
-        <!-- Header -->
         <tr><td style="padding:32px 32px 24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);">
           <div style="font-size:16px;font-weight:600;color:#ffffff;letter-spacing:1.5px;text-transform:uppercase;">Aleph Creative Audio</div>
         </td></tr>
-        <!-- Body -->
         <tr><td style="padding:32px;">
           <h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#ffffff;text-align:center;">Sign in to your account</h1>
           <p style="margin:0 0 28px;font-size:15px;color:rgba(255,255,255,0.5);text-align:center;line-height:1.5;">Click the button below to securely sign in. This link expires in 24 hours.</p>
@@ -65,7 +67,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           </td></tr></table>
           <p style="margin:28px 0 0;font-size:13px;color:rgba(255,255,255,0.3);text-align:center;line-height:1.5;">If you didn't request this email, you can safely ignore it.</p>
         </td></tr>
-        <!-- Footer -->
         <tr><td style="padding:20px 32px;text-align:center;border-top:1px solid rgba(255,255,255,0.08);">
           <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.25);">Aleph Creative Audio &middot; Voice Ad Generation</p>
         </td></tr>
@@ -74,40 +75,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   </table>
 </body>
 </html>`,
-          })
-          .catch((e) =>
-            console.error("error sending magic link email to", email, e),
-          );
-
-        console.log("sent magic link email to", email);
+          });
+        // In dev, swallow Resend errors so a bad AUTH_RESEND_KEY or an
+        // unverified from-domain doesn't surface as "Failed to send sign-in
+        // link" in the UI — the magic-link URL was already logged above and
+        // the verification token is in the DB, so the user can still sign in.
+        // In production we let the error propagate normally so real send
+        // failures are visible.
+        if (isDev) {
+          try {
+            await sendEmail();
+          } catch (err) {
+            console.warn(
+              `[auth] Resend send failed in dev; magic link logged above is still valid. ` +
+                `Error: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        } else {
+          await sendEmail();
+        }
       },
     }),
-    // Google OAuth — only when credentials are configured
-    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-      ? [
-          Google({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          }),
-        ]
-      : []),
   ],
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/auth/signin",
-  },
   callbacks: {
-    async signIn({ user }) {
-      if (!user.email) return false;
-      const email = user.email.toLowerCase();
-      return (
-        ALLOWED_DOMAINS.some((domain) => email.endsWith(domain)) ||
-        GUEST_EMAILS.includes(email)
-      );
-    },
+    ...authConfig.callbacks,
 
     async jwt({ token, user, trigger }) {
-      // On initial sign-in, look up role from DB (or bootstrap from ADMIN_EMAILS)
       if (user?.email) {
         const email = user.email.toLowerCase();
         const [dbUser] = await db
@@ -117,7 +110,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .limit(1);
 
         if (dbUser) {
-          // Check if admin email list has been updated since last login
           const shouldBeAdmin = ADMIN_EMAILS.includes(email);
           if (shouldBeAdmin && dbUser.role !== "admin") {
             await db
@@ -129,7 +121,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             token.role = dbUser.role;
           }
         } else {
-          // User was just created by the adapter — set role
           const role = ADMIN_EMAILS.includes(email) ? "admin" : "user";
           if (role === "admin") {
             await db
@@ -141,19 +132,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       }
 
-      // On subsequent requests, carry the role forward
       if (trigger !== "signIn" && !token.role) {
         token.role = "user";
       }
 
       return token;
     },
-
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.role = token.role as string;
-      }
-      return session;
-    },
+    // Note: the session callback that projects token.role -> session.user.role
+    // lives in `authConfig` so Edge middleware sees it too. We inherit it via
+    // the `...authConfig.callbacks` spread above.
   },
 });

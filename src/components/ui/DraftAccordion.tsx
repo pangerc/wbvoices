@@ -1,15 +1,19 @@
 "use client";
 
+import { ChevronDownIcon } from "@heroicons/react/16/solid";
+import {
+  DocumentPlusIcon,
+  EllipsisVerticalIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
+import { LockClosedIcon } from "@heroicons/react/24/solid";
 import * as Accordion from "@radix-ui/react-accordion";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ChevronDownIcon } from "@heroicons/react/16/solid";
-import { EllipsisVerticalIcon, DocumentPlusIcon, TrashIcon } from "@heroicons/react/24/outline";
-import { LockClosedIcon } from "@heroicons/react/24/solid";
-import { AccordionPlayButton } from "./AccordionPlayButton";
+import { RequestChangeIcon, SendToMixerIcon } from "./AccordionIcons";
+import { AccordionPlayButton } from "./buttons";
 import { Tooltip } from "./Tooltip";
-import { SendToMixerIcon, RequestChangeIcon } from "./AccordionIcons";
 
-export type DraftState = 'editing' | 'changed' | 'ready' | 'generating';
+export type DraftState = "editing" | "changed" | "ready" | "generating";
 
 interface DraftAccordionProps {
   children: React.ReactNode;
@@ -86,17 +90,27 @@ export function DraftAccordion({
   const canSend = hasTracksWithAudio || hasAudio;
   // Check if this draft is currently active in the mixer
   // For music/sfx: also verify the URL matches (regeneration should enable resend)
-  const isActive = versionId != null &&
-                   versionId === activeVersionId &&
-                   (!currentUrl || !mixerUrl || currentUrl === mixerUrl);
+  const isActive =
+    versionId != null &&
+    versionId === activeVersionId &&
+    (!currentUrl || !mixerUrl || currentUrl === mixerUrl);
 
   // Controlled vs uncontrolled mode
-  const accordionProps = isOpen !== undefined
-    ? { value: isOpen ? "draft" : "", onValueChange: (val: string) => onOpenChange?.(val === "draft") }
-    : { defaultValue: "draft" };
+  const accordionProps =
+    isOpen !== undefined
+      ? {
+          value: isOpen ? "draft" : "",
+          onValueChange: (val: string) => onOpenChange?.(val === "draft"),
+        }
+      : { defaultValue: "draft" };
 
   return (
-    <Accordion.Root type="single" collapsible {...accordionProps} className="mb-6">
+    <Accordion.Root
+      type="single"
+      collapsible
+      {...accordionProps}
+      className="mb-6"
+    >
       <Accordion.Item
         value="draft"
         className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/10"
@@ -107,16 +121,24 @@ export function DraftAccordion({
             <span className="text-white font-mono text-sm font-medium flex-shrink-0">
               {title}
             </span>
-            <span className={`px-2 py-0.5 text-xs font-medium rounded-full flex-shrink-0 ${
-              draftState === 'changed'
-                ? 'text-amber-400 bg-amber-500/20 border border-amber-500/30'
-                : draftState === 'ready'
-                  ? 'text-green-400 bg-green-500/20 border border-green-500/30'
-                  : draftState === 'generating'
-                    ? 'text-wb-blue bg-wb-blue/20 border border-wb-blue/30 animate-pulse'
-                    : 'text-wb-blue bg-wb-blue/20 border border-wb-blue/30'
-            }`}>
-              {draftState === 'changed' ? 'CHANGED' : draftState === 'ready' ? 'READY' : draftState === 'generating' ? 'GENERATING' : 'EDITING'}
+            <span
+              className={`px-2 py-0.5 text-xs font-medium rounded-full flex-shrink-0 ${
+                draftState === "changed"
+                  ? "text-amber-400 bg-amber-500/20 border border-amber-500/30"
+                  : draftState === "ready"
+                    ? "text-green-400 bg-green-500/20 border border-green-500/30"
+                    : draftState === "generating"
+                      ? "text-wb-blue bg-wb-blue/20 border border-wb-blue/30 animate-pulse"
+                      : "text-wb-blue bg-wb-blue/20 border border-wb-blue/30"
+              }`}
+            >
+              {draftState === "changed"
+                ? "CHANGED"
+                : draftState === "ready"
+                  ? "READY"
+                  : draftState === "generating"
+                    ? "GENERATING"
+                    : "EDITING"}
             </span>
             {requestText && (
               <span className="text-gray-400 text-xs italic truncate">

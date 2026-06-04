@@ -4,10 +4,10 @@
  * POST /api/ads/{adId}/mixer/remove-stream - Remove a stream from the mixer
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { clearActiveVersion } from "@/lib/redis/versions";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
+import { clearActiveVersion } from "@/lib/redis/versions";
 import type { StreamType } from "@/types/versions";
+import { NextRequest, NextResponse } from "next/server";
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
@@ -26,7 +26,7 @@ export const runtime = "nodejs";
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: adId } = await params;
@@ -37,7 +37,7 @@ export async function POST(
     if (streamType !== "music" && streamType !== "sfx") {
       return NextResponse.json(
         { error: "Only music and sfx streams can be removed" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -59,7 +59,7 @@ export async function POST(
         error: "Failed to remove stream from mixer",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

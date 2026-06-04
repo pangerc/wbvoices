@@ -50,7 +50,10 @@ function getMonthOptions(): { value: string; label: string }[] {
   for (let i = 0; i < 12; i++) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const value = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}`;
-    const label = date.toLocaleDateString("en-US", { year: "numeric", month: "long" });
+    const label = date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+    });
     options.push({ value, label });
   }
 
@@ -61,21 +64,38 @@ function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
-function UsageCard({ provider, elevenLabsBalance }: { provider: ProviderUsage; elevenLabsBalance?: ElevenLabsBalance | null }) {
+function UsageCard({
+  provider,
+  elevenLabsBalance,
+}: {
+  provider: ProviderUsage;
+  elevenLabsBalance?: ElevenLabsBalance | null;
+}) {
   const isElevenLabs = provider.id === "elevenlabs";
   const isPayAsYouGo = provider.allotment === null;
 
   // Use ElevenLabs API data if available for more accurate info
-  const used = isElevenLabs && elevenLabsBalance ? elevenLabsBalance.characterCount : provider.used;
-  const limit = isElevenLabs && elevenLabsBalance ? elevenLabsBalance.characterLimit : provider.allotment;
-  const percent = isElevenLabs && elevenLabsBalance ? elevenLabsBalance.usagePercent : provider.usagePercent;
+  const used =
+    isElevenLabs && elevenLabsBalance
+      ? elevenLabsBalance.characterCount
+      : provider.used;
+  const limit =
+    isElevenLabs && elevenLabsBalance
+      ? elevenLabsBalance.characterLimit
+      : provider.allotment;
+  const percent =
+    isElevenLabs && elevenLabsBalance
+      ? elevenLabsBalance.usagePercent
+      : provider.usagePercent;
 
   return (
     <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-6">
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm font-medium text-gray-300">{provider.name}</div>
         {provider.hasApi && isElevenLabs && elevenLabsBalance && (
-          <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded">Live</span>
+          <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded">
+            Live
+          </span>
         )}
       </div>
 
@@ -83,7 +103,9 @@ function UsageCard({ provider, elevenLabsBalance }: { provider: ProviderUsage; e
         {isPayAsYouGo ? (
           <span className="text-yellow-400">Pay-as-you-go</span>
         ) : (
-          <span className={percent && percent > 80 ? "text-red-400" : "text-white"}>
+          <span
+            className={percent && percent > 80 ? "text-red-400" : "text-white"}
+          >
             {formatNumber(used)}
           </span>
         )}
@@ -100,7 +122,9 @@ function UsageCard({ provider, elevenLabsBalance }: { provider: ProviderUsage; e
               style={{ width: `${Math.min(percent || 0, 100)}%` }}
             />
           </div>
-          <div className="text-sm text-gray-500">{percent?.toFixed(1)}% used</div>
+          <div className="text-sm text-gray-500">
+            {percent?.toFixed(1)}% used
+          </div>
         </>
       )}
 
@@ -122,7 +146,9 @@ function UsageCard({ provider, elevenLabsBalance }: { provider: ProviderUsage; e
         {provider.cacheHits > 0 && (
           <div className="flex justify-between text-sm mt-1">
             <span className="text-gray-400">Cache hits</span>
-            <span className="text-green-400">{formatNumber(provider.cacheHits)} saved</span>
+            <span className="text-green-400">
+              {formatNumber(provider.cacheHits)} saved
+            </span>
           </div>
         )}
       </div>
@@ -133,7 +159,8 @@ function UsageCard({ provider, elevenLabsBalance }: { provider: ProviderUsage; e
 export default function AccountingPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [usage, setUsage] = useState<UsageData | null>(null);
-  const [elevenLabsBalance, setElevenLabsBalance] = useState<ElevenLabsBalance | null>(null);
+  const [elevenLabsBalance, setElevenLabsBalance] =
+    useState<ElevenLabsBalance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -218,16 +245,26 @@ export default function AccountingPage() {
             <div className="bg-gradient-to-r from-wb-blue/20 to-purple-500/20 border border-wb-blue/30 rounded-lg p-6">
               <div className="grid grid-cols-4 gap-6">
                 <div>
-                  <div className="text-sm text-gray-300 mb-1">Subscriptions</div>
-                  <div className="text-3xl font-bold">${usage.totalMonthlyCost}</div>
+                  <div className="text-sm text-gray-300 mb-1">
+                    Subscriptions
+                  </div>
+                  <div className="text-3xl font-bold">
+                    ${usage.totalMonthlyCost}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-300 mb-1">+ OpenAI (est.)</div>
-                  <div className="text-3xl font-bold">${usage.openaiEstimatedCost.toFixed(2)}</div>
+                  <div className="text-sm text-gray-300 mb-1">
+                    + OpenAI (est.)
+                  </div>
+                  <div className="text-3xl font-bold">
+                    ${usage.openaiEstimatedCost.toFixed(2)}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-300 mb-1">Ads/Projects</div>
-                  <div className="text-3xl font-bold">{stats.combined.inMonth}</div>
+                  <div className="text-3xl font-bold">
+                    {stats.combined.inMonth}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-300 mb-1">Cost per Ad</div>
@@ -248,7 +285,11 @@ export default function AccountingPage() {
                   <UsageCard
                     key={provider.id}
                     provider={provider}
-                    elevenLabsBalance={provider.id === "elevenlabs" ? elevenLabsBalance : undefined}
+                    elevenLabsBalance={
+                      provider.id === "elevenlabs"
+                        ? elevenLabsBalance
+                        : undefined
+                    }
                   />
                 ))}
               </div>
@@ -260,18 +301,30 @@ export default function AccountingPage() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-6">
                   <div className="text-sm text-gray-400 mb-1">V3 Ads</div>
-                  <div className="text-3xl font-bold text-wb-blue">{stats.v3.inMonth}</div>
-                  <div className="text-sm text-gray-500 mt-1">{stats.v3.total} total</div>
+                  <div className="text-3xl font-bold text-wb-blue">
+                    {stats.v3.inMonth}
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    {stats.v3.total} total
+                  </div>
                 </div>
                 <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-6">
                   <div className="text-sm text-gray-400 mb-1">V2 Projects</div>
-                  <div className="text-3xl font-bold text-wb-green">{stats.v2.inMonth}</div>
-                  <div className="text-sm text-gray-500 mt-1">{stats.v2.total} total</div>
+                  <div className="text-3xl font-bold text-wb-green">
+                    {stats.v2.inMonth}
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    {stats.v2.total} total
+                  </div>
                 </div>
                 <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-6">
                   <div className="text-sm text-gray-400 mb-1">Combined</div>
-                  <div className="text-3xl font-bold">{stats.combined.inMonth}</div>
-                  <div className="text-sm text-gray-500 mt-1">in {stats.month}</div>
+                  <div className="text-3xl font-bold">
+                    {stats.combined.inMonth}
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    in {stats.month}
+                  </div>
                 </div>
               </div>
             </div>
@@ -281,12 +334,24 @@ export default function AccountingPage() {
               <h2 className="text-lg font-bold mb-3">Notes</h2>
               <ul className="text-sm text-gray-400 space-y-1">
                 <li>
-                  <span className="text-yellow-400">Usage tracking started {usage.trackingStarted}</span> — previous months will show 0
+                  <span className="text-yellow-400">
+                    Usage tracking started {usage.trackingStarted}
+                  </span>{" "}
+                  — previous months will show 0
                 </li>
-                <li>ElevenLabs balance is fetched live from their API (shows current billing period)</li>
-                <li>Lahajati and Loudly usage is tracked internally (no API available)</li>
+                <li>
+                  ElevenLabs balance is fetched live from their API (shows
+                  current billing period)
+                </li>
+                <li>
+                  Lahajati and Loudly usage is tracked internally (no API
+                  available)
+                </li>
                 <li>OpenAI TTS estimated at ~$15 per 1M characters</li>
-                <li>Cache hits for Loudly don't count towards your 3,000 track limit</li>
+                <li>
+                  Cache hits for Loudly don&apos;t count towards your 3,000
+                  track limit
+                </li>
               </ul>
             </div>
           </div>
