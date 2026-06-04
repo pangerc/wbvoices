@@ -232,7 +232,10 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
       const res = await fetch(`/api/ads/${ad.adId}/duplicate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newAd),
+        // triggerGeneration tells the endpoint to make a clean-slate copy
+        // (brief only) so the subsequent ?auto_generate=1 isn't rejected by
+        // the generate-stream "already generated" guard.
+        body: JSON.stringify({ ...newAd, triggerGeneration }),
       });
 
       const json = await res.json();

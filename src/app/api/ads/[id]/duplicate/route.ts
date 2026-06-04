@@ -38,18 +38,35 @@ export async function POST(
   const body = await request.json();
   const { name, brief } = body;
 
+  // When the caller intends to regenerate immediately (the "duplicate &
+  // generate" path, which redirects to ?auto_generate=1), copying the source's
+  // versions is both pointless and harmful: the fresh generation would be
+  // blocked by the generate-stream idempotency guard ("ALREADY_GENERATED").
+  // So in that mode we produce a clean-slate copy — brief/metadata only, no
+  // versions/conversation/preview — and let generation populate it. Plain
+  // duplication (regenerate=false) still makes a full, identical copy.
+  const regenerate = body.triggerGeneration === true;
+
   const newAdId = generateProjectId();
   console.log(
-    `🚀 [duplicate] Starting duplication ${duplicatedAdId} → ${newAdId} for ${email}`,
+    `🚀 [duplicate] Starting duplication ${duplicatedAdId} → ${newAdId} for ${email} (regenerate=${regenerate})`,
   );
 
   const [voices, music, sfx, mixer, conversation, preview] = await Promise.all([
-    getActiveVersionData(duplicatedAdId, "voices"),
-    getActiveVersionData(duplicatedAdId, "music"),
-    getActiveVersionData(duplicatedAdId, "sfx"),
-    getActiveVersionData(duplicatedAdId, "mixer"),
-    getConversation(duplicatedAdId),
-    getPreviewData(duplicatedAdId),
+    regenerate
+      ? Promise.resolve(null)
+      : getActiveVersionData(duplicatedAdId, "voices"),
+    regenerate
+      ? Promise.resolve(null)
+      : getActiveVersionData(duplicatedAdId, "music"),
+    regenerate
+      ? Promise.resolve(null)
+      : getActiveVersionData(duplicatedAdId, "sfx"),
+    regenerate
+      ? Promise.resolve(null)
+      : getActiveVersionData(duplicatedAdId, "mixer"),
+    regenerate ? Promise.resolve([]) : getConversation(duplicatedAdId),
+    regenerate ? Promise.resolve(null) : getPreviewData(duplicatedAdId),
   ] as const);
   console.log(
     `📥 [duplicate] Fetched source data — voices:${!!voices} music:${!!music} sfx:${!!sfx} mixer:${!!mixer} conversation:${!!conversation} preview:${!!preview}`,
