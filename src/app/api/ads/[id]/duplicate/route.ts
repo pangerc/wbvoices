@@ -144,15 +144,30 @@ export async function POST(
   // versioned stream — clone the active mixer version alongside content
   // streams so the duplicate's timeline + anchors render identically.
   //
-  const [voiceVersion, musicVersion, sfxVersion, mixerVersion] =
-    await Promise.all([
-      voices ? createVersion(newAdId, "voices", voices) : Promise.resolve(),
-      music ? createVersion(newAdId, "music", music) : Promise.resolve(),
-      sfx ? createVersion(newAdId, "sfx", sfx) : Promise.resolve(),
-      mixer ? createVersion(newAdId, "mixer", mixer) : Promise.resolve(),
-    ]);
+  // Content versions are created first because the cloned mixer's `pins`
+  // still reference the SOURCE ad's version IDs. We must remap them to the
+  // freshly-minted IDs before persisting the mixer — otherwise the duplicate
+  // renders an empty timeline (stale pins resolve to nothing → 0 tracks).
+  // Anchors key off slotIds (preserved by the content clone), so only pins
+  // need remapping.
+  //
+  const [voiceVersion, musicVersion, sfxVersion] = await Promise.all([
+    voices ? createVersion(newAdId, "voices", voices) : Promise.resolve(undefined),
+    music ? createVersion(newAdId, "music", music) : Promise.resolve(undefined),
+    sfx ? createVersion(newAdId, "sfx", sfx) : Promise.resolve(undefined),
+  ]);
+
+  let mixerVersion: string | undefined;
+  if (mixer) {
+    mixer.pins = {
+      voices: voiceVersion ?? mixer.pins?.voices ?? null,
+      music: musicVersion ?? mixer.pins?.music ?? null,
+      sfx: sfxVersion ?? mixer.pins?.sfx ?? null,
+    };
+    mixerVersion = await createVersion(newAdId, "mixer", mixer);
+  }
   console.log(
-    `🌱 [duplicate] Created versions — voices:${voiceVersion ?? "—"} music:${musicVersion ?? "—"} sfx:${sfxVersion ?? "—"} mixer:${mixerVersion ?? "—"}`,
+    `🌱 [duplicate] Created versions — voices:${voiceVersion ?? "—"} music:${musicVersion ?? "—"} sfx:${sfxVersion ?? "—"} mixer:${mixerVersion ?? "—"} (pins remapped)`,
   );
 
   //
