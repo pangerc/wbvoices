@@ -6,9 +6,9 @@ import {
   useState,
 } from "react";
 
-export type CacheItem<T> = Record<string | "all", Map<string, T>>;
+export type CacheListItem<T> = Record<string | "all", Map<string, T>>;
 
-type Cache<T> = Record<string, CacheItem<T>>;
+type Cache<T> = Record<string, CacheListItem<T>>;
 
 const Context = createContext<{
   cache: Cache<unknown>;
@@ -16,14 +16,14 @@ const Context = createContext<{
   cache: {},
 });
 
-export function useQueryCache<T>(key: string) {
+export function useListQueryCache<T>(key: string) {
   const ctx = useContext(Context);
 
   if (!ctx.cache[key]) {
     ctx.cache[key] = {};
   }
 
-  const cacheRef = useRef<CacheItem<T>>(ctx.cache[key] as CacheItem<T>);
+  const cacheRef = useRef<CacheListItem<T>>(ctx.cache[key] as CacheListItem<T>);
 
   if (!cacheRef.current.all) {
     cacheRef.current.all = new Map();
