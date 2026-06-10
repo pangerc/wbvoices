@@ -29,11 +29,12 @@ const PROVIDER_OPTIONS: Array<{
     description:
       "High-quality, customizable music (duration in 15s increments)",
   },
-  {
-    value: "mubert",
-    label: "Mubert",
-    description: "Real-time AI music for ads (fast generation)",
-  },
+  // FIXME: Do complete Mubert removal
+  // {
+  //   value: "mubert",
+  //   label: "Mubert",
+  //   description: "Real-time AI music for ads (fast generation)",
+  // },
   {
     value: "elevenlabs",
     label: "ElevenLabs",
