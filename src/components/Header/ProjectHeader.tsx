@@ -1,5 +1,6 @@
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { twMerge } from "tailwind-merge";
+import { EditableProjectName } from "../EditableProjectName";
 import { Button, GlassTab, GlassTabBar } from "../ui";
 import { HeadphonesIcon } from "../ui/icons/Headphones";
 import { Header } from "./Header";
@@ -317,7 +318,6 @@ type ProjectHeaderProps = {
   selectedTab: number;
   onTabChange: (index: number) => void;
   onGoToDashboard: () => void;
-  projectName: string;
   projectId: string;
 };
 
@@ -325,7 +325,6 @@ export function ProjectHeader({
   selectedTab,
   onTabChange,
   onGoToDashboard,
-  projectName,
   projectId,
 }: ProjectHeaderProps) {
   return (
@@ -337,9 +336,7 @@ export function ProjectHeader({
             "transform-[translate(-50%,-35px)]",
           )}
         >
-          <div className="px-4 py-2 border border-transparent text-center">
-            {projectName}
-          </div>
+          <EditableProjectName id={projectId} />
           <TabBarWithStates
             selectedTab={selectedTab}
             onTabChange={onTabChange}

@@ -34,6 +34,20 @@ export function useListQueryCache<T>(key: string) {
   };
 }
 
+export function useQueryCache<T>(key: string) {
+  const ctx = useContext(Context);
+
+  if (!ctx.cache[key]) {
+    ctx.cache[key] = {};
+  }
+
+  const cacheRef = useRef<T>(ctx.cache[key] as T);
+
+  return {
+    cacheRef,
+  };
+}
+
 export function QueryCacheProvider({ children }: PropsWithChildren) {
   const [cache, _] = useState<Cache<unknown>>({});
 
