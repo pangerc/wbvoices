@@ -372,8 +372,8 @@ export default function AdWorkspace() {
         selectedTab={selectedTab}
         onTabChange={handleTabChange}
         onGoToDashboard={onGoToDashboard}
-        adId={adId}
         projectName={adName}
+        projectId={adId}
       />
 
       <div className="flex-1 flex flex-row min-h-0">
