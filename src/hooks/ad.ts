@@ -9,6 +9,7 @@ export function useAd(id: string) {
   return {
     metadata,
     isLoading: metaRest.isLoading,
+    error: metaRest.error,
     update: metaRest.patchData,
   };
 }
