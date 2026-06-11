@@ -12,9 +12,8 @@ let redisV3Instance: Redis | null = null;
 
 export function getRedisV3(): Redis {
   if (!redisV3Instance) {
-    const url = process.env.KV_REST_API_URL || process.env.V3_KV_REST_API_URL;
-    const token =
-      process.env.KV_REST_API_TOKEN || process.env.V3_KV_REST_API_TOKEN;
+    const url = process.env.KV_REST_API_URL;
+    const token = process.env.KV_REST_API_TOKEN;
 
     if (!url || !token) {
       throw new Error(
