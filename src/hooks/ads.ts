@@ -3,7 +3,7 @@ import { AdMetadataQuery } from "@/database/ads";
 import { FuzzyResult, QueryResult } from "@/database/base";
 import { AdMetadata } from "@/types/versions";
 import { useCallback } from "react";
-import { useQuery } from "./query";
+import { useListQuery } from "./list-query";
 
 type UseAdsProps = {
   searchParams?: AdMetadataQuery;
@@ -17,7 +17,7 @@ export function useAds({ searchParams = {} }: UseAdsProps = {}) {
     reachedEnd,
     next,
     invalidate,
-  } = useQuery<QueryResult<AdMetadata>>({
+  } = useListQuery<QueryResult<AdMetadata>>({
     url: "/api/ads",
     query: searchParams,
     eager: (data) =>

@@ -1,7 +1,7 @@
 import { VoiceCounts } from "@/services/voiceCatalogueService";
 import { CampaignFormat, Language, Provider } from "@/types";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "./query";
+import { useListQuery } from "./list-query";
 
 export type LanguageOption = {
   code: Language;
@@ -34,7 +34,7 @@ export type LanguageOptions = {
  * This data is static and doesn't change per language selection.
  */
 export function useLanguageOptions() {
-  const { data: languages, isLoading } = useQuery<LanguageOption>({
+  const { data: languages, isLoading } = useListQuery<LanguageOption>({
     url: "/api/voice-catalogue/languages",
     once: true,
   });

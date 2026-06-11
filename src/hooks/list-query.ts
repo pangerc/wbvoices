@@ -1,7 +1,10 @@
 "use client";
 
 import { FuzzyResult } from "@/database/base";
-import { CacheItem, useQueryCache } from "@/providers/QueryCache.provider";
+import {
+  CacheListItem,
+  useListQueryCache,
+} from "@/providers/QueryCache.provider";
 import {
   RefObject,
   useCallback,
@@ -16,14 +19,14 @@ const ITEMS_PER_PAGE = 8;
 
 type Rule = "append" | "replace";
 
-export type Query = Record<string, string | number | boolean | undefined>;
+export type ListQuery = Record<string, string | number | boolean | undefined>;
 
 type Item = ({ id: string } | { code: string }) & { fuzzy?: FuzzyResult };
 
 type UseQueryProps<TItem> = {
   url: string;
   once?: boolean;
-  query?: Query;
+  query?: ListQuery;
   eager?: (data: TItem[]) => TItem[];
   initial?: TItem[];
 };
@@ -36,14 +39,14 @@ type State<TItem extends Item> = {
   reachedEnd: boolean;
 };
 
-export function useQuery<TItem extends Item>({
+export function useListQuery<TItem extends Item>({
   url,
   once = false,
   query,
   eager,
   initial = [],
 }: UseQueryProps<TItem>) {
-  const { cacheRef } = useQueryCache<TItem>(url);
+  const { cacheRef } = useListQueryCache<TItem>(url);
 
   const [state, setState] = useState<State<TItem>>(() => ({
     data: Array.from(cacheRef.current.all.values()) || initial,
@@ -60,7 +63,7 @@ export function useQuery<TItem extends Item>({
    * Stores the previous non-paginated URL so we can determine
    * whether the next request should append or replace data.
    */
-  const oldQueryRef = useRef<Query>(null);
+  const oldQueryRef = useRef<ListQuery>(null);
   const oldSkipRef = useRef(0);
 
   const isFirstLoadRef = useRef(true);
@@ -241,7 +244,7 @@ export function useQuery<TItem extends Item>({
 
 function updateCache<TItem extends Item>(
   urlWithoutPagination: string,
-  cache: RefObject<CacheItem<TItem>>,
+  cache: RefObject<CacheListItem<TItem>>,
   data: TItem[],
 ) {
   data.forEach((item) => {
