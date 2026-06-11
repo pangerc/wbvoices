@@ -1,17 +1,8 @@
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
+import { twMerge } from "tailwind-merge";
 import { Button, GlassTab, GlassTabBar } from "../ui";
 import { HeadphonesIcon } from "../ui/icons/Headphones";
 import { Header } from "./Header";
-
-type ProjectHeaderProps = {
-  selectedTab: number;
-  onTabChange: (index: number) => void;
-  onGoToDashboard: () => void;
-  adId?: string;
-  projectId?: string; // For backward compatibility with legacy pages
-  isNewProject?: boolean;
-  projectName?: string;
-};
 
 // Generation state for icon color: "llm" = white blink, "audio" = blue blink, false = normal
 type GeneratingState = "llm" | "audio" | false;
@@ -322,19 +313,33 @@ function TabBarWithStates({
   );
 }
 
+type ProjectHeaderProps = {
+  selectedTab: number;
+  onTabChange: (index: number) => void;
+  onGoToDashboard: () => void;
+  projectName: string;
+  projectId: string;
+};
+
 export function ProjectHeader({
   selectedTab,
   onTabChange,
   onGoToDashboard,
-  adId,
-  projectId,
-  isNewProject,
   projectName,
+  projectId,
 }: ProjectHeaderProps) {
   return (
     <Header>
-      <div className="flex-1 mx-12">
-        <div className="flex flex-col justify-center items-center">
+      <div className="relative">
+        <div
+          className={twMerge(
+            "absolute z-100",
+            "transform-[translate(-50%,-35px)]",
+          )}
+        >
+          <div className="px-4 py-2 border border-transparent text-center">
+            {projectName}
+          </div>
           <TabBarWithStates
             selectedTab={selectedTab}
             onTabChange={onTabChange}
@@ -342,18 +347,14 @@ export function ProjectHeader({
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-4 relative">
-          <Button
-            variant="outline"
-            rounded="2xl"
-            icon={HeadphonesIcon}
-            onClick={onGoToDashboard}
-          >
-            My Projects
-          </Button>
-        </div>
-      </div>
+      <Button
+        variant="outline"
+        rounded="2xl"
+        icon={HeadphonesIcon}
+        onClick={onGoToDashboard}
+      >
+        My Projects
+      </Button>
     </Header>
   );
 }
