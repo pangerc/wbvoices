@@ -372,7 +372,6 @@ export default function AdWorkspace() {
         selectedTab={selectedTab}
         onTabChange={handleTabChange}
         onGoToDashboard={onGoToDashboard}
-        projectName={adName}
         projectId={adId}
       />
 
