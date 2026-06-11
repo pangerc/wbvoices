@@ -174,6 +174,24 @@ export interface SetAdTitleResult {
   title: string;
 }
 
+export interface SetAdDurationParams {
+  adId: string;
+  /** New target ad length in seconds (the format horizon the mixer renders to). */
+  durationSeconds: number;
+}
+
+export interface SetAdDurationResult {
+  success: boolean;
+  /** Duration actually stored on the brief after clamping to the allowed range. */
+  appliedDurationSeconds: number;
+  /** The value the caller requested, before clamping. */
+  requestedDurationSeconds: number;
+  /** True when the stored value differs from the request (clamped to bounds). */
+  clamped: boolean;
+  /** Human-readable note the agent should relay verbatim-in-spirit to the user. */
+  note: string | null;
+}
+
 // Lightweight summary of voices used in a version (for history tracking)
 export interface VoiceHistorySummary {
   versionId: string;
@@ -251,4 +269,22 @@ export interface DraftCreationResult {
    * Absent on truly fresh creations (no parent).
    */
   reconciliation?: SlotReconciliation;
+  /**
+   * Ground-truth feedback for the agent: what actually got applied vs what
+   * it asked for. Lets the LLM report honestly instead of assuming its
+   * requested params took effect. Only populated for fields that can be
+   * silently overridden server-side (e.g. the music-duration floor).
+   */
+  applied?: {
+    duration?: {
+      /** Seconds the LLM requested (null if it passed none). */
+      requested: number | null;
+      /** Seconds actually persisted on the version. */
+      effective: number;
+      /** True when `effective` differs from `requested`. */
+      overridden: boolean;
+      /** Why it was overridden (null when not). */
+      note: string | null;
+    };
+  };
 }

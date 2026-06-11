@@ -5,6 +5,7 @@ import {
   createVoiceDraft,
   readAdState,
   searchVoices,
+  setAdDuration,
   setAdTitle,
 } from "./implementations";
 import type { ToolCall, ToolResult } from "./types";
@@ -79,6 +80,10 @@ export async function executeToolCall(
 
       case "set_ad_title":
         result = await setAdTitle(args);
+        break;
+
+      case "set_ad_duration":
+        result = await setAdDuration(args);
         break;
 
       default:
