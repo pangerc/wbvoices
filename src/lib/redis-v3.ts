@@ -3,7 +3,7 @@ import { Redis } from "@upstash/redis";
 /**
  * Redis V3 Connection - Dedicated Upstash instance for Version Streams architecture
  *
- * Uses KV_REST_API_URL and KV_REST_API_TOKEN environment variables
+ * Uses V3_KV_REST_API_URL and V3_KV_REST_API_TOKEN environment variables
  * to connect to a separate Upstash instance for development and testing
  * of the new ad:* namespace without affecting production project:* data.
  */
