@@ -66,7 +66,7 @@ export function Dashboard() {
 
   return (
     <>
-      <div className="container pb-4 mx-auto z-10">
+      <div className="container pb-8 mx-auto z-10">
         <DashboardHeader
           search={searchParams}
           onSearchChanged={(change) => {
@@ -83,7 +83,7 @@ export function Dashboard() {
             <DashboardProjects
               ads={ads}
               isLoading={isLoading}
-              onNextPage={next}
+              onNextPage={() => next()}
               reachedEnd={reachedEnd}
               onDelete={onDeleteStart}
               onDuplicate={onDuplicate}

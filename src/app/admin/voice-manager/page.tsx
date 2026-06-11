@@ -458,13 +458,7 @@ export default function VoiceManagerPage() {
                 <div className="animate-spin w-8 h-8 border-2 border-white/20 border-t-white rounded-full"></div>
               </div>
             ) : (
-              <div
-                className="space-y-2 flex-1 overflow-y-auto pr-4"
-                style={{
-                  scrollbarWidth: "thin",
-                  scrollbarColor: "#374151 #111827",
-                }}
-              >
+              <div className="space-y-2 flex-1 overflow-y-auto pr-4">
                 {voices.map((voice) => {
                   const lookupKeys = getBlacklistLookupKeys({
                     provider: voice.provider,

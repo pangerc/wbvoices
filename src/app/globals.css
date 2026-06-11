@@ -78,6 +78,42 @@ body {
   font-family: var(--font-sans);
 }
 
+/*
+  Dark-themed scrollbars everywhere. The app is always dark, so we override the
+  browser/OS default (white on light-mode systems) globally. Firefox uses the
+  standard `scrollbar-*` properties; Chromium/WebKit use the `::-webkit-*`
+  pseudo-elements.
+*/
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-wb-dark-gray-blue) #000000;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #000000;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-wb-dark-gray-blue);
+    border-radius: 9999px;
+    border: 2px solid #000000;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-wb-gray);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: #000000;
+  }
+}
+
 /* Glassmorphism shine animation */
 @keyframes shine {
   from {

@@ -12,6 +12,51 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 /**
+ * GET /api/ads/{adId}
+ *
+ * Get ad metadata (name, last modified).
+ */
+export async function GET(
+  _: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { email, role } = await requireAuth();
+    const { id: adId } = await params;
+
+    const allowed = await verifyAdAccess(adId, email, role);
+    if (!allowed) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const metadata = await getAdMetadata(adId);
+    if (!metadata) {
+      return NextResponse.json({ error: "Ad not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      name: metadata.name,
+      lastModified: metadata.lastModified,
+    });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+    console.error("❌ Error updating ad:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to get ad",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
+  }
+}
+
+/**
  * PATCH /api/ads/{adId}
  *
  * Update ad metadata (currently supports renaming).

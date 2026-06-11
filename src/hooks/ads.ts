@@ -2,39 +2,24 @@ import { adMetadataMatchQuery } from "@/common/search";
 import { AdMetadataQuery } from "@/database/ads";
 import { FuzzyResult, QueryResult } from "@/database/base";
 import { AdMetadata } from "@/types/versions";
-import { useCallback, useMemo, useState } from "react";
-import { useDedupedValue } from "./deduped-value";
-import { Query, useQuery } from "./query";
-
-const PROJECTS_PER_PAGE = 8;
+import { useCallback } from "react";
+import { useListQuery } from "./list-query";
 
 type UseAdsProps = {
   searchParams?: AdMetadataQuery;
 };
 
 export function useAds({ searchParams = {} }: UseAdsProps = {}) {
-  const [skip, setSkip] = useState(0);
-
-  const query = useDedupedValue<Query>(
-    300,
-    useMemo(
-      () => ({
-        searchParams,
-        pagination: { skip, take: PROJECTS_PER_PAGE },
-      }),
-      [searchParams, skip],
-    ),
-  );
-
   const {
     data: ads,
     isLoading,
     isFirstLoad,
     reachedEnd,
+    next,
     invalidate,
-  } = useQuery<QueryResult<AdMetadata>>({
+  } = useListQuery<QueryResult<AdMetadata>>({
     url: "/api/ads",
-    query: query,
+    query: searchParams,
     eager: (data) =>
       data
         .reduce((acc, item) => {
@@ -62,7 +47,13 @@ export function useAds({ searchParams = {} }: UseAdsProps = {}) {
         }, [] as QueryResult<AdMetadata>[])
         .sort((a, b) => {
           if (a.fuzzy && b.fuzzy) {
-            return b.fuzzy.score - a.fuzzy.score;
+            const result = b.fuzzy.score - a.fuzzy.score;
+
+            // If they are not equal, we return the result
+            // Otherwise we need to order by last update
+            if (result !== 0) {
+              return result;
+            }
           }
 
           if (a.meta && b.meta) {
@@ -71,14 +62,8 @@ export function useAds({ searchParams = {} }: UseAdsProps = {}) {
 
           return a.id.localeCompare(b.id);
         }),
-    deps: [query],
     initial: [],
   });
-
-  const next = useCallback(
-    (skip?: number) => setSkip((s) => skip ?? s + PROJECTS_PER_PAGE),
-    [setSkip],
-  );
 
   const remove = useCallback(
     async (id: string) => {

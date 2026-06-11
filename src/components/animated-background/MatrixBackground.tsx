@@ -225,7 +225,7 @@ export function MatrixBackground() {
       style={{
         // FIXME: Improve showing the Header above the Background
         // The Header component is 146 px in height
-        top: "146px",
+        top: "99px",
         height: "calc(100% - 146px)",
       }}
     />

@@ -1,7 +1,7 @@
 import { MarketRow } from "@/lib/alaric-client";
 import fuzzysort from "fuzzysort";
 import { useCallback, useMemo } from "react";
-import { useQuery } from "./query";
+import { useListQuery } from "./list-query";
 
 type UseMarketsProps = {
   eagerQuery?: string;
@@ -13,7 +13,7 @@ export function useMarkets(props?: UseMarketsProps) {
 
   const query = useMemo(
     () => ({
-      searchParams: { showAll },
+      showAll,
     }),
     [showAll],
   );
@@ -36,11 +36,10 @@ export function useMarkets(props?: UseMarketsProps) {
     data: markets,
     isLoading,
     error,
-  } = useQuery<MarketRow>({
+  } = useListQuery<MarketRow>({
     url: "/api/markets",
     once: true,
     query,
-    deps: [query],
     eager,
   });
 
