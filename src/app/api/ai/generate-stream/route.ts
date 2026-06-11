@@ -25,7 +25,6 @@ import { ensureAdExists } from "@/lib/redis/ensureAd";
 import {
   getAdMetadata,
   getVersion,
-  listVersions,
   setActiveVersion,
   setAdMetadata,
 } from "@/lib/redis/versions";
@@ -286,29 +285,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Idempotency guard: this route is for first-time generation only. Once
-  // any stream has a version, further changes must go through the chat
-  // route (which creates lineage-tracked drafts). Without this check, a
-  // double-fire from the UI (StrictMode replay, double-click, retry) used
-  // to produce v1+v2 across all streams with no parent linkage.
-  const existingVoices = await listVersions(adId, "voices");
-  if (existingVoices.length > 0) {
-    return NextResponse.json(
-      {
-        error:
-          "Ad already has generated content. Use the AI Copilot chat to iterate.",
-        code: "ALREADY_GENERATED",
-        existingVersions: existingVoices,
-      },
-      { status: 409 },
-    );
-  }
 
-  // The version check above has a race window: two simultaneous POSTs can
-  // both see zero versions before either has written v1. This SETNX lock
-  // closes the window — the second POST's acquisition fails fast and we
-  // return 409 immediately. TTL covers worst-case generation runtime; the
-  // background IIFE releases the lock in its finally.
   const generationLockToken = await tryAcquireGenerationLock(adId);
   if (generationLockToken === null) {
     return NextResponse.json(
