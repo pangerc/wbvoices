@@ -1,14 +1,13 @@
 "use client";
 
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { ReactNode } from "react";
+import { PropsWithChildren } from "react";
 
-interface TooltipProps {
-  children: ReactNode;
+type TooltipProps = PropsWithChildren & {
   content: string;
   side?: "top" | "right" | "bottom" | "left";
   sideOffset?: number;
-}
+};
 
 export function Tooltip({
   children,
@@ -24,7 +23,7 @@ export function Tooltip({
           <TooltipPrimitive.Content
             side={side}
             sideOffset={sideOffset}
-            className="z-50 px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg border border-white/10 shadow-lg animate-in fade-in-0 zoom-in-95"
+            className="z-50 px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg border border-white/10 shadow-lg animate-in fade-in-0 zoom-in-95 max-w-xl"
           >
             {content}
             <TooltipPrimitive.Arrow className="fill-gray-900" />

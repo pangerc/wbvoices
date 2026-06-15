@@ -2,23 +2,9 @@ import { useAd } from "@/hooks/ad";
 import { Input } from "@headlessui/react";
 import { useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
-import { PencilIcon } from "./ui/icons/PencilIcon";
+import { PencilIcon } from "../ui/icons/PencilIcon";
+import { ProjectName } from "./ProjectName";
 
-type ProjectNameProps = {
-  name: string;
-  onClick?: () => void;
-};
-
-const ProjectName = ({ name, onClick }: ProjectNameProps) => {
-  return (
-    <span
-      className="px-4 py-2 border border-transparent text-center text-nowrap overflow-hidden text-ellipsis"
-      onClick={onClick}
-    >
-      {name}
-    </span>
-  );
-};
 type EditableProjectNameProps = {
   id: string;
 };
@@ -71,11 +57,12 @@ export const EditableProjectName = ({ id }: EditableProjectNameProps) => {
       ) : (
         <>
           <ProjectName
+            padding
             name={metadata.name}
             onClick={() => setIsEditing(true)}
           />
           <PencilIcon
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            className="opacity-0 group-hover:opacity-100 transition-opacity min-w-4 min-h-4"
             onClick={() => setIsEditing(true)}
           />
         </>

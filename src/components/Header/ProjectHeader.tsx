@@ -1,6 +1,6 @@
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { twMerge } from "tailwind-merge";
-import { EditableProjectName } from "../EditableProjectName";
+import { EditableProjectName } from "../ProjectName/EditableProjectName";
 import { Button, GlassTab, GlassTabBar } from "../ui";
 import { HeadphonesIcon } from "../ui/icons/Headphones";
 import { Header } from "./Header";
@@ -332,7 +332,7 @@ export function ProjectHeader({
       <div className="relative">
         <div
           className={twMerge(
-            "absolute z-100",
+            "absolute z-50",
             "transform-[translate(-50%,-35px)]",
           )}
         >
