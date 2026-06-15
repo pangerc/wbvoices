@@ -1,3 +1,4 @@
+import { ProjectName } from "@/components/ProjectName/ProjectName";
 import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -97,7 +98,11 @@ function ProjectCardBody({
         <header>
           <h3 className="text-white text-[1.5625rem] font-bold leading-[normal]">
             {title ? (
-              <HighlighhtedText text={title} highlights={titleHighlights} />
+              titleHighlights ? (
+                <HighlighhtedText text={title} highlights={titleHighlights} />
+              ) : (
+                <ProjectName name={title} multiline numberOfLines={3} />
+              )
             ) : (
               "Unknown"
             )}
