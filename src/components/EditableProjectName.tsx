@@ -63,7 +63,11 @@ export const EditableProjectName = ({ id }: EditableProjectNameProps) => {
             if (e.key === "Enter") {
               setIsEditing(false);
 
-              update({ name: newName });
+              if (newName.trim().length !== 0) {
+                update({ name: newName });
+              } else {
+                setNewName(metadata.name);
+              }
             }
           }}
           autoFocus
