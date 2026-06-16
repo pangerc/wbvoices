@@ -246,7 +246,54 @@ export type ProjectBrief = {
   // Only the id is persisted; resolution to systemInstructions happens
   // server-side at generation time.
   selectedTemplateId?: string | null;
+
+  // AAC-20 — Project metadata for commercial-pipeline tracking + reporting.
+  // All optional; when none are set the project is in "Exploration Mode"
+  // (projectStatus defaults to "exploration"). Lives on the brief so the
+  // existing dashboard search/persistence (meta.brief.*) covers it.
+  /** Salesforce *opportunity* URL — a plain link, NOT the SF account
+   *  integration (`brand.salesforceAccountId`). Free text, validated as a
+   *  URL when non-empty. Empty = not linked to an opportunity. */
+  opportunityUrl?: string | null;
+  /** Estimated deal value in USD. Numeric; UI formats as currency. */
+  opportunityAmount?: number | null;
+  /** Commercial pipeline stage. Default "exploration" = the project is not
+   *  yet tied to a live opportunity (the AC's "Exploration Mode"). Drives
+   *  the dashboard status filter. */
+  projectStatus?: ProjectStatus;
 };
+
+/**
+ * Commercial pipeline stage for a project (AAC-20). Labels in the UI:
+ * exploration → "Exploration", in_progress → "In Progress",
+ * won → "Won", lost → "Lost". "exploration" is the default / unset state.
+ */
+export type ProjectStatus = "exploration" | "in_progress" | "won" | "lost";
+
+export const PROJECT_STATUS_VALUES: ProjectStatus[] = [
+  "exploration",
+  "in_progress",
+  "won",
+  "lost",
+];
+
+/** Human-facing labels for {@link ProjectStatus}, matching the AAC-20 design. */
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  exploration: "Exploration",
+  in_progress: "In Progress",
+  won: "Won",
+  lost: "Lost",
+};
+
+/**
+ * Status a duplicated project should start from, given the source's status.
+ * An exploration project stays in exploration; any committed stage
+ * (in_progress / won / lost) resets to in_progress, because the copy is fresh
+ * work on a new opportunity, not a continuation of the original's outcome.
+ */
+export function statusAfterDuplication(status?: ProjectStatus): ProjectStatus {
+  return !status || status === "exploration" ? "exploration" : "in_progress";
+}
 
 /**
  * Unified brand identity attached to a brief.

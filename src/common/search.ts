@@ -31,6 +31,15 @@ export function adMetadataMatchQuery(
     return false;
   }
 
+  if (query.status && query.status.length > 0) {
+    // Projects with no explicit status are in "Exploration Mode" — treat a
+    // missing/empty projectStatus as "exploration" so the filter matches them.
+    const status = meta?.brief.projectStatus ?? "exploration";
+    if (status !== query.status) {
+      return false;
+    }
+  }
+
   if (query.name && query.name.length > 0) {
     if (!meta) {
       // If there is no meta to search in, we pass it

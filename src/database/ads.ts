@@ -1,7 +1,7 @@
 import { adMetadataMatchQuery } from "@/common/search";
 import { safeJSONParse } from "@/core/safe-json-parse";
 import { getRedisV3 } from "@/lib/redis-v3";
-import { Language } from "@/types";
+import { Language, ProjectStatus } from "@/types";
 import { AdMetadata, StreamType, VersionId } from "@/types/versions";
 import { Redis } from "@upstash/redis";
 import { Base, FuzzyResult, Options, QueryResult } from "./base";
@@ -55,6 +55,7 @@ export type AdMetadataQuery = {
   client?: string;
   market?: string;
   language?: Language;
+  status?: ProjectStatus;
 };
 
 export class Ads extends Base {

@@ -46,6 +46,7 @@ export function DashboardProjects({
                   ? new Date(ad.meta?.lastModified)
                   : undefined
               }
+              status={ad.meta?.brief?.projectStatus ?? "exploration"}
               onDelete={() => onDelete(ad.id)}
               onDuplicate={() => onDuplicate(ad.id)}
             />

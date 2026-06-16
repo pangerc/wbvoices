@@ -1,9 +1,17 @@
 import type { CreativeTemplate } from "@/hooks/useCreativeTemplates";
 import { BrandDossier, MarketRow } from "@/lib/alaric-client";
-import { BrandRef, CampaignFormat, Language, Pacing, Provider } from "@/types";
+import {
+  BrandRef,
+  CampaignFormat,
+  Language,
+  Pacing,
+  ProjectStatus,
+  Provider,
+} from "@/types";
 import { BrandTopic } from "./brief-topics/BrandTopic";
 import { CreativeTopic } from "./brief-topics/CreativeTopic";
 import { LanguageTopic } from "./brief-topics/LanguageTopic";
+import { OpportunityTopic } from "./brief-topics/OpportunityTopic";
 import { ToneOption } from "./ui";
 import { CreativeTemplateGallery } from "./ui/CreativeTemplateGallery";
 
@@ -88,6 +96,16 @@ export type BriefPanelBaseProps = {
   onTemplateChanged?: (id: string | null) => void;
   creativeTemplates?: CreativeTemplate[];
   creativeTemplatesLoading?: boolean;
+
+  // AAC-20 opportunity metadata. Opt-in like the gallery: the section only
+  // renders when the caller wires the handlers (the duplicate-ad popup leaves
+  // them out, so its brief form stays focused on the creative inputs).
+  projectStatus?: ProjectStatus;
+  onProjectStatusChanged?: (next: ProjectStatus) => void;
+  opportunityUrl?: string;
+  onOpportunityUrlChanged?: (next: string) => void;
+  opportunityAmountText?: string;
+  onOpportunityAmountTextChanged?: (next: string) => void;
 };
 
 export const BriefPanelBase = ({
@@ -140,11 +158,23 @@ export const BriefPanelBase = ({
   onTemplateChanged,
   creativeTemplates,
   creativeTemplatesLoading,
+  projectStatus,
+  onProjectStatusChanged,
+  opportunityUrl,
+  onOpportunityUrlChanged,
+  opportunityAmountText,
+  onOpportunityAmountTextChanged,
 }: BriefPanelBaseProps) => {
   // Render the gallery only when the caller wired both halves. Keeps the
   // duplicate-ad reuse path opt-in.
   const showGallery =
     onTemplateChanged !== undefined && creativeTemplates !== undefined;
+
+  // Opportunity metadata section — opt-in (see prop docs).
+  const showOpportunity =
+    onProjectStatusChanged !== undefined &&
+    onOpportunityUrlChanged !== undefined &&
+    onOpportunityAmountTextChanged !== undefined;
   return (
     <div className="space-y-12">
       <BrandTopic
@@ -215,6 +245,18 @@ export const BriefPanelBase = ({
         onLanguageOptionsResolved={onLanguageOptionsResolved}
         disabled={isGenerating}
       />
+
+      {showOpportunity && (
+        <OpportunityTopic
+          status={projectStatus ?? "exploration"}
+          onStatusChanged={onProjectStatusChanged}
+          opportunityUrl={opportunityUrl ?? ""}
+          onOpportunityUrlChanged={onOpportunityUrlChanged}
+          opportunityAmountText={opportunityAmountText ?? ""}
+          onOpportunityAmountTextChanged={onOpportunityAmountTextChanged}
+          disabled={isGenerating}
+        />
+      )}
 
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
