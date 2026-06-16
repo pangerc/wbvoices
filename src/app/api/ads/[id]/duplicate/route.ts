@@ -15,10 +15,40 @@ import {
   setAdMetadata,
   setPreviewData,
 } from "@/lib/redis/versions";
+import { ConversationMessage } from "@/lib/tool-calling";
 import { AdMetadata } from "@/types/versions";
 import { generateProjectId } from "@/utils/projectId";
 import { copy } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
+
+/**
+ * Rewrites every reference to the source ad's id with the duplicate's id
+ * across a cloned conversation, so the copied history points at the new ad
+ * instead of the original. Mutates `conversation` in place.
+ */
+function replaceConversationAdId(
+  conversation: ConversationMessage[],
+  sourceId: string,
+  destId: string,
+) {
+  conversation.forEach((msg) => {
+    // Swap the id inside the free-text message body.
+    msg.content = msg.content.replaceAll(sourceId, destId);
+
+    // Tool-call arguments are stored as a JSON string, so parse, remap the
+    // embedded ad id, then re-serialize.
+    msg.tool_calls?.forEach((toolCall) => {
+      const args = JSON.parse(toolCall.function.arguments);
+
+      // Only rewrite calls whose `adId` targets the source ad.
+      if (args["adId"] && args["adId"] === sourceId) {
+        args["adId"] = destId;
+      }
+
+      toolCall.function.arguments = JSON.stringify(args);
+    });
+  });
+}
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
@@ -127,6 +157,8 @@ export async function POST(
     }
   }
 
+  replaceConversationAdId(conversation, duplicatedAdId, newAdId);
+
   //
   // Storing everything in Redis
   //
@@ -152,7 +184,9 @@ export async function POST(
   // need remapping.
   //
   const [voiceVersion, musicVersion, sfxVersion] = await Promise.all([
-    voices ? createVersion(newAdId, "voices", voices) : Promise.resolve(undefined),
+    voices
+      ? createVersion(newAdId, "voices", voices)
+      : Promise.resolve(undefined),
     music ? createVersion(newAdId, "music", music) : Promise.resolve(undefined),
     sfx ? createVersion(newAdId, "sfx", sfx) : Promise.resolve(undefined),
   ]);

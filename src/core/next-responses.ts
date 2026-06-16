@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { iteratorToJsonTextEncodedStream, Streamable } from "./streams";
+import {
+  iteratorToJsonTextEncodedStream,
+  NormalizedAsyncInterator,
+} from "./streams";
 
 /**
  * A specialized JSON response class for streaming JSON payloads
@@ -19,7 +22,7 @@ export class NextJSONResponseFromStream extends NextResponse {
   constructor(
     bodyInit:
       | ReadableStream<Uint8Array<ArrayBufferLike>>
-      | Streamable<Uint8Array<ArrayBufferLike>>,
+      | NormalizedAsyncInterator<unknown, Uint8Array<ArrayBufferLike>>,
     init?: ResponseInit,
   ) {
     let stream =

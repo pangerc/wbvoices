@@ -2,9 +2,17 @@ import { adMetadataMatchQuery } from "@/common/search";
 import { safeJSONParse } from "@/core/safe-json-parse";
 import { getRedisV3 } from "@/lib/redis-v3";
 import { Language, ProjectStatus } from "@/types";
+import { ConversationMessage } from "@/lib/tool-calling";
 import { AdMetadata, StreamType, VersionId } from "@/types/versions";
 import { Redis } from "@upstash/redis";
-import { Base, FuzzyResult, Options, QueryResult } from "./base";
+import {
+  Base,
+  FuzzyQueryResult,
+  FuzzyResult,
+  Options,
+  Pagination,
+  QueryResult,
+} from "./base";
 
 // User ads index key pattern
 const USER_ADS_KEY = (ownerEmail: string) => `ads:by_user:${ownerEmail}`;
@@ -48,6 +56,8 @@ const AD_KEYS = {
   /** Version counter for atomic ID generation: ad:{adId}:voices:counter */
   counter: (adId: string, streamType: StreamType) =>
     `ad:${adId}:${streamType}:counter`,
+  /** Conversation history: ad:{adId}:conversation */
+  conversation: (adId: string) => `ad:${adId}:conversation`,
 } as const;
 
 export type AdMetadataQuery = {
@@ -82,15 +92,97 @@ export class Ads extends Base {
     return;
   }
 
+  /**
+   * Loads the stored conversation history for a single ad.
+   * Returns the parsed messages, or `undefined` when the ad has no
+   * conversation stored.
+   */
+  public async getAdConversation(
+    adId: string,
+  ): Promise<ConversationMessage[] | void> {
+    // Conversations are persisted as a JSON string under a per-ad Redis key.
+    const data = await this.redis.get(AD_KEYS.conversation(adId));
+
+    if (data) {
+      return safeJSONParse<ConversationMessage[]>(data);
+    }
+
+    // No conversation stored for this ad.
+    return;
+  }
+
+  /**
+   * Streams every known ad id, one at a time. Yielding lazily lets callers
+   * stop early; an aborted signal ends the stream between yields.
+   */
+  public async *getAdIds({
+    opts,
+  }: {
+    opts?: Options;
+  }): AsyncGenerator<string, void, unknown> {
+    // Stored as a single JSON array of ids (empty if unset).
+    const ids = (await this.redis.get<string[]>(ALL_ADS_KEY)) || [];
+
+    for (const id of ids) {
+      // Stop streaming if the caller disconnected/cancelled.
+      if (opts?.signal?.aborted) {
+        return;
+      }
+
+      yield id;
+    }
+
+    return;
+  }
+
+  /**
+   * Streams each ad's conversation, paired with its id. Yields lazily so
+   * callers can stop early; an aborted signal ends the stream between yields.
+   * Ads with no stored conversation are skipped.
+   */
+  public async *getAdConversations({
+    opts,
+  }: {
+    opts?: Options;
+  }): AsyncGenerator<QueryResult<ConversationMessage[]>, void, unknown> {
+    // Stored as a single JSON array of ids (empty if unset).
+    const ids = (await this.redis.get<string[]>(ALL_ADS_KEY)) || [];
+
+    for (const id of ids) {
+      // Stop streaming if the caller disconnected/cancelled.
+      if (opts?.signal?.aborted) {
+        return;
+      }
+
+      const document = await this.getAdConversation(id);
+
+      // Skip ids with no conversation. This happens because the id list can
+      // contain stale ids: ads that were deleted or only ever partially
+      // written in an invalid state.
+      if (!document) {
+        // FIXME: prune these dangling ids from the list instead of just
+        // logging them on every scan.
+        console.error("❌ Ad", id, "does not have a conversation");
+        continue;
+      }
+
+      yield { id, document };
+    }
+
+    return;
+  }
+
   public async *getAdsMetadataByEmail({
     email,
     query,
     opts,
+    pagination,
   }: {
     email?: string;
     query?: AdMetadataQuery;
     opts?: Options;
-  }): AsyncGenerator<QueryResult<AdMetadata>, void, unknown> {
+    pagination?: Pagination;
+  }): AsyncGenerator<FuzzyQueryResult<AdMetadata>, void, unknown> {
     // Regular user: show only their ads
     // Or admin: show all
     const key = email ? USER_ADS_KEY(email) : ALL_ADS_KEY;
@@ -105,6 +197,10 @@ export class Ads extends Base {
     // First we need to take all the metas because we need to sort them later
     // And we do not know who is first / last or in the middle
     for (const id of ids) {
+      if (opts?.signal?.aborted) {
+        return;
+      }
+
       // meta can be null, so we default to undefined
       // either we have something, or we do not
       const meta = await this.getAdMetadata(id);
@@ -128,7 +224,7 @@ export class Ads extends Base {
         return;
       }
 
-      if (typeof opts?.take === "number" && taken === opts.take) {
+      if (typeof pagination?.take === "number" && taken === pagination.take) {
         return;
       }
 
@@ -136,7 +232,7 @@ export class Ads extends Base {
         const match = adMetadataMatchQuery(meta, query);
 
         if (match === true || match !== false) {
-          if (opts?.skip && skipped < opts.skip) {
+          if (pagination?.skip && skipped < pagination.skip) {
             skipped++;
             continue;
           }
