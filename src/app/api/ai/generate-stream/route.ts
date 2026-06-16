@@ -285,7 +285,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-
   const generationLockToken = await tryAcquireGenerationLock(adId);
   if (generationLockToken === null) {
     return NextResponse.json(

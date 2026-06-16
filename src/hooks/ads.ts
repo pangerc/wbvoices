@@ -1,6 +1,6 @@
 import { adMetadataMatchQuery } from "@/common/search";
 import { AdMetadataQuery } from "@/database/ads";
-import { FuzzyResult, QueryResult } from "@/database/base";
+import { FuzzyQueryResult, FuzzyResult } from "@/database/base";
 import { AdMetadata } from "@/types/versions";
 import { useCallback } from "react";
 import { useListQuery } from "./list-query";
@@ -17,7 +17,7 @@ export function useAds({ searchParams = {} }: UseAdsProps = {}) {
     reachedEnd,
     next,
     invalidate,
-  } = useListQuery<QueryResult<AdMetadata>>({
+  } = useListQuery<FuzzyQueryResult<AdMetadata>>({
     url: "/api/ads",
     query: searchParams,
     eager: (data) =>
@@ -44,7 +44,7 @@ export function useAds({ searchParams = {} }: UseAdsProps = {}) {
           }
 
           return acc;
-        }, [] as QueryResult<AdMetadata>[])
+        }, [] as FuzzyQueryResult<AdMetadata>[])
         .sort((a, b) => {
           if (a.fuzzy && b.fuzzy) {
             const result = b.fuzzy.score - a.fuzzy.score;

@@ -95,22 +95,55 @@ export function iteratorToJsonTextEncodedStream<T>(
   });
 }
 
-export type SimpleAsyncGenerator<T> = AsyncGenerator<T, void, unknown>;
+/**
+ * Drains an async generator, collecting every yielded value into an array.
+ * Awaits the generator to completion, so only use on finite streams.
+ */
+export async function toArray<T>(
+  iterator: AsyncGenerator<T, void, unknown>,
+): Promise<Array<T>> {
+  const items: T[] = [];
 
-export type Streamable<T> = {
-  stream: () => ReadableStream<T>;
+  for await (const item of iterator) {
+    items.push(item);
+  }
+
+  return items;
+}
+
+/**
+ * Convenience accessors layered on top of an async generator: collect every
+ * value into an array, or expose it as a JSON-encoded byte stream.
+ */
+type Normalized<TData, TStreamData> = {
+  stream: () => ReadableStream<TStreamData>;
+  toArray: () => Promise<Array<TData>>;
 };
 
-export type StreamableAsyncIterator<TData, TStreamData> =
-  SimpleAsyncGenerator<TData> & Streamable<TStreamData>;
+/**
+ * An async generator augmented with the {@link Normalized} accessors, so a
+ * single value can be consumed either by iteration, as an array, or as a
+ * stream.
+ */
+export type NormalizedAsyncInterator<TData, TStreamData> = AsyncGenerator<
+  TData,
+  void,
+  unknown
+> &
+  Normalized<TData, TStreamData>;
 
-export function toStreamableAsyncIterator<TData>(
-  getIterator: () => SimpleAsyncGenerator<TData>,
-): StreamableAsyncIterator<TData, Uint8Array<ArrayBufferLike>> {
-  const iterator = getIterator();
-
+/**
+ * Wraps an async generator so it also exposes `toArray` and `stream`. The
+ * underlying generator is shared across all three consumption modes, so it
+ * can only be drained once — pick one.
+ */
+export function toNormalizedAsyncIterator<TData>(
+  iterator: AsyncGenerator<TData, void, unknown>,
+): NormalizedAsyncInterator<TData, Uint8Array<ArrayBufferLike>> {
   return {
+    // Spread keeps the generator's own iteration protocol intact.
     ...iterator,
+    toArray: () => toArray(iterator),
     stream: () => iteratorToJsonTextEncodedStream(iterator),
   };
 }
