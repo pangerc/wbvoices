@@ -727,6 +727,13 @@ export function BriefPanelV4({
           ? { salesforceAccountId: brand.salesforceAccountId }
           : {}),
         ...(brand ? { brand } : {}),
+        projectStatus,
+        opportunityUrl: opportunityUrl.trim() || null,
+        opportunityAmount:
+          opportunityAmountText.trim() &&
+          Number.isFinite(Number(opportunityAmountText.trim()))
+            ? Number(opportunityAmountText.trim())
+            : null,
       };
 
       if (autoGenerateAudio) {
