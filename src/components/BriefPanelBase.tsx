@@ -177,6 +177,18 @@ export const BriefPanelBase = ({
     onOpportunityAmountTextChanged !== undefined;
   return (
     <div className="space-y-12">
+      {showOpportunity && (
+        <OpportunityTopic
+          status={projectStatus ?? "exploration"}
+          onStatusChanged={onProjectStatusChanged}
+          opportunityUrl={opportunityUrl ?? ""}
+          onOpportunityUrlChanged={onOpportunityUrlChanged}
+          opportunityAmountText={opportunityAmountText ?? ""}
+          onOpportunityAmountTextChanged={onOpportunityAmountTextChanged}
+          disabled={isGenerating}
+        />
+      )}
+
       <BrandTopic
         brand={brand}
         onBrandChanged={onBrandChanged}
@@ -245,18 +257,6 @@ export const BriefPanelBase = ({
         onLanguageOptionsResolved={onLanguageOptionsResolved}
         disabled={isGenerating}
       />
-
-      {showOpportunity && (
-        <OpportunityTopic
-          status={projectStatus ?? "exploration"}
-          onStatusChanged={onProjectStatusChanged}
-          opportunityUrl={opportunityUrl ?? ""}
-          onOpportunityUrlChanged={onOpportunityUrlChanged}
-          opportunityAmountText={opportunityAmountText ?? ""}
-          onOpportunityAmountTextChanged={onOpportunityAmountTextChanged}
-          disabled={isGenerating}
-        />
-      )}
 
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">

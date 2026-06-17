@@ -69,7 +69,7 @@ export function OpportunityTopic({
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="block text-sm text-gray-300">Status</label>
+        <label className="block text-sm text-gray-300">Project Status</label>
         <div className="flex flex-wrap gap-2">
           {PROJECT_STATUS_VALUES.map((s) => {
             const active = s === status;
@@ -95,13 +95,14 @@ export function OpportunityTopic({
       <CollapsibleSection
         title="Salesforce opportunity"
         description="link + amount (optional)"
+        defaultOpen
         badge={
           opportunityAmountText.trim()
             ? `$${opportunityAmountText.trim()}`
             : undefined
         }
       >
-        <div className="space-y-4 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
           <div>
             <GlassyInput
               label="Salesforce opportunity URL"
