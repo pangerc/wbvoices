@@ -1,16 +1,22 @@
 export type Options = {
   signal?: AbortSignal;
-} & Pagination;
+};
 
 export type Pagination = {
   skip?: number;
   take?: number;
 };
 
+// TODO: change meta to doc to normalize
+export type FuzzyQueryResult<T> = {
+  id: string;
+  meta: T;
+  fuzzy?: FuzzyResult;
+};
+
 export type QueryResult<T> = {
   id: string;
-  meta?: T;
-  fuzzy?: FuzzyResult;
+  document: T;
 };
 
 export type FuzzyResult = {

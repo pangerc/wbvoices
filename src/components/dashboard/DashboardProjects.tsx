@@ -1,10 +1,10 @@
-import { QueryResult } from "@/database/base";
+import { FuzzyQueryResult } from "@/database/base";
 import { AdMetadata } from "@/types/versions";
 import { getLanguageName } from "@/utils/language";
 import { ProjectCard } from "../ui/cards/ProjectCard";
 
 type DashboardProjectsProps = {
-  ads: QueryResult<AdMetadata>[];
+  ads: FuzzyQueryResult<AdMetadata>[];
   onNextPage: () => void;
   reachedEnd: boolean;
   isLoading: boolean;
@@ -46,6 +46,7 @@ export function DashboardProjects({
                   ? new Date(ad.meta?.lastModified)
                   : undefined
               }
+              status={ad.meta?.brief?.projectStatus ?? "exploration"}
               onDelete={() => onDelete(ad.id)}
               onDuplicate={() => onDuplicate(ad.id)}
             />

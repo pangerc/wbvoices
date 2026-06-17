@@ -30,7 +30,7 @@ import {
 } from "@/lib/redis/versions";
 import { runAgentLoop } from "@/lib/tool-calling";
 import { instructionTemplatesService } from "@/services/instructionTemplatesService";
-import type { ProjectBrief } from "@/types";
+import type { ProjectBrief, ProjectStatus } from "@/types";
 import type { MusicVersion, SfxVersion, VoiceVersion } from "@/types/versions";
 import { internalFetch } from "@/utils/internal-fetch";
 import { getLanguageName } from "@/utils/language";
@@ -240,6 +240,9 @@ export async function POST(req: NextRequest) {
     // v2 Stage H — unified brand reference. brand.salesforceAccountId
     // wins over the top-level field when both are set.
     brand,
+    opportunityUrl,
+    opportunityAmount,
+    projectStatus,
   } = body;
 
   // Same precedence rule as /api/ai/generate. Keep the two routes in lockstep.
@@ -284,7 +287,6 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-
 
   const generationLockToken = await tryAcquireGenerationLock(adId);
   if (generationLockToken === null) {
@@ -475,6 +477,16 @@ export async function POST(req: NextRequest) {
           : {}),
         ...(brand && typeof brand === "object"
           ? { brand: brand as ProjectBrief["brand"] }
+          : {}),
+        projectStatus: (typeof projectStatus === "string"
+          ? projectStatus
+          : "exploration") as ProjectStatus,
+        ...(typeof opportunityUrl === "string" && opportunityUrl.trim()
+          ? { opportunityUrl: opportunityUrl.trim() }
+          : {}),
+        ...(typeof opportunityAmount === "number" &&
+        Number.isFinite(opportunityAmount)
+          ? { opportunityAmount }
           : {}),
       };
 

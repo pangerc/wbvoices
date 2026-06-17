@@ -45,7 +45,8 @@ export function Dashboard() {
     searchParams.name ||
     searchParams.client ||
     searchParams.market ||
-    searchParams.language;
+    searchParams.language ||
+    searchParams.status;
 
   const isFilterEmpty = isFiltering && ads.length == 0;
 

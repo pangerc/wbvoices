@@ -2,7 +2,12 @@ import { AdMetadataQuery } from "@/database/ads";
 import { useAuth } from "@/hooks/auth";
 import { useLanguageOptions } from "@/hooks/languages";
 import { useMarkets } from "@/hooks/market";
-import { BrandRef } from "@/types";
+import {
+  BrandRef,
+  PROJECT_STATUS_LABELS,
+  PROJECT_STATUS_VALUES,
+  ProjectStatus,
+} from "@/types";
 import { getFlagCode, getLanguageName, Language } from "@/utils/language";
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
 import { ReactNode, useMemo, useState } from "react";
@@ -28,7 +33,8 @@ export function DashboardHeader({
   const { markets } = useMarkets();
   const [filtersModalVisible, showFiltersModal] = useState(false);
 
-  const smallFiltersButton = search.client || search.language || search.market;
+  const smallFiltersButton =
+    search.client || search.language || search.market || search.status;
 
   const tags: ReactNode[] = [];
 
@@ -62,6 +68,16 @@ export function DashboardHeader({
         label={getLanguageName(search.language)}
         key={`language-${search.language}`}
         onRemove={() => onSearchChanged({ language: undefined })}
+      />,
+    );
+  }
+
+  if (search.status) {
+    tags.push(
+      <Tag
+        label={PROJECT_STATUS_LABELS[search.status]}
+        key={`status-${search.status}`}
+        onRemove={() => onSearchChanged({ status: undefined })}
       />,
     );
   }
@@ -147,12 +163,14 @@ function FiltersModal({
   const [brand, setBrand] = useState<BrandRef | null>(null);
   const [language, setLanguage] = useState(filters.language);
   const [market, setMarket] = useState(filters.market);
+  const [status, setStatus] = useState(filters.status);
 
   const onSubmit = () => {
     onFiltersChanged({
       market,
       language,
       client: brand?.name,
+      status,
     });
   };
 
@@ -172,6 +190,10 @@ function FiltersModal({
         <div className="flex flex-col gap-2">
           <div className="text-white">Language</div>
           <LanguagePicker value={language} onChange={setLanguage} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <div className="text-white">Status</div>
+          <StatusPicker value={status} onChange={setStatus} />
         </div>
         <div className="flex justify-between">
           <Button variant="destructive" onClick={onCancel}>
@@ -248,6 +270,25 @@ function LanguagePicker({ value, onChange }: LanguagePickerProps) {
       onChange={(item) => onChange(item?.value)}
       options={filteredLanguages}
       onQueryChange={setLanguageQuery}
+    />
+  );
+}
+
+type StatusPickerProps = {
+  value?: ProjectStatus;
+  onChange: (value?: ProjectStatus) => void;
+};
+
+function StatusPicker({ value, onChange }: StatusPickerProps) {
+  const options: ComboboxItem<ProjectStatus>[] = PROJECT_STATUS_VALUES.map(
+    (s) => ({ value: s, label: PROJECT_STATUS_LABELS[s] }),
+  );
+
+  return (
+    <GlassyCombobox<ProjectStatus>
+      value={options.find((o) => o.value === value) || null}
+      onChange={(item) => onChange(item?.value)}
+      options={options}
     />
   );
 }

@@ -8,7 +8,9 @@ import {
   Language,
   Pacing,
   ProjectBrief,
+  ProjectStatus,
   Provider,
+  statusAfterDuplication,
 } from "@/types";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -141,6 +143,22 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
     ad.meta.brief?.selectedAccent || "neutral",
   );
 
+  // AAC-20 opportunity metadata. The opportunity URL/amount carry over as-is,
+  // but the status follows the duplication rule: exploration stays
+  // exploration; any committed stage (in_progress / won / lost) resets to
+  // in_progress because the copy is fresh work, not the original's outcome.
+  const [opportunityUrl, setOpportunityUrl] = useState(
+    ad.meta.brief?.opportunityUrl || "",
+  );
+  const [opportunityAmountText, setOpportunityAmountText] = useState(
+    ad.meta.brief?.opportunityAmount != null
+      ? String(ad.meta.brief.opportunityAmount)
+      : "",
+  );
+  const [projectStatus, setProjectStatus] = useState<ProjectStatus>(
+    statusAfterDuplication(ad.meta.brief?.projectStatus),
+  );
+
   const [error, setError] = useState<string | null>(null);
 
   const [isDuplicating, setDuplicating] = useState(false);
@@ -198,6 +216,14 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
       ...(brand ? { brand } : {}),
       // Preserve legacy brandVoice on round-trip so display stays stable.
       ...(legacyBrandVoice ? { brandVoice: legacyBrandVoice } : {}),
+      // AAC-20 project metadata (status already mapped at seed time).
+      projectStatus,
+      opportunityUrl: opportunityUrl.trim() || null,
+      opportunityAmount:
+        opportunityAmountText.trim() &&
+        Number.isFinite(Number(opportunityAmountText.trim()))
+          ? Number(opportunityAmountText.trim())
+          : null,
     }),
     [
       brand,
@@ -216,6 +242,10 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
       forbiddenWords,
       providedScript,
       creativeAngle,
+      projectStatus,
+      opportunityUrl,
+      opportunityAmountText,
+      legacyBrandVoice,
     ],
   );
 
@@ -402,6 +432,12 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
           onAccentChanged={setSelectedAccent}
           onLanguageOptionsResolved={handleLanguageOptionsResolved}
           error={error}
+          projectStatus={projectStatus}
+          onProjectStatusChanged={setProjectStatus}
+          opportunityUrl={opportunityUrl}
+          onOpportunityUrlChanged={setOpportunityUrl}
+          opportunityAmountText={opportunityAmountText}
+          onOpportunityAmountTextChanged={setOpportunityAmountText}
         />
         <div className="flex justify-between">
           <Button
