@@ -405,6 +405,7 @@ export default function AdWorkspace() {
                 onGeneratingChange={setIsBriefGenerating}
                 autoGenerateAudio={true}
                 onStreamUpdate={handleStreamUpdate}
+                onBriefSaved={setBriefData}
               />
             )}
 
