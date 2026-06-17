@@ -26,7 +26,7 @@ import { ensureAdExists } from "@/lib/redis/ensureAd";
 import { getAdMetadata, setAdMetadata } from "@/lib/redis/versions";
 import { runAgentLoop } from "@/lib/tool-calling";
 import { instructionTemplatesService } from "@/services/instructionTemplatesService";
-import type { ProjectBrief } from "@/types";
+import type { ProjectBrief, ProjectStatus } from "@/types";
 import { getLanguageName } from "@/utils/language";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -188,6 +188,9 @@ export async function POST(req: NextRequest) {
       // v2 Stage H — unified brand reference. When present,
       // brand.salesforceAccountId wins over the top-level field.
       brand,
+      opportunityUrl,
+      opportunityAmount,
+      projectStatus,
     } = body;
 
     // Read order matches the brief schema deprecation contract: brand
@@ -392,6 +395,16 @@ export async function POST(req: NextRequest) {
         : {}),
       ...(brand && typeof brand === "object"
         ? { brand: brand as ProjectBrief["brand"] }
+        : {}),
+      projectStatus: (typeof projectStatus === "string"
+        ? projectStatus
+        : "exploration") as ProjectStatus,
+      ...(typeof opportunityUrl === "string" && opportunityUrl.trim()
+        ? { opportunityUrl: opportunityUrl.trim() }
+        : {}),
+      ...(typeof opportunityAmount === "number" &&
+      Number.isFinite(opportunityAmount)
+        ? { opportunityAmount }
         : {}),
     };
 

@@ -1,4 +1,5 @@
 import { ProjectName } from "@/components/ProjectName/ProjectName";
+import { PROJECT_STATUS_LABELS, ProjectStatus } from "@/types";
 import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -7,6 +8,15 @@ import { IconButton } from "../buttons";
 import { CloseIcon } from "../icons/CloseIcon";
 import { DuplicateIcon } from "../icons/DuplicateIcon";
 import { Card } from "./Card";
+
+// Per-status badge styling, matching the AAC-20 project-list design:
+// exploration = neutral gray, in_progress = blue, won = green, lost = red.
+const STATUS_BADGE_CLASS: Record<ProjectStatus, string> = {
+  exploration: "bg-wb-gray/25 text-gray-100",
+  in_progress: "bg-wb-blue/20 text-wb-blue",
+  won: "bg-wb-green/20 text-wb-green",
+  lost: "bg-wb-red/20 text-wb-red",
+};
 
 /** Props for {@link ProjectCard}: a dashboard tile that summarizes a single project and optionally links to its page. */
 export type ProjectCardProps = {
@@ -22,6 +32,8 @@ export type ProjectCardProps = {
   language?: string;
   /** Timestamp of the project's last modification. Rendered as `MMM d yyyy` (e.g., `"Jan 1 2025"`) via `date-fns`. */
   lastUpdated?: Date;
+  /** Commercial pipeline status (AAC-20). Rendered as a colored badge in the card footer. Defaults to "exploration" when unset. */
+  status?: ProjectStatus;
   /** Optional route the card navigates to when clicked. When provided, the card is wrapped in a Next.js `<Link>` and the whole surface becomes clickable (plus hover/focus affordances are enabled). When omitted, the card renders as a plain, non-interactive tile. */
   href?: string;
 
@@ -44,6 +56,7 @@ export function ProjectCard({
   market,
   language,
   lastUpdated,
+  status,
   href,
   onDelete,
   onDuplicate,
@@ -56,6 +69,7 @@ export function ProjectCard({
       market={market}
       language={language}
       lastUpdated={lastUpdated}
+      status={status}
       onDelete={onDelete}
       onDuplicate={onDuplicate}
     />
@@ -89,9 +103,11 @@ function ProjectCardBody({
   market,
   language,
   lastUpdated,
+  status,
   onDelete,
   onDuplicate,
 }: ProjectCardBodyProps) {
+  const badgeStatus: ProjectStatus = status ?? "exploration";
   return (
     <Card className="flex flex-col gap-19.75 px-10 py-8 h-full transition-colors group-hover:border-white ">
       <div className="flex gap-4 justify-between items-start">
@@ -139,6 +155,11 @@ function ProjectCardBody({
           <span className="text-white text-[0.625rem] font-light leading-6">
             Last updated:{" "}
             {lastUpdated ? format(lastUpdated, "MMM d yyyy") : "Unknown"}
+          </span>
+          <span
+            className={`mt-1 self-start px-3 py-1 text-[0.625rem] font-semibold uppercase tracking-wide ${STATUS_BADGE_CLASS[badgeStatus]}`}
+          >
+            {PROJECT_STATUS_LABELS[badgeStatus]}
           </span>
         </div>
         <div className="flex items-center gap-4">

@@ -34,6 +34,7 @@ import type {
   CampaignFormat,
   Pacing,
   ProjectBrief,
+  ProjectStatus,
   Provider,
 } from "@/types";
 import type { Language } from "@/utils/language";
@@ -151,6 +152,19 @@ export function BriefPanelV4({
   );
   const [providedScript, setProvidedScript] = useState(
     initialBrief?.providedScript || "",
+  );
+  // AAC-20 project metadata. Amount is held as text so the field formats
+  // freely; it's parsed to a number on save.
+  const [opportunityUrl, setOpportunityUrl] = useState(
+    initialBrief?.opportunityUrl || "",
+  );
+  const [opportunityAmountText, setOpportunityAmountText] = useState(
+    initialBrief?.opportunityAmount != null
+      ? String(initialBrief.opportunityAmount)
+      : "",
+  );
+  const [projectStatus, setProjectStatus] = useState<ProjectStatus>(
+    initialBrief?.projectStatus ?? "exploration",
   );
   const [brand, setBrand] = useState<BrandRef | null>(() => {
     if (initialBrief?.brand) return initialBrief.brand;
@@ -428,6 +442,14 @@ export function BriefPanelV4({
         ...(brand ? { brand } : {}),
         // Preserve legacy brandVoice on round-trip so display stays stable.
         ...(legacyBrandVoice ? { brandVoice: legacyBrandVoice } : {}),
+        // AAC-20 project metadata.
+        projectStatus,
+        opportunityUrl: opportunityUrl.trim() || null,
+        opportunityAmount:
+          opportunityAmountText.trim() &&
+          Number.isFinite(Number(opportunityAmountText.trim()))
+            ? Number(opportunityAmountText.trim())
+            : null,
       };
 
       const response = await fetch(`/api/ads/${adId}/brief`, {
@@ -462,6 +484,9 @@ export function BriefPanelV4({
     forbiddenWords,
     providedScript,
     legacyBrandVoice,
+    projectStatus,
+    opportunityUrl,
+    opportunityAmountText,
   ]);
 
   useEffect(() => {
@@ -495,6 +520,9 @@ export function BriefPanelV4({
     parsedReferenceUrls,
     forbiddenWords,
     providedScript,
+    projectStatus,
+    opportunityUrl,
+    opportunityAmountText,
     saveBriefToRedis,
   ]);
 
@@ -699,6 +727,13 @@ export function BriefPanelV4({
           ? { salesforceAccountId: brand.salesforceAccountId }
           : {}),
         ...(brand ? { brand } : {}),
+        projectStatus,
+        opportunityUrl: opportunityUrl.trim() || null,
+        opportunityAmount:
+          opportunityAmountText.trim() &&
+          Number.isFinite(Number(opportunityAmountText.trim()))
+            ? Number(opportunityAmountText.trim())
+            : null,
       };
 
       if (autoGenerateAudio) {
@@ -841,6 +876,12 @@ export function BriefPanelV4({
         onTemplateChanged={handleTemplateChanged}
         creativeTemplates={creativeTemplates}
         creativeTemplatesLoading={creativeTemplatesLoading}
+        projectStatus={projectStatus}
+        onProjectStatusChanged={setProjectStatus}
+        opportunityUrl={opportunityUrl}
+        onOpportunityUrlChanged={setOpportunityUrl}
+        opportunityAmountText={opportunityAmountText}
+        onOpportunityAmountTextChanged={setOpportunityAmountText}
       />
     </div>
   );
