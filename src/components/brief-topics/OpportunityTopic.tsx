@@ -107,7 +107,7 @@ export function OpportunityTopic({
             <GlassyInput
               label="Salesforce opportunity URL"
               value={opportunityUrl}
-              placeholder="Paste Salesforce URL"
+              placeholder="e.g.: https://company.lightning.force.com/lightning/r/Opportunity/006.../view"
               disabled={disabled}
               onChange={(e) => onOpportunityUrlChanged(e.currentTarget.value)}
             />
@@ -127,7 +127,7 @@ export function OpportunityTopic({
             label="Opportunity amount (USD)"
             value={opportunityAmountText}
             inputMode="numeric"
-            placeholder="30000"
+            placeholder="e.g.: 30000"
             disabled={disabled}
             onChange={(e) =>
               onOpportunityAmountTextChanged(
