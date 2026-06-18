@@ -367,4 +367,24 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "set_ad_duration",
+      description:
+        "Change the ad's target length in seconds (the format horizon the mixer renders to). This is the ONLY way to actually make the ad shorter or longer — it updates the brief's duration, which drives both the rendered mix length and the music-bed floor. Changing the music duration alone does NOT shorten the ad. When the user asks to shorten/lengthen the ad (e.g. 'make it 15 seconds'), call this FIRST, then rewrite the voice script to fit the new length. Returns the effective (clamped) value.",
+      parameters: {
+        type: "object",
+        properties: {
+          adId: { type: "string", description: "The ad ID" },
+          durationSeconds: {
+            type: "number",
+            description:
+              "New target ad length in seconds. Supported range 5–90; out-of-range values are clamped and reported back.",
+          },
+        } as Record<string, unknown>,
+        required: ["adId", "durationSeconds"],
+      },
+    },
+  },
 ];

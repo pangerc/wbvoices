@@ -45,6 +45,8 @@ import {
   ReadAdStateResult,
   SearchVoicesParams,
   SearchVoicesResult,
+  SetAdDurationParams,
+  SetAdDurationResult,
   SetAdTitleParams,
   SetAdTitleResult,
   SlotReconciliation,
@@ -893,7 +895,28 @@ async function createMusicDraftLocked(
 
   const versionId = await createVersion(adId, "music", musicVersion);
 
-  return slotReportedResult(adId, versionId, report);
+  // Ground-truth duration feedback so the agent reports honestly: music is a
+  // background BED whose length is floored to cover the voice (briefDuration +
+  // 10s, min 30s). When the LLM asked for a shorter bed than that floor, its
+  // request was silently overridden — surface that instead of letting it claim
+  // a shortening that didn't happen. To make the AD itself shorter the agent
+  // must call set_ad_duration (which lowers briefDuration and the mixer's
+  // format horizon); changing the music bed alone does NOT shorten the ad.
+  const durationOverridden = duration != null && effectiveDuration !== duration;
+  const result = slotReportedResult(adId, versionId, report);
+  return {
+    ...result,
+    applied: {
+      duration: {
+        requested: duration ?? null,
+        effective: effectiveDuration,
+        overridden: durationOverridden,
+        note: durationOverridden
+          ? `Music is a background bed and must cover the voice; its length was floored to ${effectiveDuration}s (ad length ${briefDuration}s + buffer, min 30s). This does NOT change how long the ad plays — use set_ad_duration to change the ad's length.`
+          : null,
+      },
+    },
+  };
 }
 
 /**
@@ -1112,4 +1135,62 @@ export async function setAdTitle(
   });
 
   return { success: true, title };
+}
+
+// Bounds for a single audio ad's target length. The lower bound keeps the
+// format meaningful (a 1s "ad" makes no sense); the upper bound matches the
+// longest format the brief panel offers. Requests outside the range are
+// clamped and reported back so the agent can be honest about it.
+const MIN_AD_DURATION_SECONDS = 5;
+const MAX_AD_DURATION_SECONDS = 90;
+
+/**
+ * Change the ad's target length (the format horizon the mixer renders to).
+ * This is THE lever that actually shortens/lengthens the ad: it updates
+ * `brief.adDuration`, which the mixer reads as `formatDuration` (rebuilder.ts)
+ * and the music-bed floor reads as `briefDuration`. Returns the effective
+ * (clamped) value so the agent never claims a length it didn't set.
+ */
+export async function setAdDuration(
+  params: SetAdDurationParams,
+): Promise<SetAdDurationResult> {
+  const { adId, durationSeconds } = params;
+  const requested = Math.round(durationSeconds);
+
+  const existing = await getAdMetadata(adId);
+  if (!existing) {
+    return {
+      success: false,
+      appliedDurationSeconds: 0,
+      requestedDurationSeconds: requested,
+      clamped: false,
+      note: "Ad not found.",
+    };
+  }
+
+  const applied = Math.min(
+    MAX_AD_DURATION_SECONDS,
+    Math.max(MIN_AD_DURATION_SECONDS, requested),
+  );
+  const clamped = applied !== requested;
+
+  await setAdMetadata(adId, {
+    ...existing,
+    brief: { ...existing.brief, adDuration: applied },
+    lastModified: Date.now(),
+  });
+
+  console.log(
+    `[set_ad_duration] adId=${adId} requested=${requested}s applied=${applied}s clamped=${clamped}`,
+  );
+
+  return {
+    success: true,
+    appliedDurationSeconds: applied,
+    requestedDurationSeconds: requested,
+    clamped,
+    note: clamped
+      ? `Ad length set to ${applied}s — ${requested}s is outside the supported ${MIN_AD_DURATION_SECONDS}–${MAX_AD_DURATION_SECONDS}s range.`
+      : null,
+  };
 }
