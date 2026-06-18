@@ -110,6 +110,7 @@ export function MarketPicker({ value, onChange, disabled }: MarketPickerProps) {
         onQueryChange={setEagerQuery}
         disabled={disabled || isLoading}
         loading={isLoading}
+        placeholder="Select a market for this project"
       />
       {error && (
         <p className="text-xs text-red-400 mt-1">

@@ -34,6 +34,8 @@ export interface GlassyComboboxProps<T> {
   disabled?: boolean;
   /** Shows a spinner and disables interaction while options load. */
   loading?: boolean;
+  /** Placeholder shown in the input when nothing is selected/typed. */
+  placeholder?: string;
 }
 
 /**
@@ -50,6 +52,7 @@ export function GlassyCombobox<T>({
   onQueryChange,
   disabled = false,
   loading = false,
+  placeholder,
 }: GlassyComboboxProps<T>) {
   return (
     <div>
@@ -63,7 +66,8 @@ export function GlassyCombobox<T>({
         <div className="relative">
           <div className="relative bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 transition-all duration-200 focus-within:border-wb-blue/70 focus-within:ring-1 focus-within:ring-wb-blue/50">
             <ComboboxInput
-              className="w-full cursor-default bg-transparent py-3 pr-10 pl-4 text-left text-white rounded-xl border-0 focus:outline-none sm:text-sm/6"
+              className="w-full cursor-default bg-transparent py-3 pr-10 pl-4 text-left text-white rounded-xl border-0 focus:outline-none placeholder:text-gray-400 sm:text-sm/6"
+              placeholder={placeholder}
               onChange={(e) => onQueryChange?.(e.target.value)}
               onClick={(e) => (e.target as HTMLInputElement).select()}
               displayValue={(item: ComboboxItem<T> | null) =>

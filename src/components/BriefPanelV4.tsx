@@ -89,6 +89,14 @@ export type BriefPanelV4Props = {
   onGeneratingChange?: (isGenerating: boolean) => void;
   autoGenerateAudio?: boolean;
   onStreamUpdate?: (event: StreamUpdateEvent) => void;
+  /**
+   * Fired after each successful debounced autosave with the brief just
+   * persisted. The workspace uses this to keep its cached `briefData` (the
+   * `initialBrief` it feeds back here) in sync — otherwise switching tabs
+   * remounts this panel from a stale snapshot and silently reverts edits
+   * (e.g. opportunity URL / amount / status) that hadn't been re-fetched.
+   */
+  onBriefSaved?: (brief: ProjectBrief) => void;
 };
 
 export function BriefPanelV4({
@@ -99,6 +107,7 @@ export function BriefPanelV4({
   onGeneratingChange,
   autoGenerateAudio = false,
   onStreamUpdate,
+  onBriefSaved,
 }: BriefPanelV4Props) {
   // ============================================================
   // Brief state — every field on ProjectBrief except retirements.
@@ -460,13 +469,20 @@ export function BriefPanelV4({
 
       if (!response.ok && response.status !== 404) {
         console.error("Failed to save brief:", response.status);
+        return;
       }
+
+      // Keep the workspace's cached brief in sync so a tab switch (which
+      // remounts this panel from `initialBrief`) doesn't revert just-saved
+      // edits like opportunity URL / amount / status.
+      onBriefSaved?.(briefData);
     } catch (error) {
       console.error("Failed to save brief:", error);
     }
   }, [
     adId,
     brand,
+    onBriefSaved,
     creativeBrief,
     creativeAngle,
     campaignFormat,
