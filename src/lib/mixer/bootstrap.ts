@@ -291,7 +291,7 @@ async function ensureSfxSlotIds(
   return slotIds;
 }
 
-async function ensureMusicSlotId(
+export async function ensureMusicSlotId(
   adId: string,
   versionId: VersionId | null,
   musicVersion: MusicVersion | null,

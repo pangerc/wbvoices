@@ -20,7 +20,7 @@
  * frozen mixer versions is intentionally unused.
  */
 
-import { bootstrapLegacyMixer } from "@/lib/mixer/bootstrap";
+import { bootstrapLegacyMixer, ensureMusicSlotId } from "@/lib/mixer/bootstrap";
 import { withAdLock } from "@/lib/redis/adLock";
 import {
   createVersion,
@@ -331,6 +331,21 @@ async function ensureMixerDraftWithCurrentPins(adId: string): Promise<void> {
         music: await getActiveVersion(adId, "music"),
         sfx: await getActiveVersion(adId, "sfx"),
       };
+
+      // Guarantee the pinned music version has a slotId. Bootstrap assigns one
+      // to LLM-authored music, but music versions created later (custom upload
+      // or a re-generation via POST /music) start without one. Without a slotId
+      // `collectMusicTrack` emits a track the timeline can't place, so the music
+      // line silently vanishes from the mixer (AAC-188). Assign it here — the
+      // one place every "send music to mixer" path funnels through.
+      if (currentPins.music) {
+        const musicVersion = (await getVersion(
+          adId,
+          "music",
+          currentPins.music,
+        )) as MusicVersion | null;
+        await ensureMusicSlotId(adId, currentPins.music, musicVersion);
+      }
 
       if (activeVersion.status === "frozen") {
         // Fork the frozen active into a new draft carrying forward its
