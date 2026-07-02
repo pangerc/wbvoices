@@ -15,6 +15,15 @@ const GUEST_EMAILS = (process.env.GUEST_EMAILS || "")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
+/** Whether an email may sign in at all (allowed domain or guest allowlist). */
+export function isEmailAllowed(email: string): boolean {
+  const e = email.toLowerCase();
+  return (
+    ALLOWED_DOMAINS.some((domain) => e.endsWith(domain)) ||
+    GUEST_EMAILS.includes(e)
+  );
+}
+
 // Edge-safe NextAuth config used by middleware. Contains only OAuth providers
 // (which don't require an adapter at assertConfig-time), session strategy,
 // pages, and the string-only signIn callback. The Resend (email) provider
@@ -37,11 +46,7 @@ export const authConfig = {
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return false;
-      const email = user.email.toLowerCase();
-      return (
-        ALLOWED_DOMAINS.some((domain) => email.endsWith(domain)) ||
-        GUEST_EMAILS.includes(email)
-      );
+      return isEmailAllowed(user.email);
     },
     // Projects token.role onto session.user.role. Defined here (Edge-safe)
     // so middleware sees the role claim — without this, NextAuth's default

@@ -1,6 +1,7 @@
-import { authConfig } from "@/auth.config";
+import { authConfig, isEmailAllowed } from "@/auth.config";
 import { db, getDb } from "@/lib/db";
 import { accounts, users, verificationTokens } from "@/lib/db/schema";
+import { getMaintenanceState } from "@/services/serverSettingsService";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { eq } from "drizzle-orm";
 import NextAuth from "next-auth";
@@ -99,6 +100,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     ...authConfig.callbacks,
+
+    // Sign-in gate (Node runtime — can read Postgres, unlike the Edge signIn in
+    // authConfig). Enforces the maintenance registration rule (AAC-185): during
+    // maintenance a brand-new, non-admin email cannot register; existing users
+    // and admins can always sign in (so an admin is never locked out — the
+    // break-glass relies on their JWT session, but a fresh admin login works
+    // too). Sign-in and sign-up are the same magic-link flow, so this must be
+    // surgical.
+    async signIn({ user }) {
+      const email = user?.email?.toLowerCase();
+      if (!email || !isEmailAllowed(email)) return false;
+      try {
+        const state = await getMaintenanceState();
+        if (state.on && !ADMIN_EMAILS.includes(email)) {
+          const [existing] = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+          if (!existing) return false; // new registration blocked in maintenance
+        }
+      } catch (err) {
+        // Fail open on a settings read error — don't lock everyone out.
+        console.warn("[auth] maintenance sign-in check failed:", err);
+      }
+      return true;
+    },
 
     async jwt({ token, user, trigger }) {
       if (user?.email) {

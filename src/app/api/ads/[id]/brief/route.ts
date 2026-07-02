@@ -6,6 +6,11 @@
  */
 
 import { AuthError, requireAuth } from "@/lib/auth-helpers";
+import {
+  assertNotMaintenance,
+  MaintenanceError,
+  maintenanceErrorResponse,
+} from "@/lib/maintenance";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
 import { getAdMetadata, setAdMetadata } from "@/lib/redis/versions";
 import type { ProjectBrief } from "@/types";
@@ -79,6 +84,7 @@ export async function PATCH(
   try {
     const { id: adId } = await params;
     const { email, role } = await requireAuth();
+    await assertNotMaintenance();
 
     const body = await request.json();
     const { brief } = body as { brief: ProjectBrief };
@@ -107,6 +113,10 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, brief });
   } catch (error) {
+    if (error instanceof MaintenanceError) {
+      const { body, status } = maintenanceErrorResponse(error);
+      return NextResponse.json(body, { status });
+    }
     if (error instanceof AuthError) {
       return NextResponse.json(
         { error: error.message },
