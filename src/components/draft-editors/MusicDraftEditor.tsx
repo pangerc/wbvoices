@@ -10,7 +10,7 @@ import {
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import type { MusicProvider } from "@/types";
 import type { MusicVersion, VersionId } from "@/types/versions";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface MusicDraftEditorProps {
   adId: string;
@@ -43,6 +43,19 @@ export function MusicDraftEditor({
     draftVersion.provider,
   );
   const [statusMessage, setStatusMessage] = useState("");
+
+  // Live prompt as edited in the panel. The MusicPanel textareas are local
+  // state that isn't persisted to the draft until a generation succeeds, so the
+  // header "Play" (smart-play) would otherwise generate with the stale/empty
+  // `draftVersion.musicPrompt`. Kept current via MusicPanel's onPromptsChange.
+  const latestPromptRef = useRef<string>(
+    draftVersion.musicPrompt ||
+      draftVersion.musicPrompts?.[draftVersion.provider] ||
+      "",
+  );
+  const handlePromptsChange = useCallback((_: unknown, active: string) => {
+    latestPromptRef.current = active;
+  }, []);
 
   // Guard: prevent SWR prop updates from overwriting local state while an edit is being persisted
   const editInFlightRef = useRef(false);
@@ -105,6 +118,15 @@ export function MusicDraftEditor({
     provider: MusicProvider,
     duration: number,
   ): Promise<string | null> => {
+    // AI music providers require a prompt. Guard here — the single point both
+    // the Generate button and smart-play ("Play") funnel through — so an empty
+    // description never reaches the provider (which would surface the cryptic
+    // "Generation failed: Missing required parameter: prompt").
+    if (!prompt.trim()) {
+      setStatusMessage("Add a music description before generating.");
+      return null;
+    }
+
     setGeneratingMusic(true);
     setStatusMessage("Generating music...");
 
@@ -155,10 +177,11 @@ export function MusicDraftEditor({
 
     let url: string | null | undefined = draftVersion.generatedUrl;
 
-    // Generate if no audio exists
+    // Generate if no audio exists. Use the live typed prompt (falling back to
+    // the persisted one) so pressing Play right after typing works.
     if (!url) {
       url = await handleGenerate(
-        draftVersion.musicPrompt || "",
+        latestPromptRef.current || draftVersion.musicPrompt || "",
         musicProvider,
         draftVersion.duration || adDuration,
       );
@@ -297,6 +320,7 @@ export function MusicDraftEditor({
         setMusicProvider={handleProviderChange}
         resetForm={resetForm}
         initialPrompts={draftVersion.musicPrompts}
+        onPromptsChange={handlePromptsChange}
         onTrackSelected={handleTrackSelected}
         initialProvider={draftVersion.provider}
         hasGeneratedUrl={!!draftVersion.generatedUrl}
