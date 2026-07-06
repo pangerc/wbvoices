@@ -105,6 +105,15 @@ export function MusicDraftEditor({
     provider: MusicProvider,
     duration: number,
   ): Promise<string | null> => {
+    // AI music providers require a prompt. Guard here — the single point both
+    // the Generate button and smart-play ("Play") funnel through — so an empty
+    // description never reaches the provider (which would surface the cryptic
+    // "Generation failed: Missing required parameter: prompt").
+    if (!prompt.trim()) {
+      setStatusMessage("Add a music description before generating.");
+      return null;
+    }
+
     setGeneratingMusic(true);
     setStatusMessage("Generating music...");
 

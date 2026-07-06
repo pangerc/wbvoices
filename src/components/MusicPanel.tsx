@@ -296,6 +296,13 @@ export function MusicPanel({
   const handleGenerate = () => {
     const prompt = providerPrompts[musicProvider] || "";
 
+    // Don't submit an empty description — give inline feedback instead of
+    // letting the provider reject it with a cryptic error.
+    if (!prompt.trim()) {
+      setLocalStatusMessage("Add a music description before generating.");
+      return;
+    }
+
     // For Loudly, we need to round to the nearest 15 seconds
     if (musicProvider === "loudly") {
       const roundedDuration = Math.round(duration / 15) * 15;
