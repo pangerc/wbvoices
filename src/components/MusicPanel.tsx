@@ -69,6 +69,13 @@ type MusicPanelProps = {
   initialProvider?: MusicProvider; // Provider from draft version (to detect custom uploads)
   hasGeneratedUrl?: boolean; // Whether draft already has a generated URL
   existingFilename?: string; // For custom uploads: shows which file is loaded (from musicPrompt)
+  /**
+   * Notifies the parent whenever the edited prompts change, with the active
+   * provider's prompt. Lets the header "Play" (smart-play) generate with what
+   * the user just typed — the textareas are local state and aren't otherwise
+   * persisted to the draft until a generation succeeds.
+   */
+  onPromptsChange?: (prompts: MusicPrompts, activePrompt: string) => void;
 };
 
 export function MusicPanel({
@@ -84,6 +91,7 @@ export function MusicPanel({
   initialProvider,
   hasGeneratedUrl,
   existingFilename,
+  onPromptsChange,
 }: MusicPanelProps) {
   const params = useParams();
   const projectId = params.id as string;
@@ -108,6 +116,12 @@ export function MusicPanel({
   const [providerPrompts, setProviderPrompts] = useState<MusicPrompts>(
     initialPrompts || { loudly: "", mubert: "", elevenlabs: "" },
   );
+
+  // Surface the live prompt to the parent so the header "Play" generates with
+  // what's typed, not the (possibly empty) persisted draft prompt.
+  useEffect(() => {
+    onPromptsChange?.(providerPrompts, providerPrompts[musicProvider] || "");
+  }, [providerPrompts, musicProvider, onPromptsChange]);
 
   // Library state
   const [libraryTracks, setLibraryTracks] = useState<LibraryMusicTrack[]>([]);
