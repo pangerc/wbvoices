@@ -13,7 +13,7 @@ import {
 import { createMockRedis } from "@/test/utils";
 import type { MusicVersion, SfxVersion, VoiceVersion } from "@/types/versions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createVersion, setActiveVersion } from "../../redis/versions";
+import { createVersion, getVersion, setActiveVersion } from "../../redis/versions";
 import { getMixerState, rebuildMixer } from "../rebuilder";
 
 // Mock Redis V3
@@ -369,6 +369,49 @@ describe("rebuildMixer", () => {
       mixerState = await rebuildMixer(mockAdId);
       expect(mixerState.activeVersions.voices).toBe("v2");
       expect(mixerState.tracks[0].url).toContain("v2-voice.mp3");
+    });
+  });
+
+  describe("music added after the mixer was bootstrapped (AAC-188)", () => {
+    it("assigns a slotId so custom/uploaded music reaches the mixer", async () => {
+      // 1. Bootstrap the mixer with voice only — no music at creation time.
+      await createVersion(mockAdId, "voices", {
+        ...mockVoiceVersionDraft,
+        generatedUrls: ["https://blob.vercel-storage.com/voice-1.mp3"],
+      });
+      await setActiveVersion(mockAdId, "voices", "v1");
+      await rebuildMixer(mockAdId);
+
+      // 2. Upload a custom music track later → new version, no slotId (this is
+      //    exactly what POST /api/ads/:id/music produces).
+      const customMusic: MusicVersion = {
+        ...mockMusicVersionDraft,
+        provider: "custom",
+        musicPrompt: "my-track.mp3",
+        generatedUrl: "https://blob.vercel-storage.com/custom-music.mp3",
+      };
+      delete (customMusic as Partial<MusicVersion>).slotId;
+      await createVersion(mockAdId, "music", customMusic);
+      await setActiveVersion(mockAdId, "music", "v1");
+
+      // 3. Send to mixer (freeze → rebuild).
+      const state = await rebuildMixer(mockAdId);
+
+      // 4. The music line is present AND anchored by a real slotId — the track
+      //    the timeline can actually place. (Before the fix the slotId was
+      //    undefined and the music silently vanished.)
+      const music = state.tracks.find((t) => t.type === "music");
+      expect(music).toBeDefined();
+      expect(music!.url).toContain("custom-music.mp3");
+      expect(music!.slotId).toBeTruthy();
+
+      // The slotId is persisted onto the music version, not just the track.
+      const persisted = (await getVersion(
+        mockAdId,
+        "music",
+        "v1",
+      )) as MusicVersion;
+      expect(persisted.slotId).toBeTruthy();
     });
   });
 });
