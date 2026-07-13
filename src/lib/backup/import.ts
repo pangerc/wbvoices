@@ -91,10 +91,15 @@ async function parseArchive(
       blobCount++;
       if (apply) {
         const { put } = await import("@vercel/blob");
+        // Blob filenames are content-addressed (sha256 of the source URL), so
+        // the same name always carries the same bytes. Allow overwrite so import
+        // is idempotent — re-importing an archive, a `replace` after a prior
+        // `merge`, or resuming a partial import must not fail with Vercel Blob's
+        // "This blob already exists".
         const res = await put(
           `imported/${basename(entry.name)}`,
           Buffer.from(entry.data),
-          { access: "public" },
+          { access: "public", allowOverwrite: true },
         );
         fileToUrl.set(basename(entry.name), res.url);
       }

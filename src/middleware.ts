@@ -106,6 +106,9 @@ export default auth(async (req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // `api/admin/backup/import/file` is excluded so large archive uploads
+    // aren't capped/truncated by `experimental.middlewareClientMaxBodySize`
+    // (next.config.ts). That route enforces auth + admin in-handler instead.
+    "/((?!_next/static|_next/image|favicon.ico|api/admin/backup/import/file|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -37,7 +37,13 @@ const STRATEGIES: ConflictStrategy[] = ["merge", "replace", "remap"];
 export async function POST(request: NextRequest) {
   let token: string | null = null;
   try {
-    const { email } = await requireAuth();
+    // This route is excluded from the middleware matcher (see middleware.ts) so
+    // large archive uploads aren't capped by `middlewareClientMaxBodySize`.
+    // That means the edge admin gate doesn't run here — enforce it in-route.
+    const { email, role } = await requireAuth();
+    if (role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const rl = await rateLimit(`import:${email}`, 5, 60);
     if (!rl.allowed) {
@@ -112,7 +118,13 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error("❌ Backup import failed:", error);
-    return NextResponse.json({ error: "Backup import failed" }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "Backup import failed",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
   } finally {
     if (token) await releaseMigrationLock(token);
   }

@@ -62,6 +62,7 @@ export async function createSafetyBackup(
     const res = await put(`backups/${filename}`, Buffer.from(bytes), {
       access: "public",
       contentType: "application/gzip",
+      allowOverwrite: true,
     });
     return res.url;
   }

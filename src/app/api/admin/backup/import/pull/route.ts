@@ -134,7 +134,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
     }
     console.error("❌ Migration pull failed:", error);
-    return NextResponse.json({ error: "Migration pull failed" }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "Migration pull failed",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
   } finally {
     if (token) await releaseMigrationLock(token);
   }
