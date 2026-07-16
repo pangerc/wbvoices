@@ -1,13 +1,20 @@
 "use client";
 
-import { type Statistics } from "@/app/api/ads/statistics/route";
+import {
+  type PeriodKey,
+  type PeriodStats,
+  type Statistics,
+} from "@/app/api/ads/statistics/route";
+import { GlassTab } from "@/components/ui/GlassTab";
+import { GlassTabBar } from "@/components/ui/GlassTabBar";
+import { GlassyListbox } from "@/components/ui/GlassyListbox";
 import { Button } from "@/components/ui/buttons/Button";
 import { useMarkets } from "@/hooks/market";
 import { useQuery } from "@/hooks/query";
 import { getLanguageName, regionDisplayNames } from "@/utils/language";
 import { ArrowDownTrayIcon, ChartBarIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 /** A single breakdown row, ready for display and CSV export. */
 type StatItem = {
@@ -21,6 +28,44 @@ type StatItem = {
 
 /** Resolves a dimension's raw key into a friendly display label. */
 type LabelResolver = (key: string) => string;
+
+/** The three categorical dimensions rendered on the page, in display order. */
+const DIMENSIONS = ["byMarket", "byLanguage", "byOwner"] as const;
+
+/** Period tabs shown for a selected year, in display order (`YTD` gated separately). */
+const PERIOD_ORDER: PeriodKey[] = [
+  "FY",
+  "H1",
+  "H2",
+  "Q1",
+  "Q2",
+  "Q3",
+  "Q4",
+  "YTD",
+];
+
+/** Short, human-readable label for each period tab. */
+const PERIOD_LABELS: Record<PeriodKey, string> = {
+  FY: "Full year",
+  H1: "H1",
+  H2: "H2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
+  YTD: "YTD",
+};
+
+/** Sentinel value for the all-time year selection. */
+const ALL_TIME = "all";
+
+/** An empty period bucket, used when a selected bucket has no ads. */
+const EMPTY_PERIOD_STATS: PeriodStats = {
+  byMarket: {},
+  byLanguage: {},
+  byOwner: {},
+  total: 0,
+};
 
 /** Escape a single CSV field, quoting it when it contains delimiters. */
 function csvField(value: string | number): string {
@@ -56,13 +101,18 @@ function dimensionNoun(dimension: string): string {
 }
 
 /**
- * "byMarket" → "2026-06-19_14-30-statistics-market.csv", stamped with the ISO
- * date and time the statistics request was made.
+ * "byMarket" → "2026-06-19_14-30-statistics-market-2026-Q2.csv", stamped with
+ * the ISO date/time the statistics request was made and the selected `period`
+ * (e.g. "all-time", "2026-Q2").
  */
-function csvFilename(dimension: string, requestedAt: Date): string {
+function csvFilename(
+  dimension: string,
+  requestedAt: Date,
+  period: string,
+): string {
   const stamp = format(requestedAt, "yyyy-MM-dd_HH-mm");
   const noun = dimensionNoun(dimension).toLowerCase().replace(/\s+/g, "-");
-  return `${stamp}-statistics-${noun}.csv`;
+  return `${stamp}-statistics-${noun}-${period}.csv`;
 }
 
 /** Props for {@link StatBar}. */
@@ -109,6 +159,8 @@ type BreakdownSectionProps = {
   items: StatItem[];
   /** When the statistics request was made; stamped into the CSV filename. */
   requestedAt: Date;
+  /** Selected period slug for the CSV filename, e.g. "all-time" or "2026-Q2". */
+  period: string;
 };
 
 /**
@@ -119,6 +171,7 @@ function BreakdownSection({
   dimension,
   items,
   requestedAt,
+  period,
 }: BreakdownSectionProps) {
   const noun = dimensionNoun(dimension);
   const max = items.reduce((m, item) => Math.max(m, item.count), 0);
@@ -130,7 +183,7 @@ function BreakdownSection({
       hasLabels ? [item.label, item.key, item.count] : [item.key, item.count],
     );
     downloadFile(
-      csvFilename(dimension, requestedAt),
+      csvFilename(dimension, requestedAt, period),
       toCsv(headers, rows),
       "text/csv",
     );
@@ -174,9 +227,9 @@ function toItems(
 }
 
 /**
- * Admin statistics page. Fetches aggregate ad statistics from the statistics
- * endpoint and renders one breakdown section (table + CSV export) per `byX`
- * dimension in the response.
+ * Admin statistics page. Fetches pre-computed period statistics from the
+ * statistics endpoint and renders one breakdown section (table + CSV export)
+ * per categorical dimension, scoped to the selected year and period.
  */
 export default function StatisticsPage() {
   // Captured once on mount — when `useQuery` fires the statistics request.
@@ -185,6 +238,10 @@ export default function StatisticsPage() {
     "/api/ads/statistics",
   );
   const { markets } = useMarkets();
+
+  // Selected year (`"all"` for all-time) and period bucket within that year.
+  const [year, setYear] = useState<string>(ALL_TIME);
+  const [period, setPeriod] = useState<PeriodKey>("FY");
 
   const codeToName = new Map(markets?.map((m) => [m.code, m.name]) ?? []);
 
@@ -201,20 +258,46 @@ export default function StatisticsPage() {
       key === "without" ? "Without language" : (getLanguageName(key) ?? key),
   };
 
-  // `total` is a scalar count; every other key is a `byX` breakdown.
-  const total = data?.total ?? 0;
-  const dimensions = Object.entries(data ?? {})
-    .filter(
-      (entry): entry is [string, Record<string, number>] =>
-        entry[0] !== "total",
-    )
-    .map(([dimension, breakdown]) => ({
-      dimension,
-      items: toItems(breakdown, resolvers[dimension] ?? ((key) => key)).sort(
-        (a, b) => a.label.localeCompare(b.label),
-      ),
-    }))
-    .sort((a, b) => a.dimension.localeCompare(b.dimension));
+  // Default a newly selected year to YTD when available, otherwise the full year.
+  const defaultPeriodFor = (value: string): PeriodKey =>
+    data?.periods[value]?.YTD ? "YTD" : "FY";
+
+  const handleYearChange = (value: string) => {
+    setYear(value);
+    if (value !== ALL_TIME) {
+      setPeriod(defaultPeriodFor(value));
+    }
+  };
+
+  const yearOptions = [
+    { value: ALL_TIME, label: "All time" },
+    ...(data?.years ?? []).map((y) => ({ value: String(y), label: String(y) })),
+  ];
+
+  // Buckets for the selected year, and the period tabs to offer (YTD only when
+  // that bucket exists — i.e. the current year).
+  const yearBuckets = year !== ALL_TIME ? (data?.periods[year] ?? {}) : {};
+  const periodTabs = PERIOD_ORDER.filter(
+    (key) => key !== "YTD" || Boolean(yearBuckets.YTD),
+  );
+
+  // The single, pre-computed bucket to display — no client-side merging.
+  const selected: PeriodStats =
+    year === ALL_TIME
+      ? (data?.all ?? EMPTY_PERIOD_STATS)
+      : (yearBuckets[period] ?? EMPTY_PERIOD_STATS);
+
+  // Slug stamped into CSV filenames, e.g. "all-time" or "2026-Q2".
+  const periodSlug = year === ALL_TIME ? "all-time" : `${year}-${period}`;
+
+  const total = selected.total;
+  const dimensions = DIMENSIONS.map((dimension) => ({
+    dimension,
+    items: toItems(
+      selected[dimension],
+      resolvers[dimension] ?? ((key) => key),
+    ).sort((a, b) => a.label.localeCompare(b.label)),
+  }));
 
   return (
     <div className="min-h-screen bg-black p-8 text-white">
@@ -245,6 +328,30 @@ export default function StatisticsPage() {
 
         {!isLoading && !error && data && (
           <div className="space-y-8">
+            {/* Period controls */}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="w-40">
+                <GlassyListbox
+                  value={year}
+                  onChange={handleYearChange}
+                  options={yearOptions}
+                />
+              </div>
+              {year !== ALL_TIME && (
+                <GlassTabBar>
+                  {periodTabs.map((key) => (
+                    <GlassTab
+                      key={key}
+                      isActive={period === key}
+                      onClick={() => setPeriod(key)}
+                    >
+                      {PERIOD_LABELS[key]}
+                    </GlassTab>
+                  ))}
+                </GlassTabBar>
+              )}
+            </div>
+
             {/* Total */}
             <div className="rounded-lg border border-wb-blue/30 bg-linear-to-r from-wb-blue/20 to-purple-500/20 p-6">
               <div className="mb-1 text-sm text-gray-300">Total Ads</div>
@@ -258,6 +365,7 @@ export default function StatisticsPage() {
                 dimension={dimension}
                 items={items}
                 requestedAt={requestedAt}
+                period={periodSlug}
               />
             ))}
           </div>
