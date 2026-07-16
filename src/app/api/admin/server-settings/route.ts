@@ -11,6 +11,7 @@
 import { AuthError, requireAuth } from "@/lib/auth-helpers";
 import {
   getServerSettings,
+  isMissingSettingsTableError,
   updateServerSettings,
   type ServerSettingsPatch,
 } from "@/services/serverSettingsService";
@@ -26,6 +27,17 @@ export async function GET() {
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    if (isMissingSettingsTableError(error)) {
+      // Table not created yet (migration 0004 not applied on this env). Tell the
+      // UI so it can offer a "create table" action instead of a bare 500.
+      return NextResponse.json(
+        {
+          error: "The server_settings table does not exist yet.",
+          code: "SETTINGS_TABLE_MISSING",
+        },
+        { status: 503 },
+      );
     }
     console.error("❌ Failed to load server settings:", error);
     return NextResponse.json(

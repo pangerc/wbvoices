@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { serverSettings, type ServerSettings } from "@/lib/db/schema";
 import { getRedisV3 } from "@/lib/redis-v3";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 /**
  * Server settings (AAC-185) — global feature flags + maintenance mode.
@@ -233,4 +233,48 @@ export async function forceClearMaintenance(
 export function invalidateServerSettingsCache(): void {
   cache = null;
   maintenanceCache = null;
+}
+
+/**
+ * True when an error is Postgres "undefined_table" (42P01) — i.e. the
+ * `server_settings` table hasn't been created yet (migration 0004 not applied).
+ * Preview/unmigrated environments hit this on the first settings read.
+ */
+export function isMissingSettingsTableError(err: unknown): boolean {
+  // Drizzle wraps the driver error ("Failed query: …"), so the real Postgres
+  // code (42P01 = undefined_table) lives on `error.cause`. Walk the chain.
+  let cur: unknown = err;
+  for (let i = 0; i < 5 && cur; i++) {
+    const e = cur as { code?: string; message?: string; cause?: unknown };
+    if (e.code === "42P01") return true;
+    if (e.message && /relation "?server_settings"? does not exist/i.test(e.message)) {
+      return true;
+    }
+    cur = e.cause;
+  }
+  return false;
+}
+
+/**
+ * Create the `server_settings` table if it doesn't exist. Idempotent — mirrors
+ * `drizzle/migrations/0004_server_settings.sql` so an admin can self-provision
+ * it from the UI when the migration hasn't run yet. The row itself is created
+ * lazily on the next read.
+ */
+export async function ensureServerSettingsTable(): Promise<void> {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "server_settings" (
+      "id" integer PRIMARY KEY DEFAULT 1 NOT NULL,
+      "maintenance_mode" boolean DEFAULT false NOT NULL,
+      "maintenance_message" text,
+      "backup_export_enabled" boolean DEFAULT false NOT NULL,
+      "backup_import_enabled" boolean DEFAULT false NOT NULL,
+      "restore_from_file_enabled" boolean DEFAULT false NOT NULL,
+      "import_write_concurrency" integer DEFAULT 4 NOT NULL,
+      "import_batch_size" integer DEFAULT 50 NOT NULL,
+      "updated_at" timestamp DEFAULT now() NOT NULL,
+      "updated_by" text
+    )
+  `);
+  invalidateServerSettingsCache();
 }

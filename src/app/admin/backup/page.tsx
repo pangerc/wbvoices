@@ -17,20 +17,50 @@ export default function AdminBackupPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [tableMissing, setTableMissing] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/server-settings");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data?.code === "SETTINGS_TABLE_MISSING") {
+          setTableMissing(true);
+          setError(null);
+          return;
+        }
+        throw new Error(data?.error || `Failed to load (${res.status})`);
+      }
+      setTableMissing(false);
+      setSettings(data.settings);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load settings");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/admin/server-settings");
-        if (!res.ok) throw new Error(`Failed to load (${res.status})`);
-        const data = await res.json();
-        setSettings(data.settings);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load settings");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    load();
+  }, [load]);
+
+  const createTable = useCallback(async () => {
+    setSaving("createTable");
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/server-settings/init", {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.details || data?.error || `Failed (${res.status})`);
+      setTableMissing(false);
+      setSettings(data.settings);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create table");
+    } finally {
+      setSaving(null);
+    }
   }, []);
 
   const forceClear = useCallback(async () => {
@@ -75,6 +105,33 @@ export default function AdminBackupPage() {
 
   if (loading) {
     return <div className="p-8 text-gray-400">Loading settings…</div>;
+  }
+  if (tableMissing && !settings) {
+    return (
+      <div className="p-8 max-w-2xl">
+        <h1 className="text-2xl font-bold text-white mb-1">Backup & Migration</h1>
+        <div className="mt-6 p-5 rounded-xl border border-amber-500/30 bg-amber-500/10">
+          <div className="text-white font-medium mb-1">
+            Settings table not found
+          </div>
+          <p className="text-sm text-amber-200/80 mb-4">
+            The <code>server_settings</code>{" "}table hasn&apos;t been created on
+            this environment yet (migration&nbsp;0004 not applied). Create it now
+            to enable maintenance mode and backup/migration. This runs{" "}
+            <code>CREATE TABLE IF NOT EXISTS</code> — safe to click.
+          </p>
+          {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
+          <button
+            type="button"
+            onClick={createTable}
+            disabled={saving === "createTable"}
+            className="px-4 py-2 rounded-lg bg-wb-blue/20 border border-wb-blue/40 text-sm text-white hover:bg-wb-blue/30 disabled:opacity-50 transition-colors"
+          >
+            {saving === "createTable" ? "Creating…" : "Create settings table"}
+          </button>
+        </div>
+      </div>
+    );
   }
   if (!settings) {
     return (
