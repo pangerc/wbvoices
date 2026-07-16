@@ -14,15 +14,32 @@ const { auth } = NextAuth(authConfig);
 const MAINTENANCE_REDIS_KEY = "server:maintenance";
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-// Content/generation write surface blocked during maintenance (AAC-185). This
-// is the single chokepoint for all ~55 mutating content routes. `/api/admin/*`
-// (settings + backup/import) and `/api/auth/*` are intentionally NOT blocked —
-// the operator needs them to run/clear the migration and sign in.
-const CONTENT_WRITE_PREFIX =
-  /^\/api\/(ads|ai|voice|voices|music|sfx|pronunciation|brand-context|generate-headline|upload-|proxy)(\/|$)/;
+// During maintenance we block EVERY mutating (`POST/PUT/PATCH/DELETE`) request to
+// `/api/**` — generation, ad edits, uploads, AI chat, everything — so a
+// backup/migration captures a consistent snapshot. This is an allow-by-exception
+// list rather than a block-list: new editing endpoints are frozen by default,
+// so nothing can silently slip through (e.g. the client-direct upload token
+// routes did under the old prefix match).
+//
+// Exempt (must keep working during maintenance):
+//  - `/api/admin/*`         — the operator runs/clears the migration + settings
+//  - `/api/auth/*`          — existing users must still be able to sign in
+//  - `/api/maintenance-status` — public status read for the banner
+function isMaintenanceExempt(pathname: string): boolean {
+  return (
+    pathname.startsWith("/api/admin/") ||
+    pathname === "/api/admin" ||
+    pathname.startsWith("/api/auth") ||
+    pathname === "/api/maintenance-status"
+  );
+}
 
-function isContentWrite(pathname: string, method: string): boolean {
-  return WRITE_METHODS.has(method) && CONTENT_WRITE_PREFIX.test(pathname);
+function isBlockedDuringMaintenance(pathname: string, method: string): boolean {
+  return (
+    WRITE_METHODS.has(method) &&
+    pathname.startsWith("/api/") &&
+    !isMaintenanceExempt(pathname)
+  );
 }
 
 async function isMaintenanceActive(): Promise<boolean> {
@@ -86,11 +103,11 @@ export default auth(async (req) => {
     }
   }
 
-  // Maintenance mode: block content/generation writes for EVERYONE (incl.
-  // admins) so a backup/migration captures a consistent snapshot (AAC-185).
-  // Only reads the Redis mirror for write requests on content routes, so GETs
-  // and admin/backup traffic pay nothing. Authoritative, Edge-level chokepoint.
-  if (isContentWrite(pathname, req.method) && (await isMaintenanceActive())) {
+  // Maintenance mode: block ALL content/generation/upload/chat writes for
+  // EVERYONE (incl. admins) so a backup/migration captures a consistent
+  // snapshot (AAC-185). Only reads the Redis mirror for mutating requests, so
+  // GETs and exempt admin/auth traffic pay nothing. Authoritative Edge chokepoint.
+  if (isBlockedDuringMaintenance(pathname, req.method) && (await isMaintenanceActive())) {
     return NextResponse.json(
       {
         error:
