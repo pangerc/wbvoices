@@ -2,7 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import Image from "next/image";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 interface LoginFormProps {
   error?: string | null;
@@ -19,6 +19,29 @@ export function LoginForm({
   const [error, setError] = useState(serverError || "");
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [maintenance, setMaintenance] = useState<{
+    on: boolean;
+    message: string | null;
+  }>({ on: false, message: null });
+
+  // Surface maintenance mode so users know new sign-ups are paused (existing
+  // users can still sign in). Public endpoint, fail-open on error.
+  useEffect(() => {
+    let active = true;
+    fetch("/api/maintenance-status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (active && d)
+          setMaintenance({
+            on: !!d.maintenanceMode,
+            message: d.maintenanceMessage ?? null,
+          });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,6 +145,25 @@ export function LoginForm({
                 </h1>
                 <p className="text-gray-400">Sign in with your company email</p>
               </div>
+
+              {maintenance.on && (
+                <div className="relative mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10">
+                  <div className="flex items-start gap-3">
+                    <span className="text-amber-400 text-lg leading-none">⚠️</span>
+                    <div className="text-sm">
+                      <p className="font-medium text-amber-300">
+                        Maintenance in progress
+                      </p>
+                      <p className="mt-1 text-amber-200/80">
+                        {maintenance.message ||
+                          "The service is temporarily in maintenance mode."}{" "}
+                        New account sign-ups are paused — existing users can still
+                        sign in.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="relative space-y-4">
                 {/* Magic Link Form */}

@@ -198,6 +198,31 @@ export const verificationTokens = pgTable(
   }),
 );
 
+/**
+ * Server settings — AAC-185. A single-row table (id is always 1) holding
+ * global feature flags + maintenance mode. All flags default OFF and
+ * maintenanceMode defaults false, so a fresh deploy keeps current behaviour.
+ * Read through a short-TTL cache (serverSettingsService) since the maintenance
+ * check is on the write hot path.
+ */
+export const serverSettings = pgTable("server_settings", {
+  /** Always 1 — enforced by the service (single-row table). */
+  id: integer("id").primaryKey().default(1),
+  maintenanceMode: boolean("maintenance_mode").notNull().default(false),
+  maintenanceMessage: text("maintenance_message"),
+  backupExportEnabled: boolean("backup_export_enabled").notNull().default(false),
+  backupImportEnabled: boolean("backup_import_enabled").notNull().default(false),
+  restoreFromFileEnabled: boolean("restore_from_file_enabled")
+    .notNull()
+    .default(false),
+  importWriteConcurrency: integer("import_write_concurrency")
+    .notNull()
+    .default(4),
+  importBatchSize: integer("import_batch_size").notNull().default(50),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: text("updated_by"),
+});
+
 export type User = typeof users.$inferSelect;
 
 // ============ Voice tables ============
@@ -213,3 +238,5 @@ export type InsertSuggestedTone = typeof suggestedTones.$inferInsert;
 export type InstructionTemplate = typeof instructionTemplates.$inferSelect;
 export type InsertInstructionTemplate =
   typeof instructionTemplates.$inferInsert;
+export type ServerSettings = typeof serverSettings.$inferSelect;
+export type InsertServerSettings = typeof serverSettings.$inferInsert;
