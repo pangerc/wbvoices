@@ -10,7 +10,7 @@
 
 import { Switch } from "@/components/ui/Switch";
 import type { ServerSettings } from "@/lib/db/schema";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function AdminBackupPage() {
   const [settings, setSettings] = useState<ServerSettings | null>(null);
@@ -225,6 +225,9 @@ export default function AdminBackupPage() {
           Actions
         </h2>
         <ExportPanel enabled={settings.backupExportEnabled} />
+        <div className="mt-3">
+          <BatchedExportPanel enabled={settings.backupExportEnabled} />
+        </div>
         <div className="mt-3">
           <ImportPanel enabled={settings.restoreFromFileEnabled} />
         </div>
@@ -854,3 +857,195 @@ function MigratePanel({
   );
 }
 
+
+/**
+ * Batched export downloader (UI-side orchestrator).
+ *
+ * A `complete` archive streams every ad + every blob in one request and blows the
+ * serverless function timeout on large datasets (a user with ~200 ads). This
+ * panel instead enumerates all ad ids, splits them into small per-ad batches, and
+ * downloads each batch's `.tar.gz` SEQUENTIALLY (fetch → blob → save → next), so
+ * every request stays well under the timeout and the browser saves many small
+ * files. Optionally grabs a small reference-data archive (voices/templates/users)
+ * once at the end. Pure client-side; no backend change.
+ */
+function BatchedExportPanel({ enabled }: { enabled: boolean }) {
+  const [batchSize, setBatchSize] = useState(20);
+  const [includeReference, setIncludeReference] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{
+    done: number;
+    total: number;
+    label: string;
+  } | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const stop = useRef(false);
+
+  const saveBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Revoke after a tick so the download has grabbed the URL.
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  };
+
+  const download = async (query: string, filename: string) => {
+    const res = await fetch(`/api/admin/backup/export?${query}`);
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`${filename}: HTTP ${res.status} ${detail.slice(0, 120)}`);
+    }
+    saveBlob(await res.blob(), filename);
+  };
+
+  const run = async () => {
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    setProgress(null);
+    stop.current = false;
+    try {
+      // 1. Enumerate every ad id (admin session → all ads).
+      const res = await fetch("/api/ads", { headers: { accept: "application/json" } });
+      if (!res.ok) throw new Error(`Failed to list ads: HTTP ${res.status}`);
+      const j = await res.json();
+      const list = Array.isArray(j) ? j : (j.ads ?? j.items ?? []);
+      const ids: string[] = list
+        .map((a: { id?: string; adId?: string }) => a.id ?? a.adId)
+        .filter(Boolean);
+      if (ids.length === 0) throw new Error("No ads found to export.");
+
+      // 2. Split into per-ad batches.
+      const size = Math.max(1, Math.min(200, batchSize));
+      const batches: string[][] = [];
+      for (let i = 0; i < ids.length; i += size) batches.push(ids.slice(i, i + size));
+
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const totalSteps = batches.length + (includeReference ? 1 : 0);
+      setProgress({ done: 0, total: totalSteps, label: `${ids.length} ads → ${batches.length} batches` });
+
+      // 3. Optional reference data first (small, metadata-only — no ads/blobs).
+      if (includeReference) {
+        const refModels =
+          "user,voice-metadata,voice-blacklist,voice-description,suggested-tone,instruction-template,server-settings";
+        setProgress({ done: 0, total: totalSteps, label: "reference data" });
+        await download(
+          `scope=complete&models=${encodeURIComponent(refModels)}`,
+          `aca-backup-${stamp}-reference.tar.gz`,
+        );
+        setProgress({ done: 1, total: totalSteps, label: "reference data ✓" });
+      }
+
+      // 4. Sequential per-ad batch downloads.
+      const base = includeReference ? 1 : 0;
+      for (let i = 0; i < batches.length; i++) {
+        if (stop.current) {
+          setMsg(`Paused after ${i}/${batches.length} batches. Click Start to resume from the beginning.`);
+          return;
+        }
+        const label = `batch ${i + 1}/${batches.length} (${batches[i].length} ads)`;
+        setProgress({ done: base + i, total: totalSteps, label });
+        await download(
+          `scope=per-ad&adIds=${encodeURIComponent(batches[i].join(","))}`,
+          `aca-backup-${stamp}-batch-${String(i + 1).padStart(3, "0")}.tar.gz`,
+        );
+        setProgress({ done: base + i + 1, total: totalSteps, label: `${label} ✓` });
+      }
+
+      setMsg(
+        `Done — ${batches.length} batch archive(s)` +
+          (includeReference ? " + reference data" : "") +
+          ` for ${ids.length} ads. Import each on the destination.`,
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Batched export failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pct = progress ? Math.round((progress.done / progress.total) * 100) : 0;
+
+  return (
+    <div className="p-4 rounded-xl border border-white/10 bg-white/5">
+      <div className="flex items-center justify-between gap-4 mb-1">
+        <div className="text-white text-sm font-medium">Batched download (all ads)</div>
+        <span className="text-[10px] uppercase tracking-widest text-gray-600">
+          bypasses timeout
+        </span>
+      </div>
+      <p className="text-xs text-gray-400 mb-3">
+        Downloads the whole dataset as many small per-ad archives, one after
+        another, so a large export never hits the serverless timeout. Keep this
+        tab open while it runs. Import each file on the destination.
+      </p>
+
+      <div className="flex flex-wrap items-center gap-4 mb-3">
+        <label className="text-xs text-gray-300 flex items-center gap-2">
+          Ads per file
+          <input
+            type="number"
+            min={1}
+            max={200}
+            value={batchSize}
+            disabled={!enabled || busy}
+            onChange={(e) => setBatchSize(Number(e.target.value) || 20)}
+            className="w-20 px-2 py-1 rounded-lg bg-black/30 border border-white/10 text-white disabled:opacity-40"
+          />
+        </label>
+        <label className="text-xs text-gray-300 flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={includeReference}
+            disabled={!enabled || busy}
+            onChange={(e) => setIncludeReference(e.target.checked)}
+          />
+          Include reference data (voices, templates, users)
+        </label>
+      </div>
+
+      {progress && (
+        <div className="mb-3">
+          <div className="flex justify-between text-xs text-gray-400 mb-1">
+            <span>{progress.label}</span>
+            <span>
+              {progress.done}/{progress.total}
+            </span>
+          </div>
+          <div className="h-1.5 rounded bg-white/10 overflow-hidden">
+            <div className="h-full bg-wb-blue/70" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      )}
+      {err && <p className="text-xs text-red-400 mb-2">{err}</p>}
+      {msg && <p className="text-xs text-green-400 mb-2">{msg}</p>}
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={!enabled || busy}
+          onClick={run}
+          className="px-4 py-2 rounded-lg bg-wb-blue/20 border border-wb-blue/40 text-sm text-white hover:bg-wb-blue/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          {busy ? "Downloading…" : "Start batched download"}
+        </button>
+        {busy && (
+          <button
+            type="button"
+            onClick={() => {
+              stop.current = true;
+            }}
+            className="px-4 py-2 rounded-lg bg-white/10 border border-white/15 text-sm text-white hover:bg-white/15 transition-colors"
+          >
+            Pause
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
