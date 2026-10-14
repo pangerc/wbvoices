@@ -279,7 +279,8 @@ export async function POST(req: NextRequest) {
   // so requiring both would block the simplest happy path.
   const missing: string[] = [];
   if (!language) missing.push("language");
-  if (!creativeBrief) missing.push("creativeBrief");
+  if (!creativeBrief?.trim() && !providedScript?.trim())
+    missing.push("creativeBrief or providedScript");
   if (!campaignFormat) missing.push("campaignFormat");
   if (missing.length > 0) {
     return NextResponse.json(

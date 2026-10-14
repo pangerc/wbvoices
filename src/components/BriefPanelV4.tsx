@@ -698,8 +698,11 @@ export function BriefPanelV4({
   };
 
   const handleGenerateCreative = async () => {
-    if (!creativeBrief.trim()) {
-      setError("Creative brief is required.");
+    // Either input is enough: in "I have the script" mode the brief field is
+    // hidden, so requiring creativeBrief would wrongly block a script-only ad.
+    // The generation prompt already uses whichever is present.
+    if (!creativeBrief.trim() && !providedScript.trim()) {
+      setError("Add a creative brief or a script to generate.");
       return;
     }
 
@@ -817,7 +820,9 @@ export function BriefPanelV4({
   // - brand (via the name)
   // or when we are already generating
   const canTriggerGeneration =
-    !creativeBrief.trim() || !brand?.name || isGenerating;
+    (!creativeBrief.trim() && !providedScript.trim()) ||
+    !brand?.name ||
+    isGenerating;
 
   // ============================================================
   // Render
