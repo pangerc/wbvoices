@@ -162,6 +162,10 @@ export function BriefPanelV4({
   const [providedScript, setProvidedScript] = useState(
     initialBrief?.providedScript || "",
   );
+  const [creativeMode, setCreativeMode] = useState<"brief" | "script">(
+    initialBrief?.creativeMode ??
+      (initialBrief?.providedScript?.trim() ? "script" : "brief"),
+  );
   // AAC-20 project metadata. Amount is held as text so the field formats
   // freely; it's parsed to a number on save.
   const [opportunityUrl, setOpportunityUrl] = useState(
@@ -290,6 +294,7 @@ export function BriefPanelV4({
       setForbiddenWords(initialBrief.forbiddenWords || "");
     if (initialBrief.providedScript !== undefined)
       setProvidedScript(initialBrief.providedScript || "");
+    if (initialBrief.creativeMode) setCreativeMode(initialBrief.creativeMode);
 
     if (initialBrief.brand) {
       setBrand(initialBrief.brand);
@@ -433,6 +438,7 @@ export function BriefPanelV4({
         selectedRegion: selectedRegion || null,
         selectedAccent,
         selectedProvider,
+        creativeMode,
         ...(parsedReferenceUrls.length
           ? { referenceUrls: parsedReferenceUrls }
           : {}),
@@ -461,6 +467,17 @@ export function BriefPanelV4({
             : null,
       };
 
+      // Skip a PATCH that would write data identical to what's already persisted
+      // (what we loaded, or last saved — onBriefSaved feeds each save back as
+      // `initialBrief`). Without this, onBriefSaved → setBriefData → `initialBrief`
+      // changes → the debounced save effect re-fires → an infinite ~1s save loop.
+      if (
+        initialBrief &&
+        JSON.stringify(briefData) === JSON.stringify(initialBrief)
+      ) {
+        return;
+      }
+
       const response = await fetch(`/api/ads/${adId}/brief`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -481,6 +498,7 @@ export function BriefPanelV4({
     }
   }, [
     adId,
+    initialBrief,
     brand,
     onBriefSaved,
     creativeBrief,
@@ -499,6 +517,7 @@ export function BriefPanelV4({
     parsedReferenceUrls,
     forbiddenWords,
     providedScript,
+    creativeMode,
     legacyBrandVoice,
     projectStatus,
     opportunityUrl,
@@ -536,6 +555,7 @@ export function BriefPanelV4({
     parsedReferenceUrls,
     forbiddenWords,
     providedScript,
+    creativeMode,
     projectStatus,
     opportunityUrl,
     opportunityAmountText,
@@ -698,11 +718,17 @@ export function BriefPanelV4({
   };
 
   const handleGenerateCreative = async () => {
-    // Either input is enough: in "I have the script" mode the brief field is
-    // hidden, so requiring creativeBrief would wrongly block a script-only ad.
-    // The generation prompt already uses whichever is present.
-    if (!creativeBrief.trim() && !providedScript.trim()) {
-      setError("Add a creative brief or a script to generate.");
+    // Require the field for the mode the user is actually in: "script" needs the
+    // provided script, "brief" needs the creative brief. Only that field is sent
+    // to generation (below), so the other being filled doesn't count.
+    const activeInput =
+      creativeMode === "script" ? providedScript.trim() : creativeBrief.trim();
+    if (!activeInput) {
+      setError(
+        creativeMode === "script"
+          ? "Add a script to generate."
+          : "Add a creative brief to generate.",
+      );
       return;
     }
 
@@ -718,7 +744,12 @@ export function BriefPanelV4({
         // the picked brand's name (or empty if greenfield+blank). The
         // creative content lives in creativeBrief and creativeAngle.
         clientDescription: brand?.name || "",
-        creativeBrief,
+        // Send only the field for the active mode (option A): script mode sends
+        // the verbatim script and no brief; brief mode sends the brief and no
+        // script — so a leftover value in the hidden field never reaches
+        // generation.
+        creativeBrief: creativeMode === "script" ? "" : creativeBrief,
+        creativeMode,
         campaignFormat,
         duration: adDuration,
         region: selectedRegion || undefined,
@@ -736,7 +767,7 @@ export function BriefPanelV4({
         ...(forbiddenWords.trim()
           ? { forbiddenWords: forbiddenWords.trim() }
           : {}),
-        ...(providedScript.trim()
+        ...(creativeMode === "script" && providedScript.trim()
           ? { providedScript: providedScript.trim() }
           : {}),
         ...(creativeAngle.trim()
@@ -886,6 +917,8 @@ export function BriefPanelV4({
         onForbiddenWordsChanged={setForbiddenWords}
         providedScript={providedScript}
         onProvidedScriptChanged={setProvidedScript}
+        creativeMode={creativeMode}
+        onCreativeModeChanged={setCreativeMode}
         showAngleNudge={showAngleNudge}
         language={selectedLanguage}
         onLanguageChanged={setSelectedLanguage}
