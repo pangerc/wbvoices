@@ -28,6 +28,7 @@
 import { useCreativeTemplates } from "@/hooks/useCreativeTemplates";
 import { useToneOfVoice } from "@/hooks/useToneOfVoice";
 import type { BrandDossier, MarketRow } from "@/lib/alaric-client";
+import type { MatchFinding } from "@/lib/match-review";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import type {
   BrandRef,
@@ -74,6 +75,7 @@ export type StreamUpdateEvent =
       url?: string;
       error?: string;
     }
+  | { stream: "match-review"; findings: MatchFinding[] } // AAC-255
   | { stream: "complete"; success: boolean };
 
 export type BriefPanelV4Props = {
@@ -694,6 +696,11 @@ export function BriefPanelV4({
           index,
           error: errMsg,
         });
+        break;
+      }
+      case "match-review": {
+        const { findings } = event.data as { findings: MatchFinding[] };
+        onStreamUpdate?.({ stream: "match-review", findings });
         break;
       }
       case "complete": {

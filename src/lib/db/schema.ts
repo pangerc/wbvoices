@@ -137,6 +137,40 @@ export const instructionTemplates = pgTable(
   }),
 );
 
+/**
+ * Match-review events — AAC-255. Append-only log for the AI match-review:
+ * per failed dimension a `mismatch` row, per improvement card shown a `proposed`
+ * row, and an `applied` row when the user acts. Powers the day/month/year stats
+ * page. Written only while `server_settings.match_review_enabled` is on.
+ */
+export const matchReviewEvents = pgTable(
+  "match_review_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    adId: text("ad_id").notNull(),
+    jobId: text("job_id"),
+    ownerEmail: text("owner_email"),
+    dimension: text("dimension").notNull(), // MatchDimension
+    matched: boolean("matched").notNull().default(false),
+    severity: text("severity"), // 'low' | 'medium' | 'high'
+    expected: text("expected"),
+    actual: text("actual"),
+    improvementId: text("improvement_id"),
+    event: text("event").notNull(), // 'mismatch' | 'proposed' | 'applied'
+    applyMethod: text("apply_method"), // 'click' | 'manual'
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    createdAtIdx: index("match_review_events_created_at_idx").on(
+      table.createdAt,
+    ),
+    adIdx: index("match_review_events_ad_idx").on(table.adId),
+    dimensionIdx: index("match_review_events_dimension_idx").on(
+      table.dimension,
+    ),
+  }),
+);
+
 // ============ Auth.js (NextAuth v5) adapter tables ============
 
 /**
@@ -210,8 +244,12 @@ export const serverSettings = pgTable("server_settings", {
   id: integer("id").primaryKey().default(1),
   maintenanceMode: boolean("maintenance_mode").notNull().default(false),
   maintenanceMessage: text("maintenance_message"),
-  backupExportEnabled: boolean("backup_export_enabled").notNull().default(false),
-  backupImportEnabled: boolean("backup_import_enabled").notNull().default(false),
+  backupExportEnabled: boolean("backup_export_enabled")
+    .notNull()
+    .default(false),
+  backupImportEnabled: boolean("backup_import_enabled")
+    .notNull()
+    .default(false),
   restoreFromFileEnabled: boolean("restore_from_file_enabled")
     .notNull()
     .default(false),
@@ -219,6 +257,8 @@ export const serverSettings = pgTable("server_settings", {
     .notNull()
     .default(4),
   importBatchSize: integer("import_batch_size").notNull().default(50),
+  // AAC-255 — gate the AI match-review feature globally (default OFF).
+  matchReviewEnabled: boolean("match_review_enabled").notNull().default(false),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: text("updated_by"),
 });

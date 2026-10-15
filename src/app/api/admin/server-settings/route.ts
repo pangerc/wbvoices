@@ -26,7 +26,10 @@ export async function GET() {
     return NextResponse.json({ settings });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     if (isMissingSettingsTableError(error)) {
       // Table not created yet (migration 0004 not applied on this env). Tell the
@@ -52,6 +55,7 @@ const BOOL_KEYS = [
   "backupExportEnabled",
   "backupImportEnabled",
   "restoreFromFileEnabled",
+  "matchReviewEnabled",
 ] as const;
 const INT_KEYS = ["importWriteConcurrency", "importBatchSize"] as const;
 
@@ -107,7 +111,10 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ settings });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     console.error("❌ Failed to update server settings:", error);
     return NextResponse.json(

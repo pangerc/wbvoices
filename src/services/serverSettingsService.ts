@@ -39,6 +39,7 @@ export type ServerSettingsPatch = Partial<
     | "restoreFromFileEnabled"
     | "importWriteConcurrency"
     | "importBatchSize"
+    | "matchReviewEnabled"
   >
 >;
 
@@ -51,6 +52,7 @@ const DEFAULTS: Omit<ServerSettings, "updatedAt"> = {
   restoreFromFileEnabled: false,
   importWriteConcurrency: 4,
   importBatchSize: 50,
+  matchReviewEnabled: false,
   updatedBy: null,
 };
 
@@ -120,7 +122,10 @@ export async function updateServerSettings(
     try {
       const redis = getRedisV3();
       await redis.set(MAINTENANCE_REDIS_KEY, row.maintenanceMode ? "1" : "0");
-      await redis.set(MAINTENANCE_MESSAGE_REDIS_KEY, row.maintenanceMessage ?? "");
+      await redis.set(
+        MAINTENANCE_MESSAGE_REDIS_KEY,
+        row.maintenanceMessage ?? "",
+      );
       maintenanceCache = null;
     } catch (err) {
       // Non-fatal: the Postgres row is the source of truth; the mirror is a
@@ -189,7 +194,10 @@ export async function getMaintenanceState(): Promise<MaintenanceState> {
     };
   }
 
-  maintenanceCache = { value: state, expiresAt: Date.now() + MAINTENANCE_CACHE_TTL_MS };
+  maintenanceCache = {
+    value: state,
+    expiresAt: Date.now() + MAINTENANCE_CACHE_TTL_MS,
+  };
   return state;
 }
 
@@ -247,7 +255,10 @@ export function isMissingSettingsTableError(err: unknown): boolean {
   for (let i = 0; i < 5 && cur; i++) {
     const e = cur as { code?: string; message?: string; cause?: unknown };
     if (e.code === "42P01") return true;
-    if (e.message && /relation "?server_settings"? does not exist/i.test(e.message)) {
+    if (
+      e.message &&
+      /relation "?server_settings"? does not exist/i.test(e.message)
+    ) {
       return true;
     }
     cur = e.cause;
