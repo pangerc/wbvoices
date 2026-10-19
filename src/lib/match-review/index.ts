@@ -7,6 +7,8 @@ export {
 } from "./critic";
 export { reviewDeterministic } from "./deterministic";
 export {
+  ensureMatchReviewEventsTable,
+  isMissingEventsTableError,
   recordImprovementApplied,
   recordMatchReview,
   runMatchReview,

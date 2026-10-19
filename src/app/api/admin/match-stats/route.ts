@@ -16,6 +16,10 @@
 import { AuthError, requireAuth } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { matchReviewEvents } from "@/lib/db/schema";
+import {
+  ensureMatchReviewEventsTable,
+  isMissingEventsTableError,
+} from "@/lib/match-review";
 import { and, desc, eq, type SQL } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -122,18 +126,32 @@ export async function GET(request: NextRequest) {
     if (severity) conds.push(eq(matchReviewEvents.severity, severity));
     if (owner) conds.push(eq(matchReviewEvents.ownerEmail, owner));
 
-    const rows = (await db
-      .select({
-        createdAt: matchReviewEvents.createdAt,
-        event: matchReviewEvents.event,
-        dimension: matchReviewEvents.dimension,
-        severity: matchReviewEvents.severity,
-        applyMethod: matchReviewEvents.applyMethod,
-        improvementId: matchReviewEvents.improvementId,
-      })
-      .from(matchReviewEvents)
-      .where(conds.length ? and(...conds) : undefined)
-      .orderBy(desc(matchReviewEvents.createdAt))) as EventRow[];
+    const runSelect = () =>
+      db
+        .select({
+          createdAt: matchReviewEvents.createdAt,
+          event: matchReviewEvents.event,
+          dimension: matchReviewEvents.dimension,
+          severity: matchReviewEvents.severity,
+          applyMethod: matchReviewEvents.applyMethod,
+          improvementId: matchReviewEvents.improvementId,
+        })
+        .from(matchReviewEvents)
+        .where(conds.length ? and(...conds) : undefined)
+        .orderBy(desc(matchReviewEvents.createdAt));
+
+    let rows: EventRow[];
+    try {
+      rows = (await runSelect()) as EventRow[];
+    } catch (err) {
+      // Unmigrated env (0006 not applied): self-provision, then it's empty.
+      if (isMissingEventsTableError(err)) {
+        await ensureMatchReviewEventsTable();
+        rows = (await runSelect()) as EventRow[];
+      } else {
+        throw err;
+      }
+    }
 
     const maps: Record<Granularity, Map<string, MatchStatsBucket>> = {
       day: new Map(),
