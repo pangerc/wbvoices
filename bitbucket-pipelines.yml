@@ -1,0 +1,94 @@
+# AAC release to Test (AM-301). Infrastructure is owned by Terraform in
+# aleph-infra; this pipeline ships code only, assuming
+# role-aac-deployer-test-euc1 through Bitbucket OIDC (no stored AWS keys).
+#
+# Order: publish new Lambda versions -> Amplify build/deploy -> move every
+# 'live' alias. A failed Amplify job stops before step 3, so the previous
+# Lambda versions keep serving.
+image: node:22
+
+definitions:
+  caches:
+    pnpm: .pnpm-store
+  steps:
+    - step: &release-test
+        name: Release to Test
+        deployment: Test # trust is pinned to this repo + this environment
+        oidc: true
+        caches:
+          - pnpm
+        script:
+          - apt-get update -qq && apt-get install -y -qq zip unzip curl > /dev/null
+          - curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+          - unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install > /dev/null
+          - export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+          - corepack enable
+          - pnpm config set store-dir "$BITBUCKET_CLONE_DIR/.pnpm-store"
+          - pnpm install --frozen-lockfile
+
+          - export AWS_REGION=eu-central-1 AWS_DEFAULT_REGION=eu-central-1
+          - export AWS_ROLE_ARN=arn:aws:iam::519975955303:role/role-aac-deployer-test-euc1
+          - export AWS_ROLE_SESSION_NAME="bitbucket-${BITBUCKET_BUILD_NUMBER}"
+          - printf '%s' "$BITBUCKET_STEP_OIDC_TOKEN" > /tmp/oidc-token
+          - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc-token
+          - aws sts get-caller-identity --query Arn --output text
+
+          # 1. Bundle each function (AWS SDK included, so the runtime's SDK
+          #    version does not matter) and publish a new version. Not live yet.
+          - |
+            set -eu
+            : > versions.env
+            for fn in hello-world status echo-worker ai-voice ai-music ai-sfx ai-generate; do
+              name="lambda-aac-${fn}-test-euc1"
+              pnpm exec esbuild "amplify/functions/${fn}/handler.ts" --bundle --platform=node \
+                --target=node22 --format=cjs --outfile="dist/${fn}/index.js" --log-level=warning
+              (cd "dist/${fn}" && zip -qr "../${fn}.zip" index.js)
+              aws lambda update-function-code --function-name "$name" \
+                --zip-file "fileb://dist/${fn}.zip" > /dev/null
+              aws lambda wait function-updated-v2 --function-name "$name"
+              ver=$(aws lambda publish-version --function-name "$name" --query Version --output text)
+              echo "${name} ${ver}" >> versions.env
+              echo "${name}: published v${ver}"
+            done
+
+          # 2. Frontend: Amplify runs amplify.yml (migrations + next build) and
+          #    deploys. Any failure exits here, before the alias cutover.
+          - |
+            set -eu
+            APP=d3th3l81kl6nax
+            BRANCH=release/amplify/test-env
+            JOB=$(aws amplify start-job --app-id "$APP" --branch-name "$BRANCH" --job-type RELEASE \
+                  --commit-id "$BITBUCKET_COMMIT" --query jobSummary.jobId --output text)
+            echo "Amplify job ${JOB} started for ${BITBUCKET_COMMIT}"
+            while true; do
+              STATUS=$(aws amplify get-job --app-id "$APP" --branch-name "$BRANCH" --job-id "$JOB" \
+                       --query job.summary.status --output text)
+              echo "Amplify job ${JOB}: ${STATUS}"
+              case "$STATUS" in
+                SUCCEED) break ;;
+                FAILED|CANCELLED) exit 1 ;;
+              esac
+              sleep 20
+            done
+
+          # 3. Cutover: point every 'live' alias (function URLs, SQS triggers)
+          #    at the versions published in step 1.
+          - |
+            set -eu
+            while read -r name ver; do
+              aws lambda update-alias --function-name "$name" --name live \
+                --function-version "$ver" > /dev/null
+              echo "${name}: live -> v${ver}"
+            done < versions.env
+
+pipelines:
+  # Manual until the app changes land, so pushes do not trigger releases that
+  # are bound to fail. Run: Pipelines -> Run pipeline -> release-test, on
+  # branch release/amplify/test-env (the Test environment only allows that branch).
+  custom:
+    release-test:
+      - step: *release-test
+  # Enable after the first green manual release:
+  # branches:
+  #   release/amplify/test-env:
+  #     - step: *release-test
