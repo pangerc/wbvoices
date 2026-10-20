@@ -918,6 +918,10 @@ export async function POST(req: NextRequest) {
               brandName: brief.brand?.name,
             },
             {
+              // Real ad length from the mixer timeline — accounts for where each
+              // track starts (overlap / play-after / gaps), not a naive sum of
+              // track durations. Falls back to the sum only if unavailable.
+              actualDurationSeconds: mixer.totalDuration || undefined,
               voiceTracks: tracks.map((t) => ({
                 text: t.text,
                 generatedDuration: t.generatedDuration,
