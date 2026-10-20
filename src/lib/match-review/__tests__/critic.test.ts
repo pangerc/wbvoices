@@ -107,6 +107,53 @@ describe("coerceCriticFindings", () => {
     });
   });
 
+  it("maps instruction → apply (minimal) and regenerateInstruction → regenerate", () => {
+    const raw = {
+      findings: [
+        {
+          dimension: "tone",
+          matched: false,
+          explanation: "too slow",
+          improvements: [
+            {
+              id: "faster",
+              title: "Speed up",
+              instruction: "Tighten only the slow lines; keep the rest.",
+              regenerateInstruction: "Rewrite the whole script punchier.",
+            },
+          ],
+        },
+      ],
+    };
+    const imp = coerceCriticFindings(raw, allowed)[0].improvements[0];
+    expect(imp.apply).toEqual({
+      kind: "chat_turn",
+      instruction: "Tighten only the slow lines; keep the rest.",
+    });
+    expect(imp.regenerate).toEqual({
+      kind: "regenerate",
+      instruction: "Rewrite the whole script punchier.",
+    });
+  });
+
+  it("falls back to a regenerate action when only instruction is given", () => {
+    const raw = {
+      findings: [
+        {
+          dimension: "cta",
+          matched: false,
+          explanation: "no cta",
+          improvements: [
+            { title: "Add CTA", instruction: "Add the CTA line." },
+          ],
+        },
+      ],
+    };
+    const imp = coerceCriticFindings(raw, allowed)[0].improvements[0];
+    expect(imp.apply?.kind).toBe("chat_turn");
+    expect(imp.regenerate?.kind).toBe("regenerate");
+  });
+
   it("drops matched=true findings and disallowed dimensions", () => {
     const raw = {
       findings: [

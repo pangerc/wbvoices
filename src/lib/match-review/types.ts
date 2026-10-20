@@ -39,8 +39,18 @@ export interface Improvement {
   id: string;
   title: string;
   rationale?: string;
-  /** null ⇒ manual-only (guidance, no one-click action). */
+  /**
+   * Primary one-click fix — a MINIMAL, surgical edit that preserves the user's
+   * existing script/output and changes only what this fix requires. Rendered as
+   * the "Apply" button. null ⇒ manual-only (guidance, no one-click action).
+   */
   apply: ImprovementApply | null;
+  /**
+   * Optional heavier alternative: a FULL regeneration for this fix, rendered as a
+   * separate "Regenerate" button. Used when a minimal edit isn't enough and the
+   * user explicitly wants the script rewritten.
+   */
+  regenerate?: ImprovementApply | null;
 }
 
 export interface MatchFinding {

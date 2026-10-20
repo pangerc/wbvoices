@@ -99,7 +99,8 @@ Respond with a single JSON object, no prose, matching this schema:
           "id": "kebab-case-id",
           "title": "short actionable fix",
           "rationale": "why / how, one line",
-          "instruction": "a concrete instruction to regenerate that fixes it"
+          "instruction": "a MINIMAL edit that keeps the existing script wording and changes ONLY what this fix needs",
+          "regenerateInstruction": "a fuller instruction to rewrite the script to fix it"
         }
       ]
     }
@@ -128,11 +129,13 @@ function buildUserMessage(brief: ReviewBrief, result: ReviewResult): string {
   return lines.join("\n");
 }
 
-function coerceApply(raw: unknown): ImprovementApply | null {
-  if (!raw || typeof raw !== "object") return null;
-  const instruction = (raw as { instruction?: unknown }).instruction;
-  if (typeof instruction !== "string" || !instruction.trim()) return null;
-  return { kind: "chat_turn", instruction: instruction.trim() };
+function chatTurn(
+  value: unknown,
+  kind: ImprovementApply["kind"],
+): ImprovementApply | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  if (kind === "brief_patch") return null; // critic never emits brief patches
+  return { kind, instruction: value.trim() };
 }
 
 function coerceImprovement(
@@ -149,8 +152,14 @@ function coerceImprovement(
     typeof r.rationale === "string" && r.rationale.trim()
       ? r.rationale.trim()
       : undefined;
-  // The critic puts the instruction on the improvement; lift it into `apply`.
-  return { id, title, rationale, apply: coerceApply(r) };
+  // `instruction` → minimal Apply (chat_turn); `regenerateInstruction` → the
+  // separate full Regenerate action. Fall back so a single instruction still
+  // powers Apply.
+  const apply = chatTurn(r.instruction, "chat_turn");
+  const regenerate =
+    chatTurn(r.regenerateInstruction, "regenerate") ??
+    (apply ? chatTurn(r.instruction, "regenerate") : null);
+  return { id, title, rationale, apply, regenerate };
 }
 
 /**

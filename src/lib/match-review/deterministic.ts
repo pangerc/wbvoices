@@ -7,6 +7,13 @@
  * script. The AI "critic" (later phase) handles the soft dimensions (CTA intent,
  * tone, brief coverage) and merges into the same `MatchFinding[]`.
  *
+ * Each improvement carries TWO one-click actions:
+ *  - `apply`      — a MINIMAL, surgical edit that preserves the user's wording
+ *                   (especially important in script mode, where the user's text
+ *                   is theirs and a full rewrite is unwelcome).
+ *  - `regenerate` — an explicit FULL rewrite, for when the minimal edit isn't
+ *                   enough.
+ *
  * No I/O, no app-type imports — unit-testable in isolation.
  */
 
@@ -50,6 +57,17 @@ function actualDuration(result: ReviewResult): number {
 }
 
 /**
+ * Prefix for a MINIMAL-edit instruction. In script mode the user's provided
+ * script is sacred, so we tell the agent to keep it verbatim and touch only the
+ * targeted fix — this is the fix for "Apply rewrote my whole script".
+ */
+function minimalPrefix(brief: ReviewBrief): string {
+  return brief.creativeMode === "script"
+    ? "Keep the user's provided script wording exactly as written and change ONLY what this fix needs — "
+    : "Make the smallest possible change and keep the rest of the script as-is — ";
+}
+
+/**
  * Deterministic review. Returns ONLY mismatches (findings with matched=false).
  * Dimensions with nothing to check (missing inputs) are skipped.
  */
@@ -59,52 +77,68 @@ export function reviewDeterministic(
 ): MatchFinding[] {
   const findings: MatchFinding[] = [];
   const tracks = result.voiceTracks ?? [];
+  const minimal = minimalPrefix(brief);
 
   // --- Duration vs target -------------------------------------------------
   const target = brief.adDuration;
   const actual = actualDuration(result);
   if (typeof target === "number" && target > 0 && actual > 0) {
     const tol = Math.max(2, target * 0.1); // ±2s or 10%, whichever is larger
+    const wordsBudget = Math.round(target * WORDS_PER_SECOND);
+    const currentWords = totalSpokenWords(result);
+    const naturalSeconds = Math.round(currentWords / WORDS_PER_SECOND);
+
     if (actual > target + tol) {
       const over = actual - target;
+      const wordsToCut = Math.round(over * WORDS_PER_SECOND);
       const severity: MatchSeverity =
         over > target * 0.3 ? "high" : over > target * 0.15 ? "medium" : "low";
       findings.push({
         dimension: "duration",
         matched: false,
         severity,
-        expected: `${target}s`,
-        actual: `${Math.round(actual)}s`,
-        explanation: `The ad runs ~${Math.round(over)}s over the ${target}s target.`,
+        expected: `${target}s (~${wordsBudget} words)`,
+        actual: `${Math.round(actual)}s (${currentWords} words)`,
+        // P1: explain WHY it can't just be shorter — the content doesn't fit.
+        explanation: `A ${target}s ad fits ~${wordsBudget} words at a natural pace, but the script is ${currentWords} words (~${naturalSeconds}s). It can't reach ${target}s without cutting content.`,
         improvements: [
           {
             id: "trim-to-budget",
-            title: `Trim script to fit ${target}s`,
-            rationale: `Remove ~${Math.round(over * WORDS_PER_SECOND)} words / tighten lines.`,
+            title: `Trim to fit ${target}s`,
+            rationale: `Cut ~${wordsToCut} words (down to ~${wordsBudget}).`,
             apply: {
+              kind: "chat_turn",
+              instruction: `${minimal}trim roughly ${wordsToCut} words so the read fits ${target} seconds, keeping the key message and the CTA.`,
+            },
+            regenerate: {
               kind: "regenerate",
-              instruction: `Shorten the voiceover so the ad fits within ${target} seconds; keep the core message and CTA.`,
+              instruction: `Regenerate a tighter script of about ${wordsBudget} words that comfortably fits ${target} seconds.`,
             },
           },
         ],
       });
     } else if (actual < target - tol) {
       const under = target - actual;
+      const wordsToAdd = Math.round(under * WORDS_PER_SECOND);
       findings.push({
         dimension: "duration",
         matched: false,
         severity: under > target * 0.3 ? "medium" : "low",
-        expected: `${target}s`,
-        actual: `${Math.round(actual)}s`,
-        explanation: `The ad is ~${Math.round(under)}s shorter than the ${target}s target.`,
+        expected: `${target}s (~${wordsBudget} words)`,
+        actual: `${Math.round(actual)}s (${currentWords} words)`,
+        explanation: `The ad is ~${Math.round(under)}s shorter than the ${target}s target (${currentWords} words vs ~${wordsBudget} expected).`,
         improvements: [
           {
             id: "expand-to-budget",
-            title: `Expand script toward ${target}s`,
-            rationale: `Add ~${Math.round(under * WORDS_PER_SECOND)} words or a beat.`,
+            title: `Expand toward ${target}s`,
+            rationale: `Add ~${wordsToAdd} words or a short beat.`,
             apply: {
+              kind: "chat_turn",
+              instruction: `${minimal}add about ${wordsToAdd} words (a short beat or extra detail) to use more of the ${target}-second budget, without padding.`,
+            },
+            regenerate: {
               kind: "regenerate",
-              instruction: `Lengthen the voiceover to use more of the ${target}-second budget without padding.`,
+              instruction: `Regenerate a fuller script (~${wordsBudget} words) that uses the ${target}-second budget.`,
             },
           },
         ],
@@ -130,6 +164,10 @@ export function reviewDeterministic(
             title: "Rebalance the script length",
             rationale: `Aim for ~${expected} words at a natural pace.`,
             apply: {
+              kind: "chat_turn",
+              instruction: `${minimal}adjust the length to about ${expected} words so it reads naturally in ${target} seconds.`,
+            },
+            regenerate: {
               kind: "regenerate",
               instruction: `Rewrite the script to about ${expected} words so it reads naturally in ${target} seconds.`,
             },
@@ -156,7 +194,12 @@ export function reviewDeterministic(
             id: "regenerate-language",
             title: `Regenerate in ${brief.selectedLanguage}`,
             rationale: "Voices must match the brief's language.",
+            // Language can't be a text tweak — re-voice the off-language lines.
             apply: {
+              kind: "chat_turn",
+              instruction: `Re-voice only the off-language track(s) in ${brief.selectedLanguage}, keeping the same meaning and wording where possible.`,
+            },
+            regenerate: {
               kind: "regenerate",
               instruction: `Regenerate all voices in ${brief.selectedLanguage}.`,
             },
@@ -182,10 +225,14 @@ export function reviewDeterministic(
         improvements: [
           {
             id: "regenerate-dialogue",
-            title: "Regenerate as a two-voice dialogue",
+            title: "Make it a two-voice dialogue",
             rationale:
               "The format is set to dialogue but the ad is single-voice.",
             apply: {
+              kind: "chat_turn",
+              instruction: `${minimal}split the existing copy across two distinct speakers so it becomes a dialogue, keeping the lines.`,
+            },
+            regenerate: {
               kind: "regenerate",
               instruction:
                 "Regenerate as a dialogue between two distinct voices with a few exchanges.",
@@ -216,8 +263,12 @@ export function reviewDeterministic(
             title: `Use ${pinned} voices`,
             rationale: "Voices should come from the selected provider.",
             apply: {
+              kind: "chat_turn",
+              instruction: `Re-voice only the affected track(s) using the ${pinned} provider, keeping the same script.`,
+            },
+            regenerate: {
               kind: "regenerate",
-              instruction: `Regenerate the voices using the ${pinned} provider.`,
+              instruction: `Regenerate all voices using the ${pinned} provider.`,
             },
           },
         ],
@@ -245,8 +296,12 @@ export function reviewDeterministic(
           {
             id: "remove-forbidden",
             title: "Remove forbidden terms",
-            rationale: `Rewrite to avoid: ${hits.join(", ")}.`,
+            rationale: `Avoid: ${hits.join(", ")}.`,
             apply: {
+              kind: "chat_turn",
+              instruction: `${minimal}replace only the forbidden term(s) (${hits.join(", ")}) with suitable alternatives, leaving everything else unchanged.`,
+            },
+            regenerate: {
               kind: "regenerate",
               instruction: `Rewrite the script without using: ${hits.join(", ")}.`,
             },
@@ -277,12 +332,17 @@ export function reviewDeterministic(
         improvements: [
           {
             id: "use-script-verbatim",
-            title: "Use the provided script verbatim",
+            title: "Restore the provided script",
             rationale: "Keep the user's script text unchanged.",
             apply: {
+              kind: "chat_turn",
+              instruction:
+                "Restore the user's provided script wording exactly where it diverged; only add performance direction, music and SFX around it — do not reword it.",
+            },
+            regenerate: {
               kind: "regenerate",
               instruction:
-                "Use the provided script exactly as written; only add performance direction, music and SFX around it.",
+                "Regenerate using the provided script exactly as written; only add performance direction, music and SFX around it.",
             },
           },
         ],

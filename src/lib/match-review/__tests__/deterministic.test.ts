@@ -39,7 +39,21 @@ describe("reviewDeterministic", () => {
     expect(dur).toBeTruthy();
     expect(dur!.matched).toBe(false);
     expect(dur!.severity).toBe("high");
-    expect(dur!.improvements[0].apply?.kind).toBe("regenerate");
+    // Apply = minimal surgical edit; Regenerate = full rewrite (separate action).
+    expect(dur!.improvements[0].apply?.kind).toBe("chat_turn");
+    expect(dur!.improvements[0].regenerate?.kind).toBe("regenerate");
+  });
+
+  it("explains the duration over-budget in word-budget terms (P1)", () => {
+    const r = result({
+      actualDurationSeconds: 44,
+      voiceTracks: [{ text: WORDS_75, language: "en" }],
+    });
+    const dur = reviewDeterministic(briefBase, r).find(
+      (x) => x.dimension === "duration",
+    );
+    expect(dur!.explanation).toMatch(/word/i);
+    expect(dur!.explanation).toContain("30s");
   });
 
   it("flags under-budget duration", () => {

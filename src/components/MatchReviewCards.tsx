@@ -12,10 +12,19 @@
 import type { Improvement, MatchFinding } from "@/lib/match-review";
 import { useState } from "react";
 
+export type ApplyVariant = "apply" | "regenerate";
+
 type Props = {
   findings: MatchFinding[];
-  /** Fire the improvement (regenerate / chat turn / brief patch) + log it. */
-  onApply: (finding: MatchFinding, improvement: Improvement) => Promise<void>;
+  /**
+   * Fire an improvement action + log it. `variant` picks the minimal edit
+   * (`apply`) or the full rewrite (`regenerate`).
+   */
+  onApply: (
+    finding: MatchFinding,
+    improvement: Improvement,
+    variant: ApplyVariant,
+  ) => Promise<void>;
   /** Clear all cards. */
   onDismiss: () => void;
 };
@@ -38,11 +47,15 @@ export function MatchReviewCards({ findings, onApply, onDismiss }: Props) {
 
   if (!findings.length) return null;
 
-  const handleClick = async (finding: MatchFinding, imp: Improvement) => {
-    const key = `${finding.dimension}:${imp.id}`;
+  const handleClick = async (
+    finding: MatchFinding,
+    imp: Improvement,
+    variant: ApplyVariant,
+  ) => {
+    const key = `${finding.dimension}:${imp.id}:${variant}`;
     setBusyKey(key);
     try {
-      await onApply(finding, imp);
+      await onApply(finding, imp, variant);
     } finally {
       setBusyKey((k) => (k === key ? null : k));
     }
@@ -104,8 +117,8 @@ export function MatchReviewCards({ findings, onApply, onDismiss }: Props) {
 
               <div className="mt-2 space-y-2">
                 {finding.improvements.map((imp) => {
-                  const key = `${finding.dimension}:${imp.id}`;
-                  const busy = busyKey === key;
+                  const applyKey = `${finding.dimension}:${imp.id}:apply`;
+                  const regenKey = `${finding.dimension}:${imp.id}:regenerate`;
                   return (
                     <div
                       key={imp.id}
@@ -119,14 +132,35 @@ export function MatchReviewCards({ findings, onApply, onDismiss }: Props) {
                           </p>
                         )}
                       </div>
-                      {imp.apply ? (
-                        <button
-                          onClick={() => void handleClick(finding, imp)}
-                          disabled={!!busyKey}
-                          className="shrink-0 rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20 disabled:opacity-40"
-                        >
-                          {busy ? "Applying…" : "Apply"}
-                        </button>
+                      {imp.apply || imp.regenerate ? (
+                        <div className="flex shrink-0 items-center gap-2">
+                          {imp.apply && (
+                            <button
+                              onClick={() =>
+                                void handleClick(finding, imp, "apply")
+                              }
+                              disabled={!!busyKey}
+                              title="Minimal edit — keeps your script, changes only this"
+                              className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20 disabled:opacity-40"
+                            >
+                              {busyKey === applyKey ? "Applying…" : "Apply"}
+                            </button>
+                          )}
+                          {imp.regenerate && (
+                            <button
+                              onClick={() =>
+                                void handleClick(finding, imp, "regenerate")
+                              }
+                              disabled={!!busyKey}
+                              title="Full rewrite of the script for this fix"
+                              className="rounded-md border border-white/15 px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-white/10 disabled:opacity-40"
+                            >
+                              {busyKey === regenKey
+                                ? "Regenerating…"
+                                : "Regenerate"}
+                            </button>
+                          )}
+                        </div>
                       ) : (
                         <span className="shrink-0 self-center text-xs text-white/35">
                           Manual

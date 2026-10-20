@@ -363,8 +363,12 @@ export default function AdWorkspace() {
   const handleApplyImprovement = async (
     finding: MatchFinding,
     improvement: Improvement,
+    variant: "apply" | "regenerate" = "apply",
   ) => {
-    const apply = improvement.apply;
+    const apply =
+      variant === "regenerate"
+        ? (improvement.regenerate ?? improvement.apply)
+        : improvement.apply;
     if (!apply) return;
 
     if (apply.kind === "brief_patch") {
