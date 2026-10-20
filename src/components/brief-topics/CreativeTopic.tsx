@@ -483,37 +483,35 @@ export function CreativeTopic({
               />
             </CollapsibleSection>
           </div>
-
-          {/* Duration — last in the Creative block per the v4 spec */}
-          <div className="pt-2">
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Ad duration{" "}
-              <span className="text-sm text-gray-400">
-                {adDuration} seconds
-              </span>
-            </label>
-            <GlassySlider
-              disabled={disabled}
-              label={null}
-              value={adDuration}
-              onChange={onAdDurationChanged}
-              min={10}
-              max={60}
-              step={5}
-              tickMarks={DURATION_TICK_MARKS}
-            />
-            <div className="mt-3 text-xs text-gray-500">
-              Spotify: standard ads max 30s; long-form (60s) in select markets
-              only.
-              {adDuration > 30 && (
-                <span className="text-red-900 ml-1">
-                  Duration exceeds 30s standard.
-                </span>
-              )}
-            </div>
-          </div>
         </>
       )}
+
+      {/* Duration — shared across both modes (brief form AND script), so it
+          renders below whichever creative input is active. */}
+      <div className="border-t border-white/10 pt-4">
+        <label className="block text-sm font-medium text-gray-300 mb-1">
+          Ad duration{" "}
+          <span className="text-sm text-gray-400">{adDuration} seconds</span>
+        </label>
+        <GlassySlider
+          disabled={disabled}
+          label={null}
+          value={adDuration}
+          onChange={onAdDurationChanged}
+          min={10}
+          max={60}
+          step={5}
+          tickMarks={DURATION_TICK_MARKS}
+        />
+        <div className="mt-3 text-xs text-gray-500">
+          Spotify: standard ads max 30s; long-form (60s) in select markets only.
+          {adDuration > 30 && (
+            <span className="text-red-900 ml-1">
+              Duration exceeds 30s standard.
+            </span>
+          )}
+        </div>
+      </div>
 
       <ProviderSelectionModal
         isOpen={isProviderModalOpen}

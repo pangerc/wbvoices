@@ -1,6 +1,6 @@
 import { LibraryMusicTrack, MusicPrompts, MusicProvider } from "@/types";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   GenerateIcon,
   GlassTab,
@@ -43,6 +43,8 @@ const PROVIDER_OPTIONS: Array<{
 ];
 
 const DURATION_TICK_MARKS = [
+  { value: 10, label: "10s" },
+  { value: 15, label: "15s" },
   { value: 30, label: "30s" },
   { value: 45, label: "45s" },
   { value: 60, label: "60s" },
@@ -108,7 +110,7 @@ export function MusicPanel({
   } = useFileUpload();
 
   const [mode, setMode] = useState<MusicMode>("generate");
-  const [duration, setDuration] = useState(Math.max(30, adDuration + 15));
+  const [duration, setDuration] = useState(Math.max(10, adDuration + 15));
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
 
   // Provider-specific prompts - one state per provider
@@ -140,9 +142,9 @@ export function MusicPanel({
     }
   }, [initialProvider, hasGeneratedUrl]);
 
-  // Update duration when adDuration changes - add 15 seconds for LLM overruns and fade, minimum 30s
+  // Update duration when adDuration changes - add 15 seconds for LLM overruns and fade, minimum 10s
   useEffect(() => {
-    setDuration(Math.max(30, adDuration + 15));
+    setDuration(Math.max(10, adDuration + 15));
   }, [adDuration]);
 
   // Update local status message when parent status message changes
@@ -158,33 +160,8 @@ export function MusicPanel({
     setLocalStatusMessage("");
   }, []);
 
-  // Load library tracks when switching to library mode
-  // Cleanup audio when leaving library mode
-  useEffect(() => {
-    if (mode === "library") {
-      loadLibraryTracks();
-    } else {
-      // Stop audio when leaving library mode
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      setPlayingTrackId(null);
-    }
-  }, [mode]);
-
-  // Cleanup audio on component unmount
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []);
-
-  // Load library tracks from API
-  const loadLibraryTracks = async () => {
+  // Load library tracks from API (declared before the effect that calls it).
+  const loadLibraryTracks = useCallback(async () => {
     setIsLoadingLibrary(true);
     try {
       const response = await fetch(`/api/music-library`);
@@ -202,7 +179,32 @@ export function MusicPanel({
     } finally {
       setIsLoadingLibrary(false);
     }
-  };
+  }, []);
+
+  // Load library tracks when switching to library mode
+  // Cleanup audio when leaving library mode
+  useEffect(() => {
+    if (mode === "library") {
+      loadLibraryTracks();
+    } else {
+      // Stop audio when leaving library mode
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setPlayingTrackId(null);
+    }
+  }, [mode, loadLibraryTracks]);
+
+  // Cleanup audio on component unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   // Filter library tracks based on search query
   const filteredLibraryTracks = useMemo(() => {
@@ -297,7 +299,7 @@ export function MusicPanel({
   const handleReset = () => {
     setMode("generate");
     setMusicProvider("elevenlabs");
-    setDuration(Math.max(30, adDuration + 15));
+    setDuration(Math.max(10, adDuration + 15));
     setLocalStatusMessage("");
     setProviderPrompts({
       loudly: "",
@@ -462,7 +464,7 @@ export function MusicPanel({
                 label={null}
                 value={duration}
                 onChange={setDuration}
-                min={30}
+                min={10}
                 max={120}
                 step={1}
                 tickMarks={DURATION_TICK_MARKS}

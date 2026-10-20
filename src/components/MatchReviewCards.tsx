@@ -63,7 +63,7 @@ export function MatchReviewCards({ findings, onApply, onDismiss }: Props) {
 
   return (
     <div className="mb-6 rounded-lg border border-white/10 bg-white/[0.03] p-4">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-1 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-white/90">
           Match review — {findings.length}{" "}
           {findings.length === 1 ? "thing" : "things"} to check
@@ -75,6 +75,10 @@ export function MatchReviewCards({ findings, onApply, onDismiss }: Props) {
           Dismiss
         </button>
       </div>
+      <p className="mb-3 text-xs text-white/40">
+        Suggestions for this result only — they disappear on refresh and
+        aren&apos;t saved for later review.
+      </p>
 
       <div className="space-y-3">
         {findings.map((finding) => {
