@@ -270,6 +270,11 @@ export function CreativeTopic({
             What the spot says, how the voice delivers it, the campaign
             mechanics around it.
           </p>
+          <p className="mt-1 text-xs text-gray-500">
+            Use the &ldquo;Brief the Agent&rdquo; option if you want AI to
+            create the script, or select the &ldquo;I have the script&rdquo;
+            option if you want to use your own script.
+          </p>
         </div>
         <GlassTabBar>
           <GlassTab
