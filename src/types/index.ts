@@ -194,6 +194,10 @@ export type ProjectBrief = {
   referenceUrls?: string[];
   forbiddenWords?: string;
   providedScript?: string;
+  /** Which creative input the user chose: "brief" (describe to the agent) or
+   *  "script" (provide verbatim). Persisted so generation sends only the active
+   *  field. Absent on legacy briefs → inferred from providedScript presence. */
+  creativeMode?: "brief" | "script";
   /** @deprecated v4 — replaced by alaric's BrandDossier projection,
    *  which now provides the canonical brand-voice context via the SF
    *  picker. Legacy briefs may carry a value; v4 surfaces it read-only

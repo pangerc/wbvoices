@@ -138,6 +138,10 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
   const [providedScript, setProvidedScript] = useState(
     ad.meta.brief?.providedScript || "",
   );
+  const [creativeMode, setCreativeMode] = useState<"brief" | "script">(
+    ad.meta.brief?.creativeMode ??
+      (ad.meta.brief?.providedScript?.trim() ? "script" : "brief"),
+  );
 
   const [selectedAccent, setSelectedAccent] = useState<string>(
     ad.meta.brief?.selectedAccent || "neutral",
@@ -200,6 +204,7 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
       selectedRegion: selectedRegion || null,
       selectedAccent,
       selectedProvider,
+      creativeMode,
       ...(parsedReferenceUrls.length
         ? { referenceUrls: parsedReferenceUrls }
         : {}),
@@ -241,6 +246,7 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
       parsedReferenceUrls,
       forbiddenWords,
       providedScript,
+      creativeMode,
       creativeAngle,
       projectStatus,
       opportunityUrl,
@@ -425,6 +431,8 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
           onForbiddenWordsChanged={setForbiddenWords}
           providedScript={providedScript}
           onProvidedScriptChanged={setProvidedScript}
+          creativeMode={creativeMode}
+          onCreativeModeChanged={setCreativeMode}
           showAngleNudge={showAngleNudge}
           language={selectedLanguage}
           onLanguageChanged={setSelectedLanguage}

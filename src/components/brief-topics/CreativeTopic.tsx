@@ -152,11 +152,15 @@ export interface CreativeTopicProps {
   providedScript: string;
   onProvidedScriptChanged: (value: string) => void;
 
+  // Which input the user is driving — "brief" (describe to the agent) or
+  // "script" (verbatim). Controlled by the parent so it can be persisted and
+  // used to decide what gets sent to generation.
+  creativeMode: "brief" | "script";
+  onCreativeModeChanged: (next: "brief" | "script") => void;
+
   showAngleNudge?: boolean;
   disabled?: boolean;
 }
-
-type CreativeMode = "brief" | "script";
 
 export function CreativeTopic({
   creativeBrief,
@@ -187,13 +191,11 @@ export function CreativeTopic({
   onForbiddenWordsChanged,
   providedScript,
   onProvidedScriptChanged,
+  creativeMode,
+  onCreativeModeChanged,
   showAngleNudge,
   disabled,
 }: CreativeTopicProps) {
-  const [creativeMode, setCreativeMode] = useState<CreativeMode>(() =>
-    providedScript.trim().length > 0 ? "script" : "brief",
-  );
-
   const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
 
   // Tone preset → voiceInstructions seeding. Tone lives in Row 1
@@ -272,13 +274,13 @@ export function CreativeTopic({
         <GlassTabBar>
           <GlassTab
             isActive={creativeMode === "brief"}
-            onClick={() => setCreativeMode("brief")}
+            onClick={() => onCreativeModeChanged("brief")}
           >
             <span className="px-2 text-xs">Brief the agent</span>
           </GlassTab>
           <GlassTab
             isActive={creativeMode === "script"}
-            onClick={() => setCreativeMode("script")}
+            onClick={() => onCreativeModeChanged("script")}
           >
             <span className="px-2 text-xs">I have the script</span>
           </GlassTab>

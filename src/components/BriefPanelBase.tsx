@@ -75,6 +75,9 @@ export type BriefPanelBaseProps = {
   providedScript: string;
   onProvidedScriptChanged: (next: string) => void;
 
+  creativeMode: "brief" | "script";
+  onCreativeModeChanged: (next: "brief" | "script") => void;
+
   showAngleNudge: boolean;
 
   language: Language;
@@ -147,6 +150,8 @@ export const BriefPanelBase = ({
   onForbiddenWordsChanged,
   providedScript,
   onProvidedScriptChanged,
+  creativeMode,
+  onCreativeModeChanged,
   showAngleNudge,
   language,
   onLanguageChanged,
@@ -240,6 +245,8 @@ export const BriefPanelBase = ({
         onForbiddenWordsChanged={onForbiddenWordsChanged}
         providedScript={providedScript}
         onProvidedScriptChanged={onProvidedScriptChanged}
+        creativeMode={creativeMode}
+        onCreativeModeChanged={onCreativeModeChanged}
         showAngleNudge={showAngleNudge}
         disabled={isGenerating}
       />
