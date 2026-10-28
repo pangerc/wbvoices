@@ -665,7 +665,10 @@ export async function POST(req: NextRequest) {
 
             try {
               const musicProvider = musicVersion.provider || "loudly";
-              const musicDuration = musicVersion.duration || duration + 15;
+              // The draft duration is already brief-governed (create_music_draft);
+              // the fallback only applies if it's somehow unset — keep the small
+              // brief+buffer, not the old +15 that double-counted the buffer.
+              const musicDuration = musicVersion.duration || duration + 5;
               const adjustedDuration =
                 musicProvider === "loudly"
                   ? Math.ceil(musicDuration / 15) * 15

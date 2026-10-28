@@ -62,7 +62,12 @@ type MusicPanelProps = {
   ) => Promise<string | null | void>;
   isGenerating: boolean;
   statusMessage?: string;
-  adDuration: number;
+  /**
+   * Target music length in seconds. This is the music draft's own duration,
+   * which is already brief-governed + buffered upstream (create_music_draft).
+   * Use it directly — do NOT add another buffer here, or it double-counts.
+   */
+  targetDuration: number;
   musicProvider: MusicProvider;
   setMusicProvider: (provider: MusicProvider) => void;
   resetForm: () => void;
@@ -84,7 +89,7 @@ export function MusicPanel({
   onGenerate,
   isGenerating,
   statusMessage: parentStatusMessage,
-  adDuration,
+  targetDuration,
   musicProvider,
   setMusicProvider,
   resetForm,
@@ -110,7 +115,7 @@ export function MusicPanel({
   } = useFileUpload();
 
   const [mode, setMode] = useState<MusicMode>("generate");
-  const [duration, setDuration] = useState(Math.max(10, adDuration + 15));
+  const [duration, setDuration] = useState(Math.max(10, targetDuration));
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
 
   // Provider-specific prompts - one state per provider
@@ -142,10 +147,11 @@ export function MusicPanel({
     }
   }, [initialProvider, hasGeneratedUrl]);
 
-  // Update duration when adDuration changes - add 15 seconds for LLM overruns and fade, minimum 10s
+  // Follow the draft's target duration directly — the buffer is already baked
+  // in upstream (create_music_draft), so adding it here double-counted it.
   useEffect(() => {
-    setDuration(Math.max(10, adDuration + 15));
-  }, [adDuration]);
+    setDuration(Math.max(10, targetDuration));
+  }, [targetDuration]);
 
   // Update local status message when parent status message changes
   // Update during generation OR when there's an error message to show
@@ -299,7 +305,7 @@ export function MusicPanel({
   const handleReset = () => {
     setMode("generate");
     setMusicProvider("elevenlabs");
-    setDuration(Math.max(10, adDuration + 15));
+    setDuration(Math.max(10, targetDuration));
     setLocalStatusMessage("");
     setProviderPrompts({
       loudly: "",

@@ -71,8 +71,9 @@ export function MusicDraftEditor({
   const { isGenerating, isPlaying } = useMusicDraftState(draftVersionId);
   const { setGeneratingMusic } = usePlaybackActions();
 
-  // Duration comes from draft version (set by tool from brief, or user edit)
-  const adDuration = draftVersion.duration || 30;
+  // Music length comes from the draft version — already brief-governed +
+  // buffered by create_music_draft (or a user edit). Pass it through as-is.
+  const musicDuration = draftVersion.duration || 30;
 
   // Compute draft state from props (music has no local URL copy, props are fine)
   const draftState = useMemo((): DraftState => {
@@ -183,7 +184,7 @@ export function MusicDraftEditor({
       url = await handleGenerate(
         latestPromptRef.current || draftVersion.musicPrompt || "",
         musicProvider,
-        draftVersion.duration || adDuration,
+        draftVersion.duration || musicDuration,
       );
       if (!url) return; // Generation failed
     }
@@ -315,7 +316,7 @@ export function MusicDraftEditor({
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
         statusMessage={statusMessage}
-        adDuration={adDuration}
+        targetDuration={musicDuration}
         musicProvider={musicProvider}
         setMusicProvider={handleProviderChange}
         resetForm={resetForm}
