@@ -490,7 +490,6 @@ export default function AdWorkspace() {
             <MatchReviewCards
               findings={matchFindings}
               onApply={handleApplyImprovement}
-              onDismiss={() => setMatchFindings([])}
             />
 
             {/* Brief - Tab 0 */}

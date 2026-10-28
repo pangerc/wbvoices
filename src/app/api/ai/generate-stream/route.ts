@@ -931,7 +931,19 @@ export async function POST(req: NextRequest) {
             },
           );
           if (findings.length) {
-            await sendEvent({ type: "match-review", findings });
+            // Strip the "Regenerate" (full rewrite) action unless the admin
+            // toggle enables it — keep only the minimal "Apply" to avoid user
+            // confusion (AAC-255 feedback).
+            const emitted = settings.matchReviewRegenerateEnabled
+              ? findings
+              : findings.map((f) => ({
+                  ...f,
+                  improvements: f.improvements.map((imp) => ({
+                    ...imp,
+                    regenerate: null,
+                  })),
+                }));
+            await sendEvent({ type: "match-review", findings: emitted });
           }
         }
       } catch (err) {

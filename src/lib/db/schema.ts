@@ -259,6 +259,11 @@ export const serverSettings = pgTable("server_settings", {
   importBatchSize: integer("import_batch_size").notNull().default(50),
   // AAC-255 — gate the AI match-review feature globally (default OFF).
   matchReviewEnabled: boolean("match_review_enabled").notNull().default(false),
+  // AAC-255 — show the per-card "Regenerate" (full rewrite) action (default OFF;
+  // Apply/minimal-edit is always available). Kept off to avoid user confusion.
+  matchReviewRegenerateEnabled: boolean("match_review_regenerate_enabled")
+    .notNull()
+    .default(false),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: text("updated_by"),
 });

@@ -40,6 +40,7 @@ export type ServerSettingsPatch = Partial<
     | "importWriteConcurrency"
     | "importBatchSize"
     | "matchReviewEnabled"
+    | "matchReviewRegenerateEnabled"
   >
 >;
 
@@ -53,6 +54,7 @@ const DEFAULTS: Omit<ServerSettings, "updatedAt"> = {
   importWriteConcurrency: 4,
   importBatchSize: 50,
   matchReviewEnabled: false,
+  matchReviewRegenerateEnabled: false,
   updatedBy: null,
 };
 
@@ -325,6 +327,10 @@ export async function ensureServerSettingsTable(): Promise<void> {
   await db.execute(sql`
     ALTER TABLE "server_settings"
       ADD COLUMN IF NOT EXISTS "match_review_enabled" boolean DEFAULT false NOT NULL
+  `);
+  await db.execute(sql`
+    ALTER TABLE "server_settings"
+      ADD COLUMN IF NOT EXISTS "match_review_regenerate_enabled" boolean DEFAULT false NOT NULL
   `);
   invalidateServerSettingsCache();
 }

@@ -3,10 +3,16 @@
 /**
  * AI Match-Review cards (AAC-255) — presentational.
  *
- * Renders the deterministic `MatchFinding[]` produced after generation: one card
- * per dimension that didn't match the brief, each with its improvement options.
- * All data access (chat turn, brief patch, apply-logging, SWR revalidation) lives
- * on the ad page via `onApply`; this component only renders and reports clicks.
+ * Renders the deterministic + critic `MatchFinding[]` produced after generation:
+ * one card per dimension that didn't match the brief, each with its improvement
+ * options. All data access (chat turn, brief patch, apply-logging, SWR
+ * revalidation) lives on the ad page via `onApply`; this component only renders
+ * and reports clicks.
+ *
+ * The whole panel can be collapsed (Hide / Show solutions) — findings stay in
+ * state, only their display is toggled. The "Regenerate" action renders only
+ * when the server includes it (admin toggle `matchReviewRegenerateEnabled`);
+ * otherwise just the minimal "Apply" shows.
  */
 
 import type { Improvement, MatchFinding } from "@/lib/match-review";
@@ -25,27 +31,53 @@ type Props = {
     improvement: Improvement,
     variant: ApplyVariant,
   ) => Promise<void>;
-  /** Clear all cards. */
-  onDismiss: () => void;
 };
 
 const SEVERITY: Record<
   MatchFinding["severity"],
   { label: string; cls: string }
 > = {
-  high: { label: "High", cls: "bg-red-500/15 text-red-300 border-red-500/30" },
+  high: { label: "High", cls: "bg-red-500/20 text-red-200 border-red-500/40" },
   medium: {
     label: "Medium",
-    cls: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    cls: "bg-amber-500/20 text-amber-200 border-amber-500/40",
   },
-  low: { label: "Low", cls: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
+  low: { label: "Low", cls: "bg-sky-500/20 text-sky-200 border-sky-500/40" },
 };
 
-export function MatchReviewCards({ findings, onApply, onDismiss }: Props) {
+// Opaque, blurred shell so the text never competes with the animated
+// background dots behind the workspace (AAC-255 feedback).
+const SHELL =
+  "relative z-10 mb-6 rounded-lg border border-white/15 bg-neutral-900/90 p-4 shadow-xl backdrop-blur-md";
+
+export function MatchReviewCards({ findings, onApply }: Props) {
   // Key of the improvement currently applying, so only its button spins.
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  // Collapse the panel without discarding the findings (Hide / Show solutions).
+  const [hidden, setHidden] = useState(false);
 
   if (!findings.length) return null;
+
+  const count = findings.length;
+  const noun = count === 1 ? "thing" : "things";
+
+  if (hidden) {
+    return (
+      <div className={SHELL}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-white/90">
+            Match review — {count} {noun} to check
+          </h3>
+          <button
+            onClick={() => setHidden(false)}
+            className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
+          >
+            Show solutions
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleClick = async (
     finding: MatchFinding,
@@ -62,17 +94,16 @@ export function MatchReviewCards({ findings, onApply, onDismiss }: Props) {
   };
 
   return (
-    <div className="mb-6 rounded-lg border border-white/10 bg-white/[0.03] p-4">
+    <div className={SHELL}>
       <div className="mb-1 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-white/90">
-          Match review — {findings.length}{" "}
-          {findings.length === 1 ? "thing" : "things"} to check
+          Match review — {count} {noun} to check
         </h3>
         <button
-          onClick={onDismiss}
-          className="text-xs text-white/40 hover:text-white/70"
+          onClick={() => setHidden(true)}
+          className="text-xs text-white/50 hover:text-white/80"
         >
-          Dismiss
+          Hide
         </button>
       </div>
       <p className="mb-3 text-xs text-white/40">
@@ -86,7 +117,7 @@ export function MatchReviewCards({ findings, onApply, onDismiss }: Props) {
           return (
             <div
               key={finding.dimension}
-              className="rounded-md border border-white/10 bg-black/30 p-3"
+              className="rounded-md border border-white/10 bg-black/40 p-3"
             >
               <div className="mb-1 flex items-center gap-2">
                 <span

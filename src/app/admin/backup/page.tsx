@@ -229,6 +229,13 @@ export default function AdminBackupPage() {
             saving={saving === "matchReviewEnabled"}
             onChange={(v) => patch("matchReviewEnabled", v)}
           />
+          <ToggleRow
+            label="Match-review: Regenerate action (AAC-255)"
+            description="Show the per-card 'Regenerate' (full rewrite) option alongside Apply. Off by default — Apply (minimal edit) is always available."
+            checked={settings.matchReviewRegenerateEnabled}
+            saving={saving === "matchReviewRegenerateEnabled"}
+            onChange={(v) => patch("matchReviewRegenerateEnabled", v)}
+          />
         </div>
       </section>
 

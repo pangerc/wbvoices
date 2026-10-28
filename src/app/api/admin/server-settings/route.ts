@@ -56,6 +56,7 @@ const BOOL_KEYS = [
   "backupImportEnabled",
   "restoreFromFileEnabled",
   "matchReviewEnabled",
+  "matchReviewRegenerateEnabled",
 ] as const;
 const INT_KEYS = ["importWriteConcurrency", "importBatchSize"] as const;
 
