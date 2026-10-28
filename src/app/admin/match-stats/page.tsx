@@ -7,14 +7,79 @@ import {
 } from "@/app/api/admin/match-stats/route";
 import { GlassTab } from "@/components/ui/GlassTab";
 import { GlassTabBar } from "@/components/ui/GlassTabBar";
+import { ToggleRow } from "@/components/ui/ToggleRow";
 import { Button } from "@/components/ui/buttons/Button";
 import { useQuery } from "@/hooks/query";
+import type { ServerSettings } from "@/lib/db/schema";
 import {
   ArrowDownTrayIcon,
   ClipboardDocumentCheckIcon,
 } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+/** Match-review feature toggles, co-located with the stats they drive. */
+function MatchReviewSettings() {
+  const [settings, setSettings] = useState<ServerSettings | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/server-settings");
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) setSettings(d.settings);
+    } catch {
+      /* non-blocking: the stats page still renders without the toggles */
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const patch = useCallback(
+    async (field: keyof ServerSettings, value: boolean) => {
+      setSaving(field);
+      try {
+        const res = await fetch("/api/admin/server-settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [field]: value }),
+        });
+        if (res.ok) setSettings((await res.json()).settings);
+      } catch {
+        /* swallow — Switch reverts on next load */
+      } finally {
+        setSaving(null);
+      }
+    },
+    [],
+  );
+
+  if (!settings) return null;
+
+  return (
+    <div className="mb-8 space-y-3">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-wb-blue">
+        Settings
+      </h2>
+      <ToggleRow
+        label="AI match-review (AAC-255)"
+        description="After generation, check the result against the brief (duration, language, CTA…) and surface improvement suggestions."
+        checked={settings.matchReviewEnabled}
+        saving={saving === "matchReviewEnabled"}
+        onChange={(v) => patch("matchReviewEnabled", v)}
+      />
+      <ToggleRow
+        label="Match-review: Regenerate action"
+        description="Show the per-card 'Regenerate' (full rewrite) option alongside Apply. Off by default — Apply (minimal edit) is always available."
+        checked={settings.matchReviewRegenerateEnabled}
+        saving={saving === "matchReviewRegenerateEnabled"}
+        onChange={(v) => patch("matchReviewRegenerateEnabled", v)}
+      />
+    </div>
+  );
+}
 
 // Friendly labels for the match dimensions (keys from MatchDimension).
 const DIMENSION_LABELS: Record<string, string> = {
@@ -204,6 +269,8 @@ export default function MatchStatsPage() {
             </p>
           </div>
         </div>
+
+        <MatchReviewSettings />
 
         {error && (
           <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 p-4">

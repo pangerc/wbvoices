@@ -8,7 +8,7 @@
  * placeholders (disabled) wired in later phases (P2+).
  */
 
-import { Switch } from "@/components/ui/Switch";
+import { ToggleRow } from "@/components/ui/ToggleRow";
 import type { ServerSettings } from "@/lib/db/schema";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -222,20 +222,6 @@ export default function AdminBackupPage() {
             saving={saving === "restoreFromFileEnabled"}
             onChange={(v) => patch("restoreFromFileEnabled", v)}
           />
-          <ToggleRow
-            label="AI match-review (AAC-255)"
-            description="After generation, check the result against the brief (duration, language, CTA…) and surface improvement suggestions."
-            checked={settings.matchReviewEnabled}
-            saving={saving === "matchReviewEnabled"}
-            onChange={(v) => patch("matchReviewEnabled", v)}
-          />
-          <ToggleRow
-            label="Match-review: Regenerate action (AAC-255)"
-            description="Show the per-card 'Regenerate' (full rewrite) option alongside Apply. Off by default — Apply (minimal edit) is always available."
-            checked={settings.matchReviewRegenerateEnabled}
-            saving={saving === "matchReviewRegenerateEnabled"}
-            onChange={(v) => patch("matchReviewRegenerateEnabled", v)}
-          />
         </div>
       </section>
 
@@ -265,44 +251,6 @@ export default function AdminBackupPage() {
         </h2>
         <AuditLog />
       </section>
-    </div>
-  );
-}
-
-function ToggleRow({
-  label,
-  description,
-  checked,
-  saving,
-  onChange,
-  warn,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  saving: boolean;
-  onChange: (v: boolean) => void;
-  warn?: boolean;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-6 p-4 rounded-xl border border-white/10 bg-white/5">
-      <div className="min-w-0">
-        <div className="text-white text-sm font-medium">{label}</div>
-        <p
-          className={`text-xs mt-1 ${warn ? "text-amber-400/80" : "text-gray-500"}`}
-        >
-          {description}
-        </p>
-      </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {saving && <span className="text-xs text-gray-500">saving…</span>}
-        <Switch
-          checked={checked}
-          onChange={onChange}
-          disabled={saving}
-          aria-label={label}
-        />
-      </div>
     </div>
   );
 }
