@@ -1,6 +1,11 @@
 "use client";
 
 import { GlassyCombobox, GlassyListbox, GlassyTextarea } from "@/components/ui";
+import type { ServerSettings } from "@/lib/db/schema";
+import {
+  ELEVENLABS_VOICE_MODELS,
+  type ElevenLabsVoiceModel,
+} from "@/lib/providers/elevenLabsModels";
 import type { Language, Provider, Voice } from "@/types";
 import { getBlacklistLookupKeys } from "@/utils/blacklistKeys";
 import { getFlagCode } from "@/utils/language";
@@ -27,6 +32,65 @@ interface BlacklistEntry {
   voiceKey: string;
   language: Language;
   accent: string;
+}
+
+/** Global ElevenLabs TTS model selector, backed by server_settings. */
+function ElevenLabsModelSetting() {
+  const [settings, setSettings] = useState<ServerSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/server-settings");
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) setSettings(d.settings);
+    } catch {
+      /* non-blocking: the page still works without the selector */
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onChange = useCallback(async (value: ElevenLabsVoiceModel) => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/server-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ elevenLabsModelId: value }),
+      });
+      if (res.ok) setSettings((await res.json()).settings);
+    } catch {
+      /* swallow — the select reverts on the next load */
+    } finally {
+      setSaving(false);
+    }
+  }, []);
+
+  if (!settings) return null;
+
+  return (
+    <div className="mt-4 max-w-xs">
+      <label className="block text-sm font-medium text-gray-300 mb-2">
+        ElevenLabs voice model
+      </label>
+      <GlassyListbox<ElevenLabsVoiceModel>
+        value={settings.elevenLabsModelId as ElevenLabsVoiceModel}
+        onChange={onChange}
+        options={ELEVENLABS_VOICE_MODELS.map((m) => ({
+          value: m.value,
+          label: m.label,
+        }))}
+        loading={saving}
+      />
+      <p className="text-xs text-gray-500 mt-1">
+        Applied to all voice generation. Same API key — v4 access depends on your
+        plan tier.
+      </p>
+    </div>
+  );
 }
 
 export default function VoiceManagerPage() {
@@ -365,6 +429,7 @@ export default function VoiceManagerPage() {
             language-wide • {accentSpecificBlacklist.size} hidden for specific
             accents (of {voices.length} total)
           </p>
+          <ElevenLabsModelSetting />
         </div>
 
         {/* Main Content */}

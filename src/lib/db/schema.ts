@@ -219,6 +219,11 @@ export const serverSettings = pgTable("server_settings", {
     .notNull()
     .default(4),
   importBatchSize: integer("import_batch_size").notNull().default(50),
+  // ElevenLabs TTS model id passed as `model_id` on /v1/text-to-speech
+  // (eleven_v3 | eleven_v4 | eleven_v4_turbo). Global, admin-selectable.
+  elevenLabsModelId: text("elevenlabs_model_id")
+    .notNull()
+    .default("eleven_v3"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: text("updated_by"),
 });
