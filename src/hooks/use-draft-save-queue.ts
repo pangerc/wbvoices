@@ -20,16 +20,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * starts; `saving` is the same window as render state, for the UI (and the
  * `data-save-state` hook E2E waits on).
  *
- * `flush()` resolves once that window closes — every save queued so far, and
- * any queued while waiting, written (or failed) and refetched. Send to mixer
- * waits on it so the freeze rebuilds from what the user last typed.
- *
  * @param onSaved Refetch after a successful write — the stream's `mutate`.
  */
 export function useDraftSaveQueue(onSaved: () => Promise<unknown>): {
   save: <T>(write: () => Promise<T>) => Promise<T>;
   isSaving: () => boolean;
-  flush: () => Promise<void>;
   saving: boolean;
 } {
   const onSavedRef = useRef(onSaved);
@@ -39,18 +34,9 @@ export function useDraftSaveQueue(onSaved: () => Promise<unknown>): {
 
   const pendingRef = useRef(0);
   const tailRef = useRef<Promise<unknown>>(Promise.resolve());
-  // Settles when the pending count next drops to 0. Replaced each time it
-  // rises from 0, so a flush never waits on a window that already closed.
-  const idleRef = useRef<{ promise: Promise<void>; resolve: () => void }>(null);
   const [saving, setSaving] = useState(false);
 
   const save = useCallback(<T>(write: () => Promise<T>): Promise<T> => {
-    if (pendingRef.current === 0) {
-      let resolve!: () => void;
-      const promise = new Promise<void>((res) => (resolve = res));
-      idleRef.current = { promise, resolve };
-    }
-
     // Counted before anything is awaited: a stale revalidation can land in
     // the very next tick.
     pendingRef.current += 1;
@@ -66,23 +52,12 @@ export function useDraftSaveQueue(onSaved: () => Promise<unknown>): {
         return result;
       } finally {
         pendingRef.current -= 1;
-        if (pendingRef.current === 0) {
-          setSaving(false);
-          idleRef.current?.resolve();
-        }
+        if (pendingRef.current === 0) setSaving(false);
       }
     })();
   }, []);
 
   const isSaving = useCallback(() => pendingRef.current > 0, []);
 
-  const flush = useCallback(
-    () =>
-      pendingRef.current > 0 && idleRef.current
-        ? idleRef.current.promise
-        : Promise.resolve(),
-    [],
-  );
-
-  return { save, isSaving, flush, saving };
+  return { save, isSaving, saving };
 }

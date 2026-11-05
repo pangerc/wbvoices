@@ -23,7 +23,7 @@ export interface SfxDraftEditorProps {
   onUpdate: () => Promise<SfxVersion | undefined>;
   // Refs for parent to call header button actions
   onPlayAllRef?: React.MutableRefObject<(() => Promise<void>) | null>;
-  onSendToMixerRef?: React.MutableRefObject<(() => Promise<boolean>) | null>;
+  onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
   onRequestChangeRef?: React.MutableRefObject<(() => void) | null>;
   onNewBlankVersion?: () => void;
   // Voice stream data for SFX placement options (after voice X)
@@ -57,7 +57,6 @@ export function SfxDraftEditor({
     urls,
     setUrls,
     save,
-    flush,
     saving,
     updateCue,
     addCue,
@@ -82,7 +81,6 @@ export function SfxDraftEditor({
     stream: "sfx",
     versionId: draftVersionId,
     onUpdate,
-    flush,
   });
 
   const voiceTrackPreviews = useActiveVoicePreviews(voiceStream);
@@ -98,7 +96,6 @@ export function SfxDraftEditor({
   const handleSendToMixer = async () => {
     const sent = await sendToMixer();
     setStatusMessage(sent ? "SFX sent to mixer!" : "Failed to send to mixer");
-    return sent;
   };
 
   useDraftHeaderActions({

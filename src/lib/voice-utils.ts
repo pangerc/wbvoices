@@ -217,6 +217,22 @@ export async function persistTrackUrl(
   );
 }
 
+// ============ Combined Convenience ============
+
+/**
+ * Generate and persist in one call
+ * Use this when you want the URL stored in Redis
+ */
+export async function generateAndPersistTrack(
+  track: VoiceTrack,
+  persistOptions: PersistOptions,
+  genOptions: GenerateOptions = {},
+): Promise<GenerateResult> {
+  const result = await generateVoiceTrack(track, genOptions);
+  await persistTrackUrl(result.audioUrl, result.duration, persistOptions);
+  return result;
+}
+
 // ============ Post-Processing ============
 
 /**
