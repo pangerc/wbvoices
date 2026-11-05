@@ -66,180 +66,6 @@ function clampDb(db: number): number {
   return Math.max(MIN_PER_STEM_GAIN_DB, Math.min(MAX_PER_STEM_GAIN_DB, db));
 }
 
-/** Minimal client track shape `buildTimingInfo` reads. */
-export type TimelineClip = {
-  id: string;
-  url: string;
-  type: TrackTiming["type"];
-  actualStartTime: number;
-  actualDuration: number;
-  integratedLufs?: number;
-  trim?: { start: number; end: number };
-};
-
-/** Gain sentinel below the floor that `planSchedule` reads as hard mute. */
-export const SILENCED_GAIN_DB = -1000;
-
-/**
- * Turn the timeline's calculated tracks into render timings, sorted by start
- * time. Volume is a dB trim around unity (post-stem-normalization); muted
- * tracks — and every non-soloed track while any track is soloed — are
- * silenced.
- */
-export function buildTimingInfo(
-  calculatedTracks: TimelineClip[],
-  volumes: Record<string, number>,
-  muted: ReadonlySet<string>,
-  soloed: ReadonlySet<string>,
-): TrackTiming[] {
-  const anySoloed = soloed.size > 0;
-  return calculatedTracks
-    .map((track) => {
-      const silenced =
-        muted.has(track.id) || (anySoloed && !soloed.has(track.id));
-      return {
-        id: track.id,
-        url: track.url,
-        type: track.type,
-        startTime: track.actualStartTime,
-        duration: track.actualDuration,
-        gainDb: silenced ? SILENCED_GAIN_DB : (volumes[track.id] ?? 0),
-        integratedLufs: track.integratedLufs,
-        trim: track.trim,
-      };
-    })
-    .sort((a, b) => a.startTime - b.startTime);
-}
-
-/** When and how one source plays in the offline render. */
-export type ClipSchedule = {
-  start: number;
-  end: number;
-  /** Linear gain handed to the GainNode. */
-  gain: number;
-  type: string;
-  /** `source.start(when, offset, duration)` offset into the blob. */
-  sourceOffset: number;
-  playDuration: number;
-};
-
-/**
- * Compute the render schedule from timing info and the decoded buffer
- * durations. Pure: buffer loading and LUFS measurement are the caller's.
- *
- * `sourceOffset` + `playDuration` feed into `source.start(when, offset,
- * duration)` so the underlying blob plays only the trim window. Without them
- * the full blob plays even when the resolver's effective duration is shorter
- * — the bug that made trims visible but not audible.
- *
- * With no timing info, falls back to sequential: music and SFX at 0, voices
- * back-to-back after the longest SFX.
- */
-export function planSchedule(input: {
-  voiceUrls: string[];
-  musicUrl: string | null;
-  soundFxUrls: string[];
-  timingInfo: TrackTiming[];
-  bufferDurations: ReadonlyMap<string, number>;
-  /** Fallback loudness for stems without a pre-measured `integratedLufs`. */
-  measureLufs: (url: string) => number | undefined;
-}): { timings: Map<string, ClipSchedule>; maxEndTime: number } {
-  const { bufferDurations, timingInfo } = input;
-  const timings = new Map<string, ClipSchedule>();
-  let maxEndTime = 0;
-
-  if (timingInfo.length > 0) {
-    const sorted = [...timingInfo].sort((a, b) => a.startTime - b.startTime);
-    for (const info of sorted) {
-      const bufferDuration = bufferDurations.get(info.url);
-      if (bufferDuration === undefined) {
-        console.warn(`Audio buffer not found for URL: ${info.url}`);
-        continue;
-      }
-      // Trim window: clamp into the buffer's actual bounds so a stale trim
-      // that extends past a re-generated (shorter) blob doesn't throw.
-      const sourceOffset = info.trim
-        ? Math.max(0, Math.min(bufferDuration, info.trim.start))
-        : 0;
-      const trimmedLen = info.trim
-        ? Math.max(0, info.trim.end - info.trim.start)
-        : bufferDuration;
-      const playDuration = Math.min(
-        bufferDuration - sourceOffset,
-        trimmedLen,
-        info.duration || bufferDuration,
-      );
-      const endTime = info.startTime + playDuration;
-
-      // Per-stem linear gain via dB-domain math:
-      //   normalizationDb = targetLufs - integratedLufs    (assume-at-target if unmeasured)
-      //   userTrimDb      = info.gainDb ?? 0               (default 0 = unity)
-      //   total           = clamp(normalizationDb + userTrimDb)
-      const targetLufs =
-        STEM_TARGET_LUFS[info.type as keyof typeof STEM_TARGET_LUFS] ?? -16;
-      const integratedLufs =
-        typeof info.integratedLufs === "number"
-          ? info.integratedLufs
-          : input.measureLufs(info.url);
-      const normalizationDb =
-        typeof integratedLufs === "number" ? targetLufs - integratedLufs : 0;
-      const userTrimDb = typeof info.gainDb === "number" ? info.gainDb : 0;
-      const totalDb = clampDb(normalizationDb + userTrimDb);
-      // A trim at or below the floor is a hard mute.
-      const gain = userTrimDb <= MIN_PER_STEM_GAIN_DB ? 0 : dbToLinear(totalDb);
-
-      timings.set(info.url, {
-        start: info.startTime,
-        end: endTime,
-        gain,
-        type: info.type,
-        sourceOffset,
-        playDuration,
-      });
-      maxEndTime = Math.max(maxEndTime, endTime);
-    }
-    return { timings, maxEndTime };
-  }
-
-  const atZero = (duration: number, type: string): ClipSchedule => ({
-    start: 0,
-    end: duration,
-    gain: 1.0,
-    type,
-    sourceOffset: 0,
-    playDuration: duration,
-  });
-
-  let currentTime = 0;
-  const musicDuration = input.musicUrl
-    ? bufferDurations.get(input.musicUrl)
-    : undefined;
-  if (input.musicUrl && musicDuration !== undefined) {
-    timings.set(input.musicUrl, atZero(musicDuration, "music"));
-    maxEndTime = Math.max(maxEndTime, musicDuration);
-  }
-  for (const url of input.soundFxUrls) {
-    const duration = bufferDurations.get(url);
-    if (duration === undefined) continue;
-    timings.set(url, atZero(duration, "soundfx"));
-    // Sound effects at start shift voice tracks forward
-    currentTime = Math.max(currentTime, duration);
-    maxEndTime = Math.max(maxEndTime, duration);
-  }
-  for (const url of input.voiceUrls) {
-    const duration = bufferDurations.get(url);
-    if (duration === undefined) continue;
-    timings.set(url, {
-      ...atZero(duration, "voice"),
-      start: currentTime,
-      end: currentTime + duration,
-    });
-    maxEndTime = Math.max(maxEndTime, currentTime + duration);
-    currentTime += duration;
-  }
-  return { timings, maxEndTime };
-}
-
 export async function createMix(
   voiceUrls: string[],
   musicUrl: string | null,
@@ -294,17 +120,145 @@ export async function createMix(
   await Promise.all(loadPromises);
   console.log("All audio loaded successfully");
 
-  const bufferDurations = new Map(
-    [...audioBuffersMap].map(([url, buffer]) => [url, buffer.duration]),
-  );
-  const { timings: trackTimings, maxEndTime } = planSchedule({
-    voiceUrls,
-    musicUrl,
-    soundFxUrls,
-    timingInfo,
-    bufferDurations,
-    measureLufs: (url) => measureLufsLazy(audioBuffersMap.get(url)!, url),
-  });
+  // Calculate the longest duration needed and final track timing
+  let maxEndTime = 0;
+
+  // Create a map of actual track timings based on provided timing info or default sequential.
+  // `sourceOffset` + `playDuration` feed into `source.start(when, offset, duration)` so the
+  // underlying blob plays only the trim window. Without them the full blob plays even when
+  // the resolver's effective duration is shorter — the bug that made trims visible but not audible.
+  const trackTimings = new Map<
+    string,
+    {
+      start: number;
+      end: number;
+      gain: number;
+      type: string;
+      sourceOffset: number;
+      playDuration: number;
+    }
+  >();
+
+  // If timing info is provided, use it
+  if (timingInfo.length > 0) {
+    // Sort timing info by start time to ensure correct playback order
+    const sortedTimingInfo = [...timingInfo].sort(
+      (a, b) => a.startTime - b.startTime,
+    );
+
+    sortedTimingInfo.forEach((info) => {
+      if (!audioBuffersMap.has(info.url)) {
+        console.warn(`Audio buffer not found for URL: ${info.url}`);
+        return;
+      }
+
+      const audioBuffer = audioBuffersMap.get(info.url)!;
+      // Trim window: clamp into the buffer's actual bounds so a stale trim
+      // that extends past a re-generated (shorter) blob doesn't throw.
+      const sourceOffset = info.trim
+        ? Math.max(0, Math.min(audioBuffer.duration, info.trim.start))
+        : 0;
+      const trimmedLen = info.trim
+        ? Math.max(0, info.trim.end - info.trim.start)
+        : audioBuffer.duration;
+      const playDuration = Math.min(
+        audioBuffer.duration - sourceOffset,
+        trimmedLen,
+        info.duration || audioBuffer.duration,
+      );
+      const endTime = info.startTime + playDuration;
+
+      // Compute the per-stem linear gain via dB-domain math:
+      //   normalizationDb = targetLufs - integratedLufs    (assume-at-target if unmeasured)
+      //   userTrimDb      = info.gainDb ?? 0               (default 0 = unity)
+      //   total           = clamp(normalizationDb + userTrimDb)
+      // Result is a linear multiplier handed to the GainNode below.
+      const targetLufs =
+        STEM_TARGET_LUFS[info.type as keyof typeof STEM_TARGET_LUFS] ?? -16;
+      const integratedLufs =
+        typeof info.integratedLufs === "number"
+          ? info.integratedLufs
+          : measureLufsLazy(audioBuffer, info.url);
+      const normalizationDb =
+        typeof integratedLufs === "number" ? targetLufs - integratedLufs : 0;
+      const userTrimDb = typeof info.gainDb === "number" ? info.gainDb : 0;
+      const totalDb = clampDb(normalizationDb + userTrimDb);
+      // Silence pass-through: if the patch sender wanted the track muted
+      // (handled today by sending gain=0 in the legacy path), preserve
+      // that by treating "explicit zero gainDb under -36" as silence.
+      const linearGain =
+        userTrimDb <= MIN_PER_STEM_GAIN_DB ? 0 : dbToLinear(totalDb);
+
+      trackTimings.set(info.url, {
+        start: info.startTime,
+        end: endTime,
+        gain: linearGain,
+        type: info.type,
+        sourceOffset,
+        playDuration,
+      });
+
+      maxEndTime = Math.max(maxEndTime, endTime);
+      console.log(
+        `Scheduled ${info.type} at ${info.startTime}s, offset: ${sourceOffset}s, duration: ${playDuration}s, end: ${endTime}s, normDb=${normalizationDb.toFixed(1)} userDb=${userTrimDb.toFixed(1)} total=${totalDb.toFixed(1)}dB`,
+      );
+    });
+  } else {
+    // Default sequential timing if no timing info provided
+    // Voice tracks are played sequentially, music starts at 0
+    let currentTime = 0;
+
+    // Handle music first (starts at 0)
+    if (musicUrl && audioBuffersMap.has(musicUrl)) {
+      const audioBuffer = audioBuffersMap.get(musicUrl)!;
+      trackTimings.set(musicUrl, {
+        start: 0,
+        end: audioBuffer.duration,
+        gain: 1.0,
+        type: "music",
+        sourceOffset: 0,
+        playDuration: audioBuffer.duration,
+      });
+      maxEndTime = Math.max(maxEndTime, audioBuffer.duration);
+    }
+
+    // Handle sound effects at start first
+    for (const url of soundFxUrls) {
+      if (!audioBuffersMap.has(url)) continue;
+      const audioBuffer = audioBuffersMap.get(url)!;
+
+      trackTimings.set(url, {
+        start: 0,
+        end: audioBuffer.duration,
+        gain: 1.0,
+        type: "soundfx",
+        sourceOffset: 0,
+        playDuration: audioBuffer.duration,
+      });
+
+      // Sound effects at start shift voice tracks forward
+      currentTime = Math.max(currentTime, audioBuffer.duration);
+      maxEndTime = Math.max(maxEndTime, audioBuffer.duration);
+    }
+
+    // Handle voice tracks sequentially after sound effects
+    for (const url of voiceUrls) {
+      if (!audioBuffersMap.has(url)) continue;
+      const audioBuffer = audioBuffersMap.get(url)!;
+
+      trackTimings.set(url, {
+        start: currentTime,
+        end: currentTime + audioBuffer.duration,
+        gain: 1.0,
+        type: "voice",
+        sourceOffset: 0,
+        playDuration: audioBuffer.duration,
+      });
+
+      maxEndTime = Math.max(maxEndTime, currentTime + audioBuffer.duration);
+      currentTime += audioBuffer.duration;
+    }
+  }
 
   // Log the final timings for debug
   console.log(
@@ -428,50 +382,14 @@ function measureLufsLazy(buffer: AudioBuffer, url: string): number | undefined {
   return undefined;
 }
 
-/**
- * Fetch + decode one track's audio, retrying transient failures.
- *
- * The mixer fans these out concurrently under `Promise.all`, so a single failed
- * track rejects the whole preview/export. On the AWS deploy `/api/media`
- * 307-redirects to a presigned S3 URL, and that cross-origin GET intermittently
- * comes back without the `Access-Control-Allow-Origin` header (the browser
- * reports `MissingAllowOriginHeader` and `fetch` throws) — e.g. while an S3 CORS
- * change is still propagating across the fleet. A retry with `cache: "no-store"`
- * forces a fresh request, so the route mints a new presigned URL instead of
- * replaying a cached redirect to the same object, which typically lands on a
- * node that answers with the CORS header.
- */
 async function loadAudioBuffer(
   url: string,
   audioContext: OfflineAudioContext,
 ): Promise<AudioBuffer> {
-  const MAX_ATTEMPTS = 3;
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      // First attempt uses the default cache; retries force a fresh fetch (and
-      // thus a fresh presigned redirect) rather than replaying the failed one.
-      const response = await fetch(
-        url,
-        attempt === 1 ? undefined : { cache: "no-store" },
-      );
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} while loading ${url}`);
-      }
-      const arrayBuffer = await response.arrayBuffer();
-      return await audioContext.decodeAudioData(arrayBuffer);
-    } catch (err) {
-      lastError = err;
-      if (attempt < MAX_ATTEMPTS) {
-        console.warn(
-          `[mixer] track load failed (attempt ${attempt}/${MAX_ATTEMPTS}) for ${url}; retrying`,
-          err,
-        );
-        await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
-      }
-    }
-  }
-  throw lastError;
+  const response = await fetch(url);
+  const arrayBuffer = await response.arrayBuffer();
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+  return audioBuffer;
 }
 
 function audioBufferToWav(

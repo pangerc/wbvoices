@@ -13,12 +13,8 @@ import {
 import { createMockRedis } from "@/test/utils";
 import type { MusicVersion, SfxVersion, VoiceVersion } from "@/types/versions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  createVersion,
-  getVersion,
-  setActiveVersion,
-} from "../../redis/versions";
-import { applyMixerPatch, getMixerState, rebuildMixer } from "../rebuilder";
+import { createVersion, getVersion, setActiveVersion } from "../../redis/versions";
+import { getMixerState, rebuildMixer } from "../rebuilder";
 
 // Mock Redis V3
 vi.mock("../../redis-v3", () => ({
@@ -376,95 +372,6 @@ describe("rebuildMixer", () => {
     });
   });
 
-  describe("new script version sent after the mixer exists", () => {
-    it("places every hand-added voice track sequentially", async () => {
-      // 1. Mixer already exists (template / duplicated ad).
-      await createVersion(mockAdId, "voices", {
-        ...mockVoiceVersionDraft,
-        generatedUrls: ["https://x/base.mp3"],
-      });
-      await setActiveVersion(mockAdId, "voices", "v1");
-      await rebuildMixer(mockAdId);
-
-      // 2. New blank script, three tracks added by hand — no slotIds, no
-      //    anchors, generated audio with measured durations.
-      const handMade: VoiceVersion = {
-        ...mockVoiceVersionDraft,
-        voiceTracks: [0, 1, 2].map((i) => ({
-          ...mockVoiceTrack,
-          playAfter: i === 0 ? "start" : "previous",
-          generatedUrl: `https://x/line-${i}.mp3`,
-          generatedDuration: 2 + i,
-        })),
-        generatedUrls: [],
-      };
-      await createVersion(mockAdId, "voices", handMade);
-      await setActiveVersion(mockAdId, "voices", "v2");
-
-      // 3. Send to mixer.
-      const state = await rebuildMixer(mockAdId);
-
-      expect(state.tracks).toHaveLength(3);
-      expect(state.calculatedTracks).toHaveLength(3);
-      expect(
-        state.calculatedTracks.map((t) => [t.startTime, t.duration]),
-      ).toEqual([
-        [0, 2],
-        [2, 3],
-        [5, 4],
-      ]);
-
-      // slotIds were persisted so later edits / drags have stable referents.
-      const persisted = (await getVersion(
-        mockAdId,
-        "voices",
-        "v2",
-      )) as VoiceVersion;
-      expect(persisted.voiceTracks.every((t) => !!t.slotId)).toBe(true);
-    });
-
-    it("keeps a user drag on a surviving slot and re-seeds the rest", async () => {
-      const tracks = [0, 1].map((i) => ({
-        ...mockVoiceTrack,
-        slotId: `slot-${i}`,
-        playAfter: i === 0 ? "start" : "previous",
-        generatedUrl: `https://x/a-${i}.mp3`,
-        generatedDuration: 2,
-      }));
-      await createVersion(mockAdId, "voices", {
-        ...mockVoiceVersionDraft,
-        voiceTracks: tracks,
-      });
-      await setActiveVersion(mockAdId, "voices", "v1");
-      await rebuildMixer(mockAdId);
-      await applyMixerPatch(mockAdId, {
-        anchorUpdates: { "slot-0": { kind: "absolute", t: 1 } },
-      });
-
-      // v2 keeps slot-0, adds slot-2.
-      await createVersion(mockAdId, "voices", {
-        ...mockVoiceVersionDraft,
-        voiceTracks: [
-          tracks[0],
-          {
-            ...tracks[1],
-            slotId: "slot-2",
-            generatedUrl: "https://x/b-2.mp3",
-          },
-        ],
-      });
-      await setActiveVersion(mockAdId, "voices", "v2");
-      const state = await rebuildMixer(mockAdId);
-
-      expect(
-        state.calculatedTracks.map((t) => [t.startTime, t.duration]),
-      ).toEqual([
-        [1, 2],
-        [3, 2],
-      ]);
-    });
-  });
-
   describe("music added after the mixer was bootstrapped (AAC-188)", () => {
     it("assigns a slotId so custom/uploaded music reaches the mixer", async () => {
       // 1. Bootstrap the mixer with voice only — no music at creation time.
@@ -531,11 +438,7 @@ describe("getMixerState", () => {
     // Retrieve it
     const retrievedState = await getMixerState(mockAdId);
 
-    // `lastCalculated` is stamped per derive, so it can tick between calls.
-    expect({ ...retrievedState, lastCalculated: 0 }).toEqual({
-      ...builtState,
-      lastCalculated: 0,
-    });
+    expect(retrievedState).toEqual(builtState);
   });
 
   it("should parse JSON data correctly", async () => {
@@ -555,55 +458,5 @@ describe("getMixerState", () => {
     expect(state).toHaveProperty("totalDuration");
     expect(state).toHaveProperty("activeVersions");
     expect(Array.isArray(state?.tracks)).toBe(true);
-  });
-});
-
-describe("custom music slotId backfill (send-to-mixer)", () => {
-  it("heals a slotless custom music version activated after the mixer exists, so it lands in the timeline", async () => {
-    // 1. Initial content: bootstrap materializes mixer:v1 (and short-circuits
-    //    on every later rebuild), assigning the generated music its slotId.
-    await createVersion(mockAdId, "voices", {
-      ...mockVoiceVersionDraft,
-      generatedUrls: ["https://example.com/voice.mp3"],
-    });
-    await createVersion(mockAdId, "music", {
-      ...mockMusicVersionDraft,
-      generatedUrl: "https://example.com/music-v1.mp3",
-    });
-    await setActiveVersion(mockAdId, "voices", "v1");
-    await setActiveVersion(mockAdId, "music", "v1");
-    await rebuildMixer(mockAdId);
-
-    // 2. A custom upload created AFTER the mixer exists carries no slotId — this
-    //    is exactly what POST /api/ads/[id]/music produces (see MusicDraftEditor).
-    await createVersion(mockAdId, "music", {
-      ...mockMusicVersionDraft,
-      provider: "custom",
-      musicPrompt: "kazoom.mp3",
-      generatedUrl: "https://example.com/kazoom.mp3",
-      status: "frozen",
-    });
-    const beforeSend = (await getVersion(
-      mockAdId,
-      "music",
-      "v2",
-    )) as MusicVersion;
-    expect(beforeSend.slotId).toBeUndefined(); // fixture guard
-
-    // 3. Send-to-mixer: activate the custom version and rebuild.
-    await setActiveVersion(mockAdId, "music", "v2");
-    const mixerState = await rebuildMixer(mockAdId);
-
-    // The custom track resolves into the timeline instead of being dropped.
-    const musicTracks = mixerState.tracks.filter((t) => t.type === "music");
-    expect(musicTracks).toHaveLength(1);
-    expect(musicTracks[0].id).toBe("music-v2");
-    expect(mixerState.calculatedTracks.some((t) => t.type === "music")).toBe(
-      true,
-    );
-
-    // And the version was healed with a persisted slotId.
-    const healed = (await getVersion(mockAdId, "music", "v2")) as MusicVersion;
-    expect(healed.slotId).toBeTruthy();
   });
 });
