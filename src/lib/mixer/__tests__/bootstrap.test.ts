@@ -47,7 +47,7 @@ import {
   listVersions,
   setActiveVersion,
 } from "../../redis/versions";
-import { assignMissingSlotIds, bootstrapLegacyMixer } from "../bootstrap";
+import { bootstrapLegacyMixer } from "../bootstrap";
 
 beforeEach(async () => {
   mockRedis = createMockRedis();
@@ -239,23 +239,5 @@ describe("bootstrapLegacyMixer", () => {
     expect(mixer.pins.voices).toBe("v2");
     expect(mixer.pins.music).toBe("v1");
     expect(mixer.pins.sfx).toBeNull();
-  });
-});
-
-describe("assignMissingSlotIds", () => {
-  it("mints only missing slot ids and keeps existing items by reference", () => {
-    const kept = { slotId: "a" };
-    let n = 0;
-    const { items, mutated } = assignMissingSlotIds(
-      [kept, {}, { slotId: "" }] as Array<{ slotId?: string }>,
-      () => `minted-${n++}`,
-    );
-    expect(mutated).toBe(true);
-    expect(items[0]).toBe(kept);
-    expect(items.map((i) => i.slotId)).toEqual(["a", "minted-0", "minted-1"]);
-  });
-
-  it("reports no mutation when every item has a slot id", () => {
-    expect(assignMissingSlotIds([{ slotId: "a" }]).mutated).toBe(false);
   });
 });

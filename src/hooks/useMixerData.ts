@@ -31,20 +31,6 @@ export function useMixerData(adId: string) {
   };
 
   /**
-   * Remove one SFX cue from the mixer. The server drops it from the pinned
-   * SFX version (a frozen one gets a new version without it) and rebuilds;
-   * removing the only cue unpins the SFX stream, like `removeStream`.
-   */
-  const removeSfxCue = async (slotId: SlotId) => {
-    await fetch(`/api/ads/${adId}/mixer/remove-sfx-cue`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slotId }),
-    });
-    await mutate();
-  };
-
-  /**
    * Persist user-edit anchor updates from a timeline drag. Merges non-
    * destructively on the server; existing anchors for untouched slots are
    * preserved. Forks a frozen active mixer version into a draft if needed
@@ -149,7 +135,6 @@ export function useMixerData(adId: string) {
     isLoading,
     mutate,
     removeStream,
-    removeSfxCue,
     patchAnchors,
     patchTrim,
     startNewTake,

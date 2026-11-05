@@ -51,7 +51,6 @@ export default function AdWorkspace() {
     data: mixerData,
     mutate: mutateMixer,
     removeStream,
-    removeSfxCue,
   } = useMixerData(adId);
 
   // Helper to get mixer URL for a track type
@@ -118,13 +117,13 @@ export default function AdWorkspace() {
 
   // Refs for draft editor imperative handles (DraftAccordion header buttons)
   const voicePlayAllRef = useRef<(() => Promise<void>) | null>(null);
-  const voiceSendToMixerRef = useRef<(() => Promise<boolean>) | null>(null);
+  const voiceSendToMixerRef = useRef<(() => void) | null>(null);
   const voiceRequestChangeRef = useRef<(() => void) | null>(null);
   const musicPlayAllRef = useRef<(() => Promise<void>) | null>(null);
-  const musicSendToMixerRef = useRef<(() => Promise<boolean>) | null>(null);
+  const musicSendToMixerRef = useRef<(() => void) | null>(null);
   const musicRequestChangeRef = useRef<(() => void) | null>(null);
   const sfxPlayAllRef = useRef<(() => Promise<void>) | null>(null);
-  const sfxSendToMixerRef = useRef<(() => Promise<boolean>) | null>(null);
+  const sfxSendToMixerRef = useRef<(() => void) | null>(null);
   const sfxRequestChangeRef = useRef<(() => void) | null>(null);
 
   const [isLoadingBrief, setIsLoadingBrief] = useState(false);
@@ -433,12 +432,9 @@ export default function AdWorkspace() {
                       setOpenAccordion("voices", open ? "draft" : null)
                     }
                     onPlayAll={() => voicePlayAllRef.current?.()}
-                    onSendToMixer={async () => {
-                      // Stay on this tab until the send lands: switching
-                      // unmounts the editor while its saves are in flight.
-                      if (await voiceSendToMixerRef.current?.()) {
-                        setSelectedTab(4);
-                      }
+                    onSendToMixer={() => {
+                      voiceSendToMixerRef.current?.();
+                      setSelectedTab(4);
                     }}
                     onRequestChange={() => voiceRequestChangeRef.current?.()}
                     hasTracksWithAudio={voiceDraft.version.voiceTracks.some(
@@ -464,8 +460,6 @@ export default function AdWorkspace() {
                       onRequestChangeRef={voiceRequestChangeRef}
                       onNewBlankVersion={voice.createDraft}
                       onDraftStateChange={setVoiceDraftState}
-                      briefLanguage={briefData?.selectedLanguage}
-                      briefProvider={briefData?.selectedProvider}
                     />
                   </DraftAccordion>
                 )}
@@ -551,10 +545,9 @@ export default function AdWorkspace() {
                       setOpenAccordion("music", open ? "draft" : null)
                     }
                     onPlayAll={() => musicPlayAllRef.current?.()}
-                    onSendToMixer={async () => {
-                      if (await musicSendToMixerRef.current?.()) {
-                        setSelectedTab(4);
-                      }
+                    onSendToMixer={() => {
+                      musicSendToMixerRef.current?.();
+                      setSelectedTab(4);
                     }}
                     onRequestChange={() => musicRequestChangeRef.current?.()}
                     hasTracksWithAudio={!!musicDraft.version.generatedUrl}
@@ -661,10 +654,9 @@ export default function AdWorkspace() {
                       setOpenAccordion("sfx", open ? "draft" : null)
                     }
                     onPlayAll={() => sfxPlayAllRef.current?.()}
-                    onSendToMixer={async () => {
-                      if (await sfxSendToMixerRef.current?.()) {
-                        setSelectedTab(4);
-                      }
+                    onSendToMixer={() => {
+                      sfxSendToMixerRef.current?.();
+                      setSelectedTab(4);
                     }}
                     onRequestChange={() => sfxRequestChangeRef.current?.()}
                     hasTracksWithAudio={
@@ -763,22 +755,13 @@ export default function AdWorkspace() {
                 onChangeVoice={() => setSelectedTab(1)}
                 onChangeMusic={() => setSelectedTab(2)}
                 onChangeSoundFx={() => setSelectedTab(3)}
-                onRemoveTrack={async (trackId: string) => {
-                  if (trackId.startsWith("music-")) {
-                    removeStream("music");
-                    return;
-                  }
-
-                  // An SFX row removes only its own cue, not the stream.
-                  if (trackId.startsWith("sfx-")) {
-                    const slotId = useMixerStore
-                      .getState()
-                      .tracks.find((t) => t.id === trackId)?.slotId;
-                    if (!slotId) return;
-
-                    await removeSfxCue(slotId);
-                    void sfx.mutate();
-                  }
+                onRemoveTrack={(trackId: string) => {
+                  const streamType = trackId.startsWith("sfx-")
+                    ? "sfx"
+                    : trackId.startsWith("music-")
+                      ? "music"
+                      : null;
+                  if (streamType) removeStream(streamType);
                 }}
               />
             )}

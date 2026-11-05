@@ -1,11 +1,3 @@
-import {
-  clampTailTrimDeltaPx,
-  clipPercent,
-  dropSecondsFor,
-  isPastDragThreshold,
-  tailTrimOnRelease,
-  type TailTrimGesture,
-} from "@/components/mixer/timeline-geometry";
 import { useWaveform } from "@/hooks/useWaveform";
 import { MixerTrack, useMixerStore } from "@/store/mixerStore";
 import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
@@ -217,17 +209,7 @@ export function TimelineTrack({
   const anyDragInProgress = useMixerStore(
     (s) => s.dragPreview !== null || s.trimPreview !== null,
   );
-  /** Adapt the in-flight drag session to the pure tail-trim geometry. */
-  const tailTrimGesture = (
-    session: NonNullable<typeof dragSessionRef.current>,
-    deltaPx: number,
-  ): TailTrimGesture => ({
-    deltaPx,
-    pxPerSecond: session.pxPerSecond,
-    originEffectiveDuration: session.originEffectiveDuration,
-    sourceDuration: track.duration ?? session.originEffectiveDuration,
-    trimStart: track.trim?.start ?? 0,
-  });
+  const DRAG_THRESHOLD_PX = 4;
 
   // Waveform peaks for this clip. Decoded lazily on mount; cached by URL
   // so reposition/trim remounts reuse the same data. Renders as an SVG
@@ -288,11 +270,64 @@ export function TimelineTrack({
     }
   }, [isMenuOpen]);
 
-  const { left, width } = clipPercent(
+  // Get width percentage for timeline elements
+  const getWidthPercent = (start: number, duration: number) => {
+    if (totalDuration === 0) return { left: 0, width: 0 };
+
+    // The key insight: we need to use the REAL duration values directly
+    // This means calculating percentages based on the actual timeline range
+    // without any artificial scaling
+
+    // Simple direct calculation - position and width are simply percentages
+    // of where they fall within the total timeline duration
+    const leftPercent = (start / totalDuration) * 100;
+    const widthPercent = (duration / totalDuration) * 100;
+
+    console.log(`Percentage calculation for "${track.label}":`, {
+      start,
+      duration,
+      totalDuration,
+      calculatedLeftPercent: leftPercent,
+      calculatedWidthPercent: widthPercent,
+    });
+
+    // Make sure width is at least the expected percentage (don't artificially limit)
+    // This is important for accurate visualization of track durations
+    return {
+      left: Math.max(0, leftPercent),
+      width: Math.max(0, widthPercent),
+    };
+  };
+
+  const { left, width } = getWidthPercent(
     track.actualStartTime,
     track.actualDuration,
-    totalDuration,
   );
+
+  // Enhanced debug information for all track types
+  console.log(`Track visualization for "${track.label}" (${track.type}):`, {
+    id: track.id,
+    actualStartTime: track.actualStartTime,
+    actualDuration: track.actualDuration,
+    totalDuration,
+    calculatedWidth: width,
+    calculatedLeft: left,
+    endsAt: track.actualStartTime + track.actualDuration,
+    // Debug percentage calculation (using actual track timing data)
+    startPercent: (track.actualStartTime / totalDuration) * 100,
+    durationPercent: (track.actualDuration / totalDuration) * 100,
+    // Additional debug data to see timing relationships
+    rawTrackEndTime: track.actualStartTime + track.actualDuration,
+    contentRatio:
+      (track.actualStartTime + track.actualDuration) / totalDuration,
+    // Show pixel values for easier debugging
+    containerWidth: document.querySelector(".timeline")?.clientWidth || 0,
+    estimatedPixelLeft:
+      (left / 100) * (document.querySelector(".timeline")?.clientWidth || 1000),
+    estimatedPixelWidth:
+      (width / 100) *
+      (document.querySelector(".timeline")?.clientWidth || 1000),
+  });
 
   // Handle download
   const handleDownload = async () => {
@@ -388,16 +423,26 @@ export function TimelineTrack({
     const deltaPx = e.clientX - session.originX;
 
     if (!session.dragStarted) {
-      if (!isPastDragThreshold(deltaPx)) return;
+      if (Math.abs(deltaPx) < DRAG_THRESHOLD_PX) return;
       session.dragStarted = true;
     }
 
     if (session.mode === "trimEnd") {
       // Clamp the live preview so the ribbon doesn't visually invert or
-      // extend past the raw source duration.
-      const clampedDelta = clampTailTrimDeltaPx(
-        tailTrimGesture(session, deltaPx),
+      // extend past the raw source duration. The final persisted value is
+      // clamped again server-side for defense in depth.
+      const sourceDuration = track.duration ?? session.originEffectiveDuration;
+      const minEffectivePx = 0.1 * session.pxPerSecond;
+      const maxEffectiveSeconds = Math.max(
+        sourceDuration - (track.trim?.start ?? 0),
+        0.1,
       );
+      const maxDeltaPx =
+        (maxEffectiveSeconds - session.originEffectiveDuration) *
+        session.pxPerSecond;
+      const minDeltaPx =
+        minEffectivePx - session.originEffectiveDuration * session.pxPerSecond;
+      const clampedDelta = Math.max(minDeltaPx, Math.min(maxDeltaPx, deltaPx));
       setTrimPreview({
         trackId: track.id,
         edge: "end",
@@ -407,14 +452,12 @@ export function TimelineTrack({
       return;
     }
 
+    const deltaSeconds = deltaPx / session.pxPerSecond;
+    const dropSeconds = Math.max(0, session.originSeconds + deltaSeconds);
     setDragPreview({
       trackId: track.id,
       deltaPx,
-      dropSeconds: dropSecondsFor(
-        session.originSeconds,
-        deltaPx,
-        session.pxPerSecond,
-      ),
+      dropSeconds,
       forceAbsolute: e.altKey,
     });
   };
@@ -443,9 +486,20 @@ export function TimelineTrack({
       // Compute the new trim window and PATCH. Keep the preview set until
       // the server confirms + SWR hydrates, same flash-avoidance pattern as
       // reposition drags.
-      const newTrim = tailTrimOnRelease(
-        tailTrimGesture(session, e.clientX - session.originX),
+      const deltaPx = e.clientX - session.originX;
+      const sourceDuration = track.duration ?? session.originEffectiveDuration;
+      const trimStart = track.trim?.start ?? 0;
+      const newEffective = Math.max(
+        0.1,
+        Math.min(
+          sourceDuration - trimStart,
+          session.originEffectiveDuration + deltaPx / session.pxPerSecond,
+        ),
       );
+      const newTrim = {
+        start: trimStart,
+        end: trimStart + newEffective,
+      };
       try {
         await onTrim?.(track.id, newTrim);
       } finally {
@@ -459,11 +513,9 @@ export function TimelineTrack({
     // then jump forward" flash: the ribbon holds its dropped position during
     // the network round-trip, then lands once the server's new actualStartTime
     // flows through.
-    const dropSeconds = dropSecondsFor(
-      session.originSeconds,
-      e.clientX - session.originX,
-      session.pxPerSecond,
-    );
+    const deltaPx = e.clientX - session.originX;
+    const deltaSeconds = deltaPx / session.pxPerSecond;
+    const dropSeconds = Math.max(0, session.originSeconds + deltaSeconds);
     try {
       await onDrop?.(track.id, dropSeconds, e.altKey, e.shiftKey);
     } finally {
@@ -530,10 +582,6 @@ export function TimelineTrack({
         <div
           ref={ribbonRef}
           data-track-ribbon="true"
-          data-testid="mixer-track-ribbon"
-          data-track-type={track.type}
-          data-start-time={track.actualStartTime}
-          data-end-time={track.actualStartTime + track.actualDuration}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}

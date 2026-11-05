@@ -27,11 +27,6 @@
  * changes semantic content.
  */
 
-import {
-  buildSeedAnchors,
-  mintSlotId,
-  type PinnedVersions,
-} from "@/lib/mixer/mixer-reconcile";
 import { getRedisV3 } from "@/lib/redis-v3";
 import { withAdLock } from "@/lib/redis/adLock";
 import {
@@ -43,11 +38,19 @@ import {
   setActiveVersion,
   updateVersion,
 } from "@/lib/redis/versions";
+import {
+  anchorFromMusicVersion,
+  anchorFromSoundFxPrompt,
+  anchorFromVoiceTrack,
+} from "@/lib/tools/anchorTranslation";
 import type {
+  Anchor,
+  AnchorEntry,
   MixerPins,
   MixerVersion,
   MusicVersion,
   SfxVersion,
+  SlotId,
   VersionId,
   VoiceVersion,
 } from "@/types/versions";
@@ -139,12 +142,12 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
   // Slot-id backfill: older stream versions lack slotIds. Fill missing ones
   // in place so the anchor graph has stable referents. Writes are idempotent —
   // tracks that already have a slotId keep it.
-  const voiceSlots = await ensureVoiceSlotIds(
+  const voiceSlotIds = await ensureVoiceSlotIds(
     adId,
     activeVoiceId,
     voiceVersion as VoiceVersion | null,
   );
-  const sfxSlots = await ensureSfxSlotIds(
+  const sfxSlotIds = await ensureSfxSlotIds(
     adId,
     activeSfxId,
     sfxVersion as SfxVersion | null,
@@ -156,13 +159,41 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
   );
 
   // Build the anchor graph, keyed by slot id.
-  const anchors = buildSeedAnchors({
-    voice: voiceSlots,
-    music: musicVersion
-      ? { ...(musicVersion as MusicVersion), slotId: musicSlotId ?? undefined }
-      : null,
-    sfx: sfxSlots,
-  });
+  const anchors: Record<SlotId, AnchorEntry> = {};
+
+  if (voiceVersion && voiceSlotIds.length > 0) {
+    const vv = voiceVersion as VoiceVersion;
+    vv.voiceTracks.forEach((track, index) => {
+      const slotId = voiceSlotIds[index];
+      if (!slotId) return;
+      const anchor = anchorFromVoiceTrack(track, voiceSlotIds, index);
+      if (anchor) {
+        anchors[slotId] = { anchor, origin: "llm-seed" };
+      }
+    });
+  }
+
+  if (sfxVersion && sfxSlotIds.length > 0) {
+    const sv = sfxVersion as SfxVersion;
+    sv.soundFxPrompts.forEach((prompt, index) => {
+      const slotId = sfxSlotIds[index];
+      if (!slotId) return;
+      const anchor = anchorFromSoundFxPrompt(
+        prompt,
+        voiceSlotIds,
+        sfxSlotIds,
+        index,
+      );
+      if (anchor) {
+        anchors[slotId] = { anchor, origin: "llm-seed" };
+      }
+    });
+  }
+
+  if (musicVersion && musicSlotId) {
+    const anchor: Anchor = anchorFromMusicVersion(musicVersion as MusicVersion);
+    anchors[musicSlotId] = { anchor, origin: "llm-seed" };
+  }
 
   const pins: MixerPins = {
     voices: activeVoiceId ?? null,
@@ -199,52 +230,65 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
 
 // ============ Slot-id backfill helpers ============
 
-/**
- * Give every item lacking a `slotId` a freshly minted one. Items that already
- * carry a slotId are returned as-is (same reference). `mutated` reports
- * whether anything needs persisting.
- */
-export function assignMissingSlotIds<T extends { slotId?: string }>(
-  items: T[],
-  mint: () => string = mintSlotId,
-): { items: T[]; mutated: boolean } {
-  let mutated = false;
-  const next = items.map((item) => {
-    if (item.slotId) return item;
-    mutated = true;
-    return { ...item, slotId: mint() };
-  });
-  return { items: next, mutated };
+function mintSlotId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `slot-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** Returns the voice version with slotIds filled in (persisted if changed). */
 async function ensureVoiceSlotIds(
   adId: string,
   versionId: VersionId | null,
   voiceVersion: VoiceVersion | null,
-): Promise<VoiceVersion | null> {
-  if (!voiceVersion || !versionId) return null;
-  const { items, mutated } = assignMissingSlotIds(voiceVersion.voiceTracks);
-  const updated: VoiceVersion = { ...voiceVersion, voiceTracks: items };
+): Promise<Array<string | undefined>> {
+  if (!voiceVersion || !versionId) return [];
+  const slotIds: Array<string | undefined> = [];
+  let mutated = false;
+  const updated: VoiceVersion = {
+    ...voiceVersion,
+    voiceTracks: voiceVersion.voiceTracks.map((track) => {
+      if (track.slotId) {
+        slotIds.push(track.slotId);
+        return track;
+      }
+      const fresh = mintSlotId();
+      slotIds.push(fresh);
+      mutated = true;
+      return { ...track, slotId: fresh };
+    }),
+  };
   if (mutated) {
     await updateVersion(adId, "voices", versionId, updated);
   }
-  return updated;
+  return slotIds;
 }
 
-/** Returns the sfx version with slotIds filled in (persisted if changed). */
 async function ensureSfxSlotIds(
   adId: string,
   versionId: VersionId | null,
   sfxVersion: SfxVersion | null,
-): Promise<SfxVersion | null> {
-  if (!sfxVersion || !versionId) return null;
-  const { items, mutated } = assignMissingSlotIds(sfxVersion.soundFxPrompts);
-  const updated: SfxVersion = { ...sfxVersion, soundFxPrompts: items };
+): Promise<Array<string | undefined>> {
+  if (!sfxVersion || !versionId) return [];
+  const slotIds: Array<string | undefined> = [];
+  let mutated = false;
+  const updated: SfxVersion = {
+    ...sfxVersion,
+    soundFxPrompts: sfxVersion.soundFxPrompts.map((prompt) => {
+      if (prompt.slotId) {
+        slotIds.push(prompt.slotId);
+        return prompt;
+      }
+      const fresh = mintSlotId();
+      slotIds.push(fresh);
+      mutated = true;
+      return { ...prompt, slotId: fresh };
+    }),
+  };
   if (mutated) {
     await updateVersion(adId, "sfx", versionId, updated);
   }
-  return updated;
+  return slotIds;
 }
 
 export async function ensureMusicSlotId(
@@ -257,38 +301,4 @@ export async function ensureMusicSlotId(
   const fresh = mintSlotId();
   await updateVersion(adId, "music", versionId, { slotId: fresh });
   return fresh;
-}
-
-/**
- * Load the content versions `pins` point at, backfilling any missing slotId
- * (persisted) along the way.
- *
- * Tracks created outside the LLM path — hand-added voice tracks and SFX
- * prompts, custom music uploads, versions predating slot ids — have no
- * slotId. Without one, `slotIdForTrack` can't resolve the track, so the
- * rebuild silently drops it from the timeline and the mix (AAC-188 was the
- * music instance of this). The bootstrap backfill only runs once per ad, so
- * this runs on every rebuild. Idempotent: clips that already carry a slotId
- * keep it.
- */
-export async function loadPinnedWithSlotIds(
-  adId: string,
-  pins: MixerPins,
-): Promise<PinnedVersions> {
-  const voice = pins.voices
-    ? ((await getVersion(adId, "voices", pins.voices)) as VoiceVersion | null)
-    : null;
-  const music = pins.music
-    ? ((await getVersion(adId, "music", pins.music)) as MusicVersion | null)
-    : null;
-  const sfx = pins.sfx
-    ? ((await getVersion(adId, "sfx", pins.sfx)) as SfxVersion | null)
-    : null;
-
-  const musicSlotId = await ensureMusicSlotId(adId, pins.music, music);
-  return {
-    voice: await ensureVoiceSlotIds(adId, pins.voices, voice),
-    music: music ? { ...music, slotId: musicSlotId ?? undefined } : null,
-    sfx: await ensureSfxSlotIds(adId, pins.sfx, sfx),
-  };
 }

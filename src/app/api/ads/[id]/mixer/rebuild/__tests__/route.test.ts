@@ -20,6 +20,29 @@ vi.mock("@/lib/redis-v3", () => ({
   getRedisV3: () => mockRedis,
 }));
 
+// Mock LegacyTimelineCalculator
+vi.mock("@/services/legacyTimelineCalculator", () => ({
+  LegacyTimelineCalculator: {
+    calculateTimings: vi.fn((tracks, audioDurations) => {
+      let currentTime = 0;
+      const calculatedTracks = tracks.map(
+        (track: { id: string; type: string }) => {
+          const duration = audioDurations[track.id] || 3;
+          const startTime = currentTime;
+          currentTime += duration;
+          return {
+            id: track.id,
+            actualStartTime: startTime,
+            actualDuration: duration,
+            type: track.type,
+          };
+        },
+      );
+      return { calculatedTracks, totalDuration: currentTime };
+    }),
+  },
+}));
+
 let mockRedis: ReturnType<typeof createMockRedis>;
 
 beforeEach(async () => {
@@ -48,7 +71,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
 
     // Make request
     const request = new NextRequest(
-      "http://localhost:3000/api/ads/test/mixer/rebuild",
+      "http://localhost:3003/api/ads/test/mixer/rebuild",
       {
         method: "POST",
       },
@@ -82,7 +105,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
 
   it("should handle empty mixer (no active versions)", async () => {
     const request = new NextRequest(
-      "http://localhost:3000/api/ads/test/mixer/rebuild",
+      "http://localhost:3003/api/ads/test/mixer/rebuild",
       {
         method: "POST",
       },
@@ -115,7 +138,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
     await setActiveVersion(mockAdId, "voices", "v1");
 
     const request = new NextRequest(
-      "http://localhost:3000/api/ads/test/mixer/rebuild",
+      "http://localhost:3003/api/ads/test/mixer/rebuild",
       {
         method: "POST",
       },
@@ -144,7 +167,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
     await setActiveVersion(mockAdId, "voices", "v1");
 
     const request = new NextRequest(
-      "http://localhost:3000/api/ads/test/mixer/rebuild",
+      "http://localhost:3003/api/ads/test/mixer/rebuild",
       {
         method: "POST",
       },
@@ -166,7 +189,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
     const beforeTime = Date.now();
 
     const request = new NextRequest(
-      "http://localhost:3000/api/ads/test/mixer/rebuild",
+      "http://localhost:3003/api/ads/test/mixer/rebuild",
       {
         method: "POST",
       },
@@ -185,7 +208,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
   it("should return 500 on error", async () => {
     // Force an error by passing invalid adId that causes issues
     const request = new NextRequest(
-      "http://localhost:3000/api/ads/test/mixer/rebuild",
+      "http://localhost:3003/api/ads/test/mixer/rebuild",
       {
         method: "POST",
       },
@@ -237,7 +260,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
 
     // Rebuild first ad
     const request1 = new NextRequest(
-      "http://localhost:3000/api/ads/test/mixer/rebuild",
+      "http://localhost:3003/api/ads/test/mixer/rebuild",
       {
         method: "POST",
       },
@@ -248,7 +271,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
 
     // Rebuild second ad
     const request2 = new NextRequest(
-      "http://localhost:3000/api/ads/test/mixer/rebuild",
+      "http://localhost:3003/api/ads/test/mixer/rebuild",
       {
         method: "POST",
       },
@@ -273,7 +296,7 @@ describe("POST /api/ads/[id]/mixer/rebuild", () => {
 
     // Rebuild via API
     const request = new NextRequest(
-      "http://localhost:3000/api/ads/test/mixer/rebuild",
+      "http://localhost:3003/api/ads/test/mixer/rebuild",
       {
         method: "POST",
       },

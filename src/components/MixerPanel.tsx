@@ -1,13 +1,10 @@
 import { LoudnessMeter } from "@/components/LoudnessMeter";
 import { TimelineTrack, TimelineTrackData } from "@/components/TimelineTrack";
 import { PlayButton, ResetButton } from "@/components/ui/buttons";
-import { useMixerActions } from "@/hooks/use-mixer-actions";
 import { useMixerData } from "@/hooks/useMixerData";
-import { needsHydration } from "@/store/mixer-hydration";
 import { MixerTrack, useMixerStore } from "@/store/mixerStore";
-import { buildTimingInfo, createMix } from "@/utils/audio-mixer";
+import { createMix, TrackTiming } from "@/utils/audio-mixer";
 import { uploadMixedAudioToBlob } from "@/utils/blob-storage";
-import { withDownloadParam } from "@/utils/media-url";
 import { useParams } from "next/navigation";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
@@ -37,9 +34,13 @@ export function MixerPanel({
   const adId = params.id as string;
 
   // Fetch mixer state from Redis via SWR (source of truth)
-  const { data: mixerSWR } = useMixerData(adId);
-  const { dropTrack, trimTrack, resetPosition, newTake, activateTake } =
-    useMixerActions(adId);
+  const {
+    data: mixerSWR,
+    patchAnchors,
+    patchTrim,
+    startNewTake,
+    activateMixerVersion,
+  } = useMixerData(adId);
 
   // Anchor-relationship hover highlighting. The hovered track and the two
   // derived slot ids (its ref target and the set of dependents that point at
@@ -82,7 +83,74 @@ export function MixerPanel({
   const toggleSolo = useMixerStore((s) => s.toggleSolo);
   const anyTrackSoloed = soloedTrackIds.size > 0;
 
-  /** Start a new take labelled with the current date/time. */
+  /**
+   * Drop handler for timeline drags. Resolves the proximity anchor using the
+   * slot ids surfaced on the track list and persists via PATCH. The server
+   * forks a frozen mixer version into a draft if needed. Response is
+   * optimistic-mutated back into SWR by patchAnchors.
+   */
+  const handleTrackDrop = useCallback(
+    async (
+      trackId: string,
+      dropSeconds: number,
+      forceAbsolute: boolean,
+      allowPastFormat: boolean,
+    ) => {
+      const draggedTrack = tracks.find((t) => t.id === trackId);
+      const draggedSlotId = draggedTrack?.slotId;
+      if (!draggedSlotId) {
+        console.warn(
+          `[mixer-drop] track ${trackId} has no slotId; cannot persist anchor`,
+        );
+        return;
+      }
+
+      const others = calculatedTracks
+        .filter((ct) => ct.id !== trackId)
+        .map((ct) => {
+          const slotId = tracks.find((t) => t.id === ct.id)?.slotId;
+          if (!slotId) return null;
+          return {
+            slotId,
+            startTime: ct.actualStartTime,
+            duration: ct.actualDuration,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => !!x);
+
+      // Build the slot-id → referenced-slot-id map so anchorFromDrop can
+      // detect cycles and fall back to absolute rather than produce an
+      // un-resolvable graph (the resolver would bounce cyclic slots to t=0,
+      // which manifests as clips collapsing onto each other).
+      const existingRefs: Record<string, string | undefined> = {};
+      for (const t of tracks) {
+        if (t.slotId) existingRefs[t.slotId] = t.anchorRefSlotId;
+      }
+
+      const { anchorFromDrop } = await import("@/services/anchorFromDrop");
+      const anchor = anchorFromDrop(draggedSlotId, dropSeconds, others, {
+        forceAbsolute,
+        existingRefs,
+        formatDuration,
+        allowPastFormat,
+      });
+
+      // Hydrate the store eagerly from the server response so the ribbon's
+      // new `left: {%}` and the cleared drag preview land on the same render
+      // frame. Relying on the existing SWR→useEffect→hydrateFromMixer chain
+      // leaves one frame where the ribbon is at its stale position with the
+      // drag translate cleared — visible as a flash.
+      const updated = await patchAnchors({ [draggedSlotId]: anchor });
+      if (updated) hydrateFromMixer(updated);
+    },
+    [tracks, calculatedTracks, formatDuration, patchAnchors, hydrateFromMixer],
+  );
+
+  /**
+   * Start a new take. Server freezes the current draft (preserving it in
+   * the take list), forks it, activates the new draft. Eager-hydrate so
+   * the Takes menu flips to the new version id on the same render frame.
+   */
   const handleNewTake = useCallback(async () => {
     const defaultLabel = new Date().toLocaleString(undefined, {
       month: "short",
@@ -90,16 +158,66 @@ export function MixerPanel({
       hour: "2-digit",
       minute: "2-digit",
     });
-    await newTake(defaultLabel);
+    const updated = await startNewTake(defaultLabel);
+    if (updated) hydrateFromMixer(updated);
     setIsTakesMenuOpen(false);
-  }, [newTake]);
+  }, [startNewTake, hydrateFromMixer]);
 
+  /**
+   * Switch the active mixer version. Server auto-freezes any outgoing
+   * draft first so no work is lost.
+   */
   const handleActivateTake = useCallback(
     async (versionId: string) => {
-      await activateTake(versionId);
+      if (versionId === mixerActiveVersionId) {
+        setIsTakesMenuOpen(false);
+        return;
+      }
+      const updated = await activateMixerVersion(versionId);
+      if (updated) hydrateFromMixer(updated);
       setIsTakesMenuOpen(false);
     },
-    [activateTake],
+    [activateMixerVersion, hydrateFromMixer, mixerActiveVersionId],
+  );
+
+  /**
+   * Tail-trim handler. Persists a clamped trim window on the mixer draft
+   * and eagerly hydrates the store from the server response so the ribbon
+   * lands at its new width in one motion (same flash-avoidance pattern as
+   * the reposition drop path).
+   */
+  const handleTrackTrim = useCallback(
+    async (trackId: string, newTrim: { start: number; end: number } | null) => {
+      const trimmedTrack = tracks.find((t) => t.id === trackId);
+      const slotId = trimmedTrack?.slotId;
+      if (!slotId) {
+        console.warn(`[mixer-trim] track ${trackId} has no slotId; skipping`);
+        return;
+      }
+      const updated = await patchTrim({ [slotId]: newTrim });
+      if (updated) hydrateFromMixer(updated);
+    },
+    [tracks, patchTrim, hydrateFromMixer],
+  );
+
+  /**
+   * Reset a track's anchor back to its stream-level seed. Sends a null
+   * value to patchAnchors, which the server interprets as "re-derive from
+   * the pinned stream version via anchorFromX translators" and writes
+   * with origin=llm-seed.
+   */
+  const handleResetPosition = useCallback(
+    async (trackId: string) => {
+      const track = tracks.find((t) => t.id === trackId);
+      const slotId = track?.slotId;
+      if (!slotId) {
+        console.warn(`[mixer-reset] track ${trackId} has no slotId; skipping`);
+        return;
+      }
+      const updated = await patchAnchors({ [slotId]: null });
+      if (updated) hydrateFromMixer(updated);
+    },
+    [tracks, patchAnchors, hydrateFromMixer],
   );
 
   /**
@@ -192,37 +310,37 @@ export function MixerPanel({
     [],
   );
 
-  // Scope `previewUrl` to the current ad (AAC-229 follow-up).
-  //
-  // `previewUrl` lives in the global mixer UI store and was only ever set when a
-  // mix was created in-session — never reset on navigation and never hydrated
-  // from the ad being viewed. So Export reused whichever URL happened to be in
-  // the store: a previous project's file (exporting the wrong project's mix), or
-  // nothing at all for a fresh project. Here we clear it the moment the ad
-  // changes, then hydrate it once from THIS ad's saved `mixedAudioUrl`. After
-  // that a freshly-created mix's `setPreviewUrl` is left untouched.
-  const hydratedPreviewForAd = useRef<string | null>(null);
-  useEffect(() => {
-    if (hydratedPreviewForAd.current === adId) return;
-
-    // Ad changed — drop the previous ad's preview immediately.
-    setPreviewUrl(null);
-    setIsPreviewValid(false);
-
-    // Once this ad's mixer data is loaded, hydrate from its saved mix (per-ad).
-    if (mixerSWR) {
-      const saved = mixerSWR.mixedAudioUrl ?? null;
-      setPreviewUrl(saved);
-      setIsPreviewValid(!!saved);
-      hydratedPreviewForAd.current = adId;
-    }
-  }, [adId, mixerSWR, setPreviewUrl, setIsPreviewValid]);
-
   // Hydrate Zustand store from SWR data (Redis is source of truth).
   // Server already calculated positions in rebuildMixer; client never recalculates.
   useEffect(() => {
-    if (needsHydration({ tracks, calculatedTracks }, mixerSWR)) {
-      hydrateFromMixer(mixerSWR!);
+    if (!mixerSWR?.tracks || mixerSWR.tracks.length === 0) return;
+
+    const currentTrackIds = new Set(tracks.map((t) => t.id));
+    const swrTrackIds = new Set(mixerSWR.tracks.map((t) => t.id));
+    const currentTrackUrls = new Map(tracks.map((t) => [t.id, t.url]));
+
+    const hasUrlChanges = mixerSWR.tracks.some(
+      (swrTrack) => currentTrackUrls.get(swrTrack.id) !== swrTrack.url,
+    );
+    const hasPositionChanges = mixerSWR.calculatedTracks?.some((swrCalc) => {
+      const local = calculatedTracks.find((c) => c.id === swrCalc.id);
+      return !local || local.actualStartTime !== swrCalc.startTime;
+    });
+
+    const needsHydration =
+      tracks.length === 0 ||
+      currentTrackIds.size !== swrTrackIds.size ||
+      ![...swrTrackIds].every((id) => currentTrackIds.has(id)) ||
+      hasUrlChanges ||
+      hasPositionChanges;
+
+    if (needsHydration) {
+      console.log("🔄 Hydrating mixer store from SWR", {
+        swrTracks: mixerSWR.tracks.length,
+        storeTracks: tracks.length,
+        activeVersions: mixerSWR.activeVersions,
+      });
+      hydrateFromMixer(mixerSWR);
     }
   }, [mixerSWR]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -526,12 +644,29 @@ export function MixerPanel({
         soundFxCount: soundFxUrls.length,
       });
 
-      const timingInfo = buildTimingInfo(
-        calculatedTracks,
-        trackVolumes,
-        mutedTrackIds,
-        soloedTrackIds,
-      );
+      // Prepare timing information for the mixer. Volume is now a dB trim
+      // around unity (post-stem-normalization); silenced tracks send a
+      // sentinel below the floor that createMix interprets as hard mute.
+      const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
+        const userTrimDb = trackVolumes[track.id] ?? 0;
+        const silenced =
+          mutedTrackIds.has(track.id) ||
+          (anyTrackSoloed && !soloedTrackIds.has(track.id));
+        const timing: TrackTiming = {
+          id: track.id,
+          url: track.url,
+          type: track.type,
+          startTime: track.actualStartTime,
+          duration: track.actualDuration,
+          gainDb: silenced ? -1000 : userTrimDb,
+          integratedLufs: track.integratedLufs,
+          trim: track.trim,
+        };
+        return timing;
+      });
+
+      // Sort timing info by start time
+      timingInfo.sort((a, b) => a.startTime - b.startTime);
       console.log(
         "Sorted timing info for mixer:",
         timingInfo.map((t) => ({
@@ -597,7 +732,11 @@ export function MixerPanel({
 
       if (hasValidPreview) {
         console.log("Reusing existing preview URL for export:", previewUrl);
-        downloadUrl = withDownloadParam(previewUrl);
+        // Use the existing preview's download URL
+        downloadUrl = previewUrl.replace(
+          /\/[^/]+$/,
+          (match) => `${match}?download=1`,
+        );
       } else {
         console.log("No valid preview - creating and uploading mix...");
         const result = await createAndUploadMix();
@@ -607,9 +746,7 @@ export function MixerPanel({
           return;
         }
 
-        // The upload route returns the plain media URL; add the download flag
-        // here so a freshly-created mix downloads rather than opening inline.
-        downloadUrl = withDownloadParam(result.downloadUrl);
+        downloadUrl = result.downloadUrl;
 
         // Update preview state since we just created it
         setPreviewUrl(result.permanentUrl);
@@ -686,12 +823,27 @@ export function MixerPanel({
       console.log("Total duration:", totalDuration);
       console.log("Track sources:", { voiceUrls, musicUrl, soundFxUrls });
 
-      const timingInfo = buildTimingInfo(
-        calculatedTracks,
-        trackVolumes,
-        mutedTrackIds,
-        soloedTrackIds,
-      );
+      // Same dB-trim semantics as the preview path. See comment there.
+      const timingInfo: TrackTiming[] = calculatedTracks.map((track) => {
+        const userTrimDb = trackVolumes[track.id] ?? 0;
+        const silenced =
+          mutedTrackIds.has(track.id) ||
+          (anyTrackSoloed && !soloedTrackIds.has(track.id));
+        const timing: TrackTiming = {
+          id: track.id,
+          url: track.url,
+          type: track.type,
+          startTime: track.actualStartTime,
+          duration: track.actualDuration,
+          gainDb: silenced ? -1000 : userTrimDb,
+          integratedLufs: track.integratedLufs,
+          trim: track.trim,
+        };
+        return timing;
+      });
+
+      // Sort timing info to ensure correct playback order (important for sound effects before voices)
+      timingInfo.sort((a, b) => a.startTime - b.startTime);
       console.log(
         "Sorted timing info for mixer:",
         timingInfo.map((t) => ({
@@ -752,11 +904,6 @@ export function MixerPanel({
       if (!playbackAudioRef.current) {
         console.log("Creating new Audio element");
         const audio = new Audio();
-        // `LoudnessMeter` runs this element through `createMediaElementSource`,
-        // and media URLs now redirect to the bucket. Without CORS the node is
-        // tainted, which outputs silence — not just a dead meter, since routing
-        // through the graph replaces the element's own output.
-        audio.crossOrigin = "anonymous";
 
         // Set up event listeners before setting the source
         audio.addEventListener("canplaythrough", () => {
@@ -924,55 +1071,48 @@ export function MixerPanel({
   }, [setIsPlaying, setPlaybackPosition, displayDuration]);
 
   // Hidden audio element for playback
-  const HiddenAudio = useCallback(
-    () => (
-      <audio
-        ref={(el) => {
-          // Only use this ref if we don't already have a playback ref
-          if (el && !playbackAudioRef.current) {
-            console.log("Audio element reference created from JSX");
-            playbackAudioRef.current = el;
+  const HiddenAudio = () => (
+    <audio
+      ref={(el) => {
+        // Only use this ref if we don't already have a playback ref
+        if (el && !playbackAudioRef.current) {
+          console.log("Audio element reference created from JSX");
+          playbackAudioRef.current = el;
 
-            el.addEventListener("canplaythrough", () => {
-              console.log("Audio can play through (mounted element)");
-            });
+          el.addEventListener("canplaythrough", () => {
+            console.log("Audio can play through (mounted element)");
+          });
 
-            el.addEventListener("error", (e) => {
-              console.error("Audio playback error (mounted element):", e);
-            });
+          el.addEventListener("error", (e) => {
+            console.error("Audio playback error (mounted element):", e);
+          });
 
-            el.addEventListener("play", () => {
-              console.log("Audio play event from mounted element");
-              setIsPlaying(true);
-              startPlaybackAnimation();
-            });
+          el.addEventListener("play", () => {
+            console.log("Audio play event from mounted element");
+            setIsPlaying(true);
+            startPlaybackAnimation();
+          });
 
-            el.addEventListener("pause", () => {
-              console.log("Audio pause event from mounted element");
-              setIsPlaying(false);
-            });
-          }
-        }}
-        style={{ display: "none" }}
-        controls={false}
-        onEnded={() => {
-          console.log("Audio playback ended (onEnded event)");
-          setIsPlaying(false);
-          setPlaybackPosition(0);
-          if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-            animationFrameRef.current = null;
-          }
-        }}
-        preload="metadata"
-        // Same reason as the imperative element above: this one feeds
-        // `LoudnessMeter`'s `createMediaElementSource`, so a cross-origin src
-        // without CORS would taint the graph and silence playback.
-        crossOrigin="anonymous"
-        src={previewUrl || undefined}
-      />
-    ),
-    [previewUrl],
+          el.addEventListener("pause", () => {
+            console.log("Audio pause event from mounted element");
+            setIsPlaying(false);
+          });
+        }
+      }}
+      style={{ display: "none" }}
+      controls={false}
+      onEnded={() => {
+        console.log("Audio playback ended (onEnded event)");
+        setIsPlaying(false);
+        setPlaybackPosition(0);
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
+      }}
+      preload="auto"
+      src={previewUrl || undefined}
+    />
   );
 
   // Create a function to sync play state and UI state
@@ -1468,9 +1608,9 @@ export function MixerPanel({
                     onAudioError={() => handleAudioError(track.id, track.label)}
                     isTrackLoading={isTrackLoading(track)}
                     onChangeVoice={onChangeVoice}
-                    onDrop={dropTrack}
-                    onTrim={trimTrack}
-                    onResetPosition={resetPosition}
+                    onDrop={handleTrackDrop}
+                    onTrim={handleTrackTrim}
+                    onResetPosition={handleResetPosition}
                     onToggleMute={toggleMute}
                     onToggleSolo={toggleSolo}
                     isMuted={mutedTrackIds.has(track.id)}
@@ -1507,9 +1647,9 @@ export function MixerPanel({
                     isTrackLoading={isTrackLoading(track)}
                     onChangeMusic={onChangeMusic}
                     onRemove={onRemoveTrack}
-                    onDrop={dropTrack}
-                    onTrim={trimTrack}
-                    onResetPosition={resetPosition}
+                    onDrop={handleTrackDrop}
+                    onTrim={handleTrackTrim}
+                    onResetPosition={handleResetPosition}
                     onToggleMute={toggleMute}
                     onToggleSolo={toggleSolo}
                     isMuted={mutedTrackIds.has(track.id)}
@@ -1546,9 +1686,9 @@ export function MixerPanel({
                     onAudioLoaded={() => handleAudioLoaded(track.id)}
                     onAudioError={() => handleAudioError(track.id, track.label)}
                     isTrackLoading={isTrackLoading(track)}
-                    onDrop={dropTrack}
-                    onTrim={trimTrack}
-                    onResetPosition={resetPosition}
+                    onDrop={handleTrackDrop}
+                    onTrim={handleTrackTrim}
+                    onResetPosition={handleResetPosition}
                     onToggleMute={toggleMute}
                     onToggleSolo={toggleSolo}
                     isMuted={mutedTrackIds.has(track.id)}
