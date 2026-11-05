@@ -11,7 +11,7 @@ import {
   useVoicePlaybackState,
 } from "@/hooks/useAudioPlayback";
 import { mintSlotId } from "@/lib/mixer/mixer-reconcile";
-import { generateAndPersistTrack } from "@/lib/voice-utils";
+import { generateVoiceTrack, persistTrackUrl } from "@/lib/voice-utils";
 import type { Language, Provider, VoiceTrack } from "@/types";
 import type {
   VersionId,
@@ -47,7 +47,7 @@ export interface VoiceDraftEditorProps {
   onGenerateAll?: () => void; // Callback to expose generateAudio to parent
   // Callbacks to expose playAll and sendToMixer to parent (for DraftAccordion header buttons)
   onPlayAllRef?: React.MutableRefObject<(() => Promise<void>) | null>;
-  onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
+  onSendToMixerRef?: React.MutableRefObject<(() => Promise<boolean>) | null>;
   onRequestChangeRef?: React.MutableRefObject<(() => void) | null>;
   /** @deprecated State now comes from centralized audioPlaybackStore */
   playAllState?: React.MutableRefObject<{
@@ -88,9 +88,34 @@ export function VoiceDraftEditor({
 
   // Every write goes through `save`: in call order, and with SWR prop updates
   // ignored until its refetch lands (see useDraftSaveQueue).
-  const { save, isSaving } = useDraftSaveQueue(async () => {
+  const { save, isSaving, flush } = useDraftSaveQueue(async () => {
     await onUpdate();
   });
+
+  /**
+   * Generates one track's audio, then persists its URL through the save
+   * queue: the persist is a GET → whole-array PATCH, so it must land after
+   * any text or voice edit queued before it.
+   */
+  const generateTrack = async (
+    track: VoiceTrack,
+    trackIndex: number,
+    provider: Provider,
+  ) => {
+    const result = await generateVoiceTrack(track, {
+      defaultProvider: provider,
+    });
+
+    await save(() =>
+      persistTrackUrl(result.audioUrl, result.duration, {
+        adId,
+        versionId: draftVersionId,
+        trackIndex,
+      }),
+    );
+
+    return result;
+  };
 
   // Sync local state when draftVersion prop changes (e.g., after iteration creates new draft)
   // Guarded: don't overwrite local state while an edit is being persisted to Redis
@@ -353,10 +378,10 @@ export function VoiceDraftEditor({
     setStatusMessage(`Generating track ${index + 1}...`);
 
     try {
-      const result = await generateAndPersistTrack(
+      const result = await generateTrack(
         track,
-        { adId, versionId: draftVersionId, trackIndex: index },
-        { defaultProvider: selectedProvider as Provider },
+        index,
+        selectedProvider as Provider,
       );
 
       // Update local state with embedded URL
@@ -375,8 +400,6 @@ export function VoiceDraftEditor({
         trackIndex: index,
         versionId: draftVersionId,
       });
-
-      onUpdate(); // Refresh parent state
     } catch (error) {
       console.error("Failed to generate track:", error);
       setStatusMessage(
@@ -446,11 +469,7 @@ export function VoiceDraftEditor({
       );
 
       try {
-        const result = await generateAndPersistTrack(
-          track,
-          { adId, versionId: draftVersionId, trackIndex: index },
-          { defaultProvider: effectiveProvider },
-        );
+        const result = await generateTrack(track, index, effectiveProvider);
 
         // Update track with embedded URL
         updatedTracks[index] = {
@@ -481,7 +500,6 @@ export function VoiceDraftEditor({
       );
     }
 
-    onUpdate(); // Reload the stream
     setGeneratingVoice(false); // Clear generation state
 
     return updatedTracks; // Return for caller to use immediately
@@ -547,11 +565,7 @@ export function VoiceDraftEditor({
       setStatusMessage(`Generating track ${i + 1}...`);
 
       try {
-        const result = await generateAndPersistTrack(
-          track,
-          { adId, versionId: draftVersionId, trackIndex: i },
-          { defaultProvider: effectiveProvider },
-        );
+        const result = await generateTrack(track, i, effectiveProvider);
 
         // Update local state so UI turns green
         updatedTracks[i] = {
@@ -579,7 +593,6 @@ export function VoiceDraftEditor({
 
     setGeneratingVoice(false);
     setStatusMessage("All tracks generated!");
-    onUpdate();
   };
 
   const sendToMixer = useSendToMixer({
@@ -587,6 +600,7 @@ export function VoiceDraftEditor({
     stream: "voices",
     versionId: draftVersionId,
     onUpdate,
+    flush,
   });
 
   const handleSendToMixer = async () => {
@@ -594,6 +608,7 @@ export function VoiceDraftEditor({
     setStatusMessage(
       sent ? "Voices sent to mixer!" : "Failed to send to mixer",
     );
+    return sent;
   };
 
   useDraftHeaderActions({

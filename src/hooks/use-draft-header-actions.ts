@@ -5,11 +5,12 @@ type UseDraftHeaderActionsOptions = {
   /** Filled with {@link playAll} for the draft accordion's Play button. */
   onPlayAllRef?: MutableRefObject<(() => Promise<void>) | null>;
   /** Filled with {@link sendToMixer} for the Send to mixer button. */
-  onSendToMixerRef?: MutableRefObject<(() => void) | null>;
+  onSendToMixerRef?: MutableRefObject<(() => Promise<boolean>) | null>;
   /** Filled with {@link requestChange} for the Request change button. */
   onRequestChangeRef?: MutableRefObject<(() => void) | null>;
   playAll: () => Promise<void>;
-  sendToMixer: () => void;
+  /** Resolves whether the draft reached the mixer, so the page can follow it. */
+  sendToMixer: () => Promise<boolean>;
   requestChange: () => void;
 };
 
