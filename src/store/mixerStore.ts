@@ -1,3 +1,4 @@
+import { getDefaultVolume, stateFromServer } from "@/store/mixer-hydration";
 import type { SoundFxPlacementIntent } from "@/types";
 import type {
   AnchorOrigin,
@@ -55,20 +56,6 @@ export type MixerTrack = {
 export type CalculatedTrack = MixerTrack & {
   actualStartTime: number;
   actualDuration: number;
-};
-
-// Default volume levels for different track types
-const getDefaultVolume = (type: "voice" | "music" | "soundfx"): number => {
-  switch (type) {
-    case "voice":
-      return 1.0;
-    case "music":
-      return 0.3;
-    case "soundfx":
-      return 0.7;
-    default:
-      return 1.0;
-  }
 };
 
 /**
@@ -220,45 +207,7 @@ export const useMixerStore = create<MixerStoreState>((set, get) => ({
   soloedTrackIds: new Set<string>(),
 
   hydrateFromMixer: (state) => {
-    const incomingTracks = (state.tracks ?? []) as MixerTrack[];
-    const incomingCalc = state.calculatedTracks ?? [];
-
-    // Build CalculatedTrack[] by joining full track data with server-calculated positions.
-    const calculatedTracks: CalculatedTrack[] = incomingCalc.map((calc) => {
-      const full = incomingTracks.find((t) => t.id === calc.id);
-      return {
-        ...(full ??
-          ({ id: calc.id, url: "", label: "", type: calc.type } as MixerTrack)),
-        actualStartTime: calc.startTime,
-        actualDuration: calc.duration,
-      };
-    });
-
-    const totalDuration = state.totalDuration ?? 0;
-    const nextVolumes: { [key: string]: number } = {};
-    for (const track of incomingTracks) {
-      const fromState = state.volumes?.[track.id];
-      nextVolumes[track.id] =
-        fromState ?? track.volume ?? getDefaultVolume(track.type);
-    }
-
-    // Detect URL changes vs current state to decide whether preview is stale.
-    const prevUrls = new Map(get().tracks.map((t) => [t.id, t.url]));
-    const urlsChanged =
-      incomingTracks.length !== prevUrls.size ||
-      incomingTracks.some((t) => prevUrls.get(t.id) !== t.url);
-
-    set((prev) => ({
-      tracks: incomingTracks,
-      calculatedTracks,
-      totalDuration,
-      formatDuration: state.formatDuration,
-      mixerActiveVersionId: state.mixerActiveVersionId,
-      mixerActiveVersionStatus: state.mixerActiveVersionStatus,
-      mixerVersions: state.mixerVersions ?? [],
-      trackVolumes: nextVolumes,
-      isPreviewValid: urlsChanged ? false : prev.isPreviewValid,
-    }));
+    set((prev) => stateFromServer(prev, state));
   },
 
   addTrack: (track) => {

@@ -51,6 +51,7 @@ export default function AdWorkspace() {
     data: mixerData,
     mutate: mutateMixer,
     removeStream,
+    removeSfxCue,
   } = useMixerData(adId);
 
   // Helper to get mixer URL for a track type
@@ -460,6 +461,8 @@ export default function AdWorkspace() {
                       onRequestChangeRef={voiceRequestChangeRef}
                       onNewBlankVersion={voice.createDraft}
                       onDraftStateChange={setVoiceDraftState}
+                      briefLanguage={briefData?.selectedLanguage}
+                      briefProvider={briefData?.selectedProvider}
                     />
                   </DraftAccordion>
                 )}
@@ -755,13 +758,22 @@ export default function AdWorkspace() {
                 onChangeVoice={() => setSelectedTab(1)}
                 onChangeMusic={() => setSelectedTab(2)}
                 onChangeSoundFx={() => setSelectedTab(3)}
-                onRemoveTrack={(trackId: string) => {
-                  const streamType = trackId.startsWith("sfx-")
-                    ? "sfx"
-                    : trackId.startsWith("music-")
-                      ? "music"
-                      : null;
-                  if (streamType) removeStream(streamType);
+                onRemoveTrack={async (trackId: string) => {
+                  if (trackId.startsWith("music-")) {
+                    removeStream("music");
+                    return;
+                  }
+
+                  // An SFX row removes only its own cue, not the stream.
+                  if (trackId.startsWith("sfx-")) {
+                    const slotId = useMixerStore
+                      .getState()
+                      .tracks.find((t) => t.id === trackId)?.slotId;
+                    if (!slotId) return;
+
+                    await removeSfxCue(slotId);
+                    void sfx.mutate();
+                  }
                 }}
               />
             )}

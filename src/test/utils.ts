@@ -6,12 +6,20 @@
 import type { Redis } from "@upstash/redis";
 import RedisMock from "ioredis-mock";
 
+// ioredis-mock keys its in-memory store by connection (host:port), and two plain
+// `new RedisMock()` instances SHARE one store — so data written by one test can
+// leak into another that runs in the same worker process, causing order-dependent
+// flakiness (even with a beforeEach flushall). Handing every mock a unique port
+// gives it a fully isolated store. Counter, not Math.random, for determinism.
+let mockRedisSeq = 0;
+
 /**
- * Create a mock Redis instance for testing
- * Uses ioredis-mock for in-memory Redis operations
+ * Create a mock Redis instance for testing.
+ * Uses ioredis-mock for in-memory Redis operations, with a per-instance isolated
+ * data store (unique port) so tests can't pollute each other.
  */
 export function createMockRedis(): Redis {
-  const mock = new RedisMock();
+  const mock = new RedisMock({ port: 16000 + mockRedisSeq++ });
 
   // Wrap ioredis-mock to match Upstash Redis interface
   return {
