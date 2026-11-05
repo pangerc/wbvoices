@@ -78,9 +78,7 @@ describe("useDraftSaveQueue", () => {
     const onSaved = vi.fn(() => Promise.resolve());
     const { result } = renderHook(() => useDraftSaveQueue(onSaved));
 
-    const failed = result.current.save(() =>
-      Promise.reject(new Error("boom")),
-    );
+    const failed = result.current.save(() => Promise.reject(new Error("boom")));
     const next = result.current.save(() => Promise.resolve("ok"));
 
     await expect(failed).rejects.toThrow("boom");
@@ -88,5 +86,59 @@ describe("useDraftSaveQueue", () => {
     expect(result.current.isSaving()).toBe(false);
     // Only the successful write refetches.
     expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  it("flushes at once when nothing is queued", async () => {
+    const { result } = renderHook(() =>
+      useDraftSaveQueue(() => Promise.resolve()),
+    );
+
+    await expect(result.current.flush()).resolves.toBeUndefined();
+  });
+
+  it("flushes only after every write and its refetch, including saves queued while waiting", async () => {
+    const write = deferred();
+    const refetch = deferred();
+    const late = deferred();
+    const onSaved = vi
+      .fn()
+      .mockReturnValueOnce(refetch.promise)
+      .mockReturnValue(Promise.resolve());
+    const { result } = renderHook(() => useDraftSaveQueue(onSaved));
+    let flushed = false;
+
+    act(() => {
+      void result.current.save(() => write.promise);
+    });
+    const flush = result.current.flush().then(() => {
+      flushed = true;
+    });
+
+    write.resolve();
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    act(() => {
+      void result.current.save(() => late.promise);
+    });
+    refetch.resolve();
+    await Promise.resolve();
+
+    expect(flushed).toBe(false);
+
+    late.resolve();
+    await act(() => flush);
+
+    expect(flushed).toBe(true);
+    expect(onSaved).toHaveBeenCalledTimes(2);
+  });
+
+  it("flushes after a failed write too", async () => {
+    const { result } = renderHook(() =>
+      useDraftSaveQueue(() => Promise.resolve()),
+    );
+
+    const failed = result.current.save(() => Promise.reject(new Error("boom")));
+
+    await expect(failed).rejects.toThrow("boom");
+    await expect(result.current.flush()).resolves.toBeUndefined();
   });
 });

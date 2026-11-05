@@ -49,7 +49,7 @@ export function useSfxCues({
 
   // Every write goes through `save`: in call order, and with SWR prop updates
   // ignored until its refetch lands (see useDraftSaveQueue).
-  const { save, isSaving, saving } = useDraftSaveQueue(onUpdate);
+  const { save, isSaving, flush, saving } = useDraftSaveQueue(onUpdate);
 
   // Sync local state when the draft prop changes (e.g. an iteration created a
   // new draft) — but never over an edit that is still being persisted.
@@ -151,6 +151,7 @@ export function useSfxCues({
     urls,
     setUrls,
     save,
+    flush,
     saving,
     updateCue,
     addCue,

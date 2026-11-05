@@ -10,13 +10,18 @@ type UseSendToMixerOptions = {
   versionId: VersionId;
   /** Refetches the stream, so its active version updates immediately. */
   onUpdate: () => unknown;
+  /**
+   * Waits for the editor's queued saves (`useDraftSaveQueue().flush`). The
+   * freeze rebuilds the mixer from Redis, so it must not run ahead of them.
+   */
+  flush?: () => Promise<void>;
 };
 
 /**
- * "Send to mixer" for a draft editor: freezes the draft as the stream's active
- * version, which rebuilds the mixer server-side, then seeds the mixer's SWR
- * cache with the rebuilt state (hydration updates the timeline from there) and
- * refetches the stream.
+ * "Send to mixer" for a draft editor: waits for pending draft saves, freezes
+ * the draft as the stream's active version, which rebuilds the mixer
+ * server-side, then seeds the mixer's SWR cache with the rebuilt state
+ * (hydration updates the timeline from there) and refetches the stream.
  *
  * @returns `sendToMixer`, resolving false when the freeze failed — the editor
  *   decides what to tell the user.
@@ -26,9 +31,12 @@ export function useSendToMixer({
   stream,
   versionId,
   onUpdate,
+  flush,
 }: UseSendToMixerOptions): () => Promise<boolean> {
   return async () => {
     try {
+      await flush?.();
+
       const res = await fetch(
         `/api/ads/${adId}/${stream}/${versionId}/freeze`,
         { method: "POST" },
