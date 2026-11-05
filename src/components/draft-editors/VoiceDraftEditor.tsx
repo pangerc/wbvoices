@@ -3,12 +3,16 @@
 import { ScripterPanel } from "@/components/ScripterPanel";
 import { VersionIterationInput } from "@/components/ui";
 import type { DraftState } from "@/components/ui/DraftAccordion";
+import { useDraftHeaderActions } from "@/hooks/use-draft-header-actions";
+import { useDraftSaveQueue } from "@/hooks/use-draft-save-queue";
+import { useSendToMixer } from "@/hooks/use-send-to-mixer";
 import {
   usePlaybackActions,
   useVoicePlaybackState,
 } from "@/hooks/useAudioPlayback";
+import { mintSlotId } from "@/lib/mixer/mixer-reconcile";
 import { generateAndPersistTrack } from "@/lib/voice-utils";
-import type { Provider, VoiceTrack } from "@/types";
+import type { Language, Provider, VoiceTrack } from "@/types";
 import type {
   VersionId,
   VoiceTrackGenerationStatus,
@@ -53,6 +57,10 @@ export interface VoiceDraftEditorProps {
   onNewBlankVersion?: () => void;
   /** Callback to notify parent of draft state changes (for badge rendering) */
   onDraftStateChange?: (state: DraftState) => void;
+  /** Project language from the ad brief — seeds the voice catalogue when the draft has no cast voices yet */
+  briefLanguage?: Language;
+  /** Project voice provider from the ad brief — same fallback role as briefLanguage */
+  briefProvider?: Provider;
 }
 
 export function VoiceDraftEditor({
@@ -67,6 +75,8 @@ export function VoiceDraftEditor({
   playAllState,
   onNewBlankVersion,
   onDraftStateChange,
+  briefLanguage,
+  briefProvider,
 }: VoiceDraftEditorProps) {
   // Ref to expose VersionIterationInput's expand function
   const iterationExpandRef = useRef<(() => void) | null>(null);
@@ -76,15 +86,18 @@ export function VoiceDraftEditor({
   );
   const [statusMessage, setStatusMessage] = useState("");
 
-  // Guard: prevent SWR prop updates from overwriting local state while an edit is being persisted
-  const editInFlightRef = useRef(false);
+  // Every write goes through `save`: in call order, and with SWR prop updates
+  // ignored until its refetch lands (see useDraftSaveQueue).
+  const { save, isSaving } = useDraftSaveQueue(async () => {
+    await onUpdate();
+  });
 
   // Sync local state when draftVersion prop changes (e.g., after iteration creates new draft)
   // Guarded: don't overwrite local state while an edit is being persisted to Redis
   useEffect(() => {
-    if (editInFlightRef.current) return;
+    if (isSaving()) return;
     setVoiceTracks(migrateVoiceTracks(draftVersion));
-  }, [draftVersion]);
+  }, [draftVersion, isSaving]);
 
   // Use centralized audio playback store - THIS IS THE KEY FIX for state sync issues!
   const {
@@ -104,30 +117,63 @@ export function VoiceDraftEditor({
   } = usePlaybackActions();
 
   // Stable language/provider state — initialized from draftVersion, then synced
-  // from local voiceTracks (guarded by editInFlightRef). Never falls back to
+  // from local voiceTracks (guarded by isSaving). Never falls back to
   // defaults on SWR revalidation noise, preventing the voice list from resetting.
+  //
+  // Resolution order: a voice already cast in the draft wins, then the version's
+  // own knowledge context, then the ad brief. A blank version has none of the
+  // first two, which is why the brief has to reach this component — otherwise a
+  // new version on a Romanian project would open casting English voices.
+  const contextLanguage = draftVersion.knowledgeContext?.language;
+  const contextProvider = draftVersion.knowledgeContext?.voiceProvider;
+
   const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
     const firstTrackWithVoice = draftVersion.voiceTracks.find(
       (t) => t.voice?.language,
     );
-    return firstTrackWithVoice?.voice?.language || "en";
+    return (
+      firstTrackWithVoice?.voice?.language ||
+      contextLanguage ||
+      briefLanguage ||
+      "en"
+    );
   });
 
   const [selectedProvider, setSelectedProvider] = useState<string>(() => {
     const firstTrackWithVoice = draftVersion.voiceTracks.find(
       (t) => t.voice?.provider,
     );
-    return firstTrackWithVoice?.voice?.provider || "elevenlabs";
+    return (
+      firstTrackWithVoice?.voice?.provider ||
+      contextProvider ||
+      briefProvider ||
+      "elevenlabs"
+    );
   });
 
-  // Sync language/provider from local voiceTracks state (already guarded by editInFlightRef).
-  // Only update when a track actually has the info — never fall back to defaults.
+  // Sync language/provider from local voiceTracks state (already guarded by isSaving),
+  // falling back through the same chain as the initializer. The brief loads
+  // asynchronously and arrives after mount, so it has to be a dependency here —
+  // the initializer alone would miss it. Only update when something actually
+  // resolves; never fall back to the hardcoded defaults.
   useEffect(() => {
-    const lang = voiceTracks.find((t) => t.voice?.language)?.voice?.language;
+    const lang =
+      voiceTracks.find((t) => t.voice?.language)?.voice?.language ||
+      contextLanguage ||
+      briefLanguage;
     if (lang) setSelectedLanguage(lang);
-    const prov = voiceTracks.find((t) => t.voice?.provider)?.voice?.provider;
+    const prov =
+      voiceTracks.find((t) => t.voice?.provider)?.voice?.provider ||
+      contextProvider ||
+      briefProvider;
     if (prov) setSelectedProvider(prov);
-  }, [voiceTracks]);
+  }, [
+    voiceTracks,
+    contextLanguage,
+    contextProvider,
+    briefLanguage,
+    briefProvider,
+  ]);
 
   // These remain as defaults since they're not stored per-version
   const [selectedRegion] = useState<string | null>(null);
@@ -181,7 +227,6 @@ export function VoiceDraftEditor({
     index: number,
     updates: Partial<VoiceTrack>,
   ) => {
-    editInFlightRef.current = true;
     const newTracks = [...voiceTracks];
 
     // Check if content-affecting fields changed
@@ -215,16 +260,15 @@ export function VoiceDraftEditor({
 
     // Persist to backend (voiceTracks now includes embedded URLs)
     try {
-      await fetch(`/api/ads/${adId}/voices/${draftVersionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voiceTracks: newTracks }),
-      });
-      await onUpdate(); // Wait for SWR refetch to complete before releasing guard
+      await save(() =>
+        fetch(`/api/ads/${adId}/voices/${draftVersionId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ voiceTracks: newTracks }),
+        }),
+      );
     } catch (error) {
       console.error("Failed to update voice draft:", error);
-    } finally {
-      editInFlightRef.current = false;
     }
   };
 
@@ -237,18 +281,22 @@ export function VoiceDraftEditor({
         voice: null,
         playAfter: voiceTracks.length > 0 ? "previous" : "start",
         overlap: 0,
+        // Stable mixer slot from birth: PATCH replaces voiceTracks wholesale,
+        // so a slotId only survives if the client copy carries it.
+        slotId: mintSlotId(),
       },
     ];
     setVoiceTracks(newTracks);
 
     // Persist to backend
     try {
-      await fetch(`/api/ads/${adId}/voices/${draftVersionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voiceTracks: newTracks }),
-      });
-      onUpdate();
+      await save(() =>
+        fetch(`/api/ads/${adId}/voices/${draftVersionId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ voiceTracks: newTracks }),
+        }),
+      );
     } catch (error) {
       console.error("Failed to add voice track:", error);
     }
@@ -261,12 +309,13 @@ export function VoiceDraftEditor({
 
     // Persist to backend
     try {
-      await fetch(`/api/ads/${adId}/voices/${draftVersionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voiceTracks: newTracks }),
-      });
-      onUpdate();
+      await save(() =>
+        fetch(`/api/ads/${adId}/voices/${draftVersionId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ voiceTracks: newTracks }),
+        }),
+      );
     } catch (error) {
       console.error("Failed to remove voice track:", error);
     }
@@ -533,67 +582,36 @@ export function VoiceDraftEditor({
     onUpdate();
   };
 
-  // Send voice tracks to the mixer via freeze API
-  // Uses the same flow as versions - Redis is source of truth
+  const sendToMixer = useSendToMixer({
+    adId,
+    stream: "voices",
+    versionId: draftVersionId,
+    onUpdate,
+  });
+
   const handleSendToMixer = async () => {
-    try {
-      const res = await fetch(
-        `/api/ads/${adId}/voices/${draftVersionId}/freeze`,
-        {
-          method: "POST",
-        },
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error("Voice freeze failed:", errorData);
-        setStatusMessage("Failed to send to mixer");
-        return;
-      }
-
-      const { mixer } = await res.json();
-
-      // Invalidate SWR cache - hydration will update mixer
-      const { mutate: globalMutate } = await import("swr");
-      await globalMutate(`/api/ads/${adId}/mixer`, mixer, false);
-
-      // Refresh voice stream data so activeVersionId updates immediately
-      onUpdate();
-
-      setStatusMessage("Voices sent to mixer!");
-    } catch (error) {
-      console.error("Failed to send voices to mixer:", error);
-      setStatusMessage("Failed to send to mixer");
-    }
+    const sent = await sendToMixer();
+    setStatusMessage(
+      sent ? "Voices sent to mixer!" : "Failed to send to mixer",
+    );
   };
 
-  // Expose handlePlayAll, handleSendToMixer, and requestChange to parent via refs
-  // Note: playAllState ref is deprecated - state now comes from centralized audioPlaybackStore
-  useEffect(() => {
-    if (onPlayAllRef) {
-      onPlayAllRef.current = handlePlayAll;
-    }
-    if (onSendToMixerRef) {
-      onSendToMixerRef.current = handleSendToMixer;
-    }
-    if (onRequestChangeRef) {
-      onRequestChangeRef.current = () => iterationExpandRef.current?.();
-    }
-    // Backwards compat: still update ref for any legacy consumers, but prefer using the hook
-    if (playAllState) {
-      playAllState.current = { isPlaying: isPlayingAll, isGenerating };
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
+  useDraftHeaderActions({
     onPlayAllRef,
     onSendToMixerRef,
     onRequestChangeRef,
-    playAllState,
-    isPlayingAll,
-    isGenerating,
-    draftVersionId,
-    voiceTracks,
-  ]);
+    playAll: handlePlayAll,
+    sendToMixer: handleSendToMixer,
+    requestChange: () => iterationExpandRef.current?.(),
+  });
+
+  // Backwards compat: playAllState is deprecated — state now comes from the
+  // centralized audioPlaybackStore — but legacy consumers may still read it.
+  useEffect(() => {
+    if (playAllState) {
+      playAllState.current = { isPlaying: isPlayingAll, isGenerating };
+    }
+  }, [playAllState, isPlayingAll, isGenerating]);
 
   // Reset form (not used in draft mode)
   const resetForm = () => {

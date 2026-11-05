@@ -65,7 +65,8 @@ type MusicPanelProps = {
   setMusicProvider: (provider: MusicProvider) => void;
   resetForm: () => void;
   onTrackSelected?: (url: string, filename?: string, duration?: number) => void; // Optional callback with URL after track selection/upload
-  initialPrompts?: MusicPrompts; // Initial prompts from draft version
+  musicPrompts: MusicPrompts; // Controlled provider-specific prompts, owned by the draft editor
+  onUpdatePrompt: (provider: MusicProvider, value: string) => void; // Called on every keystroke; parent persists to Redis
   initialProvider?: MusicProvider; // Provider from draft version (to detect custom uploads)
   hasGeneratedUrl?: boolean; // Whether draft already has a generated URL
   existingFilename?: string; // For custom uploads: shows which file is loaded (from musicPrompt)
@@ -87,7 +88,8 @@ export function MusicPanel({
   setMusicProvider,
   resetForm,
   onTrackSelected,
-  initialPrompts,
+  musicPrompts,
+  onUpdatePrompt,
   initialProvider,
   hasGeneratedUrl,
   existingFilename,
@@ -111,27 +113,12 @@ export function MusicPanel({
   const [duration, setDuration] = useState(Math.max(30, adDuration + 15));
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
 
-  // Provider-specific prompts - one state per provider
-  // Initialize from draft version if available
-  const [providerPrompts, setProviderPrompts] = useState<MusicPrompts>(
-    initialPrompts || { loudly: "", mubert: "", elevenlabs: "" },
-  );
-
-  // Surface the live prompt to the parent so the header "Play" generates with
-  // what's typed, not the (possibly empty) persisted draft prompt.
-  useEffect(() => {
-    onPromptsChange?.(providerPrompts, providerPrompts[musicProvider] || "");
-  }, [providerPrompts, musicProvider, onPromptsChange]);
-
   // Library state
   const [libraryTracks, setLibraryTracks] = useState<LibraryMusicTrack[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Note: Music prompts are now managed through the V3 version stream system
-  // The draft version already contains all necessary data
 
   // Initialize mode based on whether this is a custom upload with audio
   useEffect(() => {
@@ -293,22 +280,8 @@ export function MusicPanel({
     );
   };
 
-  // Handle local reset
-  const handleReset = () => {
-    setMode("generate");
-    setMusicProvider("elevenlabs");
-    setDuration(Math.max(30, adDuration + 15));
-    setLocalStatusMessage("");
-    setProviderPrompts({
-      loudly: "",
-      mubert: "",
-      elevenlabs: "",
-    });
-    resetForm();
-  };
-
   const handleGenerate = () => {
-    const prompt = providerPrompts[musicProvider] || "";
+    const prompt = musicPrompts[musicProvider] || "";
 
     // Don't submit an empty description — give inline feedback instead of
     // letting the provider reject it with a cryptic error.
@@ -374,18 +347,14 @@ export function MusicPanel({
 
               {/* Loudly textarea */}
               <div
+                data-testid="music-prompt-input-loudly"
                 style={{
                   display: musicProvider === "loudly" ? "block" : "none",
                 }}
               >
                 <GlassyTextarea
-                  value={providerPrompts.loudly}
-                  onChange={(e) => {
-                    setProviderPrompts((prev) => ({
-                      ...prev,
-                      loudly: e.target.value,
-                    }));
-                  }}
+                  value={musicPrompts.loudly}
+                  onChange={(e) => onUpdatePrompt("loudly", e.target.value)}
                   placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
                   className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
                   minRows={3}
@@ -399,13 +368,8 @@ export function MusicPanel({
                 }}
               >
                 <GlassyTextarea
-                  value={providerPrompts.mubert}
-                  onChange={(e) => {
-                    setProviderPrompts((prev) => ({
-                      ...prev,
-                      mubert: e.target.value,
-                    }));
-                  }}
+                  value={musicPrompts.mubert}
+                  onChange={(e) => onUpdatePrompt("mubert", e.target.value)}
                   placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
                   className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
                   minRows={3}
@@ -414,18 +378,14 @@ export function MusicPanel({
 
               {/* ElevenLabs textarea */}
               <div
+                data-testid="music-prompt-input-elevenlabs"
                 style={{
                   display: musicProvider === "elevenlabs" ? "block" : "none",
                 }}
               >
                 <GlassyTextarea
-                  value={providerPrompts.elevenlabs}
-                  onChange={(e) => {
-                    setProviderPrompts((prev) => ({
-                      ...prev,
-                      elevenlabs: e.target.value,
-                    }));
-                  }}
+                  value={musicPrompts.elevenlabs}
+                  onChange={(e) => onUpdatePrompt("elevenlabs", e.target.value)}
                   placeholder="Describe the music you want to generate... (e.g. 'A calm and peaceful piano melody with soft strings in the background')"
                   className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
                   minRows={3}

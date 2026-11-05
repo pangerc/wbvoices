@@ -3,13 +3,18 @@
 import { SoundFxPanel } from "@/components/SoundFxPanel";
 import { VersionIterationInput } from "@/components/ui";
 import type { DraftState } from "@/components/ui/DraftAccordion";
-import { usePlaybackActions, useSfxDraftState } from "@/hooks/useAudioPlayback";
-import { useMixerData } from "@/hooks/useMixerData";
+import {
+  sfxDraftState,
+  useActiveVoicePreviews,
+  useMixerOverriddenSlots,
+  useSfxCues,
+  useSfxGeneration,
+} from "@/hooks/sfx-draft";
+import { useDraftHeaderActions } from "@/hooks/use-draft-header-actions";
+import { useSendToMixer } from "@/hooks/use-send-to-mixer";
 import type { useStreamOperations } from "@/hooks/useStreamOperations";
-import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
-import type { SoundFxPrompt } from "@/types";
-import type { SfxVersion, VersionId, VoiceVersion } from "@/types/versions";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { SfxVersion, VersionId } from "@/types/versions";
+import React, { useEffect, useRef, useState } from "react";
 
 export interface SfxDraftEditorProps {
   adId: string;
@@ -42,395 +47,97 @@ export function SfxDraftEditor({
   adDuration: adDurationProp,
   onDraftStateChange,
 }: SfxDraftEditorProps) {
+  const adDuration = adDurationProp || 30;
   // Ref to expose VersionIterationInput's expand function
   const iterationExpandRef = useRef<(() => void) | null>(null);
-  const [soundFxPrompts, setSoundFxPrompts] = useState<SoundFxPrompt[]>(
-    draftVersion.soundFxPrompts,
-  );
-  const [generatedUrls, setGeneratedUrls] = useState<(string | null)[]>(
-    draftVersion.generatedUrls || [],
-  );
   const [statusMessage, setStatusMessage] = useState("");
 
-  // Guard: prevent SWR prop updates from overwriting local state while an edit is being persisted
-  const editInFlightRef = useRef(false);
+  const {
+    cues,
+    urls,
+    setUrls,
+    save,
+    saving,
+    updateCue,
+    addCue,
+    removeCue,
+    resetCues,
+  } = useSfxCues({ adId, draftVersionId, draftVersion, onUpdate });
 
-  // Sync local state when draftVersion prop changes (e.g., after iteration creates new draft)
-  // Guarded: don't overwrite local state while an edit is being persisted to Redis
-  useEffect(() => {
-    if (editInFlightRef.current) return;
-    setSoundFxPrompts(draftVersion.soundFxPrompts);
-    setGeneratedUrls(draftVersion.generatedUrls || []);
-  }, [draftVersion]);
+  const { isGenerating, generatingPromptIndex, generateAll, playCue, playAll } =
+    useSfxGeneration({
+      adId,
+      draftVersionId,
+      cues,
+      urls,
+      setUrls,
+      save,
+      onUpdate,
+      onStatus: setStatusMessage,
+    });
 
-  // Use centralized audio playback store for state
-  const { isGenerating, isPlaying, generatingPromptIndex } =
-    useSfxDraftState(draftVersionId);
-  const { play, setGeneratingSfx } = usePlaybackActions();
+  const sendToMixer = useSendToMixer({
+    adId,
+    stream: "sfx",
+    versionId: draftVersionId,
+    onUpdate,
+  });
 
-  // Compute voice track previews for SFX placement options (after voice X)
-  // IMPORTANT: Must use ACTIVE voice version (not draft) because mixer rebuilder
-  // positions SFX tracks relative to the active voice version's tracks.
-  const voiceTrackPreviews = useMemo(() => {
-    if (!voiceStream?.data) return [];
+  const voiceTrackPreviews = useActiveVoicePreviews(voiceStream);
+  const { overriddenSlotIds, resetPlacement } = useMixerOverriddenSlots(adId);
 
-    // Use ACTIVE voice version - must match what mixer rebuilder uses
-    const activeVersion = voiceStream.data.active
-      ? (voiceStream.data.versionsData[voiceStream.data.active] as VoiceVersion)
-      : null;
+  // Badge state from LOCAL state (not SWR props) for immediate feedback
+  const draftState = sfxDraftState(cues, urls, isGenerating);
 
-    if (!activeVersion?.voiceTracks) return [];
-    return activeVersion.voiceTracks.map((t) => ({
-      name: t.voice?.name || "Voice",
-      text: t.text || "",
-    }));
-  }, [voiceStream?.data]);
-
-  const adDuration = adDurationProp || 30;
-
-  // Compute draft state from LOCAL state (not SWR props) for immediate badge feedback
-  const draftState = useMemo((): DraftState => {
-    if (isGenerating) return "generating";
-    const promptsWithContent = soundFxPrompts.filter((p) =>
-      p.description?.trim(),
-    );
-    if (promptsWithContent.length === 0) return "editing";
-    return promptsWithContent.every((_, i) => !!generatedUrls[i])
-      ? "ready"
-      : "changed";
-  }, [soundFxPrompts, generatedUrls, isGenerating]);
-
-  // Notify parent of draft state changes
   useEffect(() => {
     onDraftStateChange?.(draftState);
   }, [draftState, onDraftStateChange]);
 
-  // Update sound fx prompt and persist to backend
-  // Invalidates generated URL if content-affecting fields changed
-  const updatePrompt = async (
-    index: number,
-    updates: Partial<SoundFxPrompt>,
-  ) => {
-    editInFlightRef.current = true;
-    const newPrompts = [...soundFxPrompts];
-    newPrompts[index] = { ...newPrompts[index], ...updates };
-    setSoundFxPrompts(newPrompts);
-
-    // Check if content-affecting fields changed
-    const contentFields = ["description", "duration", "placement"];
-    const contentChanged = contentFields.some((field) => field in updates);
-
-    // Build the patch body
-    const patchBody: {
-      soundFxPrompts: SoundFxPrompt[];
-      generatedUrls?: (string | null)[];
-    } = {
-      soundFxPrompts: newPrompts,
-    };
-
-    // If content changed and this index has a generated URL, invalidate it
-    // Use local generatedUrls state (not stale draftVersion prop)
-    if (contentChanged && generatedUrls[index]) {
-      const newUrls: (string | null)[] = [...generatedUrls];
-      newUrls[index] = null;
-      patchBody.generatedUrls = newUrls;
-      setGeneratedUrls(newUrls); // Update local state immediately
-      console.log(
-        `[SfxDraftEditor] Invalidating generated URL for prompt ${index} due to content change`,
-      );
-    }
-
-    // Persist to backend via PATCH
-    try {
-      await fetch(`/api/ads/${adId}/sfx/${draftVersionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patchBody),
-      });
-      onUpdate(); // Sync SWR cache with Redis
-    } catch (error) {
-      console.error("Failed to update sfx draft:", error);
-    } finally {
-      editInFlightRef.current = false;
-    }
-  };
-
-  // Add new sound fx prompt
-  const addPrompt = async () => {
-    const newPrompts = [
-      ...soundFxPrompts,
-      {
-        description: "",
-        duration: 3,
-        placement: { type: "end" as const },
-        playAfter: undefined, // Let placement intent determine position
-        overlap: 0,
-      },
-    ];
-    setSoundFxPrompts(newPrompts);
-
-    // Persist to backend
-    try {
-      await fetch(`/api/ads/${adId}/sfx/${draftVersionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ soundFxPrompts: newPrompts }),
-      });
-      onUpdate();
-    } catch (error) {
-      console.error("Failed to add sfx prompt:", error);
-    }
-  };
-
-  // Remove sound fx prompt
-  const removePrompt = async (index: number) => {
-    const newPrompts = soundFxPrompts.filter((_, i) => i !== index);
-    setSoundFxPrompts(newPrompts);
-
-    // Persist to backend
-    try {
-      await fetch(`/api/ads/${adId}/sfx/${draftVersionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ soundFxPrompts: newPrompts }),
-      });
-      onUpdate();
-    } catch (error) {
-      console.error("Failed to remove sfx prompt:", error);
-    }
-  };
-
-  // Generate sound effects for draft - returns generated URLs on success
-  const handleGenerate = async (): Promise<string[] | null> => {
-    setGeneratingSfx(true, draftVersionId);
-    setStatusMessage("Generating sound effects...");
-
-    try {
-      const res = await fetch(
-        `/api/ads/${adId}/sfx/${draftVersionId}/generate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            soundFxPrompts,
-          }),
-        },
-      );
-
-      if (res.ok) {
-        const result = await res.json();
-        setGeneratedUrls(result.generatedUrls); // Update local state immediately
-        setStatusMessage("Sound effects generated successfully!");
-        onUpdate(); // Reload the stream
-        return result.generatedUrls; // Return URLs for autoplay
-      } else {
-        const error = await res.json();
-        setStatusMessage(
-          `Generation failed: ${error.error || "Unknown error"}`,
-        );
-        return null;
-      }
-    } catch (error) {
-      console.error("Failed to generate sound effects:", error);
-      setStatusMessage("Generation failed. Please try again.");
-      return null;
-    } finally {
-      setGeneratingSfx(false);
-    }
-  };
-
-  // Per-prompt play: generate single prompt if needed, then play it
-  const handlePlayPrompt = async (index: number) => {
-    const prompt = soundFxPrompts[index];
-    if (!prompt?.description?.trim()) {
-      setStatusMessage("Enter a description first.");
-      return;
-    }
-
-    // If URL exists, just play it
-    if (generatedUrls[index]) {
-      play({
-        type: "sfx-preview",
-        url: generatedUrls[index]!,
-        trackIndex: index,
-        versionId: draftVersionId,
-      });
-      return;
-    }
-
-    // No URL — generate this one prompt, then play
-    setGeneratingSfx(true, draftVersionId, index);
-    setStatusMessage(`Generating sound effect ${index + 1}...`);
-
-    try {
-      const res = await fetch(
-        `/api/ads/${adId}/sfx/${draftVersionId}/generate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ soundFxPrompts, promptIndex: index }),
-        },
-      );
-
-      if (res.ok) {
-        const result = await res.json();
-        setGeneratedUrls(result.generatedUrls);
-        setStatusMessage(`Sound effect ${index + 1} ready!`);
-        onUpdate();
-
-        const url = result.generatedUrls[index];
-        if (url) {
-          play({
-            type: "sfx-preview",
-            url,
-            trackIndex: index,
-            versionId: draftVersionId,
-          });
-        }
-      } else {
-        const error = await res.json();
-        setStatusMessage(
-          `Generation failed: ${error.error || "Unknown error"}`,
-        );
-      }
-    } catch (error) {
-      console.error("Failed to generate sound effect:", error);
-      setStatusMessage("Generation failed. Please try again.");
-    } finally {
-      setGeneratingSfx(false);
-    }
-  };
-
-  // Smart play: generate if needed, then play all SFX sequentially
-  // V3 architecture: Redis is source of truth - fetch fresh data before deciding
-  const handlePlayAll = async () => {
-    const { playSequence, stopSequence } = useAudioPlaybackStore.getState();
-
-    // If already playing, stop
-    if (isPlaying) {
-      stopSequence();
-      return;
-    }
-
-    // Show loading immediately for responsive feedback
-    setGeneratingSfx(true, draftVersionId);
-
-    // Fetch fresh data from Redis via SWR to avoid stale prop issues
-    const freshVersion = await onUpdate();
-    const freshUrls = freshVersion?.generatedUrls || [];
-    const promptCount = freshVersion?.soundFxPrompts.length || 0;
-
-    // Check that ALL prompts have corresponding URLs (using fresh data)
-    const allPromptsHaveUrls =
-      promptCount > 0 && freshUrls.filter(Boolean).length >= promptCount;
-
-    // Generate if any prompt is missing audio
-    if (!allPromptsHaveUrls) {
-      const generatedUrls = await handleGenerate();
-      if (!generatedUrls || generatedUrls.length === 0) return; // Generation failed
-      playSequence(generatedUrls, {
-        type: "sfx-preview",
-        versionId: draftVersionId,
-      });
-      return;
-    }
-
-    // Clear loading state - we're just playing, not generating
-    setGeneratingSfx(false);
-
-    // Play all SFX sequentially
-    playSequence(freshUrls.filter(Boolean) as string[], {
-      type: "sfx-preview",
-      versionId: draftVersionId,
-    });
-  };
-
-  // Send generated SFX to mixer via freeze API
-  // Uses the same flow as versions - Redis is source of truth
   const handleSendToMixer = async () => {
-    try {
-      const res = await fetch(`/api/ads/${adId}/sfx/${draftVersionId}/freeze`, {
-        method: "POST",
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error("SFX freeze failed:", errorData);
-        setStatusMessage("Failed to send to mixer");
-        return;
-      }
-
-      const { mixer } = await res.json();
-
-      // Invalidate SWR cache - hydration will update mixer
-      const { mutate: globalMutate } = await import("swr");
-      await globalMutate(`/api/ads/${adId}/mixer`, mixer, false);
-
-      // Refresh SFX stream data so activeVersionId updates immediately
-      onUpdate();
-
-      setStatusMessage("SFX sent to mixer!");
-    } catch (error) {
-      console.error("Failed to send SFX to mixer:", error);
-      setStatusMessage("Failed to send to mixer");
-    }
+    const sent = await sendToMixer();
+    setStatusMessage(sent ? "SFX sent to mixer!" : "Failed to send to mixer");
   };
 
-  // Expose functions to parent via refs
-  useEffect(() => {
-    if (onPlayAllRef) onPlayAllRef.current = handlePlayAll;
-    if (onSendToMixerRef) onSendToMixerRef.current = handleSendToMixer;
-    if (onRequestChangeRef)
-      onRequestChangeRef.current = () => iterationExpandRef.current?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [soundFxPrompts, draftVersion, isPlaying, draftVersionId]);
-
-  // Reset form (not used in draft mode)
-  const resetForm = () => {
-    setSoundFxPrompts(draftVersion.soundFxPrompts);
-  };
-
-  // ============ Mixer divergence hint ============
-  //
-  // Build the set of slot ids whose mixer anchor has `origin: "user-edit"` —
-  // these are prompts the user dragged in the mixer, making the panel's
-  // "Placement" dropdown value stale. The panel renders a badge and a
-  // reset button on those entries.
-  const { data: mixerData, patchAnchors: mixerPatchAnchors } =
-    useMixerData(adId);
-  const mixerOverriddenSlotIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const track of mixerData?.tracks ?? []) {
-      if (track.anchorOrigin === "user-edit" && track.slotId) {
-        ids.add(track.slotId);
-      }
-    }
-    return ids;
-  }, [mixerData]);
+  useDraftHeaderActions({
+    onPlayAllRef,
+    onSendToMixerRef,
+    onRequestChangeRef,
+    playAll,
+    sendToMixer: handleSendToMixer,
+    requestChange: () => iterationExpandRef.current?.(),
+  });
 
   const handleResetPlacement = async (index: number) => {
-    const slotId = soundFxPrompts[index]?.slotId;
-    if (!slotId) return;
-    await mixerPatchAnchors({ [slotId]: null });
+    const slotId = cues[index]?.slotId;
+    if (slotId) await resetPlacement(slotId);
   };
 
+  const hasAllAudio =
+    !!draftVersion.generatedUrls?.length &&
+    draftVersion.generatedUrls.filter(Boolean).length >= cues.length;
+
   return (
-    <>
+    // `contents`: a hook for E2E to wait on saves, without a layout box.
+    <div
+      className="contents"
+      data-testid="sfx-draft-editor"
+      data-save-state={saving ? "saving" : "saved"}
+    >
       <SoundFxPanel
-        onGenerate={handleGenerate}
+        onGenerate={generateAll}
         isGenerating={isGenerating}
         statusMessage={statusMessage}
-        soundFxPrompts={soundFxPrompts}
-        onUpdatePrompt={updatePrompt}
-        onRemovePrompt={removePrompt}
-        onAddPrompt={addPrompt}
+        soundFxPrompts={cues}
+        onUpdatePrompt={updateCue}
+        onRemovePrompt={removeCue}
+        onAddPrompt={addCue}
         adDuration={adDuration}
-        resetForm={resetForm}
+        resetForm={resetCues}
         voiceTrackPreviews={voiceTrackPreviews}
-        onPlayPrompt={handlePlayPrompt}
+        onPlayPrompt={playCue}
         generatingPromptIndex={generatingPromptIndex}
-        generatedUrls={generatedUrls}
-        mixerOverriddenSlotIds={mixerOverriddenSlotIds}
+        generatedUrls={urls}
+        mixerOverriddenSlotIds={overriddenSlotIds}
         onResetPlacement={handleResetPlacement}
       />
       <VersionIterationInput
@@ -439,14 +146,10 @@ export function SfxDraftEditor({
         parentVersionId={draftVersionId}
         onNewVersion={onUpdate}
         onNewBlankVersion={onNewBlankVersion}
-        disabled={
-          !draftVersion.generatedUrls?.length ||
-          draftVersion.generatedUrls.filter(Boolean).length <
-            soundFxPrompts.length
-        }
+        disabled={!hasAllAudio}
         disabledReason="Generate all sound effects before requesting changes"
         expandRef={iterationExpandRef}
       />
-    </>
+    </div>
   );
 }
