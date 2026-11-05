@@ -72,7 +72,7 @@ export function MatchReviewCards({ findings, onApply }: Props) {
             onClick={() => setHidden(false)}
             className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
           >
-            Show solutions
+            Show recommendations
           </button>
         </div>
       </div>
