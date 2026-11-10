@@ -65,18 +65,32 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(
     ad.meta.brief?.selectedLanguage || "en",
   );
+  // True once the user has explicitly picked a language, so a later market
+  // change won't clobber it. A duplicated ad's saved non-default language
+  // counts as a deliberate choice; the plain "en" default does not. Replaces
+  // the old `selectedLanguage === "en"` guard, which only let the market
+  // default apply once and left the language stale on a second market change.
+  const languageManuallySetRef = useRef<boolean>(
+    Boolean(
+      ad.meta.brief?.selectedLanguage &&
+        ad.meta.brief.selectedLanguage !== "en",
+    ),
+  );
+  const handleLanguageChanged = useCallback((next: Language) => {
+    languageManuallySetRef.current = true;
+    setSelectedLanguage(next);
+  }, []);
 
   const handleMarketChanged = useCallback(
     (alpha2: string | null, market: MarketRow | null) => {
       setSelectedRegion(alpha2);
-      // Default language from market.language.code IFF the user hasn't
-      // already chosen a language (don't clobber). The "default" check is
-      // the current `selectedLanguage` matching its initial "en" default.
-      if (market && selectedLanguage === "en" && market.language.code) {
+      // Default language from the market every time the market changes, unless
+      // the user has explicitly chosen a language (then don't clobber it).
+      if (market?.language.code && !languageManuallySetRef.current) {
         setSelectedLanguage(market.language.code as Language);
       }
     },
-    [selectedLanguage],
+    [],
   );
 
   const [dossier, setDossier] = useState<BrandDossier | null>(null);
@@ -435,7 +449,7 @@ export const DuplicateAdPopup = ({ ad, onClose }: DuplicateAdPopupProps) => {
           onCreativeModeChanged={setCreativeMode}
           showAngleNudge={showAngleNudge}
           language={selectedLanguage}
-          onLanguageChanged={setSelectedLanguage}
+          onLanguageChanged={handleLanguageChanged}
           accent={selectedAccent}
           onAccentChanged={setSelectedAccent}
           onLanguageOptionsResolved={handleLanguageOptionsResolved}
