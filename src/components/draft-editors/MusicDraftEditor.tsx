@@ -132,6 +132,21 @@ export function MusicDraftEditor({
     }
   };
 
+  // Persist the user's chosen music length to the draft. The slider fires
+  // continuously while dragging, so debounce the write; the save queue then
+  // coalesces it. Making the draft the source of truth is what fixes the "set
+  // 20s but it generates/shows 30s" bug: the value now survives the post-save
+  // refetch (and any remount) and is the duration `handleGenerate` sends.
+  const durationSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleDurationChange = (seconds: number) => {
+    if (durationSaveTimer.current) clearTimeout(durationSaveTimer.current);
+    durationSaveTimer.current = setTimeout(() => {
+      patchDraft({ duration: seconds }).catch((error) =>
+        console.error("Failed to persist music duration:", error),
+      );
+    }, 350);
+  };
+
   // Handle provider change - persists to Redis and clears stale audio
   const handleProviderChange = async (newProvider: MusicProvider) => {
     setMusicProvider(newProvider);
@@ -347,6 +362,7 @@ export function MusicDraftEditor({
         resetForm={resetForm}
         musicPrompts={musicPrompts}
         onUpdatePrompt={updatePrompt}
+        onDurationChange={handleDurationChange}
         onTrackSelected={handleTrackSelected}
         initialProvider={draftVersion.provider}
         hasGeneratedUrl={!!generatedUrl}

@@ -74,6 +74,7 @@ type MusicPanelProps = {
   onTrackSelected?: (url: string, filename?: string, duration?: number) => void; // Optional callback with URL after track selection/upload
   musicPrompts: MusicPrompts; // Controlled provider-specific prompts, owned by the draft editor
   onUpdatePrompt: (provider: MusicProvider, value: string) => void; // Called on every keystroke; parent persists to Redis
+  onDurationChange?: (seconds: number) => void; // Called when the user moves the duration slider; parent persists to Redis so the choice survives refetch/remount and drives generation
   initialProvider?: MusicProvider; // Provider from draft version (to detect custom uploads)
   hasGeneratedUrl?: boolean; // Whether draft already has a generated URL
   existingFilename?: string; // For custom uploads: shows which file is loaded (from musicPrompt)
@@ -90,6 +91,7 @@ export function MusicPanel({
   onTrackSelected,
   musicPrompts,
   onUpdatePrompt,
+  onDurationChange,
   initialProvider,
   hasGeneratedUrl,
   existingFilename,
@@ -421,7 +423,15 @@ export function MusicPanel({
               <GlassySlider
                 label={null}
                 value={duration}
-                onChange={setDuration}
+                onChange={(value) => {
+                  // Local state drives the smooth drag; the parent persists the
+                  // choice to the draft so it survives a refetch/remount and
+                  // becomes the duration generation actually uses. Without this
+                  // the slider is local-only and resets to the draft's stored
+                  // length (the ad duration), so a 20s pick generated a 30s bed.
+                  setDuration(value);
+                  onDurationChange?.(value);
+                }}
                 min={10}
                 max={120}
                 step={1}
