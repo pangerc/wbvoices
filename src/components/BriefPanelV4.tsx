@@ -146,6 +146,21 @@ export function BriefPanelV4({
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(
     initialBrief?.selectedLanguage || "en",
   );
+  // True once the user has explicitly picked a language, so a later market
+  // change won't clobber it. An initial non-default language (an edited brief)
+  // counts as a deliberate choice; the plain "en" default does not. This is
+  // the correct signal — the old `selectedLanguage === "en"` guard only let
+  // the market default apply once, so a *second* market change left the
+  // language stale (voice region updated, language didn't).
+  const languageManuallySetRef = useRef<boolean>(
+    Boolean(
+      initialBrief?.selectedLanguage && initialBrief.selectedLanguage !== "en",
+    ),
+  );
+  const handleLanguageChanged = useCallback((next: Language) => {
+    languageManuallySetRef.current = true;
+    setSelectedLanguage(next);
+  }, []);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(
     initialBrief?.selectedRegion || null,
   );
@@ -282,8 +297,13 @@ export function BriefPanelV4({
     }
     if (initialBrief.selectedTemplateId !== undefined)
       setSelectedTemplateId(initialBrief.selectedTemplateId);
-    if (initialBrief.selectedLanguage)
+    if (initialBrief.selectedLanguage) {
       setSelectedLanguage(initialBrief.selectedLanguage);
+      // A saved non-default language is a deliberate choice — preserve it
+      // against market-driven defaults.
+      if (initialBrief.selectedLanguage !== "en")
+        languageManuallySetRef.current = true;
+    }
     if (initialBrief.selectedRegion)
       setSelectedRegion(initialBrief.selectedRegion);
     if (initialBrief.selectedAccent)
@@ -379,14 +399,13 @@ export function BriefPanelV4({
   const handleMarketChanged = useCallback(
     (alpha2: string | null, market: MarketRow | null) => {
       setSelectedRegion(alpha2);
-      // Default language from market.language.code IFF the user hasn't
-      // already chosen a language (don't clobber). The "default" check is
-      // the current `selectedLanguage` matching its initial "en" default.
-      if (market && selectedLanguage === "en" && market.language.code) {
+      // Default language from the market every time the market changes, unless
+      // the user has explicitly chosen a language (then don't clobber it).
+      if (market?.language.code && !languageManuallySetRef.current) {
         setSelectedLanguage(market.language.code as Language);
       }
     },
-    [selectedLanguage],
+    [],
   );
 
   // useLanguageOptions lives inside LanguageTopic (it owns the language
@@ -928,7 +947,7 @@ export function BriefPanelV4({
         onCreativeModeChanged={setCreativeMode}
         showAngleNudge={showAngleNudge}
         language={selectedLanguage}
-        onLanguageChanged={setSelectedLanguage}
+        onLanguageChanged={handleLanguageChanged}
         accent={selectedAccent}
         onAccentChanged={setSelectedAccent}
         onLanguageOptionsResolved={handleLanguageOptionsResolved}

@@ -264,6 +264,11 @@ export const serverSettings = pgTable("server_settings", {
   matchReviewRegenerateEnabled: boolean("match_review_regenerate_enabled")
     .notNull()
     .default(false),
+  // ElevenLabs TTS model id passed as `model_id` on /v1/text-to-speech
+  // (eleven_v3 | eleven_v4 | eleven_v4_turbo). Global, admin-selectable.
+  elevenLabsModelId: text("elevenlabs_model_id")
+    .notNull()
+    .default("eleven_v3"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: text("updated_by"),
 });

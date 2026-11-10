@@ -1,3 +1,4 @@
+import { DEFAULT_ELEVENLABS_VOICE_MODEL } from "@/lib/providers/elevenLabsModels";
 import { trackVoiceUsage } from "@/lib/usage/tracker";
 import { uploadVoiceToBlob } from "@/utils/blob-storage";
 import { NextResponse } from "next/server";
@@ -23,6 +24,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       pronunciationDictionaryId,
       pronunciationVersionId,
       speed,
+      modelId,
     } = body;
 
     if (!text || typeof text !== "string") {
@@ -56,6 +58,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
             ? pronunciationVersionId
             : undefined,
         speed: typeof speed === "number" ? speed : undefined,
+        modelId: typeof modelId === "string" ? modelId : undefined,
       },
     };
   }
@@ -87,6 +90,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       pronunciationDictionaryId,
       pronunciationVersionId,
       speed,
+      modelId,
     } = params;
     const { apiKey } = credentials;
 
@@ -322,7 +326,7 @@ export class ElevenLabsVoiceProvider extends BaseAudioProvider {
       }>;
     } = {
       text: textStr,
-      model_id: "eleven_v3",
+      model_id: (modelId as string) || DEFAULT_ELEVENLABS_VOICE_MODEL,
       voice_settings: apiVoiceSettings,
     };
 

@@ -9,6 +9,7 @@
  */
 
 import { AuthError, requireAuth } from "@/lib/auth-helpers";
+import { isElevenLabsVoiceModel } from "@/lib/providers/elevenLabsModels";
 import {
   getServerSettings,
   isMissingSettingsTableError,
@@ -99,6 +100,15 @@ export async function PATCH(request: NextRequest) {
         );
       }
       patch.maintenanceMessage = v as string | null;
+    }
+    if ("elevenLabsModelId" in body) {
+      if (!isElevenLabsVoiceModel(body.elevenLabsModelId)) {
+        return NextResponse.json(
+          { error: "elevenLabsModelId must be a supported ElevenLabs model" },
+          { status: 400 },
+        );
+      }
+      patch.elevenLabsModelId = body.elevenLabsModelId;
     }
 
     if (Object.keys(patch).length === 0) {

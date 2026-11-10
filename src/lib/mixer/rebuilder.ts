@@ -15,12 +15,21 @@
  *     pins to the current stream actives. Called from freeze endpoints.
  *   - `getMixerState` is the read path: bootstrap + derive. Never mutates.
  *
- * Positioning still uses `LegacyTimelineCalculator` in this stage — the pure
- * resolver swap lands in stage 7. Until then, the cached resolver output on
- * frozen mixer versions is intentionally unused.
+ * Positioning itself is pure and lives in `derive-timeline.ts`; this module
+ * only loads its inputs and persists the resolver cache.
  */
 
-import { bootstrapLegacyMixer, ensureMusicSlotId } from "@/lib/mixer/bootstrap";
+import {
+  bootstrapLegacyMixer,
+  loadPinnedWithSlotIds,
+} from "@/lib/mixer/bootstrap";
+import { deriveTimeline } from "@/lib/mixer/derive-timeline";
+import {
+  computePatchedVersion,
+  planDraftSync,
+  type MixerPatch,
+  type PinnedVersions,
+} from "@/lib/mixer/mixer-reconcile";
 import { withAdLock } from "@/lib/redis/adLock";
 import {
   createVersion,
@@ -31,15 +40,9 @@ import {
   setActiveVersion,
   updateVersion,
 } from "@/lib/redis/versions";
+import type { ResolvedTimeline } from "@/services/timelineResolver";
 import {
-  resolveTimeline,
-  type ResolvedTimeline,
-  type SlotState,
-} from "@/services/timelineResolver";
-import {
-  Anchor,
   CachedResolverOutput,
-  ClipOverrides,
   MixerPins,
   MixerState,
   MixerTrack,
@@ -84,33 +87,7 @@ export async function getMixerState(adId: string): Promise<MixerState | null> {
   return deriveMixerStateFromActive(adId);
 }
 
-export interface MixerPatch {
-  /** Track-id-keyed volumes as the MixerPanel UI sends them. */
-  volumes?: Record<string, number>;
-  /** URL of the most recent rendered mix uploaded to blob storage. */
-  mixedAudioUrl?: string;
-  /**
-   * Slot-id-keyed anchor updates. Merges non-destructively — anchors not
-   * referenced here are preserved.
-   *
-   * - Non-null value: overwrite with `origin: "user-edit"`. Stage-6
-   *   precedence (user-edit wins on stream regen) kicks in automatically.
-   *   Existing `layout` is preserved.
-   * - `null` value: reset. Server re-derives from the stream-level seed
-   *   (legacy `placement` / `playAfter` / etc.) and writes with
-   *   `origin: "llm-seed"`. Used by the SFX panel's "Reset placement"
-   *   action when the user wants to revert a mixer drag.
-   */
-  anchorUpdates?: Record<SlotId, Anchor | null>;
-  /**
-   * Slot-id-keyed trim updates. Writes onto `overrides[slotId].trim`.
-   * Null clears the trim (clip plays full source). Values must satisfy
-   * `0 <= start < end <= sourceDuration`; the server doesn't know the
-   * source duration at write time, so the client is responsible for
-   * clamping before sending.
-   */
-  trimUpdates?: Record<SlotId, { start: number; end: number } | null>;
-}
+export type { MixerPatch };
 
 /**
  * Apply a MixerPanel-style patch (volumes + mixedAudioUrl) to the active
@@ -132,160 +109,16 @@ export async function applyMixerPatch(
   if (!active || active.status !== "draft") return null;
 
   const pinned = await loadPinnedVersions(adId, active.pins);
-
-  const nextOverrides: Record<SlotId, ClipOverrides> = {
-    ...(active.overrides ?? {}),
-  };
-  if (patch.volumes) {
-    for (const [trackId, volume] of Object.entries(patch.volumes)) {
-      if (typeof volume !== "number") continue;
-      const slotId = slotIdForTrack(
-        inferTrackShape(trackId),
-        pinned.voice,
-        pinned.music,
-        pinned.sfx,
-      );
-      if (!slotId) continue;
-      nextOverrides[slotId] = { ...(nextOverrides[slotId] ?? {}), volume };
-    }
-  }
-  if (patch.trimUpdates) {
-    for (const [slotId, trim] of Object.entries(patch.trimUpdates)) {
-      if (trim === null) {
-        // Clear trim; leave other overrides on the slot untouched.
-        if (nextOverrides[slotId]) {
-          const { trim: _trim, ...rest } = nextOverrides[slotId];
-          if (Object.keys(rest).length > 0) {
-            nextOverrides[slotId] = rest;
-          } else {
-            delete nextOverrides[slotId];
-          }
-        }
-        continue;
-      }
-      if (
-        !trim ||
-        typeof trim.start !== "number" ||
-        typeof trim.end !== "number" ||
-        trim.start < 0 ||
-        trim.end <= trim.start
-      ) {
-        continue;
-      }
-      nextOverrides[slotId] = { ...(nextOverrides[slotId] ?? {}), trim };
-    }
-  }
-
-  const updates: Partial<MixerVersion> = { overrides: nextOverrides };
-  if (typeof patch.mixedAudioUrl === "string") {
-    updates.mixedAudioUrl = patch.mixedAudioUrl;
-  }
-  if (patch.anchorUpdates) {
-    const nextAnchors: MixerVersion["anchors"] = { ...active.anchors };
-    // For null-valued entries we lazily load the legacy-seed translators
-    // so the common case (non-null drag updates) doesn't pay the import.
-    const needsReseed = Object.values(patch.anchorUpdates).some(
-      (v) => v === null,
-    );
-    const reseedHelpers = needsReseed ? await loadReseedHelpers() : null;
-
-    for (const [slotId, anchor] of Object.entries(patch.anchorUpdates)) {
-      if (anchor === null) {
-        // Reset: re-derive from the pinned stream seed.
-        const seed = reseedHelpers
-          ? reseedHelpers.deriveSeed(slotId, pinned)
-          : null;
-        if (seed) {
-          const existingLayout = nextAnchors[slotId]?.layout;
-          nextAnchors[slotId] = {
-            anchor: seed,
-            origin: "llm-seed",
-            ...(existingLayout ? { layout: existingLayout } : {}),
-          };
-        } else {
-          // No recoverable stream seed — remove the override entirely; the
-          // resolver will fall back to its system-default behavior.
-          delete nextAnchors[slotId];
-        }
-        continue;
-      }
-      if (!anchor) continue;
-      const existingLayout = nextAnchors[slotId]?.layout;
-      nextAnchors[slotId] = {
-        anchor,
-        origin: "user-edit",
-        ...(existingLayout ? { layout: existingLayout } : {}),
-      };
-    }
-    updates.anchors = nextAnchors;
-  }
+  const updates = computePatchedVersion(active, pinned, patch);
   await updateVersion(adId, "mixer", activeId, updates);
 
   return deriveMixerStateFromActive(adId);
 }
 
-/**
- * Lazily-loaded helper for resetting an anchor back to its stream-level
- * seed. Called when `applyMixerPatch` receives a `null` value in
- * `anchorUpdates`. Lives inside a dynamic import because the anchor-
- * translation module pulls in the legacy `SoundFxPlacementIntent`
- * vocabulary, which isn't needed by the common drag-update path.
- */
-async function loadReseedHelpers(): Promise<{
-  deriveSeed: (
-    slotId: SlotId,
-    pinned: Awaited<ReturnType<typeof loadPinnedVersions>>,
-  ) => Anchor | null;
-}> {
-  const {
-    anchorFromVoiceTrack,
-    anchorFromSoundFxPrompt,
-    anchorFromMusicVersion,
-  } = await import("@/lib/tools/anchorTranslation");
-
-  return {
-    deriveSeed(slotId, pinned) {
-      // Voice: lookup by slotId inside voiceTracks.
-      if (pinned.voice) {
-        const voiceSlotIds = pinned.voice.voiceTracks.map((t) => t.slotId);
-        const vIndex = voiceSlotIds.indexOf(slotId);
-        if (vIndex >= 0) {
-          return (
-            anchorFromVoiceTrack(
-              pinned.voice.voiceTracks[vIndex],
-              voiceSlotIds,
-              vIndex,
-            ) ?? null
-          );
-        }
-      }
-      // Music: single slot.
-      if (pinned.music && pinned.music.slotId === slotId) {
-        return anchorFromMusicVersion(pinned.music);
-      }
-      // Sfx: lookup by slotId inside soundFxPrompts.
-      if (pinned.sfx) {
-        const sfxSlotIds = pinned.sfx.soundFxPrompts.map((p) => p.slotId);
-        const sIndex = sfxSlotIds.indexOf(slotId);
-        if (sIndex >= 0) {
-          const voiceSlotIds =
-            pinned.voice?.voiceTracks.map((t) => t.slotId) ?? [];
-          return (
-            anchorFromSoundFxPrompt(
-              pinned.sfx.soundFxPrompts[sIndex],
-              voiceSlotIds,
-              sfxSlotIds,
-              sIndex,
-            ) ?? null
-          );
-        }
-      }
-      return null;
-    },
-  };
-}
-
-async function loadPinnedVersions(adId: string, pins: MixerVersion["pins"]) {
+async function loadPinnedVersions(
+  adId: string,
+  pins: MixerVersion["pins"],
+): Promise<PinnedVersions> {
   return {
     voice: pins.voices
       ? ((await getVersion(adId, "voices", pins.voices)) as VoiceVersion | null)
@@ -297,21 +130,6 @@ async function loadPinnedVersions(adId: string, pins: MixerVersion["pins"]) {
       ? ((await getVersion(adId, "sfx", pins.sfx)) as SfxVersion | null)
       : null,
   };
-}
-
-/**
- * Recover the track type from its id so `slotIdForTrack` can resolve the
- * slot without the caller supplying it. Track ids are stable by construction
- * (`voice-{versionId}-{n}`, `sfx-{versionId}-{n}`, `music-{versionId}`).
- */
-function inferTrackShape(trackId: string): {
-  id: string;
-  type: "voice" | "music" | "soundfx";
-} {
-  if (trackId.startsWith("voice-")) return { id: trackId, type: "voice" };
-  if (trackId.startsWith("music-")) return { id: trackId, type: "music" };
-  if (trackId.startsWith("sfx-")) return { id: trackId, type: "soundfx" };
-  return { id: trackId, type: "voice" };
 }
 
 // ============ Draft + pin reconciliation ============
@@ -332,52 +150,30 @@ async function ensureMixerDraftWithCurrentPins(adId: string): Promise<void> {
         sfx: await getActiveVersion(adId, "sfx"),
       };
 
-      // Guarantee the pinned music version has a slotId. Bootstrap assigns one
-      // to LLM-authored music, but music versions created later (custom upload
-      // or a re-generation via POST /music) start without one. Without a slotId
-      // `collectMusicTrack` emits a track the timeline can't place, so the music
-      // line silently vanishes from the mixer (AAC-188). Assign it here — the
-      // one place every "send music to mixer" path funnels through.
-      if (currentPins.music) {
-        const musicVersion = (await getVersion(
-          adId,
-          "music",
-          currentPins.music,
-        )) as MusicVersion | null;
-        await ensureMusicSlotId(adId, currentPins.music, musicVersion);
-      }
+      // Every pinned clip needs a slotId before the anchor graph is
+      // reconciled against it — this is the one place every "send to mixer"
+      // path funnels through.
+      const pinned = await loadPinnedWithSlotIds(adId, currentPins);
 
-      if (activeVersion.status === "frozen") {
-        // Fork the frozen active into a new draft carrying forward its
-        // anchor graph + overrides, with updated pins.
-        const draft: MixerVersion = {
-          anchors: activeVersion.anchors,
-          pins: currentPins,
-          overrides: activeVersion.overrides,
-          createdAt: Date.now(),
-          createdBy: "fork",
-          status: "draft",
-          parentVersionId: activeId,
-          label: activeVersion.label,
-        };
-        const draftId = await createVersion(adId, "mixer", draft);
+      const plan = planDraftSync(
+        activeVersion,
+        activeId,
+        currentPins,
+        pinned,
+        Date.now(),
+      );
+      if (plan.kind === "fork") {
+        const draftId = await createVersion(adId, "mixer", plan.draft);
         await setActiveVersion(adId, "mixer", draftId);
-        return;
-      }
-
-      // Active is already a draft — just refresh its pins.
-      if (!pinsEqual(activeVersion.pins, currentPins)) {
+      } else if (plan.kind === "update-draft") {
         await updateVersion(adId, "mixer", activeId, {
-          pins: currentPins,
+          pins: plan.pins,
+          anchors: plan.anchors,
         } as Partial<MixerVersion>);
       }
     },
     { ttlSec: 15, timeoutMs: 8_000 },
   );
-}
-
-function pinsEqual(a: MixerPins, b: MixerPins): boolean {
-  return a.voices === b.voices && a.music === b.music && a.sfx === b.sfx;
 }
 
 // ============ MixerState derivation ============
@@ -400,106 +196,37 @@ async function deriveMixerState(
   activeMixerId: VersionId,
 ): Promise<MixerState> {
   const { pins } = mixerVersion;
-
-  const voiceVersion = pins.voices
-    ? await getVersion(adId, "voices", pins.voices)
-    : null;
-  const musicVersion = pins.music
-    ? await getVersion(adId, "music", pins.music)
-    : null;
-  const sfxVersion = pins.sfx ? await getVersion(adId, "sfx", pins.sfx) : null;
-
-  const tracks: MixerTrack[] = [];
-  const audioDurations: Record<string, number> = {};
-
-  const overrides = mixerVersion.overrides ?? {};
-  if (voiceVersion) {
-    collectVoiceTracks(
-      voiceVersion as VoiceVersion,
-      pins.voices!,
-      tracks,
-      audioDurations,
-      mixerVersion.anchors,
-      overrides,
-    );
-  }
-  if (musicVersion) {
-    collectMusicTrack(
-      musicVersion as MusicVersion,
-      pins.music!,
-      tracks,
-      audioDurations,
-      mixerVersion.anchors,
-      overrides,
-    );
-  }
-  if (sfxVersion) {
-    collectSfxTracks(
-      sfxVersion as SfxVersion,
-      pins.sfx!,
-      tracks,
-      audioDurations,
-      mixerVersion.anchors,
-      overrides,
-    );
-  }
-
-  console.log(
-    `  Built ${tracks.length} mixer tracks for ad ${adId} mixer=${activeMixerId}`,
-  );
+  const pinned = await loadPinnedVersions(adId, pins);
 
   // Brief drives two things in this pass: the resolver's over-budget
   // warnings + per-locale speedup cap, AND the mixer UI's soft-elastic
   // format horizon. Load once, pass through.
   const brief = (await getAdMetadata(adId))?.brief;
 
-  // Resolve timeline via the pure resolver (stage 7 swap).
-  //
-  // Reuse a cached resolver output on frozen mixer versions — anchors + pins
-  // + overrides are all immutable on frozen versions, so the output is a
-  // pure function of the version and is safe to memoize. Drafts always
-  // resolve fresh because the anchor graph is still being authored.
-  let resolved: ResolvedTimeline;
-  let usedCache = false;
-  if (
-    mixerVersion.status === "frozen" &&
-    mixerVersion.cachedResolverOutput &&
-    cachedOutputMatches(mixerVersion.cachedResolverOutput, tracks)
-  ) {
-    resolved = projectCachedOutputThroughTracks(
-      mixerVersion.cachedResolverOutput,
-      tracks,
-      voiceVersion as VoiceVersion | null,
-      musicVersion as MusicVersion | null,
-      sfxVersion as SfxVersion | null,
-    );
-    usedCache = true;
-  } else {
-    resolved = resolveTimeline({
-      slots: buildSlotStates(
-        tracks,
-        voiceVersion as VoiceVersion | null,
-        musicVersion as MusicVersion | null,
-        sfxVersion as SfxVersion | null,
-        mixerVersion.overrides ?? {},
-      ),
-      anchors: mixerVersion.anchors,
+  const { tracks, calculatedTracks, volumes, resolved, usedCache } =
+    deriveTimeline({
+      pins,
+      pinned,
+      mixerVersion,
       formatDuration: brief?.adDuration,
       locale: brief?.selectedLanguage,
     });
 
-    // Lazy cache hydration for frozen versions that predate stage 7 (or any
-    // frozen version whose cache was invalidated). Best-effort: a failure
-    // here shouldn't block the read path.
-    if (mixerVersion.status === "frozen") {
-      void writeResolverCache(adId, activeMixerId, resolved, tracks).catch(
-        (err) =>
-          console.warn(
-            `[rebuilder] failed to cache resolver output for ${activeMixerId}:`,
-            err,
-          ),
-      );
-    }
+  console.log(
+    `  Built ${tracks.length} mixer tracks for ad ${adId} mixer=${activeMixerId}`,
+  );
+
+  // Lazy cache hydration for frozen versions that predate stage 7 (or any
+  // frozen version whose cache was invalidated). Best-effort: a failure
+  // here shouldn't block the read path.
+  if (mixerVersion.status === "frozen" && !usedCache) {
+    void writeResolverCache(adId, activeMixerId, resolved, tracks).catch(
+      (err) =>
+        console.warn(
+          `[rebuilder] failed to cache resolver output for ${activeMixerId}:`,
+          err,
+        ),
+    );
   }
 
   if (resolved.warnings.length > 0) {
@@ -507,30 +234,6 @@ async function deriveMixerState(
       `  resolver warnings for ${activeMixerId}${usedCache ? " (cached)" : ""}:`,
       resolved.warnings,
     );
-  }
-
-  const calculatedTracks = mapResolvedToCalculatedTracks(
-    resolved,
-    tracks,
-    voiceVersion as VoiceVersion | null,
-    musicVersion as MusicVersion | null,
-    sfxVersion as SfxVersion | null,
-  );
-
-  // Project per-slot overrides (the persisted form) back onto the track-id
-  // keyed `volumes` map the client expects. Hydration in mixerStore uses the
-  // track's own `volume` field as a fallback; passing volumes explicitly keeps
-  // sliders correct even across re-renders where MixerPanel drops local state.
-  const volumes = deriveVolumesByTrackId(
-    tracks,
-    mixerVersion.overrides ?? {},
-    voiceVersion as VoiceVersion | null,
-    musicVersion as MusicVersion | null,
-    sfxVersion as SfxVersion | null,
-  );
-  for (const track of tracks) {
-    const v = volumes[track.id];
-    if (typeof v === "number") track.volume = v;
   }
 
   // Mixer version summaries — powers the take-list UI. Keeping the full
@@ -568,75 +271,7 @@ async function deriveMixerState(
   return mixerState;
 }
 
-// ============ Resolver adapter ============
-
-/**
- * Build `SlotState[]` — the resolver's input shape — from the mixer panel's
- * track list plus pinned stream versions. Each track maps to exactly one
- * slot; slot ids come from the content versions, trim comes from mixer
- * overrides.
- */
-function buildSlotStates(
-  tracks: MixerTrack[],
-  voiceVersion: VoiceVersion | null,
-  musicVersion: MusicVersion | null,
-  sfxVersion: SfxVersion | null,
-  overrides: Record<SlotId, ClipOverrides>,
-): SlotState[] {
-  const slots: SlotState[] = [];
-  for (const track of tracks) {
-    const slotId = slotIdForTrack(
-      track,
-      voiceVersion,
-      musicVersion,
-      sfxVersion,
-    );
-    if (!slotId) continue; // Tracks without slot ids can't be resolved; skipped.
-    const sourceDuration = track.duration ?? 0;
-    const trim = overrides[slotId]?.trim;
-    slots.push({
-      slotId,
-      type: track.type,
-      sourceDuration,
-      trim,
-    });
-  }
-  return slots;
-}
-
-/**
- * Map resolver output back to the track-id-keyed `calculatedTracks` shape the
- * MixerPanel consumes today. Orphan slots (resolver returned nothing) are
- * silently dropped — they're already warned upstream via `resolved.warnings`.
- */
-function mapResolvedToCalculatedTracks(
-  resolved: ResolvedTimeline,
-  tracks: MixerTrack[],
-  voiceVersion: VoiceVersion | null,
-  musicVersion: MusicVersion | null,
-  sfxVersion: SfxVersion | null,
-): MixerState["calculatedTracks"] {
-  const bySlot = new Map(resolved.tracks.map((t) => [t.slotId, t]));
-  const out: MixerState["calculatedTracks"] = [];
-  for (const track of tracks) {
-    const slotId = slotIdForTrack(
-      track,
-      voiceVersion,
-      musicVersion,
-      sfxVersion,
-    );
-    if (!slotId) continue;
-    const r = bySlot.get(slotId);
-    if (!r) continue;
-    out.push({
-      id: track.id,
-      startTime: r.startTime,
-      duration: r.duration,
-      type: track.type,
-    });
-  }
-  return out;
-}
+// ============ Resolver cache ============
 
 /**
  * Persist resolver output on a frozen mixer version so future reads can
@@ -688,272 +323,6 @@ async function writeResolverCache(
   } as Partial<MixerVersion>);
 }
 
-/**
- * Decide whether a cached resolver output is still usable. Strict
- * multiset match on track ids — length equal, sorted id sequences
- * equal. Catches the earlier cache-collapse bug where all entries
- * shared one id (Set.has() would have silently accepted duplicates).
- */
-function cachedOutputMatches(
-  cache: CachedResolverOutput,
-  tracks: MixerTrack[],
-): boolean {
-  if (cache.calculatedTracks.length !== tracks.length) return false;
-  const trackIds = tracks.map((t) => t.id).sort();
-  const cacheIds = cache.calculatedTracks.map((ct) => ct.id).sort();
-  for (let i = 0; i < trackIds.length; i++) {
-    if (trackIds[i] !== cacheIds[i]) return false;
-  }
-  return true;
-}
-
-/**
- * Reconstruct a `ResolvedTimeline` from the cached flat shape so the rest
- * of the derive path can be uniform. `warnings` and `voiceActiveIntervals`
- * are left empty because the cache is the post-resolution view.
- */
-function projectCachedOutputThroughTracks(
-  cache: CachedResolverOutput,
-  tracks: MixerTrack[],
-  voiceVersion: VoiceVersion | null,
-  musicVersion: MusicVersion | null,
-  sfxVersion: SfxVersion | null,
-): ResolvedTimeline {
-  const bySlot: ResolvedTimeline["tracks"] = [];
-  for (const ct of cache.calculatedTracks) {
-    const track = tracks.find((t) => t.id === ct.id);
-    if (!track) continue;
-    const slotId = slotIdForTrack(
-      track,
-      voiceVersion,
-      musicVersion,
-      sfxVersion,
-    );
-    if (!slotId) continue;
-    bySlot.push({
-      slotId,
-      type: ct.type,
-      startTime: ct.startTime,
-      duration: ct.duration,
-      resolvedFrom: null,
-    });
-  }
-  return {
-    tracks: bySlot,
-    totalDuration: cache.totalDuration,
-    warnings: [],
-    voiceActiveIntervals: bySlot
-      .filter((t) => t.type === "voice")
-      .map((t) => ({ start: t.startTime, end: t.startTime + t.duration }))
-      .sort((a, b) => a.start - b.start),
-  };
-}
-
-/**
- * Rehydrate the track-id-keyed volumes map the MixerPanel consumes from the
- * slot-id-keyed overrides the mixer version persists.
- */
-function deriveVolumesByTrackId(
-  tracks: MixerTrack[],
-  overrides: Record<string, { volume?: number }>,
-  voiceVersion: VoiceVersion | null,
-  musicVersion: MusicVersion | null,
-  sfxVersion: SfxVersion | null,
-): Record<string, number> {
-  const map: Record<string, number> = {};
-  for (const track of tracks) {
-    const slotId = slotIdForTrack(
-      track,
-      voiceVersion,
-      musicVersion,
-      sfxVersion,
-    );
-    if (!slotId) continue;
-    const v = overrides[slotId]?.volume;
-    if (typeof v === "number") map[track.id] = v;
-  }
-  return map;
-}
-
-/**
- * Resolve the stable slot id for a rendered track. Track ids encode the stream
- * version + ordinal (`voice-v3-0`, `sfx-v1-1`, `music-v2`); the slot id lives
- * on the matching content version's clip. This adapter is the bridge between
- * the two namespaces and is shared by PATCH /mixer and state derivation.
- */
-export function slotIdForTrack(
-  track: { id: string; type: "voice" | "music" | "soundfx" },
-  voiceVersion: VoiceVersion | null,
-  musicVersion: MusicVersion | null,
-  sfxVersion: SfxVersion | null,
-): string | null {
-  if (track.type === "voice") {
-    const m = /^voice-[^-]+-(\d+)$/.exec(track.id);
-    if (!m || !voiceVersion) return null;
-    return voiceVersion.voiceTracks[Number(m[1])]?.slotId ?? null;
-  }
-  if (track.type === "music") {
-    return musicVersion?.slotId ?? null;
-  }
-  if (track.type === "soundfx") {
-    const m = /^sfx-[^-]+-(\d+)$/.exec(track.id);
-    if (!m || !sfxVersion) return null;
-    return sfxVersion.soundFxPrompts[Number(m[1])]?.slotId ?? null;
-  }
-  return null;
-}
-
-/**
- * Extract the referenced slot id from an anchor, or undefined if the
- * anchor is absolute / missing. Powers the client's cycle-prevention
- * check in `anchorFromDrop`.
- */
-function refSlotFromAnchor(anchor?: Anchor): SlotId | undefined {
-  if (!anchor) return undefined;
-  if (anchor.kind === "absolute") return undefined;
-  return anchor.slotId;
-}
-
-function collectVoiceTracks(
-  voiceVersion: VoiceVersion,
-  voiceVersionId: VersionId,
-  tracks: MixerTrack[],
-  audioDurations: Record<string, number>,
-  anchors: MixerVersion["anchors"],
-  overrides: Record<SlotId, ClipOverrides>,
-): void {
-  const hasAudio =
-    voiceVersion.voiceTracks.some((t) => !!t.generatedUrl) ||
-    (voiceVersion.generatedUrls && voiceVersion.generatedUrls.length > 0);
-  if (!hasAudio) return;
-
-  voiceVersion.voiceTracks.forEach((voiceTrack, index) => {
-    const url = voiceTrack.generatedUrl || voiceVersion.generatedUrls?.[index];
-    if (!url) return;
-
-    const trackId = `voice-${voiceVersionId}-${index}`;
-    const duration =
-      voiceTrack.generatedDuration ?? estimateVoiceDuration(voiceTrack.text);
-
-    tracks.push({
-      id: trackId,
-      slotId: voiceTrack.slotId,
-      anchorOrigin: voiceTrack.slotId
-        ? anchors[voiceTrack.slotId]?.origin
-        : undefined,
-      integratedLufs: voiceVersion.integratedLufs?.[index] ?? undefined,
-      anchorRefSlotId: voiceTrack.slotId
-        ? refSlotFromAnchor(anchors[voiceTrack.slotId]?.anchor)
-        : undefined,
-      trim: voiceTrack.slotId ? overrides[voiceTrack.slotId]?.trim : undefined,
-      url,
-      type: "voice",
-      label: voiceTrack.voice?.name || `Voice ${index + 1}`,
-      duration,
-      playAfter: voiceTrack.playAfter,
-      overlap: voiceTrack.overlap,
-      isConcurrent: voiceTrack.isConcurrent,
-      metadata: {
-        voiceId: voiceTrack.voice?.id,
-        voiceProvider: voiceTrack.trackProvider || voiceTrack.voice?.provider,
-        scriptText: voiceTrack.text,
-      },
-    });
-    audioDurations[trackId] = duration;
-  });
-}
-
-function collectMusicTrack(
-  musicVersion: MusicVersion,
-  musicVersionId: VersionId,
-  tracks: MixerTrack[],
-  audioDurations: Record<string, number>,
-  anchors: MixerVersion["anchors"],
-  overrides: Record<SlotId, ClipOverrides>,
-): void {
-  if (!musicVersion.generatedUrl) return;
-
-  const trackId = `music-${musicVersionId}`;
-  let label: string;
-  if (musicVersion.provider === "custom") {
-    label = musicVersion.musicPrompt || "Custom track";
-  } else {
-    const providerLabel =
-      musicVersion.provider.charAt(0).toUpperCase() +
-      musicVersion.provider.slice(1);
-    const promptPreview = musicVersion.musicPrompt
-      ? ` - ${musicVersion.musicPrompt.substring(0, 25)}${musicVersion.musicPrompt.length > 25 ? "..." : ""}`
-      : "";
-    label = `${providerLabel}${promptPreview}`;
-  }
-
-  tracks.push({
-    id: trackId,
-    slotId: musicVersion.slotId,
-    anchorOrigin: musicVersion.slotId
-      ? anchors[musicVersion.slotId]?.origin
-      : undefined,
-    integratedLufs: musicVersion.integratedLufs ?? undefined,
-    anchorRefSlotId: musicVersion.slotId
-      ? refSlotFromAnchor(anchors[musicVersion.slotId]?.anchor)
-      : undefined,
-    trim: musicVersion.slotId
-      ? overrides[musicVersion.slotId]?.trim
-      : undefined,
-    url: musicVersion.generatedUrl,
-    type: "music",
-    label,
-    duration: musicVersion.duration,
-    metadata: {
-      promptText: musicVersion.musicPrompt,
-      source: musicVersion.provider,
-    },
-  });
-  audioDurations[trackId] = musicVersion.duration;
-}
-
-function collectSfxTracks(
-  sfxVersion: SfxVersion,
-  sfxVersionId: VersionId,
-  tracks: MixerTrack[],
-  audioDurations: Record<string, number>,
-  anchors: MixerVersion["anchors"],
-  overrides: Record<SlotId, ClipOverrides>,
-): void {
-  if (sfxVersion.generatedUrls.length === 0) return;
-
-  sfxVersion.soundFxPrompts.forEach((sfxPrompt, index) => {
-    const url = sfxVersion.generatedUrls[index];
-    if (!url) return;
-
-    const trackId = `sfx-${sfxVersionId}-${index}`;
-    tracks.push({
-      id: trackId,
-      slotId: sfxPrompt.slotId,
-      anchorOrigin: sfxPrompt.slotId
-        ? anchors[sfxPrompt.slotId]?.origin
-        : undefined,
-      integratedLufs: sfxVersion.integratedLufs?.[index] ?? undefined,
-      anchorRefSlotId: sfxPrompt.slotId
-        ? refSlotFromAnchor(anchors[sfxPrompt.slotId]?.anchor)
-        : undefined,
-      trim: sfxPrompt.slotId ? overrides[sfxPrompt.slotId]?.trim : undefined,
-      url,
-      type: "soundfx",
-      label: sfxPrompt.description.substring(0, 50),
-      duration: sfxPrompt.duration,
-      playAfter: sfxPrompt.playAfter,
-      overlap: sfxPrompt.overlap,
-      metadata: {
-        promptText: sfxPrompt.description,
-        originalDuration: sfxPrompt.duration,
-        placementIntent: sfxPrompt.placement,
-      },
-    });
-    audioDurations[trackId] = sfxPrompt.duration || 3;
-  });
-}
-
 // ============ Helpers ============
 
 function emptyMixerState(): MixerState {
@@ -965,16 +334,4 @@ function emptyMixerState(): MixerState {
     lastCalculated: Date.now(),
     activeVersions: { voices: null, music: null, sfx: null },
   };
-}
-
-/**
- * Word-count heuristic fallback. Applies only to legacy voice versions that
- * lack a measured `generatedDuration`. The backfill script is the primary
- * cure; this survives for stragglers that never get backfilled.
- */
-function estimateVoiceDuration(text: string): number {
-  const words = text.trim().split(/\s+/).length;
-  const wordsPerSecond = 2.5;
-  const estimatedDuration = words / wordsPerSecond;
-  return Math.max(1, estimatedDuration + 1);
 }

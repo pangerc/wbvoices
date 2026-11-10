@@ -3,23 +3,26 @@
 import { MusicPanel } from "@/components/MusicPanel";
 import { VersionIterationInput } from "@/components/ui";
 import type { DraftState } from "@/components/ui/DraftAccordion";
+import { useDraftHeaderActions } from "@/hooks/use-draft-header-actions";
+import { useDraftSaveQueue } from "@/hooks/use-draft-save-queue";
+import { useSendToMixer } from "@/hooks/use-send-to-mixer";
 import {
   useMusicDraftState,
   usePlaybackActions,
 } from "@/hooks/useAudioPlayback";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
-import type { MusicProvider } from "@/types";
+import type { MusicPrompts, MusicProvider } from "@/types";
 import type { MusicVersion, VersionId } from "@/types/versions";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 export interface MusicDraftEditorProps {
   adId: string;
   draftVersionId: VersionId;
   draftVersion: MusicVersion;
-  onUpdate: () => void;
+  onUpdate: () => void | Promise<unknown>;
   // Refs for parent to call header button actions
   onPlayAllRef?: React.MutableRefObject<(() => Promise<void>) | null>;
-  onSendToMixerRef?: React.MutableRefObject<(() => void) | null>;
+  onSendToMixerRef?: React.MutableRefObject<(() => Promise<boolean>) | null>;
   onRequestChangeRef?: React.MutableRefObject<(() => void) | null>;
   onNewBlankVersion?: () => void;
   /** Callback to notify parent of draft state changes (for badge rendering) */
@@ -42,30 +45,37 @@ export function MusicDraftEditor({
   const [musicProvider, setMusicProvider] = useState<MusicProvider>(
     draftVersion.provider,
   );
+  const [musicPrompts, setMusicPrompts] = useState<MusicPrompts>(
+    draftVersion.musicPrompts,
+  );
+  // Local copy so a prompt edit can invalidate stale audio without waiting for SWR
+  const [generatedUrl, setGeneratedUrl] = useState(draftVersion.generatedUrl);
   const [statusMessage, setStatusMessage] = useState("");
 
-  // Live prompt as edited in the panel. The MusicPanel textareas are local
-  // state that isn't persisted to the draft until a generation succeeds, so the
-  // header "Play" (smart-play) would otherwise generate with the stale/empty
-  // `draftVersion.musicPrompt`. Kept current via MusicPanel's onPromptsChange.
-  const latestPromptRef = useRef<string>(
-    draftVersion.musicPrompt ||
-      draftVersion.musicPrompts?.[draftVersion.provider] ||
-      "",
-  );
-  const handlePromptsChange = useCallback((_: unknown, active: string) => {
-    latestPromptRef.current = active;
-  }, []);
-
-  // Guard: prevent SWR prop updates from overwriting local state while an edit is being persisted
-  const editInFlightRef = useRef(false);
+  // Every write goes through `save`: in call order, and with SWR prop updates
+  // ignored until its refetch lands (see useDraftSaveQueue). Prompt edits
+  // PATCH on every keystroke, so ordering matters here most.
+  const { save, isSaving, flush } = useDraftSaveQueue(async () => {
+    await onUpdate();
+  });
 
   // Sync local state when draftVersion prop changes (e.g., after iteration creates new draft)
   // Guarded: don't overwrite local state while an edit is being persisted to Redis
   useEffect(() => {
-    if (editInFlightRef.current) return;
+    if (isSaving()) return;
     setMusicProvider(draftVersion.provider);
-  }, [draftVersion]);
+    setMusicPrompts(draftVersion.musicPrompts);
+    setGeneratedUrl(draftVersion.generatedUrl);
+  }, [draftVersion, isSaving]);
+
+  const patchDraft = (body: Partial<MusicVersion>) =>
+    save(() =>
+      fetch(`/api/ads/${adId}/music/${draftVersionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
 
   // Use centralized audio playback store for state
   const { isGenerating, isPlaying } = useMusicDraftState(draftVersionId);
@@ -75,39 +85,73 @@ export function MusicDraftEditor({
   // buffered by create_music_draft (or a user edit). Pass it through as-is.
   const musicDuration = draftVersion.duration || 30;
 
-  // Compute draft state from props (music has no local URL copy, props are fine)
+  // Prompt for the active provider, falling back to the flat field (LLM-generated drafts)
+  const activePrompt = musicPrompts[musicProvider] || draftVersion.musicPrompt;
+
+  // Compute draft state - uses local prompt state so the badge reacts as the user types
   const draftState = useMemo((): DraftState => {
     if (isGenerating) return "generating";
-    if (!draftVersion.musicPrompt?.trim()) return "editing";
-    return draftVersion.generatedUrl ? "ready" : "changed";
-  }, [draftVersion.generatedUrl, draftVersion.musicPrompt, isGenerating]);
+    if (!activePrompt?.trim()) return "editing";
+    return generatedUrl ? "ready" : "changed";
+  }, [generatedUrl, activePrompt, isGenerating]);
 
   // Notify parent of draft state changes
   useEffect(() => {
     onDraftStateChange?.(draftState);
   }, [draftState, onDraftStateChange]);
 
+  // Stop playback of audio that is about to be invalidated
+  const stopIfPlaying = () => {
+    if (isPlaying) useAudioPlaybackStore.getState().stop();
+  };
+
+  // Persist a prompt edit to Redis. Keeps musicPrompt (flat field read by the
+  // generate route, mixer and music library) in sync with the active provider's prompt.
+  // Editing the prompt invalidates any audio generated from the previous prompt, so the
+  // play button turns blue and regenerates instead of replaying a stale track.
+  const updatePrompt = async (provider: MusicProvider, value: string) => {
+    const newPrompts: MusicPrompts = { ...musicPrompts, [provider]: value };
+    setMusicPrompts(newPrompts);
+
+    const patchBody: Partial<MusicVersion> = {
+      musicPrompts: newPrompts,
+      musicPrompt: value,
+    };
+
+    // Only invalidate when the edit affects the provider whose audio is on screen
+    if (generatedUrl && provider === musicProvider) {
+      patchBody.generatedUrl = "";
+      setGeneratedUrl("");
+      stopIfPlaying();
+    }
+
+    try {
+      await patchDraft(patchBody);
+    } catch (error) {
+      console.error("Failed to persist music prompt:", error);
+    }
+  };
+
   // Handle provider change - persists to Redis and clears stale audio
   const handleProviderChange = async (newProvider: MusicProvider) => {
     setMusicProvider(newProvider);
 
-    // Persist provider to Redis
-    try {
-      await fetch(`/api/ads/${adId}/music/${draftVersionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: newProvider }),
-      });
+    // musicPrompt follows the newly selected provider
+    const patchBody: Partial<MusicVersion> = {
+      provider: newProvider,
+      musicPrompt: musicPrompts[newProvider] ?? "",
+    };
 
-      // If audio exists but was generated with different provider, clear it
-      if (draftVersion.generatedUrl && draftVersion.provider !== newProvider) {
-        await fetch(`/api/ads/${adId}/music/${draftVersionId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ generatedUrl: "" }),
-        });
-        onUpdate(); // Refresh to show cleared state (button turns blue)
-      }
+    // If audio exists but was generated with different provider, clear it
+    // (the play button turns blue)
+    if (generatedUrl && draftVersion.provider !== newProvider) {
+      patchBody.generatedUrl = "";
+      setGeneratedUrl("");
+      stopIfPlaying();
+    }
+
+    try {
+      await patchDraft(patchBody);
     } catch (error) {
       console.error("Failed to persist provider change:", error);
     }
@@ -132,9 +176,10 @@ export function MusicDraftEditor({
     setStatusMessage("Generating music...");
 
     try {
-      const res = await fetch(
-        `/api/ads/${adId}/music/${draftVersionId}/generate`,
-        {
+      // Through the save queue: the route writes the generated URL and the
+      // prompt onto the draft, so it's a write like any PATCH.
+      const res = await save(() =>
+        fetch(`/api/ads/${adId}/music/${draftVersionId}/generate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -142,13 +187,13 @@ export function MusicDraftEditor({
             provider,
             duration,
           }),
-        },
+        }),
       );
 
       if (res.ok) {
         const result = await res.json();
         setStatusMessage("Music generated successfully!");
-        onUpdate(); // Reload the stream
+        setGeneratedUrl(result.generatedUrl);
         return result.generatedUrl; // Return URL for autoplay
       } else {
         const error = await res.json();
@@ -176,13 +221,13 @@ export function MusicDraftEditor({
       return;
     }
 
-    let url: string | null | undefined = draftVersion.generatedUrl;
+    let url: string | null | undefined = generatedUrl;
 
     // Generate if no audio exists. Use the live typed prompt (falling back to
     // the persisted one) so pressing Play right after typing works.
     if (!url) {
       url = await handleGenerate(
-        latestPromptRef.current || draftVersion.musicPrompt || "",
+        activePrompt || "",
         musicProvider,
         draftVersion.duration || musicDuration,
       );
@@ -197,48 +242,28 @@ export function MusicDraftEditor({
     });
   };
 
-  // Send generated music to mixer via freeze API
-  // Uses the same flow as versions - Redis is source of truth
+  const sendToMixer = useSendToMixer({
+    adId,
+    stream: "music",
+    versionId: draftVersionId,
+    onUpdate,
+    flush,
+  });
+
   const handleSendToMixer = async () => {
-    try {
-      const res = await fetch(
-        `/api/ads/${adId}/music/${draftVersionId}/freeze`,
-        {
-          method: "POST",
-        },
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error("Music freeze failed:", errorData);
-        setStatusMessage("Failed to send to mixer");
-        return;
-      }
-
-      const { mixer } = await res.json();
-
-      // Invalidate SWR cache - hydration will update mixer
-      const { mutate: globalMutate } = await import("swr");
-      await globalMutate(`/api/ads/${adId}/mixer`, mixer, false);
-
-      // Refresh music stream data so activeVersionId updates immediately
-      onUpdate();
-
-      setStatusMessage("Music sent to mixer!");
-    } catch (error) {
-      console.error("Failed to send music to mixer:", error);
-      setStatusMessage("Failed to send to mixer");
-    }
+    const sent = await sendToMixer();
+    setStatusMessage(sent ? "Music sent to mixer!" : "Failed to send to mixer");
+    return sent;
   };
 
-  // Expose functions to parent via refs
-  useEffect(() => {
-    if (onPlayAllRef) onPlayAllRef.current = handlePlayAll;
-    if (onSendToMixerRef) onSendToMixerRef.current = handleSendToMixer;
-    if (onRequestChangeRef)
-      onRequestChangeRef.current = () => iterationExpandRef.current?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftVersion, musicProvider, isPlaying, draftVersionId]);
+  useDraftHeaderActions({
+    onPlayAllRef,
+    onSendToMixerRef,
+    onRequestChangeRef,
+    playAll: handlePlayAll,
+    sendToMixer: handleSendToMixer,
+    requestChange: () => iterationExpandRef.current?.(),
+  });
 
   // Reset form (not used in draft mode)
   const resetForm = () => {
@@ -320,11 +345,11 @@ export function MusicDraftEditor({
         musicProvider={musicProvider}
         setMusicProvider={handleProviderChange}
         resetForm={resetForm}
-        initialPrompts={draftVersion.musicPrompts}
-        onPromptsChange={handlePromptsChange}
+        musicPrompts={musicPrompts}
+        onUpdatePrompt={updatePrompt}
         onTrackSelected={handleTrackSelected}
         initialProvider={draftVersion.provider}
-        hasGeneratedUrl={!!draftVersion.generatedUrl}
+        hasGeneratedUrl={!!generatedUrl}
         existingFilename={
           draftVersion.provider === "custom"
             ? draftVersion.musicPrompt
@@ -337,7 +362,7 @@ export function MusicDraftEditor({
         parentVersionId={draftVersionId}
         onNewVersion={onUpdate}
         onNewBlankVersion={onNewBlankVersion}
-        disabled={!draftVersion.generatedUrl}
+        disabled={!generatedUrl}
         disabledReason="Generate music before requesting changes"
         expandRef={iterationExpandRef}
       />
