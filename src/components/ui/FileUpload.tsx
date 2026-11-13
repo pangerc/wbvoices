@@ -1,5 +1,6 @@
 "use client";
 
+import { FILE_CONFIGS } from "@/lib/upload-configs";
 import { put } from "@vercel/blob";
 import React, { useRef, useState } from "react";
 
@@ -41,12 +42,12 @@ const FILE_LABELS = {
   "custom-sfx": "Sound Effect",
 } as const;
 
-// Client-side size limits (must match server FILE_CONFIGS in upload-asset-token)
+// Client-side size limits, read from the same FILE_CONFIGS the server checks
 const FILE_SIZE_LIMITS: Record<FileType, number> = {
-  "preview-logo": 5 * 1024 * 1024,
-  "preview-visual": 10 * 1024 * 1024,
-  "custom-music": 50 * 1024 * 1024,
-  "custom-sfx": 20 * 1024 * 1024,
+  "preview-logo": FILE_CONFIGS["preview-logo"].maxSize,
+  "preview-visual": FILE_CONFIGS["preview-visual"].maxSize,
+  "custom-music": FILE_CONFIGS["custom-music"].maxSize,
+  "custom-sfx": FILE_CONFIGS["custom-sfx"].maxSize,
 };
 
 const AUDIO_FILE_TYPES: FileType[] = ["custom-music", "custom-sfx"];

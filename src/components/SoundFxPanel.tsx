@@ -1,7 +1,32 @@
-import { SoundFxPlacementIntent, SoundFxPrompt } from "@/types";
-import { PlayIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { SoundFxPlacementIntent, SoundFxPrompt, UploadedSfx } from "@/types";
+import {
+  ArrowUpTrayIcon,
+  PlayIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 import { useEffect, useState } from "react";
-import { GlassyListbox, GlassySlider, GlassyTextarea, Tooltip } from "./ui";
+import { SfxCueLibrary } from "./SfxCueLibrary";
+import { SfxCueUpload } from "./SfxCueUpload";
+import {
+  GenerateIcon,
+  GlassTab,
+  GlassTabBar,
+  GlassyListbox,
+  GlassySlider,
+  GlassyTextarea,
+  LibraryIcon,
+  Tooltip,
+  UploadIcon,
+} from "./ui";
+
+/**
+ * Where a cue's audio comes from: a prompt to generate, a new file, or a file
+ * from the user's library.
+ */
+type CueSource = "prompt" | "upload" | "library";
+
+/** A file option whose picker is open on a cue. */
+type PendingFileSource = Exclude<CueSource, "prompt">;
 
 type VoiceTrackPreview = {
   name: string;
@@ -16,6 +41,15 @@ type SoundFxPanelProps = {
   onUpdatePrompt: (index: number, updates: Partial<SoundFxPrompt>) => void; // Update specific soundfx
   onRemovePrompt: (index: number) => void; // Remove specific soundfx
   onAddPrompt: () => void; // Add new empty soundfx
+  /**
+   * Makes a cue play a validated upload. Resolves false when the draft could
+   * not be saved.
+   */
+  onUploadCue: (index: number, upload: UploadedSfx) => Promise<boolean>;
+  /** Turns an uploaded cue back into an empty prompt. */
+  onClearUpload: (index: number) => void;
+  /** The ad being edited — uploads are tagged with it. */
+  adId: string;
   adDuration: number; // Ad duration for slider max
   resetForm: () => void;
   voiceTrackCount?: number; // Number of voice tracks for placement options
@@ -77,6 +111,9 @@ export function SoundFxPanel({
   onUpdatePrompt,
   onRemovePrompt,
   onAddPrompt,
+  onUploadCue,
+  onClearUpload,
+  adId,
   adDuration, // We keep this for API compatibility, but use a fixed default duration for sound effects
   resetForm,
 
@@ -89,6 +126,12 @@ export function SoundFxPanel({
   onResetPlacement,
 }: SoundFxPanelProps) {
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
+  // Cues whose Upload or Library picker is open. Local only, and kept until
+  // the chosen file is saved, so a picker outlives the optimistic cue update
+  // and can show why a save failed.
+  const [pendingSources, setPendingSources] = useState<
+    ReadonlyMap<string, PendingFileSource>
+  >(() => new Map());
 
   // Update local status message when parent status message changes
   // but only if we're actually generating sound fx
@@ -165,153 +208,286 @@ export function SoundFxPanel({
   // Clamp slider max to ad duration (but at least 5s so the control is usable)
   const sliderMax = Math.max(5, adDuration);
 
+  // Legacy cues may predate slot ids; their index is stable enough here.
+  const cueKey = (prompt: SoundFxPrompt, index: number) =>
+    prompt.slotId ?? String(index);
+
+  // Closes a cue's file picker, back to its file or its prompt.
+  const closePicker = (key: string) =>
+    setPendingSources((current) => {
+      const next = new Map(current);
+      next.delete(key);
+      return next;
+    });
+
+  const selectSource = (index: number, source: CueSource) => {
+    const prompt = soundFxPrompts[index];
+    const key = cueKey(prompt, index);
+
+    // A cue with a file already shows it under Upload; Library opens the list
+    // to swap it for another.
+    if (
+      source === "prompt" ||
+      (source === "upload" && prompt.source === "upload")
+    ) {
+      closePicker(key);
+    } else {
+      setPendingSources((current) => new Map(current).set(key, source));
+    }
+
+    if (source === "prompt" && prompt.source === "upload") {
+      onClearUpload(index);
+    }
+  };
+
+  /**
+   * Saves an uploaded or picked file as the cue's audio. The picker stays
+   * open until the save lands, so it can show why one failed; then it gives
+   * way to the file.
+   */
+  const chooseFile = async (index: number, upload: UploadedSfx) => {
+    const key = cueKey(soundFxPrompts[index], index);
+
+    const saved = await onUploadCue(index, upload);
+    if (saved) closePicker(key);
+
+    return saved;
+  };
+
   return (
     <div className="py-8 text-white">
       {/* Render each soundfx form */}
       <div className="space-y-8">
-        {soundFxPrompts.map((prompt, index) => (
-          <div
-            key={index}
-            className="p-6 rounded-xl bg-white/5 border border-white/10 space-y-6"
-          >
-            {/* Form header with number, play button and remove button */}
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">
-                Sound Effect {index + 1}
-              </h3>
-              <div className="flex items-center gap-1">
-                {onPlayPrompt && (
-                  <Tooltip
-                    content={generatedUrls[index] ? "Play" : "Generate & play"}
-                  >
-                    <button
-                      onClick={() => onPlayPrompt(index)}
-                      disabled={isGenerating || !prompt.description?.trim()}
-                      className={`p-2 rounded-lg border transition-all ${
-                        generatingPromptIndex === index
-                          ? "text-wb-blue border-wb-blue/30 bg-wb-blue/10 animate-pulse"
-                          : generatedUrls[index]
-                            ? "text-green-400 border-green-500/30 bg-green-500/10 hover:bg-green-500/20"
-                            : "text-gray-400 border-transparent hover:text-white hover:bg-white/10 hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
-                      }`}
-                    >
-                      <PlayIcon className="w-4 h-4" strokeWidth={2} />
-                    </button>
-                  </Tooltip>
-                )}
-                {soundFxPrompts.length > 1 && (
-                  <Tooltip content="Remove this sound effect">
-                    <button
-                      onClick={() => onRemovePrompt(index)}
-                      disabled={isGenerating}
-                      className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
-                    >
-                      <TrashIcon className="w-4 h-4" strokeWidth={2} />
-                    </button>
-                  </Tooltip>
-                )}
-              </div>
-            </div>
+        {soundFxPrompts.map((prompt, index) => {
+          // The tab of an open file picker; otherwise Upload over the cue's
+          // file, or Prompt.
+          const openPicker = pendingSources.get(cueKey(prompt, index));
+          const source: CueSource =
+            openPicker ?? (prompt.source === "upload" ? "upload" : "prompt");
 
-            <div className="space-y-6 md:grid md:grid-cols-2 md:gap-6 md:space-y-0">
-              {/* Left column: Description */}
-              <div>
-                <GlassyTextarea
-                  label="Sound FX Description"
-                  value={prompt.description || ""}
-                  onChange={(e) =>
-                    onUpdatePrompt(index, { description: e.target.value })
-                  }
-                  placeholder="Describe the sound effect... (e.g. 'A door creaking open slowly')"
-                  className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
-                  minRows={6}
-                />
+          return (
+            <div
+              key={index}
+              className="p-6 rounded-xl bg-white/5 border border-white/10 space-y-6"
+            >
+              {/* Form header with number, play button and remove button */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">
+                  Sound Effect {index + 1}
+                </h3>
+                <div className="flex items-center gap-1">
+                  {onPlayPrompt && (
+                    <Tooltip
+                      content={
+                        generatedUrls[index] ? "Play" : "Generate & play"
+                      }
+                    >
+                      <button
+                        onClick={() => onPlayPrompt(index)}
+                        disabled={isGenerating || !prompt.description?.trim()}
+                        className={`p-2 rounded-lg border transition-all ${
+                          generatingPromptIndex === index
+                            ? "text-wb-blue border-wb-blue/30 bg-wb-blue/10 animate-pulse"
+                            : generatedUrls[index]
+                              ? "text-green-400 border-green-500/30 bg-green-500/10 hover:bg-green-500/20"
+                              : "text-gray-400 border-transparent hover:text-white hover:bg-white/10 hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                        }`}
+                      >
+                        <PlayIcon className="w-4 h-4" strokeWidth={2} />
+                      </button>
+                    </Tooltip>
+                  )}
+                  {soundFxPrompts.length > 1 && (
+                    <Tooltip content="Remove this sound effect">
+                      <button
+                        onClick={() => onRemovePrompt(index)}
+                        disabled={isGenerating}
+                        className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+                      >
+                        <TrashIcon className="w-4 h-4" strokeWidth={2} />
+                      </button>
+                    </Tooltip>
+                  )}
+                </div>
               </div>
 
-              {/* Right column: Placement and Duration controls */}
-              <div className="space-y-6">
-                {/* Placement selector */}
-                <GlassyListbox
-                  label="Placement"
-                  value={placementValue(prompt)}
-                  onChange={(value) => {
-                    const intent = placementOptionToIntent(value);
-                    // V3: Only set placement intent - timeline calculator resolves at runtime
-                    onUpdatePrompt(index, {
-                      placement: intent,
-                    });
-                  }}
-                  options={[
-                    {
-                      value: "start",
-                      label: "At beginning (plays over first voice)",
-                    },
-                    {
-                      value: "withFirstVoice",
-                      label: "With first voice (overlapping)",
-                    },
-                    ...(voiceTrackPreviews && voiceTrackPreviews.length > 0
-                      ? voiceTrackPreviews.map((preview, voiceIndex) => ({
-                          value: `afterVoice-${voiceIndex}`,
-                          label: `After voice ${voiceIndex + 1} (${
-                            preview.name
-                          }: "${preview.text.slice(0, 20)}${
-                            preview.text.length > 20 ? "..." : ""
-                          }")`,
-                        }))
-                      : []),
-                    { value: "end", label: "At end (after all voices)" },
-                  ]}
-                />
+              <div className="space-y-6 md:grid md:grid-cols-2 md:gap-6 md:space-y-0">
+                {/* Left column: Prompt or Upload, then the description,
+                  the dropzone, or the uploaded file */}
+                <div className="space-y-4">
+                  <GlassTabBar>
+                    <Tooltip content="Write a prompt" side="bottom">
+                      <GlassTab
+                        isActive={source === "prompt"}
+                        onClick={() => selectSource(index, "prompt")}
+                      >
+                        <GenerateIcon isActive={source === "prompt"} />
+                      </GlassTab>
+                    </Tooltip>
+                    <Tooltip content="Upload a file" side="bottom">
+                      <GlassTab
+                        isActive={source === "upload"}
+                        onClick={() => selectSource(index, "upload")}
+                      >
+                        <UploadIcon isActive={source === "upload"} />
+                      </GlassTab>
+                    </Tooltip>
+                    <Tooltip content="Choose from your library" side="bottom">
+                      <GlassTab
+                        isActive={source === "library"}
+                        onClick={() => selectSource(index, "library")}
+                      >
+                        <LibraryIcon isActive={source === "library"} />
+                      </GlassTab>
+                    </Tooltip>
+                  </GlassTabBar>
 
-                {/* Divergence hint: the user has moved this clip in the mixer
+                  {openPicker === "upload" ? (
+                    <SfxCueUpload
+                      adId={adId}
+                      onUploaded={(upload) => chooseFile(index, upload)}
+                    />
+                  ) : openPicker === "library" ? (
+                    <SfxCueLibrary
+                      onPicked={(upload) => chooseFile(index, upload)}
+                    />
+                  ) : prompt.source === "upload" ? (
+                    <div>
+                      <p className="mb-2 text-base">Uploaded file</p>
+                      <div className="flex items-center gap-3 rounded-xl bg-white/5 p-4">
+                        <ArrowUpTrayIcon
+                          className="size-5 shrink-0 text-gray-400"
+                          strokeWidth={2}
+                        />
+                        <p className="min-w-0 flex-1 truncate">
+                          {prompt.description}
+                        </p>
+                        <span className="rounded-full bg-wb-blue/10 px-2 py-0.5 text-xs text-wb-blue">
+                          Uploaded
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <GlassyTextarea
+                      label="Sound FX Description"
+                      value={prompt.description || ""}
+                      onChange={(e) =>
+                        onUpdatePrompt(index, { description: e.target.value })
+                      }
+                      placeholder="Describe the sound effect... (e.g. 'A door creaking open slowly')"
+                      className="relative bg-[#161822]/90 block w-full border-0 p-4 text-white rounded-xl placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:ring-offset-0 sm:text-sm sm:leading-6 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+                      minRows={6}
+                    />
+                  )}
+                </div>
+
+                {/* Right column: Placement and Duration controls */}
+                <div className="space-y-6">
+                  {/* Placement selector */}
+                  <GlassyListbox
+                    label="Placement"
+                    value={placementValue(prompt)}
+                    onChange={(value) => {
+                      const intent = placementOptionToIntent(value);
+                      // V3: Only set placement intent - timeline calculator resolves at runtime
+                      onUpdatePrompt(index, {
+                        placement: intent,
+                      });
+                    }}
+                    options={[
+                      {
+                        value: "start",
+                        label: "At beginning (plays over first voice)",
+                      },
+                      {
+                        value: "withFirstVoice",
+                        label: "With first voice (overlapping)",
+                      },
+                      ...(voiceTrackPreviews && voiceTrackPreviews.length > 0
+                        ? voiceTrackPreviews.map((preview, voiceIndex) => ({
+                            value: `afterVoice-${voiceIndex}`,
+                            label: `After voice ${voiceIndex + 1} (${
+                              preview.name
+                            }: "${preview.text.slice(0, 20)}${
+                              preview.text.length > 20 ? "..." : ""
+                            }")`,
+                          }))
+                        : []),
+                      { value: "end", label: "At end (after all voices)" },
+                    ]}
+                  />
+
+                  {/* Divergence hint: the user has moved this clip in the mixer
                     timeline, so the dropdown above no longer reflects where it
                     actually plays. Offer a reset back to the dropdown's value. */}
-                {prompt.slotId &&
-                  mixerOverriddenSlotIds?.has(prompt.slotId) && (
-                    <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs">
-                      <span className="text-amber-200/90">
-                        Moved in mixer — placement above is ignored
-                      </span>
-                      {onResetPlacement && (
-                        <button
-                          onClick={() => onResetPlacement(index)}
-                          className="text-amber-200 hover:text-white underline underline-offset-2 whitespace-nowrap"
-                        >
-                          Reset to this placement
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  {prompt.slotId &&
+                    mixerOverriddenSlotIds?.has(prompt.slotId) && (
+                      <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs">
+                        <span className="text-amber-200/90">
+                          Moved in mixer — placement above is ignored
+                        </span>
+                        {onResetPlacement && (
+                          <button
+                            onClick={() => onResetPlacement(index)}
+                            className="text-amber-200 hover:text-white underline underline-offset-2 whitespace-nowrap"
+                          >
+                            Reset to this placement
+                          </button>
+                        )}
+                      </div>
+                    )}
 
-                <label className="block text-base mb-1">
-                  Duration{" "}
-                  <span className="text-sm text-gray-400">
-                    {prompt.duration || DEFAULT_SOUND_FX_DURATION}s
-                  </span>
-                </label>
-                <GlassySlider
-                  label={null}
-                  value={prompt.duration || DEFAULT_SOUND_FX_DURATION}
-                  onChange={(value) =>
-                    onUpdatePrompt(index, { duration: value })
-                  }
-                  min={0.5}
-                  max={sliderMax}
-                  step={0.5}
-                  formatLabel={(val) => `${val} seconds`}
-                  tickMarks={[
-                    { value: 0.5, label: "0.5s" },
-                    { value: 3, label: "3s" },
-                    ...(sliderMax >= 5 ? [{ value: 5, label: "5s" }] : []),
-                    ...(sliderMax >= 10 ? [{ value: 10, label: "10s" }] : []),
-                    { value: sliderMax, label: `${sliderMax}s` },
-                  ]}
-                />
+                  {prompt.source === "upload" ? (
+                    <div>
+                      <p className="mb-1 text-base">
+                        Duration{" "}
+                        <span className="text-sm text-gray-400">
+                          {(prompt.duration ?? 0).toFixed(1)}s
+                        </span>
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Set by the uploaded file. Trim it in the mixer.
+                      </p>
+                    </div>
+                  ) : (
+                    source === "prompt" && (
+                      <>
+                        <label className="block text-base mb-1">
+                          Duration{" "}
+                          <span className="text-sm text-gray-400">
+                            {prompt.duration || DEFAULT_SOUND_FX_DURATION}s
+                          </span>
+                        </label>
+                        <GlassySlider
+                          label={null}
+                          value={prompt.duration || DEFAULT_SOUND_FX_DURATION}
+                          onChange={(value) =>
+                            onUpdatePrompt(index, { duration: value })
+                          }
+                          min={0.5}
+                          max={sliderMax}
+                          step={0.5}
+                          formatLabel={(val) => `${val} seconds`}
+                          tickMarks={[
+                            { value: 0.5, label: "0.5s" },
+                            { value: 3, label: "3s" },
+                            ...(sliderMax >= 5
+                              ? [{ value: 5, label: "5s" }]
+                              : []),
+                            ...(sliderMax >= 10
+                              ? [{ value: 10, label: "10s" }]
+                              : []),
+                            { value: sliderMax, label: `${sliderMax}s` },
+                          ]}
+                        />
+                      </>
+                    )
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Add Sound Effect button - matching ScripterPanel style */}

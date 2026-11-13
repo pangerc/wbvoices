@@ -33,6 +33,42 @@ export async function uploadToBlob(
 }
 
 /**
+ * Pathname of a file on a Vercel Blob public store (no leading slash), or
+ * `null` when the URL points anywhere else. Lets a route that reads back a
+ * URL the browser sent refuse to fetch arbitrary hosts.
+ */
+export function blobPathname(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+
+  const isBlobHost =
+    parsed.protocol === "https:" &&
+    parsed.hostname.endsWith(".public.blob.vercel-storage.com");
+  if (!isBlobHost) return null;
+
+  try {
+    return decodeURIComponent(parsed.pathname.slice(1));
+  } catch {
+    // A malformed escape names no file we could have stored.
+    return null;
+  }
+}
+
+/** Reads a file stored in Vercel Blob back as bytes. Throws when it's missing. */
+export async function readBlobBytes(url: string): Promise<Uint8Array> {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Failed to read ${url}: ${response.status}`);
+  }
+
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+/**
  * Downloads a file from a URL and uploads it to Vercel Blob
  * Useful for migrating from temporary URLs to permanent storage
  */

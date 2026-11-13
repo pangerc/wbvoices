@@ -21,6 +21,7 @@ import type {
   MusicProvider,
   Provider,
   SoundFxPlacementIntent,
+  SoundFxPrompt,
   Voice,
   VoiceTrack,
 } from "@/types";
@@ -948,7 +949,17 @@ async function createSfxDraftLocked(
     "sfx",
     explicitParent,
   );
-  const parentSlotIds = await loadParentSlotIds(adId, "sfx", parentVersionId);
+  // Uploaded cues have no prompt for the LLM to rewrite: they carry over from
+  // the parent untouched, and `prompts` only replaces the prompted cues.
+  const parent = parentVersionId
+    ? ((await getVersion(adId, "sfx", parentVersionId)) as SfxVersion | null)
+    : null;
+  const parentCues = parent?.soundFxPrompts ?? [];
+  const parentUrls = parent?.generatedUrls ?? [];
+
+  const parentSlotIds = parent
+    ? parentCues.filter((cue) => cue.source !== "upload").map((c) => c.slotId)
+    : null;
   const { assigned: slotIds, report } = reconcileSlots(
     parentSlotIds,
     prompts.length,
@@ -956,49 +967,59 @@ async function createSfxDraftLocked(
     parentVersionId,
   );
 
+  const generatedCues: SoundFxPrompt[] = prompts.map((p, index) => {
+    // Convert placement to proper typed format
+    let placement: SoundFxPlacementIntent | undefined;
+    if (p.placement) {
+      if (p.placement.type === "beforeVoices") {
+        placement = { type: "beforeVoices" };
+      } else if (p.placement.type === "withFirstVoice") {
+        placement = { type: "withFirstVoice" };
+      } else if (p.placement.type === "start") {
+        // Legacy alias of beforeVoices ("At beginning"): the cue starts at
+        // 0 s and plays over voice 1; voices do not wait for it.
+        placement = { type: "beforeVoices" };
+      } else if (p.placement.type === "end") {
+        placement = { type: "end" };
+      } else if (
+        p.placement.type === "afterVoice" &&
+        p.placement.index !== undefined
+      ) {
+        placement = { type: "afterVoice", index: p.placement.index };
+      }
+    }
+
+    // Placement is the only thing the SFX editor shows and changes, so an
+    // AI anchor is stored as the placement it stands for, never as an
+    // anchor that would silently override whatever the user picks later.
+    const fromAnchor = p.anchor ? placementFromAnchorInput(p.anchor) : null;
+    if (p.anchor && !fromAnchor) {
+      console.warn(
+        `[create_sfx_draft] Anchor with no placement equivalent, using ${placement ? "the given placement" : "end"}: ${JSON.stringify(p.anchor)}`,
+      );
+    }
+
+    return {
+      slotId: slotIds[index],
+      description: p.description,
+      placement: fromAnchor ?? placement ?? { type: "end" },
+      duration: p.duration || 3,
+      // playAfter intentionally omitted - placement is the source of truth
+      overlap: 0,
+    };
+  });
+
+  // Index-aligned: prompted cues have no audio yet, uploads keep their file.
+  const cues = placeAroundUploads(
+    generatedCues.map((cue) => ({ cue, url: null as string | null })),
+    parentCues,
+    (i) => ({ cue: parentCues[i], url: parentUrls[i] ?? null }),
+  );
+
   const sfxVersion: SfxVersion = {
-    soundFxPrompts: prompts.map((p, index) => {
-      // Convert placement to proper typed format
-      let placement: SoundFxPlacementIntent | undefined;
-      if (p.placement) {
-        if (p.placement.type === "beforeVoices") {
-          placement = { type: "beforeVoices" };
-        } else if (p.placement.type === "withFirstVoice") {
-          placement = { type: "withFirstVoice" };
-        } else if (p.placement.type === "start") {
-          // Legacy alias of beforeVoices ("At beginning"): the cue starts at
-          // 0 s and plays over voice 1; voices do not wait for it.
-          placement = { type: "beforeVoices" };
-        } else if (p.placement.type === "end") {
-          placement = { type: "end" };
-        } else if (
-          p.placement.type === "afterVoice" &&
-          p.placement.index !== undefined
-        ) {
-          placement = { type: "afterVoice", index: p.placement.index };
-        }
-      }
-
-      // Placement is the only thing the SFX editor shows and changes, so an
-      // AI anchor is stored as the placement it stands for, never as an
-      // anchor that would silently override whatever the user picks later.
-      const fromAnchor = p.anchor ? placementFromAnchorInput(p.anchor) : null;
-      if (p.anchor && !fromAnchor) {
-        console.warn(
-          `[create_sfx_draft] Anchor with no placement equivalent, using ${placement ? "the given placement" : "end"}: ${JSON.stringify(p.anchor)}`,
-        );
-      }
-
-      return {
-        slotId: slotIds[index],
-        description: p.description,
-        placement: fromAnchor ?? placement ?? { type: "end" },
-        duration: p.duration || 3,
-        // playAfter intentionally omitted - placement is the source of truth
-        overlap: 0,
-      };
-    }),
-    generatedUrls: [], // No audio generated yet for draft
+    soundFxPrompts: cues.map(({ cue }) => cue),
+    // Holes are null, as the generate route writes them.
+    generatedUrls: cues.map(({ url }) => url) as string[],
     createdAt: Date.now(),
     createdBy: "llm",
     status: "draft",
@@ -1008,6 +1029,28 @@ async function createSfxDraftLocked(
   const versionId = await createVersion(adId, "sfx", sfxVersion);
 
   return slotReportedResult(adId, versionId, report);
+}
+
+/**
+ * Lays the LLM's prompted cues around the parent's uploaded cues: each upload
+ * keeps its position, prompted cues fill the parent's prompted positions in
+ * order, and any extra ones go at the end. `upload(i)` gives the item for the
+ * parent's upload at index `i`.
+ */
+function placeAroundUploads<T>(
+  generated: T[],
+  parentCues: SoundFxPrompt[],
+  upload: (index: number) => T,
+): T[] {
+  const remaining = [...generated];
+  const placed: T[] = [];
+
+  parentCues.forEach((cue, index) => {
+    if (cue.source === "upload") placed.push(upload(index));
+    else if (remaining.length > 0) placed.push(remaining.shift()!);
+  });
+
+  return [...placed, ...remaining];
 }
 
 /**

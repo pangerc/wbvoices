@@ -23,7 +23,7 @@ vi.mock("@/services/voiceCatalogueService", () => ({
   },
 }));
 
-import { freezeVersion, getVersion } from "@/lib/redis/versions";
+import { freezeVersion, getVersion, updateVersion } from "@/lib/redis/versions";
 import type { MusicVersion, SfxVersion, VoiceVersion } from "@/types/versions";
 import {
   createMusicDraft,
@@ -237,6 +237,54 @@ describe("createSfxDraft slot lineage", () => {
     )) as SfxVersion;
     expect(child.soundFxPrompts.map((p) => p.slotId)).toEqual(parentSlotIds);
     expect(second.reconciliation!.preserved).toHaveLength(2);
+  });
+
+  it("carries uploaded cues over in place; prompts replace only the rest", async () => {
+    const first = await createSfxDraft({
+      adId: ADID,
+      prompts: [{ description: "whoosh" }, { description: "ding" }],
+    });
+    const parent = (await getVersion(
+      ADID,
+      "sfx",
+      first.versionId,
+    )) as SfxVersion;
+    const upload = {
+      ...parent.soundFxPrompts[0],
+      description: "door-slam.mp3",
+      duration: 1.4,
+      source: "upload" as const,
+    };
+    const uploadUrl =
+      "https://store.public.blob.vercel-storage.com/user-assets/abc/sfx/1.mp3";
+
+    await updateVersion(ADID, "sfx", first.versionId, {
+      soundFxPrompts: [upload, parent.soundFxPrompts[1]],
+      generatedUrls: [uploadUrl, "/ding.mp3"],
+    });
+    await freezeVersion(ADID, "sfx", first.versionId);
+
+    const second = await createSfxDraft({
+      adId: ADID,
+      prompts: [{ description: "bright ding" }, { description: "crowd" }],
+    });
+
+    const child = (await getVersion(
+      ADID,
+      "sfx",
+      second.versionId,
+    )) as SfxVersion;
+
+    expect(child.soundFxPrompts.map((p) => p.description)).toEqual([
+      "door-slam.mp3",
+      "bright ding",
+      "crowd",
+    ]);
+    expect(child.soundFxPrompts[0]).toEqual(upload);
+    expect(child.soundFxPrompts[1].slotId).toBe(
+      parent.soundFxPrompts[1].slotId,
+    );
+    expect(child.generatedUrls).toEqual([uploadUrl, null, null]);
   });
 });
 

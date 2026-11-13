@@ -150,6 +150,33 @@ export type SoundFxPrompt = {
   overlap?: number;
   duration?: number;
   placement?: SoundFxPlacementIntent; // New intent-based placement
+  /**
+   * Where the cue's audio comes from. Absent means generated. An `"upload"` cue
+   * plays a file the user uploaded: its `description` is the filename, its
+   * `duration` the measured length, and its URL is never regenerated or
+   * invalidated.
+   */
+  source?: "generated" | "upload";
+  /** The User Assets library entry an `"upload"` cue plays, when known. */
+  assetId?: string;
+};
+
+/** A user's sound-effect upload that passed server-side validation. */
+export type UploadedSfx = {
+  /** The upload's entry in the user's User Assets library. */
+  assetId: string;
+  /** Public Vercel Blob URL to play or reference the file. */
+  url: string;
+  /** The name of the file as the user uploaded it. */
+  filename: string;
+  /** Measured from the stored file, not trusted from the browser. */
+  durationSeconds: number;
+};
+
+/** One sound effect in a user's User Assets library. */
+export type SfxLibraryAsset = UploadedSfx & {
+  /** When it was uploaded. */
+  createdAt: Date;
 };
 
 export type LibraryMusicTrack = {

@@ -61,6 +61,8 @@ export function SfxDraftEditor({
     saving,
     updateCue,
     addCue,
+    uploadCue,
+    clearUpload,
     removeCue,
     resetCues,
   } = useSfxCues({ adId, draftVersionId, draftVersion, onUpdate });
@@ -119,6 +121,11 @@ export function SfxDraftEditor({
     !!draftVersion.generatedUrls?.length &&
     draftVersion.generatedUrls.filter(Boolean).length >= cues.length;
 
+  // Uploaded cues have no prompt for the AI to change; with nothing else,
+  // there is nothing to ask for.
+  const onlyUploads =
+    cues.length > 0 && cues.every((cue) => cue.source === "upload");
+
   return (
     // `contents`: a hook for E2E to wait on saves, without a layout box.
     <div
@@ -134,6 +141,9 @@ export function SfxDraftEditor({
         onUpdatePrompt={updateCue}
         onRemovePrompt={removeCue}
         onAddPrompt={addCue}
+        onUploadCue={uploadCue}
+        onClearUpload={clearUpload}
+        adId={adId}
         adDuration={adDuration}
         resetForm={resetCues}
         voiceTrackPreviews={voiceTrackPreviews}
@@ -149,8 +159,12 @@ export function SfxDraftEditor({
         parentVersionId={draftVersionId}
         onNewVersion={onUpdate}
         onNewBlankVersion={onNewBlankVersion}
-        disabled={!hasAllAudio}
-        disabledReason="Generate all sound effects before requesting changes"
+        disabled={onlyUploads || !hasAllAudio}
+        disabledReason={
+          onlyUploads
+            ? "Uploaded sound effects have no prompt to change"
+            : "Generate all sound effects before requesting changes"
+        }
         expandRef={iterationExpandRef}
       />
     </div>

@@ -29,23 +29,29 @@ export async function POST(
 
     const currentVersion = version as SfxVersion;
 
-    // Determine which prompts to generate
+    // Determine which prompts to generate. Uploaded cues already have their
+    // audio — their description is a filename, not a prompt.
+    const isUpload = (i: number) => soundFxPrompts[i]?.source === "upload";
     const isSinglePrompt =
       promptIndex !== undefined &&
       promptIndex >= 0 &&
       promptIndex < soundFxPrompts.length;
-    const indicesToGenerate = isSinglePrompt
-      ? [promptIndex]
-      : soundFxPrompts.map((_, i) => i);
+    const indicesToGenerate = (
+      isSinglePrompt ? [promptIndex] : soundFxPrompts.map((_, i) => i)
+    ).filter((i) => !isUpload(i));
 
     console.log(
       `🔊 Generating ${indicesToGenerate.length} sound effect(s) for ${versionId}${isSinglePrompt ? ` (prompt ${promptIndex})` : ""}...`,
     );
 
-    // Start from existing URLs for single-prompt mode, empty for all
+    // Start from existing URLs for single-prompt mode, empty for all — except
+    // uploaded cues, which keep theirs either way
+    const existingUrls = currentVersion.generatedUrls || [];
     const generatedUrls: (string | null)[] = isSinglePrompt
       ? [...(currentVersion.generatedUrls || soundFxPrompts.map(() => null))]
-      : soundFxPrompts.map(() => null);
+      : soundFxPrompts.map((_, i) =>
+          isUpload(i) ? (existingUrls[i] ?? null) : null,
+        );
 
     for (const i of indicesToGenerate) {
       const prompt = soundFxPrompts[i];

@@ -287,7 +287,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     type: "function",
     function: {
       name: "create_sfx_draft",
-      description: "Create a new sound effects version draft in Redis.",
+      description:
+        'Create a new sound effects version draft in Redis. Cues with source "upload" in read_ad_state are files the user uploaded: they have no prompt, you cannot change or remove them, and they carry over to the new draft automatically in their places. `prompts` lists only the other cues.',
       parameters: {
         type: "object",
         properties: {
