@@ -170,11 +170,11 @@ export function VoiceVersionContent({
               )}
 
               {/* Timing info below script */}
-              {(track.playAfter !== "start" ||
+              {((track.playAfter && track.playAfter !== "start") ||
                 track.overlap !== 0 ||
                 track.speed) && (
                 <div className="flex gap-4 mt-2 text-xs text-gray-400">
-                  {track.playAfter !== "start" && (
+                  {track.playAfter && track.playAfter !== "start" && (
                     <span>
                       After:{" "}
                       <span className="text-white">{track.playAfter}</span>

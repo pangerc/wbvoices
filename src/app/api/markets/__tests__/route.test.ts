@@ -67,8 +67,8 @@ describe("GET /api/markets", () => {
     expect(res.status).toBe(200);
     expect(mockGetMarkets).toHaveBeenCalledWith({ platform: "spotify" });
     const body = await res.json();
-    expect(body.markets).toHaveLength(1);
-    expect(body.markets[0].code).toBe("SI");
+    expect(body).toHaveLength(1);
+    expect(body[0].code).toBe("SI");
   });
 
   it("skips the platform filter when showAll=true", async () => {

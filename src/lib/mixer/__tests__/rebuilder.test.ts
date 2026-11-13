@@ -11,12 +11,20 @@ import {
   mockVoiceVersionDraft,
 } from "@/test/fixtures/versions";
 import { createMockRedis } from "@/test/utils";
-import type { MusicVersion, SfxVersion, VoiceVersion } from "@/types/versions";
+import type {
+  CachedResolverOutput,
+  MixerVersion,
+  MusicVersion,
+  SfxVersion,
+  VoiceVersion,
+} from "@/types/versions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createVersion,
   getVersion,
+  listVersions,
   setActiveVersion,
+  updateVersion,
 } from "../../redis/versions";
 import { applyMixerPatch, getMixerState, rebuildMixer } from "../rebuilder";
 
@@ -317,7 +325,7 @@ describe("rebuildMixer", () => {
   });
 
   describe("timeline calculation integration", () => {
-    it("should calculate sequential timing for tracks", async () => {
+    it("returns timing info and a total duration for the resolved tracks", async () => {
       const voiceVersion: VoiceVersion = {
         ...mockVoiceVersionDraft,
         generatedUrls: ["https://example.com/voice.mp3"],
@@ -342,6 +350,57 @@ describe("rebuildMixer", () => {
 
       // Verify total duration calculated
       expect(mixerState.totalDuration).toBeGreaterThan(0);
+    });
+  });
+
+  describe("a new ad's first rebuild", () => {
+    it("leaves one take, v1, as the active draft", async () => {
+      await createVersion(mockAdId, "voices", {
+        ...mockVoiceVersionDraft,
+        generatedUrls: ["https://x/v.mp3"],
+      });
+      await setActiveVersion(mockAdId, "voices", "v1");
+
+      const state = await rebuildMixer(mockAdId);
+
+      expect(await listVersions(mockAdId, "mixer")).toEqual(["v1"]);
+      expect(state.mixerActiveVersionId).toBe("v1");
+      expect(state.mixerActiveVersionStatus).toBe("draft");
+    });
+  });
+
+  describe("a saved take whose cached positions are stale", () => {
+    it("replaces the cache with the current clip lengths", async () => {
+      await createVersion(mockAdId, "voices", {
+        ...mockVoiceVersionDraft,
+        voiceTracks: [{ ...mockVoiceTrack, generatedDuration: 2 }],
+        generatedUrls: ["https://x/v.mp3"],
+      });
+      await setActiveVersion(mockAdId, "voices", "v1");
+      const first = await getMixerState(mockAdId);
+      const voiceId = first!.tracks[0].id;
+      const stale: CachedResolverOutput = {
+        calculatedTracks: [
+          { id: voiceId, startTime: 0, duration: 1, type: "voice" },
+        ],
+        totalDuration: 1,
+        calculatedAt: 0,
+      };
+      await updateVersion(mockAdId, "mixer", "v1", {
+        status: "frozen",
+        cachedResolverOutput: stale,
+      } as Partial<MixerVersion>);
+
+      await getMixerState(mockAdId);
+      await vi.waitFor(async () => {
+        const take = (await getVersion(
+          mockAdId,
+          "mixer",
+          "v1",
+        )) as MixerVersion;
+
+        expect(take.cachedResolverOutput?.calculatedTracks[0].duration).toBe(2);
+      });
     });
   });
 

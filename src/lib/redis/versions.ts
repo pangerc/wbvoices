@@ -86,7 +86,52 @@ export const AD_KEYS = {
   /** Version counter for atomic ID generation: ad:{adId}:voices:counter */
   counter: (adId: string, streamType: StreamType) =>
     `ad:${adId}:${streamType}:counter`,
+
+  /** Conversation history: ad:{adId}:conversation (see conversation.ts) */
+  conversation: (adId: string) => `ad:${adId}:conversation`,
+
+  /** Write lock: ad:{adId}:lock (see adLock.ts `withAdLock`) */
+  lock: (adId: string) => `ad:${adId}:lock`,
+
+  /** Generation lock: ad:{adId}:lock:generating (see adLock.ts) */
+  generatingLock: (adId: string) => `ad:${adId}:lock:generating`,
 } as const;
+
+/**
+ * The ad indexes the dashboard lists from. Each is one string key holding a
+ * JSON array of ad ids (see `src/database/ads.ts`), not a Redis set.
+ */
+export const ADS_INDEX_KEYS = {
+  /** Every ad id, for admin listings. */
+  all: "ads:all",
+  /** One owner's ad ids. */
+  byUser: (ownerEmail: string) => `ads:by_user:${ownerEmail}`,
+} as const;
+
+/** The ad ids in one index; empty when the key is unset. */
+export async function readAdIndex(key: string): Promise<string[]> {
+  const data = await getRedisV3().get<string[] | string>(key);
+  if (!data) return [];
+
+  return typeof data === "string" ? JSON.parse(data) : data;
+}
+
+/**
+ * Takes `adIds` out of one index. Leaves the key untouched when none of them
+ * is in it.
+ */
+export async function removeFromAdIndex(
+  key: string,
+  adIds: string[],
+): Promise<void> {
+  const remove = new Set(adIds);
+  const ids = await readAdIndex(key);
+  const kept = ids.filter((id) => !remove.has(id));
+
+  if (kept.length === ids.length) return;
+
+  await getRedisV3().set(key, JSON.stringify(kept));
+}
 
 // ============ Version Creation ============
 
@@ -675,26 +720,32 @@ export async function setPreviewData(
 // ============ Ad Deletion ============
 
 /**
- * Delete an ad and all its associated data from Redis
+ * Delete an ad and every Redis key it owns, and take it out of the ad
+ * indexes the dashboard lists from.
  *
  * Cleans up:
- * - Ad metadata
- * - All version streams (voices, music, sfx) including individual versions
- * - Mixer state
- * - Preview data
- * - Session index entry
+ * - metadata, preview, the legacy mixer blob, the conversation and both locks;
+ * - every version stream (voices, music, sfx, mixer) with its versions;
+ * - `ads:all` and the owner's `ads:by_user:{owner}` index. The owner comes
+ *   from the metadata, not the caller: an admin may delete someone else's ad.
+ *
+ * An id left in an index without its metadata makes every dashboard load
+ * fetch and skip it, so the index entries matter as much as the keys.
  *
  * @param adId - Advertisement ID to delete
- * @param sessionId - Session ID to remove from index
  */
-export async function deleteAd(adId: string, sessionId: string): Promise<void> {
+export async function deleteAd(adId: string): Promise<void> {
   const redis = getRedisV3();
+  const owner = (await getAdMetadata(adId))?.owner;
 
   const streamTypes: StreamType[] = ["voices", "music", "sfx", "mixer"];
   const keysToDelete: string[] = [
     AD_KEYS.meta(adId),
     AD_KEYS.mixer(adId), // legacy single-key blob, cleaned up here too
     AD_KEYS.preview(adId),
+    AD_KEYS.conversation(adId),
+    AD_KEYS.lock(adId),
+    AD_KEYS.generatingLock(adId),
   ];
 
   // Collect all version-related keys for each stream
@@ -716,11 +767,18 @@ export async function deleteAd(adId: string, sessionId: string): Promise<void> {
     await redis.del(...keysToDelete);
   }
 
-  // Remove from session index
-  await redis.lrem(`session:${sessionId}:ads`, 0, adId);
+  // Remove from the indexes. The owner's index is keyed by the email as
+  // stored at creation; a backup import keys it lowercased, so clear both.
+  await removeFromAdIndex(ADS_INDEX_KEYS.all, [adId]);
+  if (owner) {
+    const owners = new Set([owner, owner.toLowerCase()]);
+    for (const email of owners) {
+      await removeFromAdIndex(ADS_INDEX_KEYS.byUser(email), [adId]);
+    }
+  }
 
   console.log(
-    `✅ Deleted ad ${adId} (${keysToDelete.length} keys + session index)`,
+    `✅ Deleted ad ${adId} (${keysToDelete.length} keys + index entries)`,
   );
 }
 

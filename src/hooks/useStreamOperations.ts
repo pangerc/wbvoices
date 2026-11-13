@@ -105,8 +105,14 @@ export function useStreamOperations(adId: string, stream: StreamType) {
         }
       }
 
-      // Create new draft with stream-specific defaults
-      const body = getDefaultDraftBody(stream);
+      // Create new draft with stream-specific defaults. sourceVersionId names
+      // the draft it replaces, else the active version; only the voices route
+      // uses it, so a blank voice version inherits that version's provider and
+      // language (its knowledge context). Music and SFX drafts start blank.
+      const body = {
+        ...getDefaultDraftBody(stream),
+        sourceVersionId: existingDraft?.id ?? data?.active ?? undefined,
+      };
 
       const res = await fetch(`/api/ads/${adId}/${stream}`, {
         method: "POST",

@@ -32,7 +32,11 @@ import type {
   VersionId,
   VoiceVersion,
 } from "@/types/versions";
-import { translateAnchorInput, type OrdinalRefs } from "./anchorTranslation";
+import {
+  placementFromAnchorInput,
+  translateAnchorInput,
+  type OrdinalRefs,
+} from "./anchorTranslation";
 import { reconcileSlots } from "./slotReconciliation";
 import {
   AnchorInput,
@@ -68,7 +72,7 @@ import {
  * module + wrong language from day one. Brief-level axes (pacing, format,
  * region) stay inherited — those aren't encoded in the tracks.
  */
-function reconcileContextFromTracks(
+export function reconcileContextFromTracks(
   inherited: KnowledgeContext,
   tracks: VoiceTrack[],
 ): KnowledgeContext {
@@ -158,8 +162,8 @@ async function loadParentSlotIds(
  * Build the OrdinalRefs lookup table used to translate LLM ordinal-form anchor
  * inputs ("voice-0", "sfx-2", "music") into slot-id-form Anchors.
  *
- * Uses currently-active stream versions for cross-stream refs (sfx-to-voice,
- * music-to-voice). Callers pass their own draft's slot ids as `overrides` so
+ * Uses currently-active stream versions for cross-stream refs (e.g.
+ * music-to-voice, voice-to-sfx). Callers pass their own draft's slot ids as `overrides` so
  * intra-stream refs ("voice-0" within a new voice draft) resolve correctly.
  */
 async function loadOrdinalRefs(
@@ -183,7 +187,7 @@ async function loadOrdinalRefs(
     }
   }
 
-  // SFX refs — rare cross-stream use; only loaded when explicitly requested.
+  // SFX refs — for voice/music anchors that name an SFX cue ("sfx-k").
   if (!refs.sfx) {
     const activeSfxId = await getActiveVersion(adId, "sfx");
     if (activeSfxId) {
@@ -626,8 +630,10 @@ async function createVoiceDraftLocked(
         ...(anchor ? { anchor } : {}),
         voice,
         text: track.text,
-        playAfter:
-          track.playAfter || (index === 0 ? "start" : `track-${index - 1}`),
+        // No default "track-{i-1}": anchorFromVoiceTrack already seeds each
+        // line after the previous one, and a stored index goes stale when a
+        // line is deleted.
+        ...(track.playAfter ? { playAfter: track.playAfter } : {}),
         overlap: track.overlap ?? 0,
         speed: 1.0,
         // Provider-specific fields
@@ -950,9 +956,6 @@ async function createSfxDraftLocked(
     parentVersionId,
   );
 
-  // Anchor translation — sfx typically references voices in the active voice version.
-  const ordinalRefs = await loadOrdinalRefs(adId, { sfx: slotIds });
-
   const sfxVersion: SfxVersion = {
     soundFxPrompts: prompts.map((p, index) => {
       // Convert placement to proper typed format
@@ -963,7 +966,8 @@ async function createSfxDraftLocked(
         } else if (p.placement.type === "withFirstVoice") {
           placement = { type: "withFirstVoice" };
         } else if (p.placement.type === "start") {
-          // Legacy: map to sequential intro
+          // Legacy alias of beforeVoices ("At beginning"): the cue starts at
+          // 0 s and plays over voice 1; voices do not wait for it.
           placement = { type: "beforeVoices" };
         } else if (p.placement.type === "end") {
           placement = { type: "end" };
@@ -975,13 +979,20 @@ async function createSfxDraftLocked(
         }
       }
 
-      const anchor = safeTranslateAnchor(p.anchor, ordinalRefs);
+      // Placement is the only thing the SFX editor shows and changes, so an
+      // AI anchor is stored as the placement it stands for, never as an
+      // anchor that would silently override whatever the user picks later.
+      const fromAnchor = p.anchor ? placementFromAnchorInput(p.anchor) : null;
+      if (p.anchor && !fromAnchor) {
+        console.warn(
+          `[create_sfx_draft] Anchor with no placement equivalent, using ${placement ? "the given placement" : "end"}: ${JSON.stringify(p.anchor)}`,
+        );
+      }
 
       return {
         slotId: slotIds[index],
-        ...(anchor ? { anchor } : {}),
         description: p.description,
-        placement: placement || { type: "end" },
+        placement: fromAnchor ?? placement ?? { type: "end" },
         duration: p.duration || 3,
         // playAfter intentionally omitted - placement is the source of truth
         overlap: 0,

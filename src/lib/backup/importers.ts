@@ -22,7 +22,12 @@ import {
   voiceMetadata,
 } from "@/lib/db/schema";
 import { CONVERSATION_KEYS } from "@/lib/redis/conversation";
-import { AD_KEYS } from "@/lib/redis/versions";
+import {
+  AD_KEYS,
+  ADS_INDEX_KEYS,
+  readAdIndex,
+  removeFromAdIndex,
+} from "@/lib/redis/versions";
 import { getRedisV3 } from "@/lib/redis-v3";
 import type { StreamType } from "@/types/versions";
 import { and, eq, inArray } from "drizzle-orm";
@@ -163,6 +168,67 @@ export async function rebuildIndexes(indexAcc: IndexAccumulator): Promise<void> 
   for (const [owner, ids] of byUser) {
     await redis.set(USER_ADS_KEY(owner), [...ids]);
   }
+}
+
+// --- leftovers of deleted ads -----------------------------------------------
+
+/** What `purgeAdLeftovers` found (dry run) or removed. */
+export type AdLeftovers = {
+  /** Ids in `ads:all` with no `ad:{id}:meta`. */
+  allIndex: string[];
+  /** Per `ads:by_user:{email}` index, its ids with no meta. */
+  userIndexes: Record<string, string[]>;
+  /** `ad:{id}:*` keys of ids with no meta (locks excluded: they expire). */
+  strayKeys: string[];
+};
+
+/**
+ * Finds, and unless `dryRun` removes, what deleted ads left behind: their ids
+ * in `ads:all` and in every `ads:by_user:*` index, and their remaining
+ * `ad:{id}:*` keys. An ad counts as deleted when its `ad:{id}:meta` is gone.
+ *
+ * Index ids without meta are what slow the dashboard: every listing fetches
+ * and skips them. Lock keys are left alone, since they expire on their own
+ * and may belong to an ad that is being created right now.
+ */
+export async function purgeAdLeftovers({
+  dryRun,
+}: {
+  dryRun: boolean;
+}): Promise<AdLeftovers> {
+  const redis = getRedisV3();
+  const metaKeys = await redis.keys(AD_KEYS.meta("*"));
+  const live = new Set(
+    metaKeys
+      .map((key) => /^ad:(.+):meta$/.exec(key)?.[1])
+      .filter((id): id is string => !!id),
+  );
+  const isDeleted = (adId: string) => !live.has(adId);
+
+  const allIndex = (await readAdIndex(ADS_INDEX_KEYS.all)).filter(isDeleted);
+
+  const userIndexes: Record<string, string[]> = {};
+  for (const key of await redis.keys(ADS_INDEX_KEYS.byUser("*"))) {
+    const orphans = (await readAdIndex(key)).filter(isDeleted);
+    if (orphans.length) {
+      userIndexes[key.slice(ADS_INDEX_KEYS.byUser("").length)] = orphans;
+    }
+  }
+
+  const strayKeys = (await redis.keys("ad:*")).filter((key) => {
+    const adId = key.split(":")[1];
+    return !!adId && isDeleted(adId) && !/:lock(:generating)?$/.test(key);
+  });
+
+  if (!dryRun) {
+    await removeFromAdIndex(ADS_INDEX_KEYS.all, allIndex);
+    for (const [email, ids] of Object.entries(userIndexes)) {
+      await removeFromAdIndex(ADS_INDEX_KEYS.byUser(email), ids);
+    }
+    if (strayKeys.length) await redis.del(...strayKeys);
+  }
+
+  return { allIndex, userIndexes, strayKeys };
 }
 
 // --- replace: wipe target scope --------------------------------------------

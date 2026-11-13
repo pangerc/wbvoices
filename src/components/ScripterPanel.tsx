@@ -88,6 +88,11 @@ export function ScripterPanel({
       return;
     }
 
+    // A load superseded by a newer one (another provider or language, or
+    // StrictMode's second run in dev) is aborted, and whatever it returns is
+    // ignored: otherwise the slower response replaces the newer list.
+    const controller = new AbortController();
+
     const loadVoices = async () => {
       setIsLoadingVoices(true);
 
@@ -110,8 +115,9 @@ export function ScripterPanel({
           url.searchParams.set("accent", selectedAccent);
         }
 
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: controller.signal });
         const data = await response.json();
+        if (controller.signal.aborted) return;
 
         if (!data.error) {
           // Ensure provider field is set on each voice
@@ -128,6 +134,7 @@ export function ScripterPanel({
           setVoices([]);
         }
       } catch (error) {
+        if (controller.signal.aborted) return;
         console.error("ScripterPanel voice loading error:", error);
         setVoices([]);
       }
@@ -136,6 +143,8 @@ export function ScripterPanel({
     };
 
     loadVoices();
+
+    return () => controller.abort();
   }, [
     selectedLanguage,
     selectedRegion,

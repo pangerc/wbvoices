@@ -60,6 +60,11 @@ describe("createVoiceDraft slot lineage", () => {
     expect(stored.voiceTracks[0].slotId).toBeTruthy();
     expect(stored.voiceTracks[1].slotId).toBeTruthy();
     expect(stored.voiceTracks[0].slotId).not.toBe(stored.voiceTracks[1].slotId);
+    // No default "track-{i-1}": it goes stale when a line is deleted.
+    expect(stored.voiceTracks.map((t) => t.playAfter)).toEqual([
+      undefined,
+      undefined,
+    ]);
     expect(stored.parentVersionId).toBeUndefined();
   });
 
@@ -290,47 +295,122 @@ describe("createVoiceDraft anchor translation (stage 4)", () => {
   });
 });
 
-describe("createSfxDraft anchor translation (stage 4)", () => {
-  it("sfx anchor referencing voice-0 resolves against active voice version", async () => {
-    // Set up: create + freeze a voice version first so sfx can reference it
-    const voiceResult = await createVoiceDraft({
-      adId: ADID,
-      tracks: [{ voiceId: "a", text: "voice one" }],
-    });
-    const voiceVersion = (await getVersion(
-      ADID,
-      "voices",
-      voiceResult.versionId,
-    )) as VoiceVersion;
-    const voiceSlot = voiceVersion.voiceTracks[0].slotId!;
-    await freezeVersion(ADID, "voices", voiceResult.versionId);
-    const { setActiveVersion } = await import("@/lib/redis/versions");
-    await setActiveVersion(ADID, "voices", voiceResult.versionId);
+/**
+ * The cue's Placement listbox is the only source of truth for where it plays,
+ * so an AI anchor is stored as the placement it means, never as an anchor the
+ * listbox can't show or change.
+ */
+describe("createSfxDraft: AI anchors become placements", () => {
+  /** One anchor for each placement an anchor can map to (end has no anchor form). */
+  const ANCHORED_PROMPTS = [
+    {
+      description: "ding after voice 2",
+      anchor: { kind: "relativeTo", trackRef: "voice-1", edge: "end" },
+    },
+    {
+      description: "bed with voice 1",
+      anchor: {
+        kind: "simultaneousWith",
+        trackRef: "voice-0",
+        alignment: "startAtStart",
+      },
+    },
+    {
+      description: "intro whoosh",
+      anchor: { kind: "absolute", t: 0 },
+    },
+  ] as const;
 
-    const sfxResult = await createSfxDraft({
+  const EXPECTED_PLACEMENTS = [
+    { type: "afterVoice", index: 1 },
+    { type: "withFirstVoice" },
+    { type: "beforeVoices" },
+  ];
+
+  async function twoVoiceLines(): Promise<string> {
+    const voices = await createVoiceDraft({
+      adId: ADID,
+      tracks: [
+        { voiceId: "a", text: "voice one" },
+        { voiceId: "b", text: "voice two" },
+      ],
+    });
+
+    return voices.versionId;
+  }
+
+  async function storedCues(sfxVersionId: string) {
+    const sfxVersion = (await getVersion(
+      ADID,
+      "sfx",
+      sfxVersionId,
+    )) as SfxVersion;
+
+    return sfxVersion.soundFxPrompts;
+  }
+
+  it("maps anchors to placements when a voice version is active", async () => {
+    const voiceVersionId = await twoVoiceLines();
+    await freezeVersion(ADID, "voices", voiceVersionId);
+    const { setActiveVersion } = await import("@/lib/redis/versions");
+    await setActiveVersion(ADID, "voices", voiceVersionId);
+
+    const sfx = await createSfxDraft({
+      adId: ADID,
+      prompts: [...ANCHORED_PROMPTS],
+    });
+
+    const cues = await storedCues(sfx.versionId);
+    expect(cues.map((cue) => cue.placement)).toEqual(EXPECTED_PLACEMENTS);
+    expect(cues.map((cue) => cue.anchor)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it("maps anchors to placements before any voice version is active (no voice lookup needed)", async () => {
+    // Generation writes the voice draft in the same agent loop and only
+    // activates it once the loop is done; the anchor->placement mapping must
+    // not depend on the voice version.
+    await twoVoiceLines();
+
+    const sfx = await createSfxDraft({
+      adId: ADID,
+      prompts: [...ANCHORED_PROMPTS],
+    });
+
+    const cues = await storedCues(sfx.versionId);
+    expect(cues.map((cue) => cue.placement)).toEqual(EXPECTED_PLACEMENTS);
+    expect(cues.map((cue) => cue.anchor)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it("an anchor's placement wins over the placement field; no equivalent falls back", async () => {
+    const sfx = await createSfxDraft({
       adId: ADID,
       prompts: [
         {
-          description: "ding on voice 1 end",
-          anchor: {
-            kind: "relativeTo",
-            trackRef: "voice-0",
-            edge: "end",
-          },
+          description: "sting",
+          anchor: { kind: "absolute", t: 2 },
+          placement: { type: "afterVoice", index: 0 },
+        },
+        {
+          description: "tail",
+          anchor: { kind: "relativeTo", trackRef: "voice-1", edge: "start" },
         },
       ],
     });
 
-    const sfxVersion = (await getVersion(
-      ADID,
-      "sfx",
-      sfxResult.versionId,
-    )) as SfxVersion;
-    expect(sfxVersion.soundFxPrompts[0].anchor).toEqual({
-      kind: "relativeTo",
-      slotId: voiceSlot,
-      edge: "end",
-    });
+    const cues = await storedCues(sfx.versionId);
+    expect(cues.map((cue) => cue.placement)).toEqual([
+      { type: "afterVoice", index: 0 },
+      { type: "end" },
+    ]);
+    expect(cues.map((cue) => cue.anchor)).toEqual([undefined, undefined]);
   });
 });
 

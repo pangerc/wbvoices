@@ -132,7 +132,7 @@ export async function DELETE(
 
     console.log(`🗑️ Deleting ad ${adId} by ${email}`);
 
-    await deleteAd(adId, email);
+    await deleteAd(adId);
 
     return NextResponse.json({ success: true, adId });
   } catch (error) {

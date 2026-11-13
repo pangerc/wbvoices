@@ -390,7 +390,8 @@ export interface MixerTrack {
   anchorOrigin?: AnchorOrigin;
   /**
    * If this track's anchor references another slot (relativeTo /
-   * simultaneousWith / atFraction), the referenced slot id. `absolute`
+   * simultaneousWith / atFraction), the referenced slot id. May be a
+   * reserved reference (`@origin` / `@voices`) that matches no track. `absolute`
    * anchors and tracks without an anchor entry have this undefined.
    * Used client-side for cycle prevention on drag-drop.
    */
@@ -441,7 +442,10 @@ export interface CalculatedTrack {
 // on stream versions — they live on the mixer version (stage 6).
 //
 // Every anchor references a slot (see VoiceTrack.slotId / MusicVersion.slotId /
-// SoundFxPrompt.slotId) or the timeline itself. Slot IDs are stable across
+// SoundFxPrompt.slotId) or a reserved reference: `@origin` (the timeline
+// start, 0-0) or `@voices` (first voice start to latest voice end, plus cues
+// queued on voice ends), see TIMELINE_ORIGIN / ALL_VOICES in
+// timelineResolver.ts. Absolute anchors reference the timeline itself. Slot IDs are stable across
 // regeneration, so anchors survive voice/text edits and provider swaps.
 
 /**
@@ -485,12 +489,13 @@ export type Anchor =
  * How an anchored clip interacts with siblings that come after it.
  *
  * - `overlay` (default): subsequent anchored clips are unaffected; this clip
- *   overlaps whatever shares its time window. Used for sfx stingers, bed
- *   ambience, ducking music.
- * - `push`: subsequent clips anchored to the same reference (or downstream of
- *   this clip in the dependency graph) shift forward to accommodate this
- *   clip's duration. This is what sfx "after voice N" actually wants — the
- *   resolver's legacy fixed-phase ordering broke it, dependency-sort fixes it.
+ *   overlaps whatever shares its time window. Used for voices, music, and cues
+ *   placed "with first voice" or by a stored anchor.
+ * - `push`: this clip joins the queue at its anchor's edge: later push clips
+ *   anchored to the same edge start after it, so cues sharing a spot play one
+ *   after another. Clips anchored there without push — the voice that
+ *   follows the edge — keep their place: a cue never moves a voice or the
+ *   music.
  */
 export type AnchorLayout = "overlay" | "push";
 

@@ -3,7 +3,9 @@
  *
  * Post-stage-6 data flow:
  *   - Every ad has a mixer version stream (`ad:{id}:mixer:...`). On the first
- *     read of a legacy ad, `bootstrapLegacyMixer` materializes `mixer:v1`.
+ *     read of an ad with content but no mixer stream, `bootstrapLegacyMixer`
+ *     materializes `mixer:v1`: a draft for a new ad, a frozen take for a
+ *     migrated legacy mixer.
  *   - The active mixer version's `pins` declare which voice/music/sfx
  *     versions this arrangement references. MixerState derives from pins,
  *     not from stream-level active pointers directly. That's what lets a
@@ -12,7 +14,9 @@
  *     stream-level actives elsewhere.
  *   - `rebuildMixer` is the mutation path: it ensures an active mixer draft
  *     exists (forking the frozen active if needed) and syncs that draft's
- *     pins to the current stream actives. Called from freeze endpoints.
+ *     pins to the current stream actives. Called from every send/freeze path (version freeze and
+ *     update routes, mixer rebuild and remove-stream, generation jobs). It
+ *     takes the ad lock itself, so callers must not hold it.
  *   - `getMixerState` is the read path: bootstrap + derive. Never mutates.
  *
  * Positioning itself is pure and lives in `derive-timeline.ts`; this module
@@ -79,7 +83,7 @@ export async function rebuildMixer(adId: string): Promise<MixerState> {
 }
 
 /**
- * Read mixer state. Bootstraps on first read of a legacy ad. No mutation
+ * Read mixer state. Bootstraps mixer:v1 on the first read of an ad without one. No mutation
  * beyond the bootstrap itself (no draft creation, no pin sync).
  */
 export async function getMixerState(adId: string): Promise<MixerState | null> {
@@ -216,9 +220,10 @@ async function deriveMixerState(
     `  Built ${tracks.length} mixer tracks for ad ${adId} mixer=${activeMixerId}`,
   );
 
-  // Lazy cache hydration for frozen versions that predate stage 7 (or any
-  // frozen version whose cache was invalidated). Best-effort: a failure
-  // here shouldn't block the read path.
+  // Lazy cache (re)write for frozen versions: one with no cache yet (it
+  // predates stage 7), or one whose cache no longer matches the pinned clips
+  // (a pinned draft line was regenerated at a different length), which gets
+  // replaced. Best-effort: a failure here shouldn't block the read path.
   if (mixerVersion.status === "frozen" && !usedCache) {
     void writeResolverCache(adId, activeMixerId, resolved, tracks).catch(
       (err) =>
@@ -289,8 +294,10 @@ async function writeResolverCache(
     "mixer",
     mixerVersionId,
   )) as MixerVersion | null;
-  if (!current || current.status !== "frozen" || current.cachedResolverOutput)
-    return;
+  // Called only when the derive didn't use the cache — none yet, or one
+  // that no longer matches the pinned clips — so an existing one is stale
+  // and gets replaced.
+  if (!current || current.status !== "frozen") return;
 
   // Build a slot-id → track map so each resolved slot lands on its
   // correct track id. An earlier revision of this code had a buggy

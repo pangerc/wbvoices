@@ -5,19 +5,49 @@
  * POST /api/ads/{adId}/voices - Create new voice version
  */
 
+import type { KnowledgeContext } from "@/lib/knowledge/types";
 import { ensureAdExists } from "@/lib/redis/ensureAd";
 import {
   createVersion,
   getActiveVersion,
   getAllVersionsWithData,
+  getVersion,
   listVersions,
 } from "@/lib/redis/versions";
+import { reconcileContextFromTracks } from "@/lib/tools/implementations";
 import {
   CreateVersionResponse,
   VersionStreamResponse,
   VoiceVersion,
 } from "@/types/versions";
 import { NextRequest, NextResponse } from "next/server";
+
+/**
+ * The context a blank voice version inherits: that of the version it was
+ * started from (`sourceVersionId`, else the active one), corrected by that
+ * version's first cast voice. Without it the editor falls back to the brief's
+ * provider and language, which can differ from the voices the ad uses.
+ */
+async function inheritedKnowledgeContext(
+  adId: string,
+  sourceVersionId: string | undefined,
+): Promise<KnowledgeContext | undefined> {
+  const sourceId = sourceVersionId ?? (await getActiveVersion(adId, "voices"));
+  if (!sourceId) return undefined;
+
+  const source = (await getVersion(
+    adId,
+    "voices",
+    sourceId,
+  )) as VoiceVersion | null;
+  if (!source) return undefined;
+
+  const context = reconcileContextFromTracks(
+    source.knowledgeContext ?? {},
+    source.voiceTracks,
+  );
+  return Object.keys(context).length > 0 ? context : undefined;
+}
 
 // Force Node.js runtime for Redis access
 export const runtime = "nodejs";
@@ -83,7 +113,10 @@ export async function GET(
  * Body:
  * {
  *   voiceTracks: VoiceTrack[],
- *   createdBy?: "user" | "llm"  // Default: "user"
+ *   createdBy?: "user" | "llm",   // Default: "user"
+ *   promptContext?: string,
+ *   parentVersionId?: string,
+ *   sourceVersionId?: string      // Blank versions only: the version whose provider/language context to inherit (default: the active version)
  * }
  *
  * Response:
@@ -115,6 +148,13 @@ export async function POST(
     const { email } = await requireAuth();
     await ensureAdExists(adId, email);
 
+    // A blank version has no voices to say which provider and language to
+    // cast in, so it carries the context of the version it was started from.
+    const knowledgeContext =
+      body.voiceTracks.length === 0
+        ? await inheritedKnowledgeContext(adId, body.sourceVersionId)
+        : undefined;
+
     // Build version data
     const versionData: VoiceVersion = {
       voiceTracks: body.voiceTracks,
@@ -124,6 +164,7 @@ export async function POST(
       status: "draft",
       promptContext: body.promptContext, // Optional LLM prompt
       parentVersionId: body.parentVersionId, // Optional fork parent
+      ...(knowledgeContext ? { knowledgeContext } : {}),
     };
 
     // Create version in Redis

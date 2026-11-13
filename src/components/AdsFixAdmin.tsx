@@ -104,7 +104,7 @@ export function AdsFixAdmin() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-wb-almost-black p-8 text-white">
+    <div className="p-8 text-white">
       <div className="mx-auto max-w-2xl">
         <header className="mb-8">
           <h1 className="mb-2 text-3xl font-bold">Fix Ad Conversations</h1>

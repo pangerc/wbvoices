@@ -6,8 +6,8 @@
  * with no I/O:
  *
  *   pinned versions ──collect*──▶ MixerTrack[]
- *                   ──buildSlotStates──▶ SlotState[] ┐
- *   mixerVersion.anchors ────────────────────────────┴─▶ resolveTimeline
+ *                   ──buildSlotStates + silentSlots──▶ SlotState[] ┐
+ *   mixerVersion.anchors ──reconcileAnchors (drafts only)────────┴─▶ resolveTimeline
  *                   ──mapResolvedToCalculatedTracks──▶ calculatedTracks
  *
  * `rebuilder.ts` loads the inputs from Redis, calls `deriveTimeline`, and
@@ -15,7 +15,11 @@
  * here so it can be tested with plain objects.
  */
 
-import { slotIdForTrack, type PinnedVersions } from "@/lib/mixer/mixer-reconcile";
+import {
+  reconcileAnchors,
+  slotIdForTrack,
+  type PinnedVersions,
+} from "@/lib/mixer/mixer-reconcile";
 import {
   resolveTimeline,
   type ResolvedTimeline,
@@ -71,7 +75,14 @@ export function deriveTimeline({
   locale,
 }: TimelineInput): DerivedTimeline {
   const { voice, music, sfx } = pinned;
-  const anchors = mixerVersion.anchors;
+  // A draft's pinned streams change without a send (a voice line edited or
+  // deleted in place), so its stored anchors can point at clips that are
+  // gone. Reconciling here keeps every read in step with the content; a
+  // frozen take keeps the anchors it was frozen with.
+  const anchors =
+    mixerVersion.status === "frozen"
+      ? mixerVersion.anchors
+      : reconcileAnchors(mixerVersion.anchors, pinned);
   const overrides = mixerVersion.overrides ?? {};
 
   const tracks: MixerTrack[] = [];
@@ -85,10 +96,11 @@ export function deriveTimeline({
     collectSfxTracks(sfx, pins.sfx, tracks, anchors, overrides);
   }
 
-  // Frozen versions are immutable (anchors + pins + overrides), so their
-  // cached resolver output is a pure function of the version and reusable.
-  // Drafts always resolve fresh because the anchor graph is still being
-  // authored.
+  // A frozen take's anchors, pins and overrides don't change, but the drafts
+  // it pins can be edited in place (a line regenerated longer keeps its track
+  // id). So its cached resolver output is reused only while every clip still
+  // plays for as long as when it was cached (see cachedOutputMatches). Drafts
+  // always resolve fresh: their anchors are reconciled on every read.
   const cache = mixerVersion.cachedResolverOutput;
   const usedCache =
     mixerVersion.status === "frozen" &&
@@ -97,7 +109,10 @@ export function deriveTimeline({
   const resolved = usedCache
     ? projectCachedOutputThroughTracks(cache!, tracks, pinned)
     : resolveTimeline({
-        slots: buildSlotStates(tracks, pinned, overrides),
+        slots: [
+          ...buildSlotStates(tracks, pinned, overrides),
+          ...silentSlots(tracks, pinned),
+        ],
         anchors,
         formatDuration,
         locale,
@@ -150,6 +165,31 @@ function buildSlotStates(
 }
 
 /**
+ * Zero-length resolver slots for the pinned clips without audio yet: a line
+ * whose text changed, a cue not generated. They aren't rendered, but what is
+ * anchored to them still resolves, so a line without audio holds its place
+ * in the sequence instead of sending everything after it to 0s.
+ */
+function silentSlots(
+  tracks: MixerTrack[],
+  pinned: PinnedVersions,
+): SlotState[] {
+  const audible = new Set(tracks.map((track) => slotOf(track, pinned)));
+  const silent = (slotId: SlotId | undefined, type: SlotState["type"]) =>
+    slotId && !audible.has(slotId) ? [{ slotId, type, sourceDuration: 0 }] : [];
+
+  return [
+    ...(pinned.voice?.voiceTracks ?? []).flatMap((t) =>
+      silent(t.slotId, "voice"),
+    ),
+    ...(pinned.sfx?.soundFxPrompts ?? []).flatMap((p) =>
+      silent(p.slotId, "soundfx"),
+    ),
+    ...silent(pinned.music?.slotId, "music"),
+  ];
+}
+
+/**
  * Map resolver output back to the track-id-keyed `calculatedTracks` shape the
  * MixerPanel consumes today. Orphan slots (resolver returned nothing) are
  * silently dropped — they're already warned upstream via `resolved.warnings`.
@@ -177,22 +217,33 @@ function mapResolvedToCalculatedTracks(
 }
 
 /**
- * Decide whether a cached resolver output is still usable. Strict
- * multiset match on track ids — length equal, sorted id sequences
- * equal. Catches the earlier cache-collapse bug where all entries
- * shared one id (Set.has() would have silently accepted duplicates).
+ * Decide whether a cached resolver output is still usable: the same tracks
+ * (a strict multiset match on ids — the earlier cache-collapse bug left
+ * every entry sharing one id), each still as long as when it was cached. A
+ * take pins drafts that are edited in place, so a line regenerated longer
+ * keeps its track id; positions cached before that would leave the clips
+ * after it where they were.
  */
 function cachedOutputMatches(
   cache: CachedResolverOutput,
   tracks: MixerTrack[],
 ): boolean {
   if (cache.calculatedTracks.length !== tracks.length) return false;
-  const trackIds = tracks.map((t) => t.id).sort();
-  const cacheIds = cache.calculatedTracks.map((ct) => ct.id).sort();
-  for (let i = 0; i < trackIds.length; i++) {
-    if (trackIds[i] !== cacheIds[i]) return false;
-  }
-  return true;
+
+  const cachedById = new Map(cache.calculatedTracks.map((ct) => [ct.id, ct]));
+  if (cachedById.size !== tracks.length) return false;
+
+  return tracks.every((track) => {
+    const cached = cachedById.get(track.id);
+    return !!cached && Math.abs(cached.duration - playedDuration(track)) < 1e-3;
+  });
+}
+
+/** How long a track plays: its trim window, else its full length. */
+function playedDuration(track: MixerTrack): number {
+  const trim = track.trim;
+  if (trim && trim.end > trim.start) return trim.end - trim.start;
+  return Math.max(0, track.duration ?? 0);
 }
 
 /**

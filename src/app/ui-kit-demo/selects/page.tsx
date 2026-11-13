@@ -158,7 +158,7 @@ const LANGUAGE_OPTIONS: { value: Language; label: string; flag: string }[] = [
 
 /** Placement options used to demonstrate long-label truncation in the trigger. */
 const PLACEMENT_OPTIONS: { value: Placement; label: string }[] = [
-  { value: "start", label: "At beginning (before all voices)" },
+  { value: "start", label: "At beginning (plays over first voice)" },
   { value: "withFirstVoice", label: "With first voice (overlapping)" },
   { value: "afterAllVoices", label: "After every voice has finished" },
 ];

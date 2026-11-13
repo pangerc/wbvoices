@@ -135,8 +135,10 @@ export interface CreateSfxDraftParams {
   prompts: Array<{
     description: string;
     /**
-     * Optional ordinal-form anchor seed (stage 4). If provided, takes precedence
-     * over legacy `placement` intent. Translated at persistence.
+     * Optional ordinal-form anchor. Avoid; use `placement`. Never stored:
+     * create_sfx_draft converts it to the placement it matches (see
+     * `placementFromAnchorInput`), which then wins over `placement`. An
+     * anchor with no placement equivalent is ignored.
      */
     anchor?: AnchorInput;
     placement?: { type: string; index?: number };
