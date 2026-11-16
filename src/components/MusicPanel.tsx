@@ -42,9 +42,10 @@ const PROVIDER_OPTIONS: Array<{
   },
 ];
 
+// Tick labels are evenly spaced (min + 15s steps). The old 15s tick sat only
+// 5s from the 10s min, so the two labels overlapped ("10s15s"); dropped it.
 const DURATION_TICK_MARKS = [
   { value: 10, label: "10s" },
-  { value: 15, label: "15s" },
   { value: 30, label: "30s" },
   { value: 45, label: "45s" },
   { value: 60, label: "60s" },
