@@ -4,6 +4,8 @@ import { ToolDefinition } from "./types";
  * JSON schema fragment for the unified ordinal-form anchor input (stage 4).
  * Inlined into the voice/music/sfx tool schemas so the LLM can emit timing
  * intent in a normalized vocabulary instead of the legacy playAfter strings.
+ * The voice and SFX schemas override the description (SFX are placed by
+ * `placement`).
  *
  * `trackRef` is an ordinal reference within a stream: "voice-0", "voice-1",
  * "sfx-0", "music" (music has one slot per version).
@@ -11,7 +13,7 @@ import { ToolDefinition } from "./types";
 const ANCHOR_SCHEMA = {
   type: "object",
   description:
-    "Optional timing anchor. If omitted, legacy fields (playAfter/overlap/placement) are used. If provided, this takes precedence.",
+    "Optional timing anchor. If omitted, the legacy fields (playAfter/overlap) are used. If provided, this takes precedence.",
   properties: {
     kind: {
       type: "string",
@@ -167,11 +169,15 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                   description:
                     "Script text — clean prose in the target language. Do not write inline bracket tags; punctuation is your performance lever (ellipses for weight, CAPS for emphasis). For OpenAI: plain text.",
                 },
-                anchor: ANCHOR_SCHEMA,
+                anchor: {
+                  ...ANCHOR_SCHEMA,
+                  description:
+                    "Optional timing anchor for this line. Reference only an earlier voice line ('voice-N' with N lower than this line's index), never 'sfx-N' or 'music': voices must not move when an SFX or the music changes. If provided, it takes precedence over playAfter/overlap.",
+                },
                 playAfter: {
                   type: "string",
                   description:
-                    "LEGACY — prefer `anchor`. What this plays after (e.g., 'start', 'track-0'). Ignored if `anchor` is set.",
+                    "LEGACY — prefer `anchor`. What this plays after: 'start', or 'track-N' for an earlier line (N lower than this line's index). Ignored if `anchor` is set.",
                 },
                 overlap: {
                   type: "number",
@@ -295,11 +301,15 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                   type: "string",
                   description: "Sound effect description",
                 },
-                anchor: ANCHOR_SCHEMA,
+                anchor: {
+                  ...ANCHOR_SCHEMA,
+                  description:
+                    "Avoid — use `placement`. Do not send both. An anchor is converted to the placement it matches (relativeTo voice-N end → afterVoice N; simultaneousWith voice-0 startAtStart or relativeTo voice-0 start → withFirstVoice; absolute 0 → beforeVoices) and then overrides `placement`. Any other anchor is ignored and `placement` (or end) is used.",
+                },
                 placement: {
                   type: "object",
                   description:
-                    "LEGACY — prefer `anchor`. Where to place the SFX.",
+                    "Where the SFX plays. This is what the user sees and changes in the editor.",
                   properties: {
                     type: {
                       type: "string",
@@ -310,11 +320,12 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                         "end",
                       ],
                       description:
-                        "Placement type: beforeVoices (sequential intro), withFirstVoice (concurrent intro), afterVoice (after specific voice), end (outro)",
+                        "Placement type. None of these moves a voice or the music. beforeVoices: starts at 0 s, over the start of the first voice (which also starts at 0). withFirstVoice: starts with the first voice. afterVoice: starts when that voice line ends, over the start of the next line. end: starts once every voice has finished. Several SFX with the same placement play one after another.",
                     },
                     index: {
                       type: "number",
-                      description: "Voice track index (only for afterVoice)",
+                      description:
+                        "Voice track index, 0-based (only for afterVoice): 0 plays the SFX after the first voice line. An index past the last voice line plays the SFX at the end.",
                     },
                   },
                 },

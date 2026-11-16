@@ -8,7 +8,7 @@
  * `ad:{adId}:mixer` blob on success.
  *
  * Serialization: the whole sequence runs under `withAdLock` so two tabs
- * opening the same legacy ad can't both race to mint `mixer:v1`.
+ * opening the same ad (legacy or new) can't both race to mint `mixer:v1`.
  *
  * Stream-version status is preserved. Earlier revisions of this file
  * force-froze active drafts at bootstrap time on the premise that mixer:v1
@@ -16,10 +16,11 @@
  * editability from freshly-generated ads. The correct reproducibility
  * contract lives on `freezeExistingDraft` (stream iterations freeze the
  * outgoing draft) and on future variant-fork (must freeze pinned drafts
- * at fork time). Mixer:v1 frozen pinning a draft is an accepted soft
- * invariant: the pin is stable in practice until the user iterates, at
- * which point the old draft is frozen in place and the pin retroactively
- * hardens.
+ * at fork time). A new ad's mixer:v1 is a draft (its pins follow the stream
+ * actives on every rebuild). Only a migrated legacy ad's mixer:v1 is frozen;
+ * a frozen mixer:v1 pinning a stream draft is an accepted soft invariant:
+ * the pin is stable in practice until the user iterates, at which point the
+ * old draft is frozen in place and the pin retroactively hardens.
  *
  * Slot-id backfill: stream versions predating stage 2 lack `slotId`. This
  * module fills them in on the fly so the anchor graph has stable referents.
@@ -170,12 +171,19 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
     sfx: activeSfxId ?? null,
   };
 
+  // A legacy ad's mix is migrated as a frozen take: the first edit forks it,
+  // so the migrated arrangement stays in the take list. A new ad's first mix
+  // is the take the user goes on to edit, so it is a draft — frozen, the
+  // rebuild that follows would fork it into a second take straight away.
+  const legacyKey = AD_KEYS.mixer(adId);
+  const isLegacy = (await redis.exists(legacyKey)) > 0;
+
   const mixerV1: MixerVersion = {
     anchors,
     pins,
     createdAt: Date.now(),
     createdBy: "llm", // bootstrap materializes what the LLM already authored
-    status: "frozen",
+    status: isLegacy ? "frozen" : "draft",
   };
 
   const versionId = await createVersion(adId, "mixer", mixerV1);
@@ -183,7 +191,6 @@ async function bootstrapLocked(adId: string): Promise<BootstrapResult> {
 
   // Retire the pre-stage-6 blob. On subsequent bootstrap attempts the early
   // short-circuit returns instead of ever reaching this line.
-  const legacyKey = AD_KEYS.mixer(adId);
   const deleted = await redis.del(legacyKey);
 
   console.log(

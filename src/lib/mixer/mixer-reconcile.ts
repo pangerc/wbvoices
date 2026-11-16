@@ -8,9 +8,11 @@
 
 import {
   anchorFromMusicVersion,
-  anchorFromSoundFxPrompt,
   anchorFromVoiceTrack,
+  seedForSoundFxPrompt,
+  type SeedAnchor,
 } from "@/lib/tools/anchorTranslation";
+import { isReservedRef } from "@/services/timelineResolver";
 import type {
   Anchor,
   AnchorEntry,
@@ -43,11 +45,12 @@ export interface MixerPatch {
    *
    * - Non-null value: overwrite with `origin: "user-edit"`. Stage-6
    *   precedence (user-edit wins on stream regen) kicks in automatically.
-   *   Existing `layout` is preserved.
+   *   An existing `layout` is kept only when the new anchor is `relativeTo`
+   *   (push only composes with an edge anchor); otherwise it is dropped.
    * - `null` value: reset. Server re-derives from the stream-level seed
-   *   (legacy `placement` / `playAfter` / etc.) and writes with
-   *   `origin: "llm-seed"`. Used by the SFX panel's "Reset placement"
-   *   action when the user wants to revert a mixer drag.
+   *   (SFX `placement`, voice `playAfter` / anchor, etc.) and writes it with
+   *   `origin: "llm-seed"` and the seed's own layout. Used by the SFX panel's
+   *   "Reset placement" action when the user wants to revert a mixer drag.
    */
   anchorUpdates?: Record<SlotId, Anchor | null>;
   /**
@@ -108,46 +111,56 @@ export function inferTrackShape(trackId: string): {
 // ============ Anchor seeding ============
 
 /**
- * Derive the stream-level seed anchor for one slot of the pinned content —
- * the anchor the LLM (or the legacy placement vocabulary) authored. Null when
- * the slot isn't part of the pinned versions or carries no seed.
+ * Derive the stream-level seed for one slot of the pinned content — the
+ * anchor the placement vocabulary (or the LLM) authored, and its layout.
+ * Null when the slot isn't part of the pinned versions or carries no seed.
  */
 export function seedAnchorForSlot(
   slotId: SlotId,
   pinned: PinnedVersions,
-): Anchor | null {
+): SeedAnchor | null {
   const voiceSlotIds = pinned.voice?.voiceTracks.map((t) => t.slotId) ?? [];
 
   if (pinned.voice) {
     const vIndex = voiceSlotIds.indexOf(slotId);
     if (vIndex >= 0) {
-      return (
-        anchorFromVoiceTrack(
-          pinned.voice.voiceTracks[vIndex],
-          voiceSlotIds,
-          vIndex,
-        ) ?? null
+      const anchor = anchorFromVoiceTrack(
+        pinned.voice.voiceTracks[vIndex],
+        voiceSlotIds,
+        vIndex,
       );
+      return anchor ? { anchor } : null;
     }
   }
   if (pinned.music && pinned.music.slotId === slotId) {
-    return anchorFromMusicVersion(pinned.music);
+    return { anchor: anchorFromMusicVersion(pinned.music) };
   }
   if (pinned.sfx) {
-    const sfxSlotIds = pinned.sfx.soundFxPrompts.map((p) => p.slotId);
+    const prompts = pinned.sfx.soundFxPrompts;
+    const sfxSlotIds = prompts.map((p) => p.slotId);
     const sIndex = sfxSlotIds.indexOf(slotId);
     if (sIndex >= 0) {
       return (
-        anchorFromSoundFxPrompt(
-          pinned.sfx.soundFxPrompts[sIndex],
+        seedForSoundFxPrompt(
+          prompts[sIndex],
           voiceSlotIds,
           sfxSlotIds,
           sIndex,
+          prompts,
         ) ?? null
       );
     }
   }
   return null;
+}
+
+/** The `llm-seed` anchor entry for a seed, with the seed's own layout. */
+function seedEntry(seed: SeedAnchor): AnchorEntry {
+  return {
+    anchor: seed.anchor,
+    origin: "llm-seed",
+    ...(seed.layout ? { layout: seed.layout } : {}),
+  };
 }
 
 /** Every slot id the pinned content declares, in voice → sfx → music order. */
@@ -172,8 +185,8 @@ export function buildSeedAnchors(
 ): Record<SlotId, AnchorEntry> {
   const anchors: Record<SlotId, AnchorEntry> = {};
   for (const slotId of pinnedSlotIds(pinned)) {
-    const anchor = seedAnchorForSlot(slotId, pinned);
-    if (anchor) anchors[slotId] = { anchor, origin: "llm-seed" };
+    const seed = seedAnchorForSlot(slotId, pinned);
+    if (seed) anchors[slotId] = seedEntry(seed);
   }
   return anchors;
 }
@@ -194,13 +207,12 @@ function refSlot(anchor: Anchor): SlotId | undefined {
  * Bring the anchor graph in line with newly pinned content:
  *
  * - A `user-edit` anchor survives as long as the slot it references is still
- *   pinned — the user's drag outlives stream regeneration.
- * - Everything else is re-seeded from the stream (`llm-seed`), so new slots
- *   get placed and changed placements (SFX `afterVoice`, new LLM anchors)
- *   actually move the clip. A slot without a seed is left to the resolver.
+ *   pinned (or is a reserved reference) — the user's drag outlives stream
+ *   regeneration, and keeps its layout.
+ * - Everything else is re-seeded from the stream (`llm-seed`), with the
+ *   seed's layout, so new slots get placed and changed placements actually
+ *   move the clip. A slot without a seed is left to the resolver.
  * - Anchors for slots no longer pinned are dropped.
- *
- * Existing `layout` is preserved on every surviving slot.
  */
 export function reconcileAnchors(
   anchors: MixerVersion["anchors"],
@@ -212,7 +224,7 @@ export function reconcileAnchors(
     const existing = anchors[slotId];
     if (existing?.origin === "user-edit") {
       const ref = refSlot(existing.anchor);
-      if (!ref || (ref !== slotId && slots.has(ref))) {
+      if (!ref || isReservedRef(ref) || (ref !== slotId && slots.has(ref))) {
         next[slotId] = existing;
         continue;
       }
@@ -221,12 +233,7 @@ export function reconcileAnchors(
       );
     }
     const seed = seedAnchorForSlot(slotId, pinned);
-    if (!seed) continue;
-    next[slotId] = {
-      anchor: seed,
-      origin: "llm-seed",
-      ...(existing?.layout ? { layout: existing.layout } : {}),
-    };
+    if (seed) next[slotId] = seedEntry(seed);
   }
   return next;
 }
@@ -356,15 +363,10 @@ export function computePatchedVersion(
     const nextAnchors: MixerVersion["anchors"] = { ...active.anchors };
     for (const [slotId, anchor] of Object.entries(patch.anchorUpdates)) {
       if (anchor === null) {
-        // Reset: re-derive from the pinned stream seed.
+        // Reset: re-derive from the pinned stream seed, layout included.
         const seed = seedAnchorForSlot(slotId, pinned);
         if (seed) {
-          const existingLayout = nextAnchors[slotId]?.layout;
-          nextAnchors[slotId] = {
-            anchor: seed,
-            origin: "llm-seed",
-            ...(existingLayout ? { layout: existingLayout } : {}),
-          };
+          nextAnchors[slotId] = seedEntry(seed);
         } else {
           // No recoverable stream seed — remove the override entirely; the
           // resolver will fall back to its system-default behavior.
@@ -373,7 +375,10 @@ export function computePatchedVersion(
         continue;
       }
       if (!anchor) continue;
-      const existingLayout = nextAnchors[slotId]?.layout;
+      // Push only composes with an edge anchor: a cue dragged off its edge
+      // to a free position leaves the queue at that edge.
+      const existingLayout =
+        anchor.kind === "relativeTo" ? nextAnchors[slotId]?.layout : undefined;
       nextAnchors[slotId] = {
         anchor,
         origin: "user-edit",

@@ -75,25 +75,26 @@ describe("slotIdForTrack / inferTrackShape", () => {
 });
 
 describe("seedAnchorForSlot", () => {
-  it("seeds voices sequentially", () => {
-    expect(seedAnchorForSlot("v0", pinned)).toEqual({ kind: "absolute", t: 0 });
+  it("seeds voices sequentially, the first from the timeline origin", () => {
+    expect(seedAnchorForSlot("v0", pinned)).toEqual({
+      anchor: { kind: "relativeTo", slotId: "@origin", edge: "end" },
+    });
     expect(seedAnchorForSlot("v1", pinned)).toEqual({
-      kind: "relativeTo",
-      slotId: "v0",
-      edge: "end",
+      anchor: { kind: "relativeTo", slotId: "v0", edge: "end" },
     });
   });
 
-  it("translates sfx placement against voice slots", () => {
+  it("stacks an after-voice cue on the voice's end (push)", () => {
     expect(seedAnchorForSlot("s1", pinned)).toEqual({
-      kind: "relativeTo",
-      slotId: "v0",
-      edge: "end",
+      anchor: { kind: "relativeTo", slotId: "v0", edge: "end" },
+      layout: "push",
     });
   });
 
   it("defaults music to absolute(0)", () => {
-    expect(seedAnchorForSlot("m0", pinned)).toEqual({ kind: "absolute", t: 0 });
+    expect(seedAnchorForSlot("m0", pinned)).toEqual({
+      anchor: { kind: "absolute", t: 0 },
+    });
   });
 
   it("returns null for unknown slots", () => {
@@ -123,6 +124,7 @@ describe("reconcileAnchors", () => {
     expect(reconcileAnchors(stale, pinned).s1).toEqual({
       anchor: { kind: "relativeTo", slotId: "v0", edge: "end" },
       origin: "llm-seed",
+      layout: "push",
     });
   });
 
@@ -139,7 +141,7 @@ describe("reconcileAnchors", () => {
     expect(next.s0).toBe(edited.s0);
   });
 
-  it("re-seeds a user-edit anchor whose reference is gone", () => {
+  it("re-seeds a user-edit anchor whose reference is gone, with the seed's layout", () => {
     const dangling: MixerVersion["anchors"] = {
       v1: {
         anchor: { kind: "relativeTo", slotId: "deleted", edge: "end" },
@@ -150,8 +152,17 @@ describe("reconcileAnchors", () => {
     expect(reconcileAnchors(dangling, pinned).v1).toEqual({
       anchor: { kind: "relativeTo", slotId: "v0", edge: "end" },
       origin: "llm-seed",
-      layout: "push",
     });
+  });
+
+  it("keeps a user-edit anchor on a reserved reference", () => {
+    const edited: MixerVersion["anchors"] = {
+      s0: {
+        anchor: { kind: "relativeTo", slotId: "@voices", edge: "end" },
+        origin: "user-edit",
+      },
+    };
+    expect(reconcileAnchors(edited, pinned).s0).toBe(edited.s0);
   });
 
   it("drops anchors for slots that are no longer pinned", () => {
@@ -239,24 +250,33 @@ describe("computePatchedVersion", () => {
     expect(set.overrides).toEqual({ v1: { trim: { start: 0.5, end: 2 } } });
   });
 
-  it("marks drag anchors as user-edit and keeps layout", () => {
+  it("marks drag anchors as user-edit, keeping push only on an edge anchor", () => {
     const active: MixerVersion = {
       ...draft,
       anchors: {
         s1: {
-          anchor: { kind: "absolute", t: 0 },
+          anchor: { kind: "relativeTo", slotId: "v0", edge: "end" },
           origin: "llm-seed",
           layout: "push",
         },
       },
     };
-    const updates = computePatchedVersion(active, pinned, {
+
+    const onEdge = computePatchedVersion(active, pinned, {
+      anchorUpdates: { s1: { kind: "relativeTo", slotId: "v1", edge: "end" } },
+    });
+    const free = computePatchedVersion(active, pinned, {
       anchorUpdates: { s1: { kind: "absolute", t: 3 } },
     });
-    expect(updates.anchors?.s1).toEqual({
-      anchor: { kind: "absolute", t: 3 },
+
+    expect(onEdge.anchors?.s1).toEqual({
+      anchor: { kind: "relativeTo", slotId: "v1", edge: "end" },
       origin: "user-edit",
       layout: "push",
+    });
+    expect(free.anchors?.s1).toEqual({
+      anchor: { kind: "absolute", t: 3 },
+      origin: "user-edit",
     });
   });
 
@@ -275,6 +295,7 @@ describe("computePatchedVersion", () => {
       s1: {
         anchor: { kind: "relativeTo", slotId: "v0", edge: "end" },
         origin: "llm-seed",
+        layout: "push",
       },
     });
   });

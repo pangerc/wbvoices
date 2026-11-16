@@ -43,6 +43,7 @@ import {
   getVersion,
   listVersions,
   setActiveVersion,
+  updateVersion,
 } from "../../redis/versions";
 import { applyMixerPatch, getMixerState } from "../rebuilder";
 
@@ -127,11 +128,11 @@ describe("applyMixerPatch", () => {
     await createVersion(mockAdId, "voices", voice);
     await setActiveVersion(mockAdId, "voices", "v1");
 
-    // Bootstrap runs on the first getMixerState read, yielding frozen mixer:v1.
+    // Bootstrap (first getMixerState read) creates mixer:v1 as a draft for a
+    // new ad; freeze it here to stand in for a saved take.
     await getMixerState(mockAdId);
     const preId = (await getActiveVersion(mockAdId, "mixer"))!;
-    const pre = (await getVersion(mockAdId, "mixer", preId)) as MixerVersion;
-    expect(pre.status).toBe("frozen");
+    await updateVersion(mockAdId, "mixer", preId, { status: "frozen" });
 
     await applyMixerPatch(mockAdId, { mixedAudioUrl: "https://x/mix.mp3" });
 
@@ -183,8 +184,9 @@ describe("applyMixerPatch", () => {
     await createVersion(mockAdId, "voices", voice);
     await setActiveVersion(mockAdId, "voices", "v1");
 
-    // First patch: move slot-a. Bootstrap creates mixer:v1 frozen with empty
-    // anchors; this patch forks to v2 draft and applies the anchor.
+    // First patch: move slot-a. Bootstrap creates mixer:v1 as a draft (a new
+    // ad's first take) with seed anchors; this patch writes the user-edit
+    // anchor into that draft.
     await applyMixerPatch(mockAdId, {
       anchorUpdates: {
         "voice-slot-a": { kind: "absolute", t: 1.5 },
@@ -223,9 +225,9 @@ describe("applyMixerPatch", () => {
   });
 
   it("null anchor update resets to the stream-level seed with llm-seed provenance", async () => {
-    // Start with a voice (so there's a slot id) and an sfx with a legacy
-    // "afterVoice" placement. The bootstrap's stream-anchor translator
-    // should produce a relativeTo(voice, end) seed on reset.
+    // Start with a voice (so there's a slot id) and an sfx placed "afterVoice" 0.
+    // A reset re-derives the seed from the pinned placement (seedAnchorForSlot):
+    // a push on voice-slot-0's end.
     const voice: VoiceVersion = {
       ...mockVoiceVersionFrozen,
       voiceTracks: [{ ...mockVoiceTrack, slotId: "voice-slot-0" }],
@@ -265,7 +267,8 @@ describe("applyMixerPatch", () => {
     });
 
     // Now reset. Expect the stream-level placement to re-derive as
-    // relativeTo voice-slot-0 end.
+    // relativeTo voice-slot-0 end, stacked on it (push) like every
+    // after-voice cue.
     await applyMixerPatch(mockAdId, {
       anchorUpdates: { "sfx-slot-0": null },
     });
@@ -274,10 +277,11 @@ describe("applyMixerPatch", () => {
     expect(mixer.anchors["sfx-slot-0"]).toEqual({
       anchor: { kind: "relativeTo", slotId: "voice-slot-0", edge: "end" },
       origin: "llm-seed",
+      layout: "push",
     });
   });
 
-  it("preserves layout metadata when overriding an existing anchor", async () => {
+  it("drops push when a drag moves the clip off an edge", async () => {
     const voice: VoiceVersion = {
       ...mockVoiceVersionFrozen,
       voiceTracks: [{ ...mockVoiceTrack, slotId: "voice-slot-0" }],
@@ -286,12 +290,12 @@ describe("applyMixerPatch", () => {
     await createVersion(mockAdId, "voices", voice);
     await setActiveVersion(mockAdId, "voices", "v1");
 
-    // Seed a mixer version with layout: "push" on the slot so we can assert
-    // layout survives the patch.
+    // Seed a mixer version with layout: "push" on the slot: push only
+    // composes with an edge anchor, so a drag to a free time drops it.
     const mixer: MixerVersion = {
       anchors: {
         "voice-slot-0": {
-          anchor: { kind: "absolute", t: 0 },
+          anchor: { kind: "relativeTo", slotId: "@origin", edge: "end" },
           origin: "llm-seed",
           layout: "push",
         },
@@ -315,7 +319,6 @@ describe("applyMixerPatch", () => {
     expect(post.anchors["voice-slot-0"]).toEqual({
       anchor: { kind: "absolute", t: 2.5 },
       origin: "user-edit",
-      layout: "push",
     });
   });
 

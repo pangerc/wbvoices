@@ -1,10 +1,12 @@
 import type { AnchorEntry } from "@/types/versions";
 import { describe, expect, it, vi } from "vitest";
 import {
+  ALL_VOICES,
   AUTO_SPEEDUP_CAPS,
   DEFAULT_SPEEDUP_CAP,
   getSpeedupCap,
   resolveTimeline,
+  TIMELINE_ORIGIN,
   type ResolverInput,
   type SlotState,
 } from "../timelineResolver";
@@ -197,10 +199,10 @@ describe("resolveTimeline — anchor primitives", () => {
   });
 });
 
-// ---------- Push layout (the sfx-overlays-voice-N+1 fix) ----------
+// ---------- Push layout: cues queue at an edge, voices keep their place ----------
 
 describe("resolveTimeline — push layout", () => {
-  it("push sfx after voice-N shifts voice-N+1 forward", () => {
+  it("push sfx after voice-N leaves voice-N+1 in place", () => {
     const input: ResolverInput = {
       slots: [voice("v1", 4), sfx("s1", 1), voice("v2", 3)],
       anchors: {
@@ -217,8 +219,9 @@ describe("resolveTimeline — push layout", () => {
     const r = resolveTimeline(input);
     expect(track(r, "v1").startTime).toBe(0);
     expect(track(r, "s1").startTime).toBe(4);
-    // v2 would overlap s1 in the legacy model; push layout shifts v2 to s1.end.
-    expect(track(r, "v2").startTime).toBe(5);
+    // A cue never moves a voice: v2, anchored to the same edge without push,
+    // starts on it and plays over s1.
+    expect(track(r, "v2").startTime).toBe(4);
   });
 
   it("overlay (default) layout does NOT shift siblings", () => {
@@ -240,7 +243,7 @@ describe("resolveTimeline — push layout", () => {
     expect(track(r, "v2").startTime).toBe(4);
   });
 
-  it("multiple push clips stack — each extends the push window", () => {
+  it("push clips at one edge play one after another; the voice there keeps its place", () => {
     const input: ResolverInput = {
       slots: [voice("v1", 4), sfx("s1", 1), sfx("s2", 2), voice("v2", 3)],
       anchors: {
@@ -259,12 +262,38 @@ describe("resolveTimeline — push layout", () => {
       },
     };
     const r = resolveTimeline(input);
-    // s1 at v1.end (4), duration 1 → pushExt = 1
-    // s2 anchored at v1.end, but pushExt already 1 → starts at 5, duration 2 → pushExt = 3
-    // v2 anchored at v1.end + pushExt(3) → starts at 7
+    // s1 at v1.end (4), duration 1 → the queue is 1 long
+    // s2 queues after s1 → starts at 5, duration 2 → the queue is 3 long
+    // v2 isn't push, so the queue doesn't move it: it starts at v1.end (4)
     expect(track(r, "s1").startTime).toBe(4);
     expect(track(r, "s2").startTime).toBe(5);
-    expect(track(r, "v2").startTime).toBe(7);
+    expect(track(r, "v2").startTime).toBe(4);
+  });
+
+  it("the queue holds whatever the slot order — derive-timeline passes voices before SFX", () => {
+    const input: ResolverInput = {
+      slots: [voice("v1", 4), voice("v2", 3), sfx("s1", 1), sfx("s2", 2)],
+      anchors: {
+        v1: llmAnchor({ anchor: { kind: "absolute", t: 0 } }),
+        s1: llmAnchor({
+          anchor: { kind: "relativeTo", slotId: "v1", edge: "end" },
+          layout: "push",
+        }),
+        s2: llmAnchor({
+          anchor: { kind: "relativeTo", slotId: "v1", edge: "end" },
+          layout: "push",
+        }),
+        v2: llmAnchor({
+          anchor: { kind: "relativeTo", slotId: "v1", edge: "end" },
+        }),
+      },
+    };
+
+    const r = resolveTimeline(input);
+
+    expect(track(r, "s1").startTime).toBe(4);
+    expect(track(r, "s2").startTime).toBe(5);
+    expect(track(r, "v2").startTime).toBe(4);
   });
 
   it("push on simultaneousWith is ignored (logs warning, siblings unaffected)", () => {
@@ -278,19 +307,20 @@ describe("resolveTimeline — push layout", () => {
             anchor: {
               kind: "simultaneousWith",
               slotId: "v1",
-              alignment: "endAtEnd",
+              alignment: "startAtStart",
             },
             layout: "push",
           }),
           v2: llmAnchor({
-            anchor: { kind: "relativeTo", slotId: "v1", edge: "end" },
+            anchor: { kind: "relativeTo", slotId: "v1", edge: "start" },
+            layout: "push",
           }),
         },
       };
       const r = resolveTimeline(input);
-      // s1 positioned at v1.end - 1 = 3 (endAtEnd alignment)
-      // v2 should NOT be pushed — push is a no-op on simultaneousWith.
-      expect(track(r, "v2").startTime).toBe(4);
+      // s1 at 0, duration 1. Its push is ignored, so it opens no queue: a
+      // push sibling on v1's start still starts at 0.
+      expect(track(r, "v2").startTime).toBe(0);
       expect(warn).toHaveBeenCalled();
       expect(
         warn.mock.calls.some((c) => String(c[0]).includes('layout:"push"')),
@@ -312,13 +342,15 @@ describe("resolveTimeline — push layout", () => {
             layout: "push",
           }),
           v2: llmAnchor({
-            anchor: { kind: "relativeTo", slotId: "v1", edge: "end" },
+            anchor: { kind: "relativeTo", slotId: "v1", edge: "start" },
+            layout: "push",
           }),
         },
       };
       const r = resolveTimeline(input);
-      // s1 at 5, duration 1. v2 anchored at v1.end = 10, NOT pushed.
-      expect(track(r, "v2").startTime).toBe(10);
+      // s1 at 5, duration 1. Its push is ignored, so it opens no queue: a
+      // push sibling on v1's start still starts at 0.
+      expect(track(r, "v2").startTime).toBe(0);
       expect(warn).toHaveBeenCalled();
     } finally {
       warn.mockRestore();
@@ -327,7 +359,7 @@ describe("resolveTimeline — push layout", () => {
 
   it("push layout respects its own positive offset", () => {
     const input: ResolverInput = {
-      slots: [voice("v1", 4), sfx("s1", 1), voice("v2", 3)],
+      slots: [voice("v1", 4), sfx("s1", 1), sfx("s2", 1), voice("v2", 3)],
       anchors: {
         v1: llmAnchor({ anchor: { kind: "absolute", t: 0 } }),
         s1: llmAnchor({
@@ -339,16 +371,21 @@ describe("resolveTimeline — push layout", () => {
           },
           layout: "push",
         }),
+        s2: llmAnchor({
+          anchor: { kind: "relativeTo", slotId: "v1", edge: "end" },
+          layout: "push",
+        }),
         v2: llmAnchor({
           anchor: { kind: "relativeTo", slotId: "v1", edge: "end" },
         }),
       },
     };
     const r = resolveTimeline(input);
-    // s1 at v1.end + 0.5 = 4.5, dur 1 → ends at 5.5 → pushExt = 1.5
-    // v2 anchored at v1.end + pushExt = 4 + 1.5 = 5.5
+    // s1 at v1.end + 0.5 = 4.5, dur 1 → ends at 5.5 → the queue is 1.5 long
+    // s2 queues after it: v1.end + 1.5 = 5.5; v2 stays at v1.end
     expect(track(r, "s1").startTime).toBeCloseTo(4.5);
-    expect(track(r, "v2").startTime).toBeCloseTo(5.5);
+    expect(track(r, "s2").startTime).toBeCloseTo(5.5);
+    expect(track(r, "v2").startTime).toBeCloseTo(4);
   });
 });
 
@@ -595,14 +632,15 @@ describe("resolveTimeline — realistic 30s ad scenario", () => {
         sfx("stinger", 0.8),
       ],
       anchors: {
-        // SFX opener before voices, pushes voice-1 forward
+        // "At beginning": the opener queues on the timeline origin and plays
+        // over voice 1
         opener: llmAnchor({
-          anchor: { kind: "absolute", t: 0 },
+          anchor: { kind: "relativeTo", slotId: TIMELINE_ORIGIN, edge: "end" },
           layout: "push",
         }),
-        // Voices sequence after opener end
+        // Voice 1 starts at 0; the opener doesn't move it
         v1: llmAnchor({
-          anchor: { kind: "relativeTo", slotId: "opener", edge: "end" },
+          anchor: { kind: "relativeTo", slotId: TIMELINE_ORIGIN, edge: "end" },
         }),
         v2: llmAnchor({
           anchor: {
@@ -629,24 +667,24 @@ describe("resolveTimeline — realistic 30s ad scenario", () => {
             offset: -0.3,
           },
         }),
-        // Stinger at disclaimer end
+        // "At end": once every voice has finished
         stinger: llmAnchor({
-          anchor: { kind: "relativeTo", slotId: "v3", edge: "end" },
+          anchor: { kind: "relativeTo", slotId: ALL_VOICES, edge: "end" },
+          layout: "push",
         }),
       },
       formatDuration: 30,
     };
     const r = resolveTimeline(input);
 
-    // Opener at 0, duration 0.6
     expect(track(r, "opener").startTime).toBe(0);
-    // v1 starts after opener push — opener duration 0.6, so v1 at 0.6
-    expect(track(r, "v1").startTime).toBeCloseTo(0.6);
-    expect(track(r, "v2").startTime).toBeCloseTo(3.7);
-    expect(track(r, "v3").startTime).toBeCloseTo(7.8);
-    expect(track(r, "bed").startTime).toBeCloseTo(0.3); // v1.start - 0.3
-    expect(track(r, "stinger").startTime).toBeCloseTo(11.3);
-    expect(r.totalDuration).toBeCloseTo(30.3); // music bed extends to 30.3
-    expect(r.warnings.filter((w) => w.kind === "overBudget")).toHaveLength(1);
+    // The opener plays over voice 1, which still starts at 0
+    expect(track(r, "v1").startTime).toBe(0);
+    expect(track(r, "v2").startTime).toBeCloseTo(3.1);
+    expect(track(r, "v3").startTime).toBeCloseTo(7.2);
+    expect(track(r, "bed").startTime).toBe(0); // v1.start - 0.3, clamped to 0
+    expect(track(r, "stinger").startTime).toBeCloseTo(10.7); // the last voice's end
+    expect(r.totalDuration).toBeCloseTo(30); // the music bed ends at 30
+    expect(r.warnings.filter((w) => w.kind === "overBudget")).toHaveLength(0);
   });
 });

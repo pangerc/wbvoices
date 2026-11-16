@@ -49,17 +49,22 @@ export const sfxGenerationModule: KnowledgeModule = {
 
 ### Placement Guidelines
 
-**Use placement type "beforeVoices" for SEQUENTIAL intro sounds** (SFX finishes completely, then voices begin):
-- Dramatic whoosh before announcement
-- Door opening before speaker enters
+**Use placement type "beforeVoices" for OPENING HITS** (the sound starts at 0 s; the first voice also starts at 0 s, so the sound plays over its opening — sounds never delay or move a voice line):
+- Dramatic whoosh at the top of the ad
+- Door opening as the speaker starts
 - Car engine starting
-→ Creates anticipation and context BEFORE the voice speaks
+→ Grabs attention right at the start, over the first words
 
 **Use placement type "withFirstVoice" for CONCURRENT intro sounds** (SFX plays alongside first voice):
 - Background ambience during narration
 - Subtle chime with greeting
 - Soft atmospheric bed
 → Creates atmosphere, less intrusive - sound plays WITH voice simultaneously
+
+**Use placement type "afterVoice" for sounds BETWEEN lines**, with a 0-based voice index (index 0 = after the first voice line). The sound starts when that line ends and plays under the start of the next line (the next line does not wait); several sounds at one spot play one after another:
+- Cash register after the price is said
+- Transition whoosh between two speakers
+→ Punctuates a specific line
 
 **Use placement type "end" for OUTRO sounds** (after all voices finish):
 - Car door closing
@@ -68,12 +73,12 @@ export const sfxGenerationModule: KnowledgeModule = {
 → Reinforces the message AFTER all voices finish
 
 ### When to Choose Each Intro Type
-- **"beforeVoices"**: Dramatic impact, scene-setting, attention-grabbing - the sound THEN the voice
+- **"beforeVoices"**: Dramatic impact, scene-setting, attention-grabbing - a short hit at 0 s, over the first words (the voice does not wait)
 - **"withFirstVoice"**: Subtle enhancement, atmospheric, non-intrusive - sound WITH voice simultaneously
 
 ### Examples by Category
 
-| Category | Sequential Intro (beforeVoices) | Concurrent Intro (withFirstVoice) | Outro (end) |
+| Category | Opening Hit (beforeVoices) | Under First Voice (withFirstVoice) | Outro (end) |
 |----------|--------------------------------|-----------------------------------|-------------|
 | Automotive | car engine starting | road ambience | car door closing |
 | Tech | notification chime | subtle keyboard clicks | confirm sound |

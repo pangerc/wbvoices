@@ -20,11 +20,11 @@
  *
  * Layout semantics:
  *   - overlay (default): clip is positioned at its anchor; siblings are unaffected.
- *   - push:              clip extends a "push stack" rooted at its anchor's
- *     (slot, edge). Subsequent clips anchored to the same (slot, edge) are
- *     shifted forward by the cumulative push-stack depth. This is what fixes
- *     the legacy `afterVoice{N}` sfx overlaying voice N+1 bug — sequential
- *     clips anchored to the same voice end now sequence correctly.
+ *   - push:              clip joins the queue at its anchor's (slot, edge): it
+ *     starts after the push clips placed there before it, so cues sharing a
+ *     spot play one after another. A clip anchored to the same edge without
+ *     push — the voice that follows it — keeps its place: a cue never moves a
+ *     voice or the music.
  *
  * Cycles:
  *   - If a graph cycle exists (A's anchor refers to B, B's to A), the resolver
@@ -34,6 +34,14 @@
  * Orphans:
  *   - If an anchor references an unknown slotId (slot removed upstream), the
  *     resolver emits an orphanAnchor warning and falls back to absolute(0).
+ *
+ * Reserved references ({@link TIMELINE_ORIGIN}, {@link ALL_VOICES}) stand for
+ * spans rather than clips, so placements like "at beginning" and "at end"
+ * can queue cues like any other edge.
+ *
+ * Resolution order: a clip is placed once everything it references is. Clips
+ * that become ready together keep their slot order, so the cues queued at one
+ * spot play in cue order.
  */
 
 import type {
@@ -42,6 +50,28 @@ import type {
   DurationPolicy,
   SlotId,
 } from "@/types/versions";
+
+// ============ Reserved references ============
+
+/**
+ * The start of the timeline, 0–0. "At beginning" cues queue on its end
+ * (push); the first voice, anchored to it without push, still starts at 0.
+ */
+export const TIMELINE_ORIGIN: SlotId = "@origin";
+
+/**
+ * Every voice, from the earliest voice start to the latest voice end,
+ * counting the cues queued (push) on any voice's end. So "at end" waits until
+ * every voice has finished, and any cue queued on a voice's end too,
+ * whichever line is last in the script. Placed once every voice and those
+ * cues are.
+ */
+export const ALL_VOICES: SlotId = "@voices";
+
+/** Whether `ref` is a reserved reference rather than a clip's slot. */
+export function isReservedRef(ref: SlotId): boolean {
+  return ref === TIMELINE_ORIGIN || ref === ALL_VOICES;
+}
 
 // ============ Public types ============
 
@@ -134,6 +164,8 @@ interface ResolutionState {
    * referenced edge have push-layout clips extended the effective anchor?
    */
   pushExtension: Map<string, number>;
+  /** Voice slots, for {@link ALL_VOICES}. */
+  voiceSlotIds: SlotId[];
 }
 
 export function resolveTimeline(input: ResolverInput): ResolvedTimeline {
@@ -145,17 +177,20 @@ export function resolveTimeline(input: ResolverInput): ResolvedTimeline {
     resolved: new Map(),
     warnings: [],
     pushExtension: new Map(),
+    voiceSlotIds: slots.filter((s) => s.type === "voice").map((s) => s.slotId),
   };
 
+  const dependencies = dependencyMap(slots, anchors);
+
   // ---- Detect cycles before anything else ----
-  const cycles = detectCycles(slots, anchors);
+  const cycles = detectCycles(slots, dependencies);
   for (const cycle of cycles) {
     state.warnings.push({ kind: "anchorCycle", cycle });
   }
   const inCycle = new Set<SlotId>(cycles.flat());
 
   // ---- Determine resolution order ----
-  const order = topologicalOrder(slots, anchors, inCycle);
+  const order = topologicalOrder(slots, dependencies, inCycle);
 
   // ---- Resolve each clip in order ----
   for (const slotId of order) {
@@ -170,7 +205,12 @@ export function resolveTimeline(input: ResolverInput): ResolvedTimeline {
       continue;
     }
 
-    const resolved = resolveAnchor(entry.anchor, slot, state, slotById);
+    const resolved = resolveAnchor(
+      entry.anchor,
+      slot,
+      state,
+      entry.layout === "push",
+    );
     if (!resolved.ok) {
       state.warnings.push(resolved.warning);
       state.resolved.set(slotId, { startTime: 0, endTime: effectiveDuration });
@@ -182,11 +222,11 @@ export function resolveTimeline(input: ResolverInput): ResolvedTimeline {
     state.resolved.set(slotId, { startTime, endTime });
 
     if (entry.layout === "push") {
-      // Push is only meaningful when the anchor expresses a sequential
-      // relationship to another clip's edge (i.e. `relativeTo`). Other
-      // anchor kinds (`absolute`, `simultaneousWith`, `atFraction`) don't
-      // identify a clear "next-in-line" slot, so we log + ignore rather
-      // than silently shift siblings in an unpredictable way. A future
+      // Push is only meaningful on a `relativeTo` anchor, which names one
+      // (slot, edge) queue. Other anchor kinds (`absolute`,
+      // `simultaneousWith`, `atFraction`) name no such queue, so we log and
+      // place the clip as overlay. Push only lines up later push clips at
+      // the same edge and never moves a non-push clip. A future
       // stage can introduce explicit push semantics for other kinds if
       // a drag interaction requires it; today's behavior is documented
       // as "push only composes with relativeTo".
@@ -194,9 +234,14 @@ export function resolveTimeline(input: ResolverInput): ResolvedTimeline {
       if (pushKey) {
         const referenceSlot = referencedSlotId(entry.anchor);
         const referenceEdge = referencedEdge(entry.anchor);
+        const referenceSpan = referenceSlot
+          ? spanOf(referenceSlot, state)
+          : null;
         const referencePos =
-          referenceSlot && referenceEdge
-            ? edgePositionOf(referenceSlot, referenceEdge, state, slotById)
+          referenceSpan && referenceEdge
+            ? referenceEdge === "start"
+              ? referenceSpan.startTime
+              : referenceSpan.endTime
             : 0;
         const extension = endTime - referencePos;
         if (extension > 0) {
@@ -307,35 +352,64 @@ function pushKeyForAnchor(anchor: Anchor): string | null {
   return null;
 }
 
-function edgePositionOf(
-  slotId: SlotId,
-  edge: "start" | "end",
+/**
+ * Where a referenced slot or reserved span sits, or null when the slot isn't
+ * placed (unknown, or left out by a cycle).
+ */
+function spanOf(
+  ref: SlotId,
   state: ResolutionState,
-  slotById: Map<SlotId, SlotState>,
-): number {
-  const resolved = state.resolved.get(slotId);
-  if (resolved) return edge === "start" ? resolved.startTime : resolved.endTime;
-  // Not yet resolved — should not happen after topological sort, but be defensive.
-  const slot = slotById.get(slotId);
-  return edge === "start" ? 0 : slot ? effectiveClipDuration(slot) : 0;
+): { startTime: number; endTime: number } | null {
+  if (ref === TIMELINE_ORIGIN) return { startTime: 0, endTime: 0 };
+  if (ref === ALL_VOICES) return voicesSpan(state);
+  return state.resolved.get(ref) ?? null;
+}
+
+/**
+ * The span of every placed voice, its end pushed past any cues stacked on a
+ * voice's end. 0–0 without voices.
+ */
+function voicesSpan(state: ResolutionState): {
+  startTime: number;
+  endTime: number;
+} {
+  let startTime = Infinity;
+  let endTime = 0;
+  for (const id of state.voiceSlotIds) {
+    const voice = state.resolved.get(id);
+    if (!voice) continue;
+
+    startTime = Math.min(startTime, voice.startTime);
+    endTime = Math.max(
+      endTime,
+      voice.endTime + (state.pushExtension.get(`${id}@end`) ?? 0),
+    );
+  }
+
+  return { startTime: Number.isFinite(startTime) ? startTime : 0, endTime };
 }
 
 type AnchorResolution =
   | { ok: true; startTime: number }
   | { ok: false; warning: ResolverWarning };
 
+/**
+ * Where `thisSlot` starts under `anchor`. A `queued` (push) clip anchored to
+ * an edge starts after the push clips already placed there; any other clip
+ * anchored to that edge starts on the edge itself.
+ */
 function resolveAnchor(
   anchor: Anchor,
   thisSlot: SlotState,
   state: ResolutionState,
-  slotById: Map<SlotId, SlotState>,
+  queued: boolean,
 ): AnchorResolution {
   if (anchor.kind === "absolute") {
     return { ok: true, startTime: Math.max(0, anchor.t) };
   }
 
-  const refSlot = slotById.get(anchor.slotId);
-  if (!refSlot || !state.resolved.has(anchor.slotId)) {
+  const refResolved = spanOf(anchor.slotId, state);
+  if (!refResolved) {
     return {
       ok: false,
       warning: {
@@ -346,13 +420,12 @@ function resolveAnchor(
     };
   }
 
-  const refResolved = state.resolved.get(anchor.slotId)!;
-
   if (anchor.kind === "relativeTo") {
     const basePosition =
       anchor.edge === "start" ? refResolved.startTime : refResolved.endTime;
-    const pushExt =
-      state.pushExtension.get(`${anchor.slotId}@${anchor.edge}`) ?? 0;
+    const pushExt = queued
+      ? (state.pushExtension.get(`${anchor.slotId}@${anchor.edge}`) ?? 0)
+      : 0;
     const startTime = basePosition + pushExt + (anchor.offset ?? 0);
     return { ok: true, startTime: Math.max(0, startTime) };
   }
@@ -384,6 +457,47 @@ function resolveAnchor(
 }
 
 /**
+ * What each slot waits for before it can be placed: the slot its anchor
+ * references; nothing for {@link TIMELINE_ORIGIN} or an unknown slot; and for
+ * {@link ALL_VOICES}, every voice plus the cues stacked on a voice's end.
+ */
+function dependencyMap(
+  slots: SlotState[],
+  anchors: Record<SlotId, AnchorEntry>,
+): Map<SlotId, SlotId[]> {
+  const known = new Set(slots.map((s) => s.slotId));
+  const voices = slots.filter((s) => s.type === "voice").map((s) => s.slotId);
+  const voiceSet = new Set(voices);
+  const stackedOnVoices = slots
+    .filter((s) => {
+      const entry = anchors[s.slotId];
+      return (
+        entry?.layout === "push" &&
+        entry.anchor.kind === "relativeTo" &&
+        entry.anchor.edge === "end" &&
+        voiceSet.has(entry.anchor.slotId)
+      );
+    })
+    .map((s) => s.slotId);
+
+  const dependencies = new Map<SlotId, SlotId[]>();
+  for (const slot of slots) {
+    const anchor = anchors[slot.slotId]?.anchor;
+    const ref = anchor ? referencedSlotId(anchor) : null;
+
+    if (ref === ALL_VOICES) {
+      dependencies.set(
+        slot.slotId,
+        [...voices, ...stackedOnVoices].filter((id) => id !== slot.slotId),
+      );
+    } else {
+      dependencies.set(slot.slotId, ref && known.has(ref) ? [ref] : []);
+    }
+  }
+  return dependencies;
+}
+
+/**
  * Kahn-style topological sort of slots by anchor dependency.
  * Slots in a cycle are excluded (they're detected separately and positioned
  * at t=0 as a fallback). Slots not depending on anything come first; slots
@@ -391,7 +505,7 @@ function resolveAnchor(
  */
 function topologicalOrder(
   slots: SlotState[],
-  anchors: Record<SlotId, AnchorEntry>,
+  dependencies: Map<SlotId, SlotId[]>,
   inCycle: Set<SlotId>,
 ): SlotId[] {
   const slotIds = slots.map((s) => s.slotId);
@@ -405,42 +519,41 @@ function topologicalOrder(
 
   for (const id of slotIds) {
     if (inCycle.has(id)) continue;
-    const anchor = anchors[id]?.anchor;
-    if (!anchor) continue;
-    const ref = referencedSlotId(anchor);
-    if (!ref) continue;
-    // Only count the dep if the reference exists and isn't in a cycle.
-    if (!inDegree.has(ref) || inCycle.has(ref)) continue;
-    inDegree.set(id, (inDegree.get(id) ?? 0) + 1);
-    dependents.get(ref)!.push(id);
+    for (const ref of dependencies.get(id) ?? []) {
+      // Only count the dep if it isn't in a cycle.
+      if (inCycle.has(ref)) continue;
+      inDegree.set(id, (inDegree.get(id) ?? 0) + 1);
+      dependents.get(ref)!.push(id);
+    }
   }
 
-  const queue: SlotId[] = [];
+  const ready: SlotId[] = [];
   for (const id of slotIds) {
     if (inCycle.has(id)) continue;
-    if ((inDegree.get(id) ?? 0) === 0) queue.push(id);
+    if ((inDegree.get(id) ?? 0) === 0) ready.push(id);
   }
 
   const order: SlotId[] = [];
-  while (queue.length) {
-    const id = queue.shift()!;
+  while (ready.length) {
+    const id = ready.shift()!;
     order.push(id);
     for (const dep of dependents.get(id) ?? []) {
       const next = (inDegree.get(dep) ?? 0) - 1;
       inDegree.set(dep, next);
-      if (next === 0) queue.push(dep);
+      if (next === 0) ready.push(dep);
     }
   }
   return order;
 }
 
 /**
- * Detect cycles in the anchor dependency graph. Returns one cycle per
- * strongly-connected component of size ≥ 2.
+ * Detect cycles in the anchor dependency graph (see dependencyMap). Returns
+ * the cycle closed by each back edge of a DFS. Cycles may overlap, and one
+ * SCC can produce several. A clip anchored to itself yields a cycle of one.
  */
 function detectCycles(
   slots: SlotState[],
-  anchors: Record<SlotId, AnchorEntry>,
+  dependencies: Map<SlotId, SlotId[]>,
 ): SlotId[][] {
   // DFS with white/gray/black coloring.
   const color = new Map<SlotId, 0 | 1 | 2>(); // 0 white, 1 gray, 2 black
@@ -452,10 +565,8 @@ function detectCycles(
   function dfs(id: SlotId) {
     color.set(id, 1);
     stack.push(id);
-    const anchor = anchors[id]?.anchor;
-    const ref = anchor ? referencedSlotId(anchor) : null;
-    if (ref && color.has(ref)) {
-      const refColor = color.get(ref)!;
+    for (const ref of dependencies.get(id) ?? []) {
+      const refColor = color.get(ref);
       if (refColor === 1) {
         // Back edge — cycle from ref to id to ref.
         const start = stack.indexOf(ref);

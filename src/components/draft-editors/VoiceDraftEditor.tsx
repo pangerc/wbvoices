@@ -146,8 +146,10 @@ export function VoiceDraftEditor({
   // defaults on SWR revalidation noise, preventing the voice list from resetting.
   //
   // Resolution order: a voice already cast in the draft wins, then the version's
-  // own knowledge context, then the ad brief. A blank version has none of the
-  // first two, which is why the brief has to reach this component — otherwise a
+  // own knowledge context, then the ad brief. A blank version has no
+  // cast voice. It inherits the knowledge context of the version it was
+  // started from (see POST /api/ads/[id]/voices). The first version of an ad
+  // has neither, so the brief still has to reach this component. Otherwise a
   // new version on a Romanian project would open casting English voices.
   const contextLanguage = draftVersion.knowledgeContext?.language;
   const contextProvider = draftVersion.knowledgeContext?.voiceProvider;
@@ -327,9 +329,35 @@ export function VoiceDraftEditor({
     }
   };
 
-  // Remove voice track
+  // Remove voice track. Lines after it move up one, so their "track-N"
+  // references move with them; a line that played after the removed one now
+  // plays where the removed one did.
   const removeVoiceTrack = async (index: number) => {
-    const newTracks = voiceTracks.filter((_, i) => i !== index);
+    const removed = voiceTracks[index];
+    const newTracks = voiceTracks
+      .filter((_, i) => i !== index)
+      .map((track) => {
+        const ref = /^track-(\d+)$/.exec(track.playAfter ?? "");
+        if (!ref) return track;
+
+        const refIndex = Number(ref[1]);
+        if (refIndex < index) return track;
+        if (refIndex > index) {
+          return { ...track, playAfter: `track-${refIndex - 1}` };
+        }
+
+        // Take over the removed line's start. "start" and "track-N" name an
+        // absolute spot; "previous" or unset meant "after the line before
+        // the removed one", which has to be spelled out once it moves.
+        const inherited = removed.playAfter;
+        if (inherited === "start" || /^track-\d+$/.test(inherited ?? "")) {
+          return { ...track, playAfter: inherited };
+        }
+        return {
+          ...track,
+          playAfter: index > 0 ? `track-${index - 1}` : "start",
+        };
+      });
     setVoiceTracks(newTracks);
 
     // Persist to backend

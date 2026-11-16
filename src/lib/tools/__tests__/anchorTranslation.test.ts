@@ -3,10 +3,10 @@ import type { Anchor, MusicVersion } from "@/types/versions";
 import { describe, expect, it } from "vitest";
 import {
   anchorFromMusicVersion,
-  anchorFromSoundFxPrompt,
   anchorFromVoiceTrack,
   parseTrackRef,
   resolveTrackRef,
+  seedForSoundFxPrompt,
   translateAnchorInput,
   type AnchorInput,
   type OrdinalRefs,
@@ -152,7 +152,7 @@ describe("translateAnchorInput", () => {
 describe("anchorFromVoiceTrack", () => {
   const slots = ["v-0", "v-1", "v-2"];
 
-  it("returns track.anchor when already present (new field wins)", () => {
+  it("a stored absolute anchor wins, counted from the timeline origin", () => {
     const track: VoiceTrack = {
       voice: null,
       text: "",
@@ -160,24 +160,28 @@ describe("anchorFromVoiceTrack", () => {
       playAfter: "track-0", // legacy that would translate differently
     };
     expect(anchorFromVoiceTrack(track, slots, 1)).toEqual({
-      kind: "absolute",
-      t: 5,
+      kind: "relativeTo",
+      slotId: "@origin",
+      edge: "end",
+      offset: 5,
     });
   });
 
-  it("first track with no legacy info defaults to absolute(0)", () => {
+  it("first track with no legacy info starts at the timeline origin", () => {
     const track: VoiceTrack = { voice: null, text: "" };
     expect(anchorFromVoiceTrack(track, slots, 0)).toEqual({
-      kind: "absolute",
-      t: 0,
+      kind: "relativeTo",
+      slotId: "@origin",
+      edge: "end",
     });
   });
 
-  it("playAfter: 'start' → absolute(0)", () => {
+  it("playAfter: 'start' → the timeline origin", () => {
     const track: VoiceTrack = { voice: null, text: "", playAfter: "start" };
     expect(anchorFromVoiceTrack(track, slots, 1)).toEqual({
-      kind: "absolute",
-      t: 0,
+      kind: "relativeTo",
+      slotId: "@origin",
+      edge: "end",
     });
   });
 
@@ -248,6 +252,17 @@ describe("anchorFromVoiceTrack", () => {
     });
   });
 
+  it("playAfter: 'track-N' naming the line itself or a later one → previous line (no cycle)", () => {
+    const base: VoiceTrack = { voice: null, text: "" };
+    const expected = { kind: "relativeTo", slotId: "v-0", edge: "end" };
+    expect(
+      anchorFromVoiceTrack({ ...base, playAfter: "track-1" }, slots, 1),
+    ).toEqual(expected);
+    expect(
+      anchorFromVoiceTrack({ ...base, playAfter: "track-2" }, slots, 1),
+    ).toEqual(expected);
+  });
+
   it("returns undefined when neither anchor nor derivable default exists", () => {
     const track: VoiceTrack = { voice: null, text: "" };
     // No previous slot (ordinal 1 but voiceSlotIds has only index 0 and it's undefined)
@@ -255,32 +270,66 @@ describe("anchorFromVoiceTrack", () => {
   });
 });
 
-// ---------- anchorFromSoundFxPrompt ----------
+// ---------- seedForSoundFxPrompt ----------
 
-describe("anchorFromSoundFxPrompt", () => {
+describe("seedForSoundFxPrompt", () => {
   const voiceSlots = ["v-0", "v-1", "v-2"];
   const sfxSlots = ["s-0", "s-1"];
 
-  it("returns prompt.anchor when present", () => {
+  it("a stored anchor whose voice is no longer pinned falls back to the placement", () => {
+    const prompt: SoundFxPrompt = {
+      description: "x",
+      anchor: { kind: "relativeTo", slotId: "gone", edge: "end" },
+      placement: { type: "afterVoice", index: 1 },
+    };
+    expect(seedForSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
+      anchor: { kind: "relativeTo", slotId: "v-1", edge: "end" },
+      layout: "push",
+    });
+  });
+
+  it("returns prompt.anchor while its reference is pinned", () => {
     const prompt: SoundFxPrompt = {
       description: "ding",
       anchor: { kind: "absolute", t: 2 },
       placement: { type: "end" },
     };
-    expect(anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
+    expect(
+      seedForSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)?.anchor,
+    ).toEqual({
       kind: "absolute",
       t: 2,
     });
   });
 
-  it("placement beforeVoices → absolute(0)", () => {
+  it("placement beforeVoices → stacked on the timeline origin (push)", () => {
     const prompt: SoundFxPrompt = {
       description: "x",
       placement: { type: "beforeVoices" },
     };
-    expect(anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
-      kind: "absolute",
-      t: 0,
+    expect(seedForSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
+      anchor: { kind: "relativeTo", slotId: "@origin", edge: "end" },
+      layout: "push",
+    });
+  });
+
+  it("placement withFirstVoice, a second cue → follows the first one (overlay)", () => {
+    const prompts: SoundFxPrompt[] = [
+      {
+        slotId: "s-a",
+        description: "a",
+        placement: { type: "withFirstVoice" },
+      },
+      {
+        slotId: "s-b",
+        description: "b",
+        placement: { type: "withFirstVoice" },
+      },
+    ];
+    expect(
+      seedForSoundFxPrompt(prompts[1], voiceSlots, ["s-a", "s-b"], 1, prompts),
+    ).toEqual({
+      anchor: { kind: "relativeTo", slotId: "s-a", edge: "end" },
     });
   });
 
@@ -289,44 +338,45 @@ describe("anchorFromSoundFxPrompt", () => {
       description: "x",
       placement: { type: "withFirstVoice" },
     };
-    expect(anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
+    expect(
+      seedForSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)?.anchor,
+    ).toEqual({
       kind: "simultaneousWith",
       slotId: "v-0",
       alignment: "startAtStart",
     });
   });
 
-  it("placement afterVoice{N} → relativeTo voices[N] end", () => {
+  it("placement afterVoice{N} → stacked on voices[N]'s end (push)", () => {
     const prompt: SoundFxPrompt = {
       description: "x",
       placement: { type: "afterVoice", index: 1 },
     };
-    expect(anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
-      kind: "relativeTo",
-      slotId: "v-1",
-      edge: "end",
+    expect(seedForSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
+      anchor: { kind: "relativeTo", slotId: "v-1", edge: "end" },
+      layout: "push",
     });
   });
 
-  it("placement afterVoice with out-of-range index → undefined", () => {
+  it("placement afterVoice with out-of-range index → plays at end", () => {
     const prompt: SoundFxPrompt = {
       description: "x",
       placement: { type: "afterVoice", index: 99 },
     };
-    expect(
-      anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0),
-    ).toBeUndefined();
+    expect(seedForSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
+      anchor: { kind: "relativeTo", slotId: "@voices", edge: "end" },
+      layout: "push",
+    });
   });
 
-  it("placement end → relativeTo last voice end", () => {
+  it("placement end → stacked on the end of every voice (push)", () => {
     const prompt: SoundFxPrompt = {
       description: "x",
       placement: { type: "end" },
     };
-    expect(anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
-      kind: "relativeTo",
-      slotId: "v-2",
-      edge: "end",
+    expect(seedForSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
+      anchor: { kind: "relativeTo", slotId: "@voices", edge: "end" },
+      layout: "push",
     });
   });
 
@@ -335,7 +385,9 @@ describe("anchorFromSoundFxPrompt", () => {
       description: "x",
       placement: { type: "legacy", playAfter: "track-1" },
     };
-    expect(anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
+    expect(
+      seedForSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)?.anchor,
+    ).toEqual({
       kind: "relativeTo",
       slotId: "v-1",
       edge: "end",
@@ -347,7 +399,9 @@ describe("anchorFromSoundFxPrompt", () => {
       description: "x",
       placement: { type: "legacy", playAfter: "start" },
     };
-    expect(anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
+    expect(
+      seedForSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)?.anchor,
+    ).toEqual({
       kind: "absolute",
       t: 0,
     });
@@ -356,12 +410,12 @@ describe("anchorFromSoundFxPrompt", () => {
   it("no placement → undefined", () => {
     const prompt: SoundFxPrompt = { description: "x" };
     expect(
-      anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0),
+      seedForSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0),
     ).toBeUndefined();
   });
 });
 
-// ---------- anchorFromMusicVersion ----------
+// ---------- mixed legacy + new anchor fixtures ----------
 
 describe("anchorFromVoiceTrack — mixed legacy + new anchor fixtures", () => {
   // Stage 6 bootstrap will read existing voice versions where some tracks
@@ -386,8 +440,10 @@ describe("anchorFromVoiceTrack — mixed legacy + new anchor fixtures", () => {
       overlap: 0.15,
     };
     expect(anchorFromVoiceTrack(track0, slots, 0)).toEqual({
-      kind: "absolute",
-      t: 1,
+      kind: "relativeTo",
+      slotId: "@origin",
+      edge: "end",
+      offset: 1,
     });
     expect(anchorFromVoiceTrack(track1, slots, 1)).toEqual({
       kind: "relativeTo",
@@ -418,8 +474,9 @@ describe("anchorFromVoiceTrack — mixed legacy + new anchor fixtures", () => {
       },
     };
     expect(anchorFromVoiceTrack(track0, slots, 0)).toEqual({
-      kind: "absolute",
-      t: 0,
+      kind: "relativeTo",
+      slotId: "@origin",
+      edge: "end",
     });
     expect(anchorFromVoiceTrack(track1, slots, 1)).toEqual({
       kind: "relativeTo",
@@ -450,23 +507,25 @@ describe("anchorFromVoiceTrack — mixed legacy + new anchor fixtures", () => {
   });
 });
 
-describe("anchorFromSoundFxPrompt — mixed legacy placement + new anchor fixtures", () => {
+describe("seedForSoundFxPrompt — stored anchor + placement fixtures", () => {
   const voiceSlots = ["v-0", "v-1"];
   const sfxSlots = ["s-0"];
 
-  it("sfx with both .anchor and legacy .placement — .anchor wins", () => {
+  it("sfx with both a pinned .anchor and a .placement — .anchor wins", () => {
     const prompt: SoundFxPrompt = {
       description: "x",
       anchor: { kind: "absolute", t: 2 },
-      placement: { type: "end" }, // would place at voice-1 end; ignored
+      placement: { type: "end" }, // would queue after every voice (@voices end); ignored
     };
-    expect(anchorFromSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)).toEqual({
+    expect(
+      seedForSoundFxPrompt(prompt, voiceSlots, sfxSlots, 0)?.anchor,
+    ).toEqual({
       kind: "absolute",
       t: 2,
     });
   });
 
-  it("version with two prompts — one authored (new .anchor), one legacy (.placement) — both resolve independently", () => {
+  it("version with two prompts — one with a stored .anchor, one with a .placement — both resolve independently", () => {
     const authored: SoundFxPrompt = {
       description: "stinger",
       anchor: {
@@ -476,22 +535,29 @@ describe("anchorFromSoundFxPrompt — mixed legacy placement + new anchor fixtur
         offset: 0.3,
       },
     };
-    const legacy: SoundFxPrompt = {
+    const placed: SoundFxPrompt = {
       description: "opener",
       placement: { type: "beforeVoices" },
     };
-    expect(anchorFromSoundFxPrompt(authored, voiceSlots, sfxSlots, 0)).toEqual({
+    expect(
+      seedForSoundFxPrompt(authored, voiceSlots, sfxSlots, 0)?.anchor,
+    ).toEqual({
       kind: "relativeTo",
       slotId: "v-1",
       edge: "end",
       offset: 0.3,
     });
-    expect(anchorFromSoundFxPrompt(legacy, voiceSlots, sfxSlots, 1)).toEqual({
-      kind: "absolute",
-      t: 0,
+    expect(
+      seedForSoundFxPrompt(placed, voiceSlots, sfxSlots, 1)?.anchor,
+    ).toEqual({
+      kind: "relativeTo",
+      slotId: "@origin",
+      edge: "end",
     });
   });
 });
+
+// ---------- anchorFromMusicVersion ----------
 
 describe("anchorFromMusicVersion", () => {
   it("returns the version's anchor when present", () => {
@@ -527,5 +593,70 @@ describe("anchorFromMusicVersion", () => {
       status: "draft",
     };
     expect(anchorFromMusicVersion(version)).toEqual({ kind: "absolute", t: 0 });
+  });
+});
+
+// ---------- stale references fall back instead of landing at 0 s ----------
+
+describe("stale references", () => {
+  const voiceSlots = ["v-0", "v-1"];
+
+  it("a voice anchor that names an SFX is ignored: the line follows the previous one", () => {
+    const track: VoiceTrack = {
+      voice: null,
+      text: "",
+      anchor: { kind: "relativeTo", slotId: "sfx-slot", edge: "end" },
+    };
+
+    expect(anchorFromVoiceTrack(track, voiceSlots, 1)).toEqual({
+      kind: "relativeTo",
+      slotId: "v-0",
+      edge: "end",
+    });
+  });
+
+  it("a voice anchor that names a line that is gone is ignored: line 1 starts at the origin", () => {
+    const track: VoiceTrack = {
+      voice: null,
+      text: "",
+      anchor: { kind: "relativeTo", slotId: "deleted", edge: "end" },
+    };
+
+    expect(anchorFromVoiceTrack(track, voiceSlots, 0)).toEqual({
+      kind: "relativeTo",
+      slotId: "@origin",
+      edge: "end",
+    });
+  });
+
+  it("a voice anchor that names another line is kept", () => {
+    const anchor: Anchor = { kind: "relativeTo", slotId: "v-0", edge: "start" };
+    const track: VoiceTrack = { voice: null, text: "", anchor };
+
+    expect(anchorFromVoiceTrack(track, voiceSlots, 1)).toEqual(anchor);
+  });
+
+  it("after a voice with no slot id yet → plays at end", () => {
+    const prompt: SoundFxPrompt = {
+      description: "x",
+      placement: { type: "afterVoice", index: 1 },
+    };
+
+    expect(seedForSoundFxPrompt(prompt, ["v-0", undefined], [], 0)).toEqual({
+      anchor: { kind: "relativeTo", slotId: "@voices", edge: "end" },
+      layout: "push",
+    });
+  });
+
+  it("a legacy playAfter that no longer resolves → plays at end", () => {
+    const prompt: SoundFxPrompt = {
+      description: "x",
+      placement: { type: "legacy", playAfter: "track-9" },
+    };
+
+    expect(seedForSoundFxPrompt(prompt, voiceSlots, [], 0)).toEqual({
+      anchor: { kind: "relativeTo", slotId: "@voices", edge: "end" },
+      layout: "push",
+    });
   });
 });

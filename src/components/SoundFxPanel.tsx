@@ -39,6 +39,12 @@ type SoundFxPanelProps = {
 // Default duration for sound effects
 const DEFAULT_SOUND_FX_DURATION = 2; // 2 seconds is a good default for stingers/transitions
 
+/**
+ * The Placement listbox value of a cue still positioned by an AI anchor. No
+ * option carries it, so the listbox shows it as its label.
+ */
+const CUSTOM_AI_PLACEMENT = "Custom (AI)";
+
 // Convert placement option string to placement intent
 function placementOptionToIntent(option: string): SoundFxPlacementIntent {
   if (option === "start") {
@@ -120,7 +126,9 @@ export function SoundFxPanel({
     placement?: SoundFxPlacementIntent,
   ): string => {
     if (!placement) return "end";
-    // Both "start" and "beforeVoices" map to the "start" UI option (sequential intro)
+    // Both "start" and "beforeVoices" map to the "start" UI option: the cue
+    // starts at 0 and plays over voice 1 (several such cues play one after
+    // another).
     if (placement.type === "start" || placement.type === "beforeVoices")
       return "start";
     if (placement.type === "withFirstVoice") return "withFirstVoice";
@@ -128,6 +136,30 @@ export function SoundFxPanel({
       return `afterVoice-${placement.index}`;
     }
     return "end";
+  };
+
+  /**
+   * The listbox value for a cue. No option carries the two special values,
+   * so the listbox shows them as their own label until the user picks a
+   * placement:
+   * - a cue saved with an AI anchor (before create_sfx_draft turned anchors
+   *   into placements) plays where the anchor says while the clip it
+   *   references is still in the ad, and at its placement otherwise;
+   * - "after voice k" on a script that no longer has voice k plays at end.
+   */
+  const placementValue = (prompt: SoundFxPrompt): string => {
+    if (prompt.anchor) return CUSTOM_AI_PLACEMENT;
+
+    const placement = prompt.placement;
+    if (
+      placement?.type === "afterVoice" &&
+      voiceTrackPreviews &&
+      placement.index >= voiceTrackPreviews.length
+    ) {
+      return `After voice ${placement.index + 1} (missing, plays at end)`;
+    }
+
+    return placementIntentToOption(placement);
   };
 
   // Clamp slider max to ad duration (but at least 5s so the control is usable)
@@ -201,7 +233,7 @@ export function SoundFxPanel({
                 {/* Placement selector */}
                 <GlassyListbox
                   label="Placement"
-                  value={placementIntentToOption(prompt.placement)}
+                  value={placementValue(prompt)}
                   onChange={(value) => {
                     const intent = placementOptionToIntent(value);
                     // V3: Only set placement intent - timeline calculator resolves at runtime
@@ -212,7 +244,7 @@ export function SoundFxPanel({
                   options={[
                     {
                       value: "start",
-                      label: "At beginning (before all voices)",
+                      label: "At beginning (plays over first voice)",
                     },
                     {
                       value: "withFirstVoice",
