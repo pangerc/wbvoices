@@ -82,6 +82,7 @@ export function FileUpload({
   disabled = false,
 }: FileUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async (file: File) => {
@@ -163,6 +164,39 @@ export function FileUpload({
     fileInputRef.current?.click();
   };
 
+  // Drag-and-drop support. Without preventDefault on BOTH dragover and drop the
+  // browser handles the drop itself — it navigates to the dropped audio file,
+  // opening it in a new tab instead of uploading (AAC-256).
+  const handleDragOver = (event: React.DragEvent) => {
+    if (disabled || isUploading) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    if (!isDragActive) setIsDragActive(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragActive(false);
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragActive(false);
+    if (disabled || isUploading) return;
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    // Guard obvious mismatches on the audio slots; the server validates the rest.
+    if (
+      AUDIO_FILE_TYPES.includes(fileType) &&
+      file.type &&
+      !file.type.startsWith("audio/")
+    ) {
+      onUploadError?.("Please drop an audio file.");
+      return;
+    }
+    handleUpload(file);
+  };
+
   const acceptType = accept || FILE_ACCEPT_TYPES[fileType];
   const label = FILE_LABELS[fileType];
 
@@ -180,15 +214,21 @@ export function FileUpload({
       {children ? (
         <div
           onClick={triggerFileSelect}
-          className={`cursor-pointer ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${className}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`cursor-pointer ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${isDragActive ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-transparent rounded-lg" : ""} ${className}`}
         >
           {children}
         </div>
       ) : (
         <button
           onClick={triggerFileSelect}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
           disabled={disabled || isUploading}
-          className={`px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-lg transition-colors ${className}`}
+          className={`px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-lg transition-colors ${isDragActive ? "ring-2 ring-blue-500" : ""} ${className}`}
         >
           {isUploading ? `Uploading ${label}...` : `Upload ${label}`}
         </button>
