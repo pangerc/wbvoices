@@ -824,20 +824,25 @@ async function createMusicDraftLocked(
     anchor: anchorInput,
   } = params;
 
-  // Always enforce a buffer between brief duration and music duration —
-  // the LLM routinely produces over-budget scripts (asks for 20s, writes
-  // 23s), and music shorter than the voice tracks drops out mid-line.
-  // Floor is `briefDuration + 10s` regardless of what the LLM passed,
-  // and at least 30s in absolute terms so very short briefs still get a
-  // mixable bed. The LLM-supplied duration becomes a CEILING — when it
-  // asked for longer, we honor it; when it asked for shorter, we ignore.
+  // The brief duration GOVERNS the music length. Music only needs a small
+  // tail over the script: the LLM often overruns the target by a few seconds
+  // and the bed fades out, so a bed exactly as long as the brief can drop out
+  // mid-line. We add a modest buffer over the brief and floor only at the
+  // provider minimum (15s) — we no longer force short briefs up to 30s, which
+  // decoupled music from the requested duration. The LLM-supplied duration is
+  // a CEILING: when it asked for longer we honor it, when shorter we ignore.
+  const MUSIC_BUFFER_SECONDS = 5;
+  const PROVIDER_MIN_DURATION = 15;
   const meta = await getAdMetadata(adId);
   const briefDuration = meta?.brief?.adDuration || 30;
-  const minimumMusicDuration = Math.max(30, briefDuration + 10);
+  const minimumMusicDuration = Math.max(
+    PROVIDER_MIN_DURATION,
+    briefDuration + MUSIC_BUFFER_SECONDS,
+  );
   const effectiveDuration = Math.max(duration ?? 0, minimumMusicDuration);
   if (duration && duration < minimumMusicDuration) {
     console.log(
-      `[create_music_draft] LLM asked for ${duration}s but bumping to ${effectiveDuration}s (brief=${briefDuration}s, +10s buffer for script overrun)`,
+      `[create_music_draft] LLM asked for ${duration}s but bumping to ${effectiveDuration}s (brief=${briefDuration}s, +${MUSIC_BUFFER_SECONDS}s buffer for script overrun/fade)`,
     );
   } else if (!duration) {
     console.log(

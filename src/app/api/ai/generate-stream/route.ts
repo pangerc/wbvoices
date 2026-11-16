@@ -16,6 +16,7 @@ import {
   renderEnrichmentSections,
 } from "@/lib/brief-enrichment";
 import { buildSystemPrompt, type KnowledgeContext } from "@/lib/knowledge";
+import { runMatchReview, type MatchFinding } from "@/lib/match-review";
 import { rebuildMixer } from "@/lib/mixer/rebuilder";
 import {
   releaseGenerationLock,
@@ -30,6 +31,7 @@ import {
 } from "@/lib/redis/versions";
 import { runAgentLoop } from "@/lib/tool-calling";
 import { instructionTemplatesService } from "@/services/instructionTemplatesService";
+import { getServerSettings } from "@/services/serverSettingsService";
 import type { ProjectBrief, ProjectStatus } from "@/types";
 import type { MusicVersion, SfxVersion, VoiceVersion } from "@/types/versions";
 import { internalFetch } from "@/utils/internal-fetch";
@@ -92,6 +94,7 @@ type StreamEvent =
   | { type: "sfx-generating"; index: number; total: number }
   | { type: "sfx-ready"; index: number; url: string }
   | { type: "sfx-failed"; index: number; error: string }
+  | { type: "match-review"; findings: MatchFinding[] } // AAC-255
   | { type: "complete"; success: boolean }
   | { type: "error"; message: string };
 
@@ -662,7 +665,10 @@ export async function POST(req: NextRequest) {
 
             try {
               const musicProvider = musicVersion.provider || "loudly";
-              const musicDuration = musicVersion.duration || duration + 15;
+              // The draft duration is already brief-governed (create_music_draft);
+              // the fallback only applies if it's somehow unset — keep the small
+              // brief+buffer, not the old +15 that double-counted the buffer.
+              const musicDuration = musicVersion.duration || duration + 5;
               const adjustedDuration =
                 musicProvider === "loudly"
                   ? Math.ceil(musicDuration / 15) * 15
@@ -886,6 +892,66 @@ export async function POST(req: NextRequest) {
       console.log(
         `[generate-stream] Mixer rebuilt with ${mixer.tracks.length} tracks`,
       );
+
+      // AAC-255 — match-review (gated, best-effort). Check the generated ad
+      // against the brief and record findings for the stats page. Never blocks
+      // generation: any failure is logged and swallowed.
+      try {
+        const settings = await getServerSettings();
+        if (settings.matchReviewEnabled && result.drafts.voices) {
+          const vv = await getVersion(adId, "voices", result.drafts.voices);
+          const tracks = vv?.voiceTracks ?? [];
+          const findings = await runMatchReview(
+            { adId, jobId: null, ownerEmail },
+            {
+              creativeMode:
+                brief.creativeMode ??
+                (brief.providedScript?.trim() ? "script" : "brief"),
+              creativeBrief: brief.creativeBrief,
+              providedScript: brief.providedScript,
+              selectedLanguage: brief.selectedLanguage,
+              selectedAccent: brief.selectedAccent ?? undefined,
+              campaignFormat: brief.campaignFormat,
+              selectedProvider: brief.selectedProvider,
+              selectedCTA: brief.selectedCTA,
+              selectedTone: brief.selectedTone,
+              selectedPacing: brief.selectedPacing,
+              forbiddenWords: brief.forbiddenWords,
+              adDuration: brief.adDuration,
+              brandName: brief.brand?.name,
+            },
+            {
+              // Real ad length from the mixer timeline — accounts for where each
+              // track starts (overlap / play-after / gaps), not a naive sum of
+              // track durations. Falls back to the sum only if unavailable.
+              actualDurationSeconds: mixer.totalDuration || undefined,
+              voiceTracks: tracks.map((t) => ({
+                text: t.text,
+                generatedDuration: t.generatedDuration,
+                language: t.voice?.language,
+                provider: t.voice?.provider ?? t.trackProvider,
+              })),
+            },
+          );
+          if (findings.length) {
+            // Strip the "Regenerate" (full rewrite) action unless the admin
+            // toggle enables it — keep only the minimal "Apply" to avoid user
+            // confusion (AAC-255 feedback).
+            const emitted = settings.matchReviewRegenerateEnabled
+              ? findings
+              : findings.map((f) => ({
+                  ...f,
+                  improvements: f.improvements.map((imp) => ({
+                    ...imp,
+                    regenerate: null,
+                  })),
+                }));
+            await sendEvent({ type: "match-review", findings: emitted });
+          }
+        }
+      } catch (err) {
+        console.warn("[generate-stream] match-review failed:", err);
+      }
 
       await sendEvent({ type: "complete", success: true });
     } catch (error) {

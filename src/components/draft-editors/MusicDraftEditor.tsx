@@ -81,8 +81,9 @@ export function MusicDraftEditor({
   const { isGenerating, isPlaying } = useMusicDraftState(draftVersionId);
   const { setGeneratingMusic } = usePlaybackActions();
 
-  // Duration comes from draft version (set by tool from brief, or user edit)
-  const adDuration = draftVersion.duration || 30;
+  // Music length comes from the draft version — already brief-governed +
+  // buffered by create_music_draft (or a user edit). Pass it through as-is.
+  const musicDuration = draftVersion.duration || 30;
 
   // Prompt for the active provider, falling back to the flat field (LLM-generated drafts)
   const activePrompt = musicPrompts[musicProvider] || draftVersion.musicPrompt;
@@ -129,6 +130,21 @@ export function MusicDraftEditor({
     } catch (error) {
       console.error("Failed to persist music prompt:", error);
     }
+  };
+
+  // Persist the user's chosen music length to the draft. The slider fires
+  // continuously while dragging, so debounce the write; the save queue then
+  // coalesces it. Making the draft the source of truth is what fixes the "set
+  // 20s but it generates/shows 30s" bug: the value now survives the post-save
+  // refetch (and any remount) and is the duration `handleGenerate` sends.
+  const durationSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleDurationChange = (seconds: number) => {
+    if (durationSaveTimer.current) clearTimeout(durationSaveTimer.current);
+    durationSaveTimer.current = setTimeout(() => {
+      patchDraft({ duration: seconds }).catch((error) =>
+        console.error("Failed to persist music duration:", error),
+      );
+    }, 350);
   };
 
   // Handle provider change - persists to Redis and clears stale audio
@@ -228,7 +244,7 @@ export function MusicDraftEditor({
       url = await handleGenerate(
         activePrompt || "",
         musicProvider,
-        draftVersion.duration || adDuration,
+        draftVersion.duration || musicDuration,
       );
       if (!url) return; // Generation failed
     }
@@ -340,12 +356,13 @@ export function MusicDraftEditor({
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
         statusMessage={statusMessage}
-        adDuration={adDuration}
+        targetDuration={musicDuration}
         musicProvider={musicProvider}
         setMusicProvider={handleProviderChange}
         resetForm={resetForm}
         musicPrompts={musicPrompts}
         onUpdatePrompt={updatePrompt}
+        onDurationChange={handleDurationChange}
         onTrackSelected={handleTrackSelected}
         initialProvider={draftVersion.provider}
         hasGeneratedUrl={!!generatedUrl}

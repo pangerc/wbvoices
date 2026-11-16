@@ -10,6 +10,7 @@ import { MusicDraftEditor } from "@/components/draft-editors/MusicDraftEditor";
 import { SfxDraftEditor } from "@/components/draft-editors/SfxDraftEditor";
 import { VoiceDraftEditor } from "@/components/draft-editors/VoiceDraftEditor";
 import { ProjectHeader } from "@/components/Header/ProjectHeader";
+import { MatchReviewCards } from "@/components/MatchReviewCards";
 import { MixerPanel } from "@/components/MixerPanel";
 import { PreviewPanel } from "@/components/PreviewPanel";
 import {
@@ -23,6 +24,7 @@ import { SfxVersionContent } from "@/components/version-content/SfxVersionConten
 import { VoiceVersionContent } from "@/components/version-content/VoiceVersionContent";
 import { useMixerData } from "@/hooks/useMixerData";
 import { useStreamOperations } from "@/hooks/useStreamOperations";
+import type { Improvement, MatchFinding } from "@/lib/match-review";
 import { useAudioPlaybackStore } from "@/store/audioPlaybackStore";
 import { useMixerStore } from "@/store/mixerStore";
 import { useUIStore } from "@/store/uiStore";
@@ -115,6 +117,9 @@ export default function AdWorkspace() {
 
   // Generation errors - displayed as dismissible banner
   const [generationErrors, setGenerationErrors] = useState<string[]>([]);
+
+  // AAC-255 match-review findings - rendered as improvement cards
+  const [matchFindings, setMatchFindings] = useState<MatchFinding[]>([]);
 
   // Refs for draft editor imperative handles (DraftAccordion header buttons)
   const voicePlayAllRef = useRef<(() => Promise<void>) | null>(null);
@@ -268,6 +273,7 @@ export default function AdWorkspace() {
       case "drafts":
         // Drafts created - invalidate all stream caches and clear previous errors
         setGenerationErrors([]);
+        setMatchFindings([]);
         await Promise.all([voice.mutate(), music.mutate(), sfx.mutate()]);
         // Open draft accordions
         if (event.drafts.voices) setOpenAccordion("voices", "draft");
@@ -308,6 +314,11 @@ export default function AdWorkspace() {
         await sfx.mutate();
         break;
 
+      case "match-review":
+        // AAC-255 - surface the post-generation findings as improvement cards
+        setMatchFindings(event.findings);
+        break;
+
       case "complete":
         // All generation complete - refresh mixer + streams and switch to mixer tab for "wow" effect
         if (event.success) {
@@ -321,6 +332,86 @@ export default function AdWorkspace() {
         }
         break;
     }
+  };
+
+  // Revalidate streams + auto-navigate after a chat turn lands a new draft.
+  // Shared by the AI Copilot (ChatSidebar.onTurnLanded) and match-review Apply.
+  //   0 Brief · 1 Script · 2 Music · 3 FX · 4 Mix! · 5 Preview
+  const handleTurnLanded = (result: {
+    drafts: { voices?: string; music?: string; sfx?: string };
+  }) => {
+    const v = !!result.drafts.voices;
+    const m = !!result.drafts.music;
+    const s = !!result.drafts.sfx;
+    if (v) void voice.mutate();
+    if (m) void music.mutate();
+    if (s) void sfx.mutate();
+    if (v || m || s) void mutateMixer();
+
+    const touched = (v ? 1 : 0) + (m ? 1 : 0) + (s ? 1 : 0);
+    let nextTab: number | null = null;
+    if (touched > 1) nextTab = 4;
+    else if (v) nextTab = 1;
+    else if (m) nextTab = 2;
+    else if (s) nextTab = 3;
+    if (nextTab !== null && nextTab !== selectedTab) setSelectedTab(nextTab);
+  };
+
+  // AAC-255 — apply one match-review improvement. For brief_patch, merge the
+  // partial patch into the current brief and persist it first; then drive the
+  // fix through a targeted chat turn (same path the Copilot uses). Logging the
+  // acceptance and dropping the card are best-effort.
+  const handleApplyImprovement = async (
+    finding: MatchFinding,
+    improvement: Improvement,
+    variant: "apply" | "regenerate" = "apply",
+  ) => {
+    const apply =
+      variant === "regenerate"
+        ? (improvement.regenerate ?? improvement.apply)
+        : improvement.apply;
+    if (!apply) return;
+
+    if (apply.kind === "brief_patch") {
+      const nextBrief = {
+        ...(briefData ?? {}),
+        ...apply.patch,
+      } as ProjectBrief;
+      const res = await fetch(`/api/ads/${adId}/brief`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brief: nextBrief }),
+      });
+      if (res.ok) setBriefData(nextBrief);
+    }
+
+    if (apply.instruction) {
+      const res = await fetch(`/api/ads/${adId}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: apply.instruction }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as {
+          drafts?: { voices?: string; music?: string; sfx?: string };
+        };
+        handleTurnLanded({ drafts: data.drafts ?? {} });
+      }
+    }
+
+    void fetch(`/api/ads/${adId}/match-review/apply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dimension: finding.dimension,
+        improvementId: improvement.id,
+        method: "click",
+      }),
+    });
+
+    setMatchFindings((prev) =>
+      prev.filter((f) => f.dimension !== finding.dimension),
+    );
   };
 
   // Type-safe draft getters
@@ -395,6 +486,12 @@ export default function AdWorkspace() {
                 </button>
               </div>
             )}
+
+            {/* AAC-255 match-review improvement cards */}
+            <MatchReviewCards
+              findings={matchFindings}
+              onApply={handleApplyImprovement}
+            />
 
             {/* Brief - Tab 0 */}
             {selectedTab === 0 && (
@@ -797,36 +894,7 @@ export default function AdWorkspace() {
             voiceTrackCount,
             musicTrackCount,
           }}
-          onTurnLanded={(result) => {
-            // 1) Revalidate the SWR caches for whichever streams the agent
-            // produced a draft in. Without this the workspace tabs keep
-            // showing stale data until the user refocuses the window or
-            // remounts the page. The mixer is also mutated when any stream
-            // changed because it composes from all three.
-            const v = !!result.drafts.voices;
-            const m = !!result.drafts.music;
-            const s = !!result.drafts.sfx;
-            if (v) void voice.mutate();
-            if (m) void music.mutate();
-            if (s) void sfx.mutate();
-            if (v || m || s) void mutateMixer();
-
-            // 2) Auto-navigate the user to the tab that hosts the new draft
-            // so the change is visible without manual tab-switching. The
-            // user just asked the AI to do something — they expect to see
-            // it. Multi-stream changes land on Mix! since that's the only
-            // tab that surfaces all three streams in one view.
-            //   0 Brief · 1 Script · 2 Music · 3 FX · 4 Mix! · 5 Preview
-            const touched = (v ? 1 : 0) + (m ? 1 : 0) + (s ? 1 : 0);
-            let nextTab: number | null = null;
-            if (touched > 1) nextTab = 4;
-            else if (v) nextTab = 1;
-            else if (m) nextTab = 2;
-            else if (s) nextTab = 3;
-            if (nextTab !== null && nextTab !== selectedTab) {
-              setSelectedTab(nextTab);
-            }
-          }}
+          onTurnLanded={handleTurnLanded}
         />
       </div>
     </div>

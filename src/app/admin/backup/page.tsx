@@ -8,7 +8,7 @@
  * placeholders (disabled) wired in later phases (P2+).
  */
 
-import { Switch } from "@/components/ui/Switch";
+import { ToggleRow } from "@/components/ui/ToggleRow";
 import type { ServerSettings } from "@/lib/db/schema";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -53,7 +53,10 @@ export default function AdminBackupPage() {
         method: "POST",
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.details || data?.error || `Failed (${res.status})`);
+      if (!res.ok)
+        throw new Error(
+          data?.details || data?.error || `Failed (${res.status})`,
+        );
       setTableMissing(false);
       setSettings(data.settings);
     } catch (e) {
@@ -109,15 +112,17 @@ export default function AdminBackupPage() {
   if (tableMissing && !settings) {
     return (
       <div className="p-8 max-w-2xl">
-        <h1 className="text-2xl font-bold text-white mb-1">Backup & Migration</h1>
+        <h1 className="text-2xl font-bold text-white mb-1">
+          Backup & Migration
+        </h1>
         <div className="mt-6 p-5 rounded-xl border border-amber-500/30 bg-amber-500/10">
           <div className="text-white font-medium mb-1">
             Settings table not found
           </div>
           <p className="text-sm text-amber-200/80 mb-4">
-            The <code>server_settings</code>{" "}table hasn&apos;t been created on
-            this environment yet (migration&nbsp;0004 not applied). Create it now
-            to enable maintenance mode and backup/migration. This runs{" "}
+            The <code>server_settings</code> table hasn&apos;t been created on
+            this environment yet (migration&nbsp;0004 not applied). Create it
+            now to enable maintenance mode and backup/migration. This runs{" "}
             <code>CREATE TABLE IF NOT EXISTS</code> — safe to click.
           </p>
           {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
@@ -143,8 +148,8 @@ export default function AdminBackupPage() {
     <div className="p-8 max-w-3xl">
       <h1 className="text-2xl font-bold text-white mb-1">Backup & Migration</h1>
       <p className="text-sm text-gray-400 mb-8">
-        Export, import, and migrate project data between deployments. Toggle
-        the feature and enter maintenance mode before running a migration.
+        Export, import, and migrate project data between deployments. Toggle the
+        feature and enter maintenance mode before running a migration.
       </p>
 
       {error && (
@@ -174,7 +179,8 @@ export default function AdminBackupPage() {
               </div>
               <p className="text-xs mt-1 text-gray-500">
                 Turns maintenance off via the Redis mirror — works even if the
-                database is unreachable. Use if the normal toggle can&apos;t save.
+                database is unreachable. Use if the normal toggle can&apos;t
+                save.
               </p>
             </div>
             <button
@@ -249,39 +255,6 @@ export default function AdminBackupPage() {
   );
 }
 
-function ToggleRow({
-  label,
-  description,
-  checked,
-  saving,
-  onChange,
-  warn,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  saving: boolean;
-  onChange: (v: boolean) => void;
-  warn?: boolean;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-6 p-4 rounded-xl border border-white/10 bg-white/5">
-      <div className="min-w-0">
-        <div className="text-white text-sm font-medium">{label}</div>
-        <p
-          className={`text-xs mt-1 ${warn ? "text-amber-400/80" : "text-gray-500"}`}
-        >
-          {description}
-        </p>
-      </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {saving && <span className="text-xs text-gray-500">saving…</span>}
-        <Switch checked={checked} onChange={onChange} disabled={saving} aria-label={label} />
-      </div>
-    </div>
-  );
-}
-
 function ExportPanel({ enabled }: { enabled: boolean }) {
   const [scope, setScope] = useState<"complete" | "per-user" | "per-ad">(
     "complete",
@@ -295,12 +268,18 @@ function ExportPanel({ enabled }: { enabled: boolean }) {
     setErr(null);
     const q = new URLSearchParams({ scope });
     if (scope === "per-user") {
-      const list = emails.split(",").map((e) => e.trim()).filter(Boolean);
+      const list = emails
+        .split(",")
+        .map((e) => e.trim())
+        .filter(Boolean);
       if (!list.length) return setErr("Enter at least one email.");
       q.set("emails", list.join(","));
       if (includeGlobalReference) q.set("includeGlobalReference", "1");
     } else if (scope === "per-ad") {
-      const list = adIds.split(",").map((a) => a.trim()).filter(Boolean);
+      const list = adIds
+        .split(",")
+        .map((a) => a.trim())
+        .filter(Boolean);
       if (!list.length) return setErr("Enter at least one ad id.");
       q.set("adIds", list.join(","));
     }
@@ -329,7 +308,11 @@ function ExportPanel({ enabled }: { enabled: boolean }) {
                 : "border-white/10 text-gray-400 hover:text-white"
             }`}
           >
-            {s === "complete" ? "Complete" : s === "per-user" ? "Per user" : "Per ad"}
+            {s === "complete"
+              ? "Complete"
+              : s === "per-user"
+                ? "Per user"
+                : "Per ad"}
           </button>
         ))}
       </div>
@@ -491,7 +474,8 @@ function ImportPanel({ enabled }: { enabled: boolean }) {
       {plan && (
         <div className="mt-3 p-3 rounded-lg bg-black/30 border border-white/10 text-xs space-y-1">
           <div className="text-gray-300">
-            Scope: <span className="text-white">{plan.manifest.scope.type}</span> ·
+            Scope:{" "}
+            <span className="text-white">{plan.manifest.scope.type}</span> ·
             blobs: {plan.blobCount}
           </div>
           <div className="text-gray-400">Will write → {kv(plan.writes)}</div>
@@ -601,7 +585,9 @@ function AuditLog() {
               >
                 {e.status}
               </span>
-              <span className="w-24 flex-shrink-0 text-gray-300">{e.action}</span>
+              <span className="w-24 flex-shrink-0 text-gray-300">
+                {e.action}
+              </span>
               <span className="w-40 flex-shrink-0 text-gray-500 truncate">
                 {e.actor ?? "?"}
               </span>
@@ -625,14 +611,15 @@ function MigratePanel({
   importEnabled: boolean;
 }) {
   // Source side: mint an access code for another deployment to pull.
-  const [grantScope, setGrantScope] = useState<"complete" | "per-user" | "per-ad">(
-    "complete",
-  );
+  const [grantScope, setGrantScope] = useState<
+    "complete" | "per-user" | "per-ad"
+  >("complete");
   const [grantEmails, setGrantEmails] = useState("");
   const [grantAdIds, setGrantAdIds] = useState("");
-  const [grant, setGrant] = useState<{ code: string; expiresAt: string } | null>(
-    null,
-  );
+  const [grant, setGrant] = useState<{
+    code: string;
+    expiresAt: string;
+  } | null>(null);
 
   // Destination side: pull from a source URL.
   const [sourceUrl, setSourceUrl] = useState("");
@@ -650,9 +637,15 @@ function MigratePanel({
     try {
       const body: Record<string, unknown> = { scope: grantScope };
       if (grantScope === "per-user")
-        body.emails = grantEmails.split(",").map((e) => e.trim()).filter(Boolean);
+        body.emails = grantEmails
+          .split(",")
+          .map((e) => e.trim())
+          .filter(Boolean);
       if (grantScope === "per-ad")
-        body.adIds = grantAdIds.split(",").map((a) => a.trim()).filter(Boolean);
+        body.adIds = grantAdIds
+          .split(",")
+          .map((a) => a.trim())
+          .filter(Boolean);
       const res = await fetch("/api/admin/backup/export/grant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -689,7 +682,9 @@ function MigratePanel({
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
       if (mode === "dry-run") setPlan(data.plan);
       else {
-        setMsg(`Migrated (${data.result.strategy}). Blobs: ${data.result.blobsUploaded}.`);
+        setMsg(
+          `Migrated (${data.result.strategy}). Blobs: ${data.result.blobsUploaded}.`,
+        );
         setPlan(null);
       }
     } catch (e) {
@@ -702,7 +697,9 @@ function MigratePanel({
   return (
     <div className="p-4 rounded-xl border border-white/10 bg-white/5">
       <div className="flex items-center justify-between gap-4 mb-3">
-        <div className="text-white text-sm font-medium">Migrate from another server</div>
+        <div className="text-white text-sm font-medium">
+          Migrate from another server
+        </div>
         <span className="text-[10px] uppercase tracking-widest text-gray-600">
           server-to-server
         </span>
@@ -757,7 +754,9 @@ function MigratePanel({
         </button>
         {grant && (
           <div className="mt-2 p-2 rounded-lg bg-black/40 border border-white/10 text-xs">
-            <div className="text-gray-400">Access code (single-use, share securely):</div>
+            <div className="text-gray-400">
+              Access code (single-use, share securely):
+            </div>
             <code className="text-green-300 break-all">{grant.code}</code>
             <div className="text-gray-500 mt-1">Expires {grant.expiresAt}</div>
           </div>
@@ -810,7 +809,8 @@ function MigratePanel({
       {plan && (
         <div className="mb-2 p-3 rounded-lg bg-black/30 border border-white/10 text-xs space-y-1">
           <div className="text-gray-300">
-            Scope: <span className="text-white">{plan.manifest.scope.type}</span> ·
+            Scope:{" "}
+            <span className="text-white">{plan.manifest.scope.type}</span> ·
             blobs: {plan.blobCount}
           </div>
           <div className="text-gray-400">
@@ -834,7 +834,9 @@ function MigratePanel({
       <div className="flex gap-2">
         <button
           type="button"
-          disabled={!importEnabled || !sourceUrl || !accessCode || busy !== null}
+          disabled={
+            !importEnabled || !sourceUrl || !accessCode || busy !== null
+          }
           onClick={() => pull("dry-run")}
           className="px-4 py-2 rounded-lg bg-white/10 border border-white/15 text-sm text-white hover:bg-white/15 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
@@ -856,7 +858,6 @@ function MigratePanel({
     </div>
   );
 }
-
 
 /**
  * Batched export downloader (UI-side orchestrator).
@@ -898,7 +899,9 @@ function BatchedExportPanel({ enabled }: { enabled: boolean }) {
     const res = await fetch(`/api/admin/backup/export?${query}`);
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      throw new Error(`${filename}: HTTP ${res.status} ${detail.slice(0, 120)}`);
+      throw new Error(
+        `${filename}: HTTP ${res.status} ${detail.slice(0, 120)}`,
+      );
     }
     saveBlob(await res.blob(), filename);
   };
@@ -911,7 +914,9 @@ function BatchedExportPanel({ enabled }: { enabled: boolean }) {
     stop.current = false;
     try {
       // 1. Enumerate every ad id (admin session → all ads).
-      const res = await fetch("/api/ads", { headers: { accept: "application/json" } });
+      const res = await fetch("/api/ads", {
+        headers: { accept: "application/json" },
+      });
       if (!res.ok) throw new Error(`Failed to list ads: HTTP ${res.status}`);
       const j = await res.json();
       const list = Array.isArray(j) ? j : (j.ads ?? j.items ?? []);
@@ -923,11 +928,16 @@ function BatchedExportPanel({ enabled }: { enabled: boolean }) {
       // 2. Split into per-ad batches.
       const size = Math.max(1, Math.min(200, batchSize));
       const batches: string[][] = [];
-      for (let i = 0; i < ids.length; i += size) batches.push(ids.slice(i, i + size));
+      for (let i = 0; i < ids.length; i += size)
+        batches.push(ids.slice(i, i + size));
 
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const totalSteps = batches.length + (includeReference ? 1 : 0);
-      setProgress({ done: 0, total: totalSteps, label: `${ids.length} ads → ${batches.length} batches` });
+      setProgress({
+        done: 0,
+        total: totalSteps,
+        label: `${ids.length} ads → ${batches.length} batches`,
+      });
 
       // 3. Optional reference data first (small, metadata-only — no ads/blobs).
       if (includeReference) {
@@ -945,7 +955,9 @@ function BatchedExportPanel({ enabled }: { enabled: boolean }) {
       const base = includeReference ? 1 : 0;
       for (let i = 0; i < batches.length; i++) {
         if (stop.current) {
-          setMsg(`Paused after ${i}/${batches.length} batches. Click Start to resume from the beginning.`);
+          setMsg(
+            `Paused after ${i}/${batches.length} batches. Click Start to resume from the beginning.`,
+          );
           return;
         }
         const label = `batch ${i + 1}/${batches.length} (${batches[i].length} ads)`;
@@ -954,7 +966,11 @@ function BatchedExportPanel({ enabled }: { enabled: boolean }) {
           `scope=per-ad&adIds=${encodeURIComponent(batches[i].join(","))}`,
           `aca-backup-${stamp}-batch-${String(i + 1).padStart(3, "0")}.tar.gz`,
         );
-        setProgress({ done: base + i + 1, total: totalSteps, label: `${label} ✓` });
+        setProgress({
+          done: base + i + 1,
+          total: totalSteps,
+          label: `${label} ✓`,
+        });
       }
 
       setMsg(
@@ -974,7 +990,9 @@ function BatchedExportPanel({ enabled }: { enabled: boolean }) {
   return (
     <div className="p-4 rounded-xl border border-white/10 bg-white/5">
       <div className="flex items-center justify-between gap-4 mb-1">
-        <div className="text-white text-sm font-medium">Batched download (all ads)</div>
+        <div className="text-white text-sm font-medium">
+          Batched download (all ads)
+        </div>
         <span className="text-[10px] uppercase tracking-widest text-gray-600">
           bypasses timeout
         </span>
@@ -1018,7 +1036,10 @@ function BatchedExportPanel({ enabled }: { enabled: boolean }) {
             </span>
           </div>
           <div className="h-1.5 rounded bg-white/10 overflow-hidden">
-            <div className="h-full bg-wb-blue/70" style={{ width: `${pct}%` }} />
+            <div
+              className="h-full bg-wb-blue/70"
+              style={{ width: `${pct}%` }}
+            />
           </div>
         </div>
       )}

@@ -43,6 +43,8 @@ export type ServerSettingsPatch = Partial<
     | "restoreFromFileEnabled"
     | "importWriteConcurrency"
     | "importBatchSize"
+    | "matchReviewEnabled"
+    | "matchReviewRegenerateEnabled"
     | "elevenLabsModelId"
   >
 >;
@@ -56,6 +58,8 @@ const DEFAULTS: Omit<ServerSettings, "updatedAt"> = {
   restoreFromFileEnabled: false,
   importWriteConcurrency: 4,
   importBatchSize: 50,
+  matchReviewEnabled: false,
+  matchReviewRegenerateEnabled: false,
   elevenLabsModelId: DEFAULT_ELEVENLABS_VOICE_MODEL,
   updatedBy: null,
 };
@@ -80,9 +84,10 @@ export async function getServerSettings(): Promise<ServerSettings> {
   try {
     row = await readRow();
   } catch (err) {
-    // Self-provision on an unmigrated env: table missing or a later column
-    // missing (e.g. elevenlabs_model_id). ensureServerSettingsTable() is
-    // idempotent (CREATE/ALTER ... IF NOT EXISTS), so run it and retry once.
+    // Self-provision on an unmigrated env: table missing (0004) or a later
+    // column missing (0005 match-review, 0007 elevenlabs_model_id).
+    // ensureServerSettingsTable() is idempotent (CREATE/ALTER ... IF NOT
+    // EXISTS), so run it and retry once.
     if (isMissingSettingsTableError(err) || isMissingSettingsColumnError(err)) {
       await ensureServerSettingsTable();
       row = await readRow();
@@ -142,7 +147,10 @@ export async function updateServerSettings(
     try {
       const redis = getRedisV3();
       await redis.set(MAINTENANCE_REDIS_KEY, row.maintenanceMode ? "1" : "0");
-      await redis.set(MAINTENANCE_MESSAGE_REDIS_KEY, row.maintenanceMessage ?? "");
+      await redis.set(
+        MAINTENANCE_MESSAGE_REDIS_KEY,
+        row.maintenanceMessage ?? "",
+      );
       maintenanceCache = null;
     } catch (err) {
       // Non-fatal: the Postgres row is the source of truth; the mirror is a
@@ -226,7 +234,10 @@ export async function getMaintenanceState(): Promise<MaintenanceState> {
     };
   }
 
-  maintenanceCache = { value: state, expiresAt: Date.now() + MAINTENANCE_CACHE_TTL_MS };
+  maintenanceCache = {
+    value: state,
+    expiresAt: Date.now() + MAINTENANCE_CACHE_TTL_MS,
+  };
   return state;
 }
 
@@ -284,7 +295,10 @@ export function isMissingSettingsTableError(err: unknown): boolean {
   for (let i = 0; i < 5 && cur; i++) {
     const e = cur as { code?: string; message?: string; cause?: unknown };
     if (e.code === "42P01") return true;
-    if (e.message && /relation "?server_settings"? does not exist/i.test(e.message)) {
+    if (
+      e.message &&
+      /relation "?server_settings"? does not exist/i.test(e.message)
+    ) {
       return true;
     }
     cur = e.cause;
@@ -294,9 +308,9 @@ export function isMissingSettingsTableError(err: unknown): boolean {
 
 /**
  * True when an error is Postgres "undefined_column" (42703) — i.e. the table
- * exists but a column added by a later migration (e.g. `elevenlabs_model_id`)
- * hasn't been applied on this env. Self-healed by re-running
- * `ensureServerSettingsTable()` (its `ADD COLUMN IF NOT EXISTS`).
+ * exists but a column added by a later migration (e.g. `match_review_enabled`
+ * or `elevenlabs_model_id`) hasn't been applied on this env. Self-healed by
+ * re-running `ensureServerSettingsTable()` (its `ADD COLUMN IF NOT EXISTS`).
  */
 export function isMissingSettingsColumnError(err: unknown): boolean {
   let cur: unknown = err;
@@ -332,7 +346,16 @@ export async function ensureServerSettingsTable(): Promise<void> {
   `);
   // Columns added after 0004 — ADD COLUMN IF NOT EXISTS is idempotent, so this
   // also upgrades an already-existing table on an env where the migration that
-  // added the column hasn't run (mirrors 0007_add_elevenlabs_model.sql).
+  // added the column hasn't run (mirrors 0005_add_match_review_enabled.sql and
+  // 0007_add_elevenlabs_model.sql).
+  await db.execute(sql`
+    ALTER TABLE "server_settings"
+      ADD COLUMN IF NOT EXISTS "match_review_enabled" boolean DEFAULT false NOT NULL
+  `);
+  await db.execute(sql`
+    ALTER TABLE "server_settings"
+      ADD COLUMN IF NOT EXISTS "match_review_regenerate_enabled" boolean DEFAULT false NOT NULL
+  `);
   await db.execute(sql`
     ALTER TABLE "server_settings"
       ADD COLUMN IF NOT EXISTS "elevenlabs_model_id" text DEFAULT 'eleven_v3' NOT NULL

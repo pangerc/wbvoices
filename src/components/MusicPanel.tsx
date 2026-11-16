@@ -1,6 +1,6 @@
 import { LibraryMusicTrack, MusicPrompts, MusicProvider } from "@/types";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   GenerateIcon,
   GlassTab,
@@ -43,6 +43,8 @@ const PROVIDER_OPTIONS: Array<{
 ];
 
 const DURATION_TICK_MARKS = [
+  { value: 10, label: "10s" },
+  { value: 15, label: "15s" },
   { value: 30, label: "30s" },
   { value: 45, label: "45s" },
   { value: 60, label: "60s" },
@@ -60,13 +62,19 @@ type MusicPanelProps = {
   ) => Promise<string | null | void>;
   isGenerating: boolean;
   statusMessage?: string;
-  adDuration: number;
+  /**
+   * Target music length in seconds. This is the music draft's own duration,
+   * which is already brief-governed + buffered upstream (create_music_draft).
+   * Use it directly — do NOT add another buffer here, or it double-counts.
+   */
+  targetDuration: number;
   musicProvider: MusicProvider;
   setMusicProvider: (provider: MusicProvider) => void;
   resetForm: () => void;
   onTrackSelected?: (url: string, filename?: string, duration?: number) => void; // Optional callback with URL after track selection/upload
   musicPrompts: MusicPrompts; // Controlled provider-specific prompts, owned by the draft editor
   onUpdatePrompt: (provider: MusicProvider, value: string) => void; // Called on every keystroke; parent persists to Redis
+  onDurationChange?: (seconds: number) => void; // Called when the user moves the duration slider; parent persists to Redis so the choice survives refetch/remount and drives generation
   initialProvider?: MusicProvider; // Provider from draft version (to detect custom uploads)
   hasGeneratedUrl?: boolean; // Whether draft already has a generated URL
   existingFilename?: string; // For custom uploads: shows which file is loaded (from musicPrompt)
@@ -76,13 +84,14 @@ export function MusicPanel({
   onGenerate,
   isGenerating,
   statusMessage: parentStatusMessage,
-  adDuration,
+  targetDuration,
   musicProvider,
   setMusicProvider,
   resetForm,
   onTrackSelected,
   musicPrompts,
   onUpdatePrompt,
+  onDurationChange,
   initialProvider,
   hasGeneratedUrl,
   existingFilename,
@@ -102,7 +111,7 @@ export function MusicPanel({
   } = useFileUpload();
 
   const [mode, setMode] = useState<MusicMode>("generate");
-  const [duration, setDuration] = useState(Math.max(30, adDuration + 15));
+  const [duration, setDuration] = useState(Math.max(10, targetDuration));
   const [localStatusMessage, setLocalStatusMessage] = useState<string>("");
 
   // Library state
@@ -119,10 +128,11 @@ export function MusicPanel({
     }
   }, [initialProvider, hasGeneratedUrl]);
 
-  // Update duration when adDuration changes - add 15 seconds for LLM overruns and fade, minimum 30s
+  // Follow the draft's target duration directly — the buffer is already baked
+  // in upstream (create_music_draft), so adding it here double-counted it.
   useEffect(() => {
-    setDuration(Math.max(30, adDuration + 15));
-  }, [adDuration]);
+    setDuration(Math.max(10, targetDuration));
+  }, [targetDuration]);
 
   // Update local status message when parent status message changes
   // Update during generation OR when there's an error message to show
@@ -137,33 +147,8 @@ export function MusicPanel({
     setLocalStatusMessage("");
   }, []);
 
-  // Load library tracks when switching to library mode
-  // Cleanup audio when leaving library mode
-  useEffect(() => {
-    if (mode === "library") {
-      loadLibraryTracks();
-    } else {
-      // Stop audio when leaving library mode
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      setPlayingTrackId(null);
-    }
-  }, [mode]);
-
-  // Cleanup audio on component unmount
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []);
-
-  // Load library tracks from API
-  const loadLibraryTracks = async () => {
+  // Load library tracks from API (declared before the effect that calls it).
+  const loadLibraryTracks = useCallback(async () => {
     setIsLoadingLibrary(true);
     try {
       const response = await fetch(`/api/music-library`);
@@ -181,7 +166,32 @@ export function MusicPanel({
     } finally {
       setIsLoadingLibrary(false);
     }
-  };
+  }, []);
+
+  // Load library tracks when switching to library mode
+  // Cleanup audio when leaving library mode
+  useEffect(() => {
+    if (mode === "library") {
+      loadLibraryTracks();
+    } else {
+      // Stop audio when leaving library mode
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setPlayingTrackId(null);
+    }
+  }, [mode, loadLibraryTracks]);
+
+  // Cleanup audio on component unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   // Filter library tracks based on search query
   const filteredLibraryTracks = useMemo(() => {
@@ -413,8 +423,16 @@ export function MusicPanel({
               <GlassySlider
                 label={null}
                 value={duration}
-                onChange={setDuration}
-                min={30}
+                onChange={(value) => {
+                  // Local state drives the smooth drag; the parent persists the
+                  // choice to the draft so it survives a refetch/remount and
+                  // becomes the duration generation actually uses. Without this
+                  // the slider is local-only and resets to the draft's stored
+                  // length (the ad duration), so a 20s pick generated a 30s bed.
+                  setDuration(value);
+                  onDurationChange?.(value);
+                }}
+                min={10}
                 max={120}
                 step={1}
                 tickMarks={DURATION_TICK_MARKS}
