@@ -1,6 +1,6 @@
 import { useDraftSaveQueue } from "@/hooks/use-draft-save-queue";
 import { mintSlotId } from "@/lib/mixer/mixer-reconcile";
-import type { SoundFxPrompt } from "@/types";
+import type { SoundFxPrompt, UploadedSfx } from "@/types";
 import type { SfxVersion, VersionId } from "@/types/versions";
 import { useEffect, useState } from "react";
 
@@ -71,8 +71,9 @@ export function useSfxCues({
 
   /**
    * Edits one cue. A content change drops its generated audio, since it no
-   * longer matches. A placement change drops the LLM-authored anchor, which
-   * would otherwise win over the new placement when the mixer seeds the cue.
+   * longer matches — except for an uploaded cue, whose audio is the file. A
+   * placement change drops the LLM-authored anchor, which would otherwise win
+   * over the new placement when the mixer seeds the cue.
    */
   const updateCue = async (index: number, updates: Partial<SoundFxPrompt>) => {
     const newCues = [...cues];
@@ -85,9 +86,10 @@ export function useSfxCues({
     setCues(newCues);
 
     const contentChanged = CONTENT_FIELDS.some((field) => field in updates);
+    const isUpload = newCues[index].source === "upload";
     const body: DraftPatch = { soundFxPrompts: newCues };
 
-    if (contentChanged && urls[index]) {
+    if (contentChanged && urls[index] && !isUpload) {
       const newUrls = [...urls];
       newUrls[index] = null;
 
@@ -126,6 +128,72 @@ export function useSfxCues({
     }
   };
 
+  /**
+   * Writes one cue and its audio URL together. Resolves true once the draft
+   * is saved; on failure the local state is put back.
+   */
+  const replaceCue = async (
+    index: number,
+    cue: SoundFxPrompt,
+    url: string | null,
+  ): Promise<boolean> => {
+    const newCues = cues.map((c, i) => (i === index ? cue : c));
+    const newUrls = cues.map((_, i) => (i === index ? url : (urls[i] ?? null)));
+
+    setCues(newCues);
+    setUrls(newUrls);
+
+    try {
+      const res = await patchDraft({
+        soundFxPrompts: newCues,
+        generatedUrls: newUrls,
+      });
+
+      if (res.ok) return true;
+
+      console.error(`Failed to save sfx cue ${index} (${res.status})`);
+    } catch (error) {
+      console.error(`Failed to save sfx cue ${index}:`, error);
+    }
+
+    setCues(cues);
+    setUrls(urls);
+
+    return false;
+  };
+
+  /**
+   * Makes a cue play an uploaded file, replacing its prompt and any generated
+   * audio. Keeps its slot and placement. Resolves false when the draft could
+   * not be saved.
+   */
+  const uploadCue = (index: number, upload: UploadedSfx) =>
+    replaceCue(
+      index,
+      {
+        ...cues[index],
+        description: upload.filename,
+        duration: upload.durationSeconds,
+        source: "upload",
+        assetId: upload.assetId,
+      },
+      upload.url,
+    );
+
+  /** Turns an uploaded cue back into an empty prompt, dropping the file. */
+  const clearUpload = (index: number) =>
+    replaceCue(
+      index,
+      {
+        ...cues[index],
+        description: "",
+        duration: 3,
+        source: undefined,
+        assetId: undefined,
+      },
+      null,
+    );
+
   /** Removes a cue and its audio together, keeping the arrays aligned. */
   const removeCue = async (index: number) => {
     const newCues = cues.filter((_, i) => i !== index);
@@ -155,6 +223,8 @@ export function useSfxCues({
     saving,
     updateCue,
     addCue,
+    uploadCue,
+    clearUpload,
     removeCue,
     resetCues,
   };

@@ -38,6 +38,12 @@ export function SfxVersionContent({
   onNewVersion,
   onNewBlankVersion,
 }: SfxVersionContentProps) {
+  // Uploaded cues have no prompt for the AI to change; with nothing else,
+  // there is nothing to ask for.
+  const onlyUploads =
+    version.soundFxPrompts.length > 0 &&
+    version.soundFxPrompts.every((prompt) => prompt.source === "upload");
+
   return (
     <div className="space-y-4">
       {/* Lineage display */}
@@ -53,9 +59,14 @@ export function SfxVersionContent({
         return (
           <div key={index} className="space-y-2">
             {/* Sound effect description */}
-            <div className="text-white">
+            <div className="flex items-center gap-2 text-white">
               {prompt.description || (
                 <span className="text-gray-500">No description</span>
+              )}
+              {prompt.source === "upload" && (
+                <span className="rounded-full bg-wb-blue/10 px-2 py-0.5 text-xs text-wb-blue">
+                  Uploaded
+                </span>
               )}
             </div>
 
@@ -108,6 +119,8 @@ export function SfxVersionContent({
           parentVersionId={versionId}
           onNewVersion={onNewVersion}
           onNewBlankVersion={onNewBlankVersion}
+          disabled={onlyUploads}
+          disabledReason="Uploaded sound effects have no prompt to change"
         />
       )}
     </div>

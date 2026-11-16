@@ -4,8 +4,10 @@ import {
   integer,
   pgTable,
   primaryKey,
+  real,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -273,6 +275,50 @@ export const serverSettings = pgTable("server_settings", {
   updatedBy: text("updated_by"),
 });
 
+// ============ User assets ============
+
+/**
+ * A user's own uploaded media, reusable across every ad they own (the "User
+ * Assets" library). A row is written only once the stored file has passed
+ * server-side validation, so everything listed here is known to be playable.
+ */
+export const userAssets = pgTable(
+  "user_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerEmail: text("owner_email").notNull(),
+    /** What the asset is used as. Only `'sfx'` today. */
+    kind: text("kind").notNull(),
+    /** Public Vercel Blob URL, inside the owner's `userSfxFolder`. */
+    path: text("path").notNull().unique(),
+    /** The name of the file as the user uploaded it. */
+    filename: text("filename").notNull(),
+    /** Container detected from the bytes: `mp3`, `wav` or `m4a`. */
+    format: text("format").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    /** Measured from the stored file, not trusted from the browser. */
+    durationSeconds: real("duration_seconds").notNull(),
+    /**
+     * SHA-256 (hex) of the stored bytes. One owner never holds the same file
+     * twice: a re-upload of known bytes reuses the existing item.
+     */
+    contentHash: text("content_hash").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("user_assets_owner_kind_created_at_idx").on(
+      table.ownerEmail,
+      table.kind,
+      table.createdAt,
+    ),
+    uniqueIndex("user_assets_owner_kind_hash_uq").on(
+      table.ownerEmail,
+      table.kind,
+      table.contentHash,
+    ),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 
 // ============ Voice tables ============
@@ -290,3 +336,5 @@ export type InsertInstructionTemplate =
   typeof instructionTemplates.$inferInsert;
 export type ServerSettings = typeof serverSettings.$inferSelect;
 export type InsertServerSettings = typeof serverSettings.$inferInsert;
+export type UserAsset = typeof userAssets.$inferSelect;
+export type InsertUserAsset = typeof userAssets.$inferInsert;
