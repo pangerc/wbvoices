@@ -346,8 +346,8 @@ export async function ensureServerSettingsTable(): Promise<void> {
   `);
   // Columns added after 0004 — ADD COLUMN IF NOT EXISTS is idempotent, so this
   // also upgrades an already-existing table on an env where the migration that
-  // added the column hasn't run (mirrors 0005_add_match_review_enabled.sql and
-  // 0007_add_elevenlabs_model.sql).
+  // added the column hasn't run (mirrors 0005_add_match_review_enabled.sql,
+  // 0007_add_elevenlabs_model.sql and 0008_add_match_review_regenerate_enabled.sql).
   await db.execute(sql`
     ALTER TABLE "server_settings"
       ADD COLUMN IF NOT EXISTS "match_review_enabled" boolean DEFAULT false NOT NULL
